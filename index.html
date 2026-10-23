@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#d9d5bd">
+<meta name="description" content="Simulação de reinos, territórios, ecologia, moradores e decisões emergentes.">
+<title>Genesis — Reinos Vivos</title>
+
+</head>
+<body>
+<main class="app">
+  <header class="topbar">
+    <a class="brand" href="#world" aria-label="Genesis, voltar ao mundo">
+      <span class="brand-mark" aria-hidden="true">G</span>
+      <span class="brand-text"><small>PRÉVIA EXPERIMENTAL</small><strong>GENESIS</strong></span>
+    </a>
+    <div class="world-note">
+      <small>O mundo agora</small>
+      <strong id="worldLine">Dois reinos cercados por terras comuns</strong>
+    </div>
+    <div class="world-metrics" aria-label="Indicadores da simulação">
+      <span class="metric live"><i></i><b id="runState">ATIVA</b></span>
+      <span class="metric">DIA <b id="day">0</b></span>
+      <span class="metric">ANO <b id="year">1</b></span>
+      <span class="metric">FAUNA <b id="animalCount">0</b></span>
+      <span class="metric">PESSOAS <b id="peopleCount">0</b></span>
+      <span class="metric">REINOS <b id="kingdomCount">2</b></span>
+      <span class="metric">NASC. <b id="birthCount">0</b></span>
+      <span class="metric">MORTES <b id="deathCount">0</b></span>
+      <span class="metric">INCIDENTES <b id="conflictCount">0</b></span>
+      <span class="metric">CAÇAS <b id="harvestCount">0</b></span>
+      <span class="metric">CARNE LEVADA/ABRIGADA <b id="meatCount">0/0</b></span>
+    </div>
+    <nav class="controls" aria-label="Controles do mundo">
+      <button id="toggle" aria-label="Pausar ou retomar">Ⅱ <span>Pausar</span></button>
+      <button id="step" aria-label="Avançar um dia">＋ <span>Dia</span></button>
+      <label class="speed-label">Ritmo
+        <select id="speed" aria-label="Velocidade da simulação">
+          <option value="0.5">Lento</option>
+          <option value="1" selected>Normal</option>
+          <option value="4">Rápido</option>
+          <option value="12">Acelerado</option>
+        </select>
+      </label>
+      <button id="journalToggle" aria-controls="journal" aria-expanded="false">☷ <span>Crônica</span></button>
+    </nav>
+  </header>
+
+  <section class="world-stage" aria-label="Prévia do mundo natural">
+    <canvas id="world" width="2048" height="2048" aria-label="Mapa ecológico com dois reinos iniciais, castelos, vilas, lagos, vegetação, ovelhas e moradores"></canvas>
+
+    <div class="map-zoom" role="group" aria-label="Controles de zoom do mapa">
+      <button id="mapZoomOut" type="button" aria-label="Afastar mapa" title="Afastar mapa">−</button>
+      <output id="mapZoomLevel" aria-label="Nível de zoom">100%</output>
+      <button id="mapZoomIn" type="button" aria-label="Aproximar mapa" title="Aproximar mapa">+</button>
+      <button id="mapZoomReset" type="button" aria-label="Enquadrar mapa inteiro" title="Enquadrar mapa inteiro">Enquadrar</button>
+    </div>
+
+    <div class="map-tags" aria-live="polite">
+      <span class="map-tag" id="season">ESTADO INICIAL</span>
+      <span class="map-tag">AR <b id="temperature">18 °C</b></span>
+      <span class="map-tag">CHUVA <b id="rainfall">0 mm</b></span>
+      <span class="map-tag">SOLO <b id="moisture">0%</b></span>
+      <span class="map-tag pressure" id="foodPressureTag" title="Pessoas com reserva alimentar abaixo de 30%" hidden>RESERVAS BAIXAS <b id="foodRiskCount">0</b></span>
+    </div>
+    <div class="map-caption"><span id="mapDimensions">96 × 96 CÉLULAS · 10 m POR LADO</span> · SEMENTE <b id="seedLabel">42</b></div>
+
+    <aside class="side-panel left-panel" id="leftPanel" aria-label="Reinos e moradores">
+      <div class="panel-heading">
+        <div><small>OBSERVAÇÃO</small><h2>Vida no mundo</h2></div>
+        <button class="icon-button" id="leftClose" aria-label="Recolher painel">−</button>
+      </div>
+      <div class="panel-scroll">
+        <section class="block">
+          <div class="block-title"><h3>Reinos</h3><span id="solitaryCount">2 domínios</span></div>
+          <p class="quiet">O castelo define o domínio inicial. Torres podem ampliar as fronteiras; as áreas sem domínio permanecem comuns. Os moradores continuam agindo por conta própria dentro dessas regras.</p>
+          <div id="kingdomList" class="community-list"></div>
+        </section>
+        <section class="block local-ai-block" aria-label="Experimento de IA estratégica local">
+          <div class="block-title"><h3>IA estratégica local</h3><span id="localAiState">desligada</span></div>
+          <p class="quiet">Cada pessoa mantém sua própria rede e memória. Opcionalmente, um modelo local sugere planos individuais em uma fila compartilhada. Requer WebGPU e baixa o modelo no primeiro uso.</p>
+          <button id="localAiToggle" type="button">Ativar modelo local</button>
+          <progress id="localAiProgress" max="1" value="0" aria-label="Progresso do carregamento do modelo" hidden></progress>
+          <p id="localAiStatus" class="quiet" aria-live="polite">A rede individual continua controlando as ações frequentes.</p>
+        </section>
+        <section class="block">
+          <div class="block-title"><h3>Fauna</h3><span id="faunaSpecies">5 perfis</span></div>
+          <div id="faunaList" class="species-list"></div>
+        </section>
+        <section class="block">
+          <div class="block-title"><h3>Flora</h3><span id="floraSpecies">6 perfis</span></div>
+          <div id="floraList" class="species-list"></div>
+        </section>
+        <section class="block caveat">
+          <b>Experimento em andamento</b>
+          <p>A ecologia e a rede neural são aproximações exploratórias. Pessoas têm necessidades, memória de resultados e custos de ação; nascimentos, mortes, cooperação, trocas, disputas e construções dependem das condições simuladas. Isso ainda não é calibração científica.</p>
+        </section>
+      </div>
+    </aside>
+
+    <aside class="side-panel right-panel" id="rightPanel" aria-label="Inspetor">
+      <div class="panel-heading">
+        <div><small id="inspectEyebrow">CAMPO DE OBSERVAÇÃO</small><h2 id="inspectTitle">Dois reinos em formação</h2></div>
+        <button class="icon-button" id="rightClose" aria-label="Fechar inspetor">×</button>
+      </div>
+      <div id="inspector" class="panel-scroll inspector">
+        <p class="intro">Dois castelos ocupam o mapa. O domínio de cada reino começa ao redor do castelo e cresce com novas torres; as demais terras são comuns.</p>
+        <div class="note-card"><b>Camadas do mundo</b><span>Atmosfera · Geosfera · Hidrosfera · Biosfera · Territórios</span></div>
+        <div class="note-card"><b>Fronteiras</b><span>Moradores recebem avisos ao se aproximar de um reino estrangeiro. Uma invasão descoberta pode terminar em expulsão, morte ou guerra.</span></div>
+        <p class="quiet">Selecione um reino, célula, organismo ou construção para inspecionar seu estado.</p>
+      </div>
+    </aside>
+
+    <div class="map-tools">
+      <label>Camada
+        <select id="layer" aria-label="Camada de observação">
+          <option value="ecosystem">Ecossistema</option>
+          <option value="climate">Clima e água</option>
+          <option value="soil">Solo</option>
+          <option value="flora">Vegetação</option>
+          <option value="fauna">Fauna</option>
+          <option value="territory">Territórios</option>
+          <option value="harvest">Caça</option>
+        </select>
+      </label>
+      <span id="cameraPosition">MAPA INTEIRO</span>
+    </div>
+    <div class="spawn-tools">
+      <label for="seedInput">Semente</label>
+      <input id="seedInput" type="number" min="1" max="4294967295" value="42" aria-label="Semente do novo mundo">
+      <button id="restart" title="Gerar outro mundo com esta semente">Novo mundo</button>
+    </div>
+
+    <aside class="journal-panel" id="journal" hidden>
+      <div class="panel-heading">
+        <div><small>REGISTRO DE CAUSAS</small><h2>Crônica do mundo</h2></div>
+        <button class="icon-button" id="journalClose" aria-label="Fechar crônica">×</button>
+      </div>
+      <div id="events" class="event-list"></div>
+    </aside>
+
+    <div class="map-legend">
+      <span><i class="swatch water"></i>Água</span>
+      <span><i class="swatch flora"></i>Vegetação</span>
+      <span><i class="swatch fauna"></i>Fauna</span>
+      <span><i class="swatch person"></i>Indivíduo</span>
+      <span><i class="swatch group"></i>Domínio do reino</span>
+      <span><i class="swatch structure"></i>Construção</span>
+      <span><i class="swatch good"></i>Boa área</span>
+      <span><i class="swatch medium"></i>Potencial médio</span>
+      <span><i class="swatch poor"></i>Poucos recursos</span>
+      <span class="asset-credit" id="assetCreditTiny" hidden>Sprites Tiny Swords · <a href="https://pixelfrog-assets.itch.io/tiny-swords" target="_blank" rel="noopener noreferrer">Pixel Frog</a></span>
+    </div>
+  </section>
+</main>
+<script type="module" src="/src/app/bootstrap.ts"></script>
+</body>
+</html>
