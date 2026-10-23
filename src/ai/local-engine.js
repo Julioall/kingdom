@@ -43,7 +43,7 @@ const MODEL_ID = 'SmolLM2-360M-Instruct-q4f32_1-MLC';
       const detail = JSON.stringify(error);
       if (detail && detail !== '{}') return detail.slice(0, 320);
     } catch (_) { /* Fall through to a clear diagnostic. */ }
-    return 'erro sem detalhes retornados pelo navegador; consulte o console para “Genesis IA local”.';
+    return 'erro sem detalhes retornados pelo navegador; consulte o console para “Kingdom IA local”.';
   }
 
   function create(options) {
@@ -187,7 +187,7 @@ const MODEL_ID = 'SmolLM2-360M-Instruct-q4f32_1-MLC';
         if (token !== generation || currentWorld !== getWorld()) return false;
         Sim.modules.SocietyExperiment.failStrategicAiRequest(currentWorld, request.personId, request.requestedDay);
         const detail = describeError(error);
-        console.warn('[Genesis IA local] resposta inválida; a rede neural assumiu:', detail);
+        console.warn('[Kingdom IA local] resposta inválida; a rede neural assumiu:', detail);
         if (enabled) report('ready', 'A decisão local falhou; a rede neural individual assumiu. Detalhe: ' + detail, 1);
         return false;
       }).finally(() => {

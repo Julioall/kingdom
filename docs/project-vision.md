@@ -1,8 +1,8 @@
-# Reinos Vivos: poder, economia e expansão
+# Kingdom: poder, economia e expansão
 
 ## Visão geral
 
-Transformar o Genesis em uma simulação de reinos em disputa, inspirada por histórias de estratégia e unificação como *Kingdom*. O mundo começa com quatro reinos, cada um com um castelo, uma vila e uma população de indivíduos autônomos. Ao longo do tempo, decisões políticas, escassez, comércio, migração e conflitos podem fortalecer, dividir ou derrubar esses reinos.
+Kingdom é uma simulação de reinos em disputa, inspirada por histórias de estratégia e unificação. A versão atual começa com dois reinos; a expansão para quatro virá depois que mapa, sistemas e desempenho forem validados. Cada reino reúne um castelo e uma população de indivíduos autônomos. Ao longo do tempo, decisões políticas, escassez, comércio, migração e conflitos podem fortalecer, dividir ou derrubar esses reinos.
 
 O objetivo da simulação não é garantir que um reino vença. É deixar que os resultados surjam das condições do mundo e das decisões de seus governantes, moradores e soldados.
 
@@ -73,7 +73,7 @@ Além dos indicadores ecológicos já existentes, acompanhar por reino:
 
 ## Desenvolvimento por etapas
 
-1. **Assentamentos e economia básica:** quatro castelos e vilas, casas e currais, produção de alimento, mercado com oferta e demanda e impostos com reserva para secas.
+1. **Assentamentos e economia básica:** começar com dois castelos e vilas, casas e currais, produção de alimento, mercado com oferta e demanda e impostos com reserva para secas. Ampliar para quatro reinos após validar a escala inicial.
 2. **Política e migração:** pedidos de ajuda, satisfação e prestígio separados, migração entre reinos e acolhimento por contrato.
 3. **Exércitos e conflitos:** recrutamento, abastecimento, fortificações, controle de jazidas e campanhas com objetivos claros.
 4. **Sucessão e fragmentação:** conspirações, substituição de reis, deserções, independência e fundação de novos reinos.

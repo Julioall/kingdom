@@ -1,4 +1,4 @@
-# Arquitetura atual do Reinos Vivos
+# Arquitetura do Kingdom
 
 ## Visão geral
 
@@ -42,9 +42,9 @@ O cenário inicial atual usa um mapa de 96 × 96 células e dois reinos. Cada re
 - `simulation/society/` mantém comunidades, vínculos, liderança e tarefas delegadas.
 - `simulation/settlements/` organiza construção comunitária; `simulation/kingdoms/` mantém reinos, território, estruturas, recrutamento e patrulhas.
 - `simulation/economy/inventories.js` concentra débito e transferência dos estoques no formato `{ stock }`.
-- `simulation/engine.js` reúne as interfaces históricas ainda usadas pela interface. A UI deve chamar a API pública ou consultas, sem alterar regras diretamente.
+- `simulation/engine.js` reúne as interfaces internas usadas pela interface. A UI deve chamar a API pública ou consultas, sem alterar regras diretamente.
 - `ai/local-engine.js` e `ai/llm.worker.ts` oferecem decisões WebLLM opcionais; as redes individuais continuam como controlador local.
-- `legacy/`, `kingdom-sim.js` e `kingdoms.js` não são o ponto de entrada ativo.
+- O ponto de entrada ativo é único: não há um segundo simulador mantido fora de `src/simulation/`.
 
 ## Renderização e assets
 

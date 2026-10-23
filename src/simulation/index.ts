@@ -7,7 +7,7 @@ export type WorldCommand =
   | { type: 'destroy-tower'; kingdomId: number; towerId: number }
   | { type: 'recruit-soldier'; kingdomId: number };
 export function createWorld(config: WorldConfig = defaultWorldConfig, seed = 42): WorldState {
-  if (config.scenario !== 'genesis') throw new Error('Cenário não implementado.');
+  if (config.scenario !== 'kingdom') throw new Error('Cenário não implementado.');
   return engine.createWorld(seed);
 }
 export function stepDay(world: WorldState) { return engine.stepDay(world); }

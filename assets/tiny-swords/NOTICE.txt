@@ -3,4 +3,4 @@ Fonte: https://pixelfrog-assets.itch.io/tiny-swords
 
 O autor permite o uso e a modificação dos recursos em projetos pessoais e comerciais. Crédito é opcional, mas bem-vindo. Os arquivos não podem ser revendidos, redistribuídos ou reempacotados como um pacote de recursos.
 
-Esta prévia usa sprites e tiles selecionados integrados à interface do Genesis. Ela não oferece o pacote original para download. As artes são uma camada visual e não mudam o estado ou as regras da simulação.
+Esta prévia do Kingdom usa sprites e tiles selecionados integrados ao jogo. Ela não oferece o pacote original para download. As artes são uma camada visual e não mudam o estado ou as regras da simulação.
