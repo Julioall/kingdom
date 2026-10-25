@@ -1,10 +1,10 @@
-import { ANIMAL_ACTIONS, HIDDEN_NEURONS, PEOPLE_ACTIONS } from '../../config/ecosystem.js';
+import { ANIMAL_ACTIONS, HIDDEN_NEURONS, PEOPLE_ACTIONS, RULER_HIDDEN_NEURONS } from '../../config/ecosystem.js';
 import { rand } from '../../simulation/core/random.js';
 import { clamp, hash01 } from '../../simulation/core/math.js';
 
-export function createBrain(w, actions, inputSize, entityId) {
+export function createBrain(w, actions, inputSize, entityId, requestedHiddenSize = HIDDEN_NEURONS) {
     const count = inputSize || 6;
-    const hiddenSize = HIDDEN_NEURONS;
+    const hiddenSize = Math.max(1, Math.floor(requestedHiddenSize || HIDDEN_NEURONS));
     const inputWeights = Array.from({ length: count * hiddenSize }, () => (rand(w) - .5) * .36);
     const outputWeights = new Array(hiddenSize * actions.length);
     const legacyActions = Math.min(14, actions.length);
@@ -18,7 +18,42 @@ export function createBrain(w, actions, inputSize, entityId) {
       decisions: 0, updates: 0, lastAction: 'explore', pending: null };
   }
 
+export function ensureBrainSize(w, entity, requestedHiddenSize) {
+    const brain = entity && entity.brain;
+    const targetSize = Math.max(1, Math.floor(requestedHiddenSize || HIDDEN_NEURONS));
+    if (!brain || brain.hiddenSize === targetSize) return false;
+
+    const inputSize = Math.max(1, brain.inputSize || 6);
+    const actionCount = Math.max(1, brain.actionCount || 1);
+    const previousSize = Math.max(1, brain.hiddenSize || 6);
+    const baseSeed = ((w && w.seed) || 0) + ((entity.id || 0) * 97);
+    const inputWeights = new Array(inputSize * targetSize);
+    const outputWeights = new Array(actionCount * targetSize);
+
+    for (let hidden = 0; hidden < targetSize; hidden++) {
+      for (let input = 0; input < inputSize; input++) {
+        const nextIndex = hidden * inputSize + input;
+        inputWeights[nextIndex] = hidden < previousSize
+          ? brain.inputWeights[hidden * inputSize + input] || 0
+          : (hash01(baseSeed, hidden, input) - .5) * .36;
+      }
+      for (let action = 0; action < actionCount; action++) {
+        const nextIndex = action * targetSize + hidden;
+        outputWeights[nextIndex] = hidden < previousSize
+          ? brain.outputWeights[action * previousSize + hidden] || 0
+          : (hash01(baseSeed + action * 31, hidden, action) - .5) * .32;
+      }
+    }
+
+    brain.hiddenSize = targetSize;
+    brain.inputWeights = inputWeights;
+    brain.outputWeights = outputWeights;
+    brain.pending = null;
+    return true;
+  }
+
 export function chooseAnimalAction(w, animal, inputs, utility) {
+    ensureBrainSize(w, animal, HIDDEN_NEURONS);
     const out = brainForward(animal.brain, inputs, ANIMAL_ACTIONS);
     let best = 0, bestScore = -Infinity;
     for (let i = 0; i < ANIMAL_ACTIONS.length; i++) {
@@ -50,18 +85,26 @@ export function brainForward(brain, inputs, actions) {
   }
 
 export function choosePeopleAction(w, p, inputs, utility) {
-    const brain = p.brain, out = brainForward(brain, inputs, PEOPLE_ACTIONS);
+    const isCitizen = p.role === 'resident';
+    const requestedSize = p.role === 'ruler' ? RULER_HIDDEN_NEURONS
+      : isCitizen ? w.neuralOverrides?.peopleHiddenSize || HIDDEN_NEURONS : HIDDEN_NEURONS;
+    ensureBrainSize(w, p, requestedSize);
+    const brain = p.brain;
+    const rulesOnly = isCitizen && w.neuralOverrides?.peopleController === 'rules';
+    const out = rulesOnly
+      ? { hidden: [], probs: [], logits: Array(PEOPLE_ACTIONS.length).fill(0) }
+      : brainForward(brain, inputs, PEOPLE_ACTIONS);
     const plan = p.strategicPlan && p.strategicPlan.expiresDay >= w.day + 1 ? p.strategicPlan : null;
     let best = 0, bestScore = -Infinity;
     const scores = [];
     for (let i = 0; i < PEOPLE_ACTIONS.length; i++) {
       const strategyBias = plan && plan.action === PEOPLE_ACTIONS[i] && utility[i] > -.1
         ? .12 + clamp(plan.confidence || .5, 0, 1) * .22 : 0;
-      const score = utility[i] + out.logits[i] * .2 + (brain.actionValues[i] || 0) * .18 + strategyBias;
+      const score = utility[i] + out.logits[i] * .2 + (rulesOnly ? 0 : (brain.actionValues[i] || 0) * .18) + strategyBias;
       scores.push(score);
       if (score > bestScore) { best = i; bestScore = score; }
     }
-    brain.pending = { hidden: out.hidden, probs: out.probs, actionIndex: best, inputs: inputs.slice(), scores };
+    brain.pending = rulesOnly ? null : { hidden: out.hidden, probs: out.probs, actionIndex: best, inputs: inputs.slice(), scores };
     brain.decisions++; brain.lastAction = PEOPLE_ACTIONS[best];
     brain.actionCounts[brain.lastAction] = (brain.actionCounts[brain.lastAction] || 0) + 1;
     p.lastDecision = { action: PEOPLE_ACTIONS[best], scores, inputs: inputs.slice(), day: w.day };

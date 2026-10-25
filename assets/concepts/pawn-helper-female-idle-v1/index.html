@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kingdom — ajudante feminina · idle</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#161c2e;color:#eee1c6;font:16px system-ui;min-height:100vh;display:grid;place-items:center;padding:24px}main{width:min(820px,100%)}h1{font-size:25px;margin-bottom:8px}p{color:#b8c5bd;line-height:1.6}.stage{background:#344d43;border:1px solid #688c8a;border-radius:16px;display:grid;place-items:center;margin:24px 0;background-image:linear-gradient(45deg,#3b564a 25%,transparent 25%),linear-gradient(-45deg,#3b564a 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#3b564a 75%),linear-gradient(-45deg,transparent 75%,#3b564a 75%);background-size:32px 32px;background-position:0 0,0 16px,16px -16px,-16px 0}canvas{max-width:100%;width:480px;height:auto;image-rendering:pixelated}button,a{color:inherit}button{background:#485884;border:1px solid #688c8a;padding:10px 18px;border-radius:8px;cursor:pointer}nav{display:flex;gap:20px;align-items:center;flex-wrap:wrap}input{vertical-align:middle;accent-color:#68d367}small{color:#b8c5bd}.frames{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;margin:24px 0}.frames img{width:100%;image-rendering:pixelated;border:1px solid #344d43}.frames img.active{border-color:#f1d15f}.error{color:#f4a47b}
+</style>
+<main><h1>Ajudante feminina · repouso</h1><p>Teste de respiração e movimento suave do lenço. Oito quadros gerados em conjunto, com escala compartilhada e base alinhada.</p>
+<div class="stage"><canvas width="192" height="192" aria-label="Animação da ajudante em repouso"></canvas></div>
+<nav><button id="play">Pausar</button><button id="step">Próximo quadro</button><label>Velocidade <input id="speed" type="range" min="0.25" max="2" step="0.25" value="1"> <output id="rate">1×</output></label><span id="counter"></span></nav>
+<div class="frames"></div><nav><a href="pawn-helper-female-idle.png">Spritesheet PNG</a><a href="idle-preview.gif">Prévia GIF</a><a href="idle-preview.webp">WebP com transparência</a><a href="manifest.json">Manifesto</a></nav>
+<p><small>Conceito experimental, ainda sem integração ao jogo. O fundo quadriculado pertence somente à prévia.</small></p><p class="error" hidden>Não foi possível carregar a spritesheet.</p></main>
+<script>
+const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
+const image=new Image(),thumbs=[];let frame=0,playing=true,speed=1,last=0,acc=0,ready=false;
+for(let i=1;i<=8;i++){const thumb=new Image();thumb.src=`frames/${String(i).padStart(2,'0')}.png`;thumb.alt=`Quadro ${i}`;document.querySelector('.frames').append(thumb);thumbs.push(thumb)}
+function draw(){if(!ready)return;ctx.clearRect(0,0,192,192);ctx.drawImage(image,frame*192,0,192,192,0,0,192,192);document.querySelector('#counter').textContent=`Quadro ${frame+1}/8`;thumbs.forEach((t,i)=>t.classList.toggle('active',i===frame))}
+function updatePlay(){document.querySelector('#play').textContent=playing?'Pausar':'Reproduzir'}
+image.onload=()=>{ready=true;draw()};image.onerror=()=>document.querySelector('.error').hidden=false;image.src='pawn-helper-female-idle.png';
+document.querySelector('#play').onclick=()=>{playing=!playing;acc=0;updatePlay()};document.querySelector('#step').onclick=()=>{playing=false;frame=(frame+1)%8;acc=0;updatePlay();draw()};
+document.querySelector('#speed').oninput=e=>{speed=Number(e.target.value);document.querySelector('#rate').textContent=speed+'×'};
+function tick(now){const dt=last?Math.min(now-last,200):0;last=now;if(ready&&playing){acc+=dt*speed;while(acc>=200){frame=(frame+1)%8;acc-=200}draw()}requestAnimationFrame(tick)}requestAnimationFrame(tick);
+</script></html>

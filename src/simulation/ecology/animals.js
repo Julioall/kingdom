@@ -1,15 +1,16 @@
 import { ANIMALS, ANIMAL_ACTIONS, DOMESTIC_SHEEP_DAILY_FEED, DOMESTIC_SHEEP_ENERGY_PER_FEED, PLANTS, SHEEP_FORAGE } from '../../config/ecosystem.js';
 import { randomHabitatCell } from '../world/generation.js';
-import { clamp, distance, species } from '../core/math.js';
+import { clamp, distance, hash01, species } from '../core/math.js';
 import { rand } from '../core/random.js';
 import { chooseAnimalAction, createBrain, updateBrain } from '../../controllers/individual/neural.js';
 import { eatPlants, plantBiomass } from './plants.js';
-import { cellAt, nearby } from '../world/spatial.js';
+import { cellAt, cellsWithin, nearby } from '../world/spatial.js';
 import Senses from '../individuals/perception.js';
 import { bestPerceivedWaterCue, nearestWater } from '../individuals/actions.js';
 import { drinkWater } from './hydrology.js';
 import { moveOne } from '../individuals/movement.js';
 import { log } from '../core/events.js';
+import { consumeStoreInventory } from '../economy/inventories.js';
 
 export function seedAnimals(w, counts) {
     for (const p of ANIMALS) for (let i = 0; i < counts[p.id]; i++) {
@@ -34,11 +35,10 @@ export function makeAnimal(w, speciesId, x, y, newborn) {
   }
 
 export function feedSheep(w, tile, amount) {
-    const browseIndex = PLANTS.findIndex(plant => plant.id === 'browse');
-    const browseBefore = tile.plants[browseIndex];
-    const browseEaten = eatPlants(w, tile, ['browse'], amount);
-    const largeBush = browseBefore >= 70;
-    return { eaten: browseEaten, energy: browseEaten * (largeBush ? 16.2 : 12.4) };
+    const forageBefore = plantBiomass(tile, SHEEP_FORAGE);
+    const eaten = eatPlants(w, tile, SHEEP_FORAGE, amount + .021);
+    const richPasture = forageBefore >= 70;
+    return { eaten, energy: eaten * (richPasture ? 16.2 : 12.4) };
   }
 
 export function findFoodCell(w, agent, diet, radius) {
@@ -108,9 +108,50 @@ export function moveAwayFrom(w, animal, threat, aquatic) {
     animal.x = next.x; animal.y = next.y; return true;
   }
 
+function wildSheepForageCell(w, flock) {
+    const center = flock.reduce((sum, sheep) => ({ x: sum.x + sheep.x / flock.length, y: sum.y + sheep.y / flock.length }),
+      { x: 0, y: 0 });
+    const occupied = new Map();
+    for (const sheep of flock) {
+      const key = Math.round(sheep.x) + ',' + Math.round(sheep.y);
+      occupied.set(key, (occupied.get(key) || 0) + 1);
+    }
+    return cellsWithin(w, center.x, center.y, 10,
+      tile => tile.terrain === 'land' && plantBiomass(tile, SHEEP_FORAGE) > .5)
+      .map(tile => ({
+        tile,
+        score: plantBiomass(tile, SHEEP_FORAGE) - distance(center, tile) * 2
+          - (occupied.get(tile.x + ',' + tile.y) || 0) * 5 + hash01(w.seed + flock[0].id * 101, tile.x, tile.y) * 3
+      }))
+      .sort((left, right) => right.score - left.score)[0]?.tile || null;
+  }
+
+function wildSheepForageTargets(w, animals) {
+    const wildSheep = animals.filter(animal => animal.alive && animal.speciesId === 'sheep' && animal.herdCommunityId == null);
+    const unassigned = new Set(wildSheep);
+    const targets = new Map();
+    for (const seed of wildSheep) {
+      if (!unassigned.has(seed)) continue;
+      unassigned.delete(seed);
+      const flock = [seed];
+      for (let index = 0; index < flock.length; index++) {
+        const member = flock[index];
+        for (const candidate of unassigned) {
+          if (distance(member, candidate) > 8) continue;
+          unassigned.delete(candidate);
+          flock.push(candidate);
+        }
+      }
+      const target = wildSheepForageCell(w, flock);
+      for (const sheep of flock) targets.set(sheep.id, target);
+    }
+    return targets;
+  }
+
 export function updateAnimals(w) {
     feedCommunalHerds(w);
     const living = w.animals.filter(a => a.alive).sort((a, b) => a.id - b.id);
+    const wildSheepTargets = wildSheepForageTargets(w, living);
     for (const a of living) {
       if (!a.alive) continue;
       const p = species(a.speciesId, ANIMALS);
@@ -121,11 +162,68 @@ export function updateAnimals(w) {
         else { a.x = handler.x + .25; a.y = handler.y + .15; a.state = 'seguindo o condutor'; continue; }
       }
       if (a.speciesId === 'sheep' && a.herdCommunityId != null) {
-        // Domestic sheep are managed by the herd system: no perception, movement,
-        // neural decision, or learning updates run for them.
         a.aiEnabled = false;
-        a.energy = clamp(a.energy - (.68 + p.mass * .003), 0, 100);
-        a.state = a.lastFeedAmount > .001 ? 'consumindo ração do rebanho' : 'rebanho sem ração';
+        const upkeep = .68 + p.mass * .003;
+        a.energy = clamp(a.energy - upkeep, 0, 100);
+        const rationEnergy = (a.lastFeedAmount || 0) * DOMESTIC_SHEEP_ENERGY_PER_FEED;
+        const energyNeed = Math.max(0, upkeep - rationEnergy);
+        let grazed = 0;
+        let grazedOutsidePen = false;
+        const pen = w.structures.find(structure => structure.complete && structure.type === 'curral'
+          && structure.communityId === a.herdCommunityId);
+        let candidates = [];
+        if (pen) {
+          const penRadius = pen.radius || 3.5;
+          const penTiles = cellsWithin(w, pen.x, pen.y, penRadius, tile => tile.terrain === 'land');
+          const occupied = new Map();
+          for (const sheep of w.animals) {
+            if (!sheep.alive || sheep.id === a.id || sheep.herdCommunityId !== a.herdCommunityId) continue;
+            const key = Math.round(sheep.x) + ',' + Math.round(sheep.y);
+            occupied.set(key, (occupied.get(key) || 0) + 1);
+          }
+          candidates = penTiles.filter(tile => plantBiomass(tile, SHEEP_FORAGE) > .02)
+            .sort((left, right) => {
+              const score = tile => plantBiomass(tile, SHEEP_FORAGE) - distance(tile, a) * 2
+                - (occupied.get(tile.x + ',' + tile.y) || 0) * 5 + hash01(w.seed + a.id * 101, tile.x, tile.y) * 3;
+              return score(right) - score(left);
+            });
+          const destination = candidates[0] || penTiles.slice().sort((left, right) =>
+            distance(left, a) - distance(right, a)
+              + hash01(w.seed + a.id * 101, right.x, right.y) * 3
+              - hash01(w.seed + a.id * 101, left.x, left.y) * 3)[0];
+          if (destination) moveOne(w, a, destination, false);
+        }
+        if (energyNeed > .001) {
+          if (pen) {
+            const penRadius = pen.radius || 3.5;
+            if (!candidates.length) {
+              candidates = cellsWithin(w, pen.x, pen.y, penRadius + 2,
+                tile => tile.terrain === 'land' && distance(tile, pen) > penRadius
+                  && plantBiomass(tile, SHEEP_FORAGE) > .02)
+                .sort((left, right) => plantBiomass(right, SHEEP_FORAGE) - plantBiomass(left, SHEEP_FORAGE)
+                  || distance(left, a) - distance(right, a));
+              grazedOutsidePen = candidates.length > 0;
+            }
+            const pasture = candidates[0];
+            if (pasture) {
+              const browse = plantBiomass(pasture, SHEEP_FORAGE);
+              const energyPerUnit = browse >= 70 ? 16.2 : 12.4;
+              const result = feedSheep(w, pasture, Math.min(browse, energyNeed / energyPerUnit));
+              grazed = result.eaten;
+              a.energy = clamp(a.energy + result.energy, 0, 100);
+            }
+          }
+        }
+        a.lastGrazeAmount = grazed;
+        a.state = grazed > .001
+          ? grazedOutsidePen
+            ? a.lastFeedAmount > .001 ? 'comendo ração e pastando perto do curral' : 'pastando perto do curral'
+            : a.lastFeedAmount > .001 ? 'comendo ração e pastando' : 'pastando no curral'
+          : a.lastFeedAmount > .001 ? 'consumindo ração do rebanho' : 'rebanho sem ração';
+        if (grazed > .001) {
+          a.lastFedDay = w.day;
+          a.feedingEvents = (a.feedingEvents || 0) + 1;
+        }
         if (a.energy <= .1 || a.ageDays > p.life) resolveAnimalDeath(w, a, p);
         continue;
       }
@@ -135,7 +233,9 @@ export function updateAnimals(w) {
       if (p.water) a.hydration = clamp(a.hydration - .48, 0, 100);
       const water = p.water ? nearestWater(w, a, 32) : null;
       const localWater = p.water ? nearestWater(w, a, 5) : null;
-      const food = animalFoodCell(w, a, p);
+      const wildSheep = a.speciesId === 'sheep' && a.herdCommunityId == null;
+      const flockFood = wildSheep ? wildSheepTargets.get(a.id) : null;
+      const food = flockFood || animalFoodCell(w, a, p);
       const prey = p.prey.length ? nearestPrey(w, a, p) : null;
       const threat = nearestThreat(w, a, 5.5);
       const waterCue = !water && a.hydration < 62 ? bestPerceivedWaterCue(w, a) : null;
@@ -155,6 +255,11 @@ export function updateAnimals(w) {
         threat ? .98 : -.65
       ];
       let action = chooseAnimalAction(w, a, inputs, utilities);
+      if (wildSheep) {
+        action = threat ? 'flee'
+          : a.hydration < 62 && water ? 'drink'
+            : flockFood && distance(a, flockFood) <= 1.6 ? 'feed' : 'explore';
+      }
       const here = cellAt(w, a.x, a.y);
       if (p.aquatic && here.terrain !== 'water') action = 'explore';
       const before = a.energy + (p.water ? a.hydration * .35 : 0);
@@ -182,7 +287,7 @@ export function updateAnimals(w) {
         moveAwayFrom(w, a, threat, p.aquatic); a.state = 'fugindo de predador';
       } else if (action === 'rest') { a.energy = clamp(a.energy + 2.1, 0, 100); a.state = 'descansando'; }
       else {
-        const target = waterCue || animalHabitatCell(w, a, p);
+        const target = waterCue || (wildSheep ? flockFood : null) || animalHabitatCell(w, a, p);
         if (target) moveOne(w, a, target, p.aquatic);
         a.state = p.aquatic && here.terrain !== 'water' ? 'buscando água' : 'explorando';
       }
@@ -198,6 +303,8 @@ function resolveAnimalDeath(w, animal, profile) {
     animal.alive = false; w.deaths++;
     const cause = animal.ageDays > profile.life ? 'age'
       : profile.water && animal.hydration <= .1 ? 'dehydration' : 'starvation';
+    animal.deathDay = w.day + 1;
+    animal.deathCause = cause;
     w.deathsByCause[cause] = (w.deathsByCause[cause] || 0) + 1;
     const remains = cellAt(w, animal.x, animal.y);
     if (remains) remains.detritusGPerM2 += profile.mass * 170;
@@ -228,6 +335,11 @@ export function reproduceAnimals(w) {
           offspring.herdCommunityId = a.herdCommunityId;
           offspring.aiEnabled = false;
           offspring.habituation = Math.min(a.habituation || 0, mate.habituation || 0);
+          const pen = w.structures.find(s => s.complete && s.destroyedDay == null && s.type === 'curral' && s.communityId === a.herdCommunityId);
+          if (pen) {
+            pen.herdBirths = (pen.herdBirths || 0) + 1;
+            pen.lastHerdBirthDay = w.day + 1;
+          }
         }
         w.animals.push(offspring); w.births++; w.birthsByKind.animals++;
         break;
@@ -261,7 +373,7 @@ export function feedCommunalHerds(w) {
       const ration = Math.min(DOMESTIC_SHEEP_DAILY_FEED, Math.max(0, community.stores.feed || 0) / flock.length);
       if (ration <= .001) continue;
       const total = ration * flock.length;
-      community.stores.feed = Math.max(0, community.stores.feed - total);
+      if (!consumeStoreInventory(community, { feed: total }, 'livestock-feed')) continue;
       for (const animal of flock) {
         animal.lastFeedAmount = ration;
         animal.energy = clamp(animal.energy + ration * DOMESTIC_SHEEP_ENERGY_PER_FEED, 0, 100);

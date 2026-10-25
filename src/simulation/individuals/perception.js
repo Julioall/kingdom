@@ -72,15 +72,20 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
       }
     }
     inspect(world.animals, 'animal');
-    inspect(world.people, 'person');
+    const nearbyPeople = world.peopleSpatialIndex
+      ? world.peopleSpatialIndex.query(observer.x, observer.y, range)
+      : world.people;
+    inspect(nearbyPeople, 'person');
     const rememberedAnimals = [], rememberedPeople = [];
     for (const [key, last] of Object.entries(memory.actors)) {
       if (seenKeys.has(key)) continue;
       const age = Math.max(0, world.day - last.lastSeenDay);
       if (age > memoryDays) { delete memory.actors[key]; continue; }
+      const rememberedPerson = world.peopleById && world.peopleById.get(last.id);
       const entityStillAlive = last.kind === 'animal'
         ? world.animals.some(a => a.id === last.id && a.alive)
-        : world.people.some(p => p.id === last.id && p.alive);
+        : world.peopleById instanceof Map ? !!rememberedPerson?.alive
+          : world.people.some(p => p.id === last.id && p.alive);
       if (!entityStillAlive) { delete memory.actors[key]; continue; }
       const remembered = { id: last.id, kind: last.kind, speciesId: last.speciesId,
         x: last.x, y: last.y, distance: distance(observer, last), visible: false,
@@ -97,15 +102,21 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
       if (d > resourceRange || !inFieldOfView(observer, { x, y }, fieldOfView)
           || !lineOfSight(world, observer, { x, y }, plantProfiles)) continue;
       const biomass = {};
+      const harvestableBiomass = {};
       for (let i = 0; i < plantProfiles.length; i++) {
         const amount = tile.plants[i] || 0;
-        if (amount > .8) biomass[plantProfiles[i].id] = amount;
+        if (amount > .8) {
+          const profile = plantProfiles[i];
+          const protectedReserve = profile.cultivatedOnly && tile.cropFieldId != null ? profile.rootReserve || 0 : 0;
+          biomass[profile.id] = amount;
+          harvestableBiomass[profile.id] = Math.max(0, amount - protectedReserve);
+        }
       }
       const surfaceWaterMm = tile.surfaceWaterMm || 0;
       if (tile.terrain === 'water' || surfaceWaterMm >= 1.5 || Object.keys(biomass).length || tile.stoneDeposit > 0 || tile.goldOre > 0) {
         resources.push({ x, y, tileIndex: tile.i, distance: d, visible: true, terrain: tile.terrain,
-          biomass, stone: tile.stoneDeposit || 0, goldOre: tile.goldOre || 0,
-          surfaceWaterMm, waterSource: tile.terrain === 'water' ? 'lake' : surfaceWaterMm >= 1.5 ? 'runoff' : null,
+          biomass, harvestableBiomass, stone: tile.stoneDeposit || 0, goldOre: tile.goldOre || 0,
+          surfaceWaterMm, waterSource: tile.terrain === 'water' ? (tile.waterKind || 'lake') : surfaceWaterMm >= 1.5 ? 'runoff' : null,
           soilMoisture: tile.soilWaterMm / Math.max(1, tile.soilCapacityMm), slope: tile.slope || 0 });
       }
     }
@@ -113,7 +124,8 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
     const rememberedWater = new Map((memory.water || []).map(point => [point.x + ',' + point.y, point]));
     for (const resource of water) rememberedWater.set(resource.x + ',' + resource.y,
       { x: resource.x, y: resource.y, source: resource.waterSource, lastSeenDay: world.day });
-    memory.water = [...rememberedWater.values()].filter(point => world.day - point.lastSeenDay <= (point.source === 'lake' ? 20 : 1));
+    memory.water = [...rememberedWater.values()].filter(point => world.day - point.lastSeenDay
+      <= (point.source === 'lake' || point.source === 'ocean' ? 20 : 1));
     memory.logs = memory.logs || {};
     const visibleLogs = [];
     const seenLogs = new Set();
@@ -214,7 +226,7 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
       animals: visibleAnimals.concat(rememberedAnimals), people: visiblePeople.concat(rememberedPeople),
       resources, logs: visibleLogs.concat(rememberedLogs), knownWater: memory.water.map(point => ({ x: point.x, y: point.y, source: point.source,
         distance: distance(observer, point), visible: world.day - point.lastSeenDay <= 0,
-        confidence: Math.exp(-Math.max(0, world.day - point.lastSeenDay) / (point.source === 'lake' ? 12 : .8)), lastSeenDay: point.lastSeenDay })),
+        confidence: Math.exp(-Math.max(0, world.day - point.lastSeenDay) / (point.source === 'lake' || point.source === 'ocean' ? 12 : .8)), lastSeenDay: point.lastSeenDay })),
       knownStorages, territorialAwareness
     };
   }

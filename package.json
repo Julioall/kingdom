@@ -4,18 +4,29 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
+    "assets:map": "node scripts/map-animations.mjs",
+    "assets:check": "node scripts/map-animations.mjs --check",
+    "benchmark:ai": "node scripts/benchmark-ollama.mjs",
+    "dev": "node scripts/run-local.mjs",
+    "dev:vite": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --host 127.0.0.1",
+    "preview": "node scripts/run-local.mjs --preview",
+    "ai:prepare": "node scripts/prepare-ai-models.mjs",
+    "ai:serve": "node src/ai/ollama-service.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/integration/*.test.mjs"
+    "baseline": "node --expose-gc scripts/measure-baseline.mjs",
+    "worker-baseline": "node --expose-gc scripts/measure-worker-baseline.mjs",
+    "profile-simulation": "node scripts/measure-simulation-phases.mjs",
+    "replay-long-term": "node scripts/replay-long-term.mjs",
+    "evaluate:people-networks": "node scripts/evaluate-people-brains.mjs",
+    "diagnose-survival": "node scripts/diagnose-survival.mjs",
+    "diagnose-economy": "node scripts/diagnose-economy.mjs",
+    "diagnose-energy-budget": "node scripts/diagnose-energy-budget.mjs",
+    "diagnose-starvation-causes": "node scripts/diagnose-starvation-causes.mjs"
   },
   "devDependencies": {
     "acorn": "^8.19.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.5"
-  },
-  "dependencies": {
-    "@mlc-ai/web-llm": "^0.2.86"
   }
 }

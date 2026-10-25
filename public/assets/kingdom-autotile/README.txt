@@ -1,0 +1,11 @@
+Origem: arquivos de arte do AutoTile.zip fornecido para este projeto (TerraForge Studio).
+
+O Kingdom usa estes cinco atlas, o fundo de água e a faixa Water Foam. O fundo de água é pixel a pixel idêntico ao arquivo que já existia em public/assets/tiny-swords/terrain/. A lógica reutilizada/adaptada está em src/simulation/world/island-terrain.js e src/ui/game.js; a interface do editor e o formato de mapa JSON não fazem parte do jogo.
+
+O README do pacote de origem informa que direitos e créditos dos sprites originais devem ser verificados conforme a licença da arte antes de qualquer distribuição pública. Esta nota preserva essa ressalva; o ZIP não contém uma licença de redistribuição dos sprites.
+
+Ativos de agricultura do Kingdom: `crop-field.png` é um atlas 2×2 com células de 64×64 pixels, feito somente de solo lavrado em pixel art com seis tons terrosos e sulcos largos. Não contém plantas, bordas de grama, rampas ou penhascos. As quatro células são espelhamentos da textura para variar a repetição; o renderer cobre cada tile do talhão como uma camada sobre o terreno-base e desenha os brotos separadamente conforme a biomassa cultivada. Vegetação natural, minérios, tocos, troncos soltos e estradas não aparecem dentro do talhão. `buildings/<facção>/farmhouse.png` é a construção estática de roça em canvas RGBA de 128×192 pixels, com telhado na paleta da facção.
+
+`rice-field.png` é um segundo atlas 2×2 de 64×64 por célula, com lama, água rasa e mudas de arroz em fileiras. Ele está disponível como tile separado; a simulação atual ainda não identifica arroz como um tipo de cultivo, então a roça genérica continua usando `crop-field.png`.
+
+`rice-field-dry.png` é uma variação seca no mesmo formato 2×2 de 64×64 por célula, composta sobre o solo lavrado para deixar a terra visível no centro dos canteiros. O arroz maduro mantém altura; os montes de terra nos pés são baixos, e somente as bordas laterais do arroz recebem transparência leve. `rice-field-dry-plants.png` contém a camada animável de arroz, que balança suavemente com o vento enquanto o solo fica parado. O renderer mostra esse visual quando a biomassa da roça genérica está madura; a simulação ainda não possui um tipo de cultivo exclusivo para arroz.

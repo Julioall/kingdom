@@ -30,7 +30,7 @@ export function refreshHarvestSuitability(w) {
         ? clamp(huntDensity[tile.i] / 1.3, 0, 1) * (.7 + cover * .2 + clamp(greenFood / 180, 0, 1) * .1) * slopeSuitability
         : 0;
       const algae = clamp(plantBiomass(tile, ['algae']) / 85, 0, 1);
-      const waterBodySuitability = tile.waterKind === 'lake' ? 1 : tile.waterKind === 'river' ? .88 : .5;
+      const waterBodySuitability = tile.waterKind === 'lake' || tile.waterKind === 'ocean' ? 1 : tile.waterKind === 'river' ? .88 : .5;
       tile.fishingSuitability = tile.terrain === 'water'
         ? clamp(fishDensity[tile.i] / 1.25, 0, 1) * (.7 + algae * .18 + waterBodySuitability * .12)
         : 0;
@@ -48,14 +48,16 @@ export function refreshHarvestSuitability(w) {
 
 export function snapshot(w) {
     const plantCounts = {}, animalCounts = {};
-    let plantBiomass = 0, edibleBiomass = 0, plantCover = 0, soilWater = 0, cells = 0, goodHuntingCells = 0, goodFishingCells = 0;
+    let plantBiomass = 0, edibleBiomass = 0, humanFoodBiomass = 0, cultivatedFoodBiomass = 0, plantCover = 0, soilWater = 0, cells = 0, goodHuntingCells = 0, goodFishingCells = 0;
     for (const p of PLANTS) plantCounts[p.id] = 0;
     for (const a of ANIMALS) animalCounts[a.id] = 0;
     for (const t of w.tiles) {
       let occupied = false;
       for (let i = 0; i < PLANTS.length; i++) {
         plantBiomass += t.plants[i];
-        if (PLANTS[i].id === 'grass' || PLANTS[i].id === 'berry') edibleBiomass += t.plants[i];
+        if (PLANTS[i].id === 'grass' || PLANTS[i].foodFor === 'people') edibleBiomass += t.plants[i];
+        if (PLANTS[i].foodFor === 'people') humanFoodBiomass += t.plants[i];
+        if (PLANTS[i].cultivatedOnly && t.cropFieldId != null) cultivatedFoodBiomass += t.plants[i];
         if (t.plants[i] > 25) { plantCounts[PLANTS[i].id]++; occupied = true; }
       }
       if (occupied) plantCover++;
@@ -63,6 +65,8 @@ export function snapshot(w) {
       if (t.huntingSuitability >= .62) goodHuntingCells++;
       if (t.fishingSuitability >= .62) goodFishingCells++;
     }
+    humanFoodBiomass += w.structures.filter(structure => structure.type === 'roça' && !structure.complete)
+      .reduce((sum, structure) => sum + (structure.cropSeedStored || 0), 0);
     for (const a of w.animals) if (a.alive) animalCounts[a.speciesId]++;
     const groups = w.communities.filter(c => !c.dissolved && c.memberIds.length);
     const people = w.people.filter(p => p.alive);
@@ -71,6 +75,7 @@ export function snapshot(w) {
     const foodRiskPeople = people.filter(p => p.foodReserve < 30).length;
     const criticalFoodPeople = people.filter(p => p.foodReserve < 12).length;
     const propertyCount = groups.reduce((sum, community) => sum + (community.properties || []).length, 0);
+    const activeCampaigns = (w.campaigns || []).filter(campaign => ['mobilizing', 'marching', 'engaged', 'withdrawing'].includes(campaign.status));
     const communityTasksCompleted = groups.reduce((sum, community) => sum + (community.assignments || []).filter(task => task.status === 'concluída').length, 0);
     const meanCommunitySatisfaction = groups.length ? groups.reduce((sum, community) => sum + (community.satisfaction || 0), 0) / groups.length : 0;
     const communityStages = { group: 0, tribe: 0, reino: 0 };
@@ -102,17 +107,24 @@ export function snapshot(w) {
         const relation = w.kingdomRelations[Math.min(war.a, war.b) + ':' + Math.max(war.a, war.b)];
         return relation && relation.status === 'at-war';
       }).length,
+      activeCampaigns: activeCampaigns.length,
+      campaignBattles: (w.campaigns || []).reduce((sum, campaign) => sum + (campaign.battleCount || 0), 0),
+      territorialClaims: (w.territoryClaims || []).filter(claim => claim.status === 'annexed').length,
+      treaties: (w.treaties || []).length,
       independentPeople: people.filter(p => p.kingdomId == null).length,
       communityCount: groups.length, communityStages,
       communityProperties: propertyCount, communityTasksCompleted, meanCommunitySatisfaction,
       structureCount: w.structures.filter(s => s.complete).length,
+      cultivatedFieldCount: w.structures.filter(s => s.complete && s.type === 'roça').length,
+      cultivatedFoodBiomass,
       corralCount: w.structures.filter(s => s.complete && s.type === 'curral').length,
       boundaryCount: w.structures.filter(s => s.complete && s.type === 'torre').length,
       structuresUnderConstruction: w.structures.filter(s => !s.complete).length,
       births: w.births, deaths: w.deaths, birthsByKind: Object.assign({}, w.birthsByKind), deathsByCause: Object.assign({}, w.deathsByCause),
       conflicts: w.conflicts, trades: w.trades, splits: w.splits, raidAttempts: w.raidAttempts, successfulRaids: w.successfulRaids,
       harvests: Object.assign({}, w.harvests), goodHuntingCells, goodFishingCells,
-      plantBiomass, edibleBiomass, plantCover: plantCover / w.tiles.length, plantCounts,
+      ecologyFlows: Object.assign({}, w.ecologyFlows),
+      plantBiomass, edibleBiomass, humanFoodBiomass, plantCover: plantCover / w.tiles.length, plantCounts,
       meanFoodReserve, foodRiskPeople, criticalFoodPeople,
       soilMoisture: cells ? soilWater / cells : 0,
       rainfallMm: w.regions.reduce((s, r) => s + r.rainfallMm, 0) / w.regions.length,

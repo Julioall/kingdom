@@ -2,7 +2,8 @@ import { clamp } from '../core/math.js';
 
 export const ROAD_RULES = Object.freeze({
   footstepWear: .25,
-  dailyRecovery: .992,
+  dailyRecovery: .998,
+  consolidatedDailyRecovery: .9997,
   maxWear: 32,
   visibleAt: 2.5,
   fastAt: 7
@@ -24,15 +25,17 @@ export function isRoadTile(tile, fast = false) {
   return !!tile && (tile.roadWear || 0) >= (fast ? ROAD_RULES.fastAt : ROAD_RULES.visibleAt);
 }
 
-export function recordFootstep(tile, agent) {
+export function recordFootstep(tile, agent, day = null) {
   // Animal tracks are not roads; only inhabitants contribute to the shared paths.
   if (!agent || agent.speciesId != null || !tile || tile.terrain !== 'land') return;
   tile.roadWear = Math.min(ROAD_RULES.maxWear, (tile.roadWear || 0) + ROAD_RULES.footstepWear);
+  if (Number.isFinite(day)) tile.lastRoadUseDay = day;
 }
 
 export function updateRoadWear(world) {
   for (const tile of world.tiles) {
-    if ((tile.roadWear || 0) > .01) tile.roadWear *= ROAD_RULES.dailyRecovery;
+    if ((tile.roadWear || 0) > .01) tile.roadWear *= isRoadTile(tile, true)
+      ? ROAD_RULES.consolidatedDailyRecovery : ROAD_RULES.dailyRecovery;
     else tile.roadWear = 0;
     tile.peoplePresence = 0;
     tile.civilizationPressure = 0;

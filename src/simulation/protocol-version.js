@@ -1,0 +1,1 @@
+export const SIMULATION_PROTOCOL_VERSION = 5;

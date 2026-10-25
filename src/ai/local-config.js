@@ -1,0 +1,4 @@
+export const LOCAL_AI_SERVICE_HOST = '127.0.0.1';
+export const LOCAL_AI_SERVICE_PORT = 41873;
+export const LOCAL_AI_SERVICE_ORIGIN = 'http://' + LOCAL_AI_SERVICE_HOST + ':' + LOCAL_AI_SERVICE_PORT;
+export const DEFAULT_OLLAMA_ORIGIN = 'http://127.0.0.1:11434';

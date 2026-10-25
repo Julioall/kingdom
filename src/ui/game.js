@@ -1,15 +1,47 @@
+import { resourceSummary } from './gameplay-data.js';
+import { buildingCard, kingdomOverview } from './building-card.js';
+import { towerVitality, campaignTower } from '../simulation/kingdoms/fortifications.js';
+import { activeLeadershipRank } from '../simulation/kingdoms/military-identity.js';
+import { createMovementInterpolator } from './movement-interpolation.js';
+import { createDamageBarTracker } from './health-bars.js';
 import { GameSession } from '../app/session.ts';
 import { SimulationClock } from '../app/simulation-loop.ts';
 import Sim from '../simulation/engine.js';
 import LocalAI from '../ai/local-engine.js';
+import { readLocalAiPreference, writeLocalAiPreference } from '../ai/preference.js';
 import { DOMESTIC_SHEEP_DAILY_FEED } from '../config/ecosystem.js';
 import { isRoadTile, ROAD_RULES } from '../simulation/world/roads.js';
+import { CHARACTER_SPRITE_SCALE, MILITARY_SPRITES, militarySpritePose } from './military-sprites.js';
+import { createAnimationRenderer, getUnitAnimation, getAnimationFrame } from './animations.js';
+import { residentSpritePose, createActorAnimationClock, createActivityEffects } from './person-animations.js';
+import { mapDecorationAt, MAP_DECORATION_SPRITES } from './map-decorations.js';
+import { MILITARY_PAY, GARRISON_RECOVERY } from '../simulation/kingdoms/service.js';
+import { mapCamera, spriteScale, BUILDING_FEET, alignedTileRect, SOURCE_TILE_PIXELS } from './map-camera.js';
+import { createCloudSystem } from './cloud-system.js';
 
 export function mountGame() {
   'use strict';
   const $ = id => document.getElementById(id);
+  const forjaUI = window.FantasyUI;
+  if (forjaUI) {
+    for (const [selector, skin] of [['.topbar', 'wood'], ['.mini-map-panel', 'wood'], ['.left-panel', 'scroll'], ['.right-panel', 'paper'], ['.journal-panel', 'scroll'], ['.utility-drawer', 'wood']]) {
+      const panel = document.querySelector(selector);
+      if (panel) panel.prepend(forjaUI.skinLayer(skin));
+    }
+    const crest = document.querySelector('.brand-mark'), wordmark = document.querySelector('.brand-text');
+    if (crest) crest.replaceWith(forjaUI.crest('cyan', '', 0, 10));
+    if (wordmark) {
+      const title = document.createElement('strong');
+      title.textContent = 'KINGDOM';
+      wordmark.replaceChildren(title);
+    }
+  }
   const canvas = $('world');
-  const LOGICAL_SIZE = 1024, RENDER_SCALE = canvas.width / LOGICAL_SIZE;
+  const miniMapCanvas = $('miniMap');
+  const miniMapContext = miniMapCanvas.getContext('2d');
+  miniMapContext.imageSmoothingEnabled = false;
+  let miniMapRenderKey = '';
+  const LOGICAL_SIZE = 1024;
   let ctx = canvas.getContext('2d');
   const groundCacheCanvas = document.createElement('canvas');
   groundCacheCanvas.width = canvas.width; groundCacheCanvas.height = canvas.height;
@@ -17,50 +49,255 @@ export function mountGame() {
   // Tiny Swords art is pixel art: nearest-neighbor sampling keeps its source pixels crisp.
   ctx.imageSmoothingEnabled = false;
   groundCacheContext.imageSmoothingEnabled = false;
-  ctx.scale(RENDER_SCALE, RENDER_SCALE); groundCacheContext.scale(RENDER_SCALE, RENDER_SCALE);
   const W = Sim.width, H = Sim.height, TILE = LOGICAL_SIZE / W, stage = canvas.parentElement;
   const seasonNames = Sim.seasons;
-  const session = new GameSession();
+  const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0] || 1;
+  const sessionSeed = randomSeed();
+  const session = new GameSession(undefined, sessionSeed);
   const clock = new SimulationClock();
-  let world = session.world;
-  let layer = 'territory', selection = null, showLeft = true, showRight = true;
+  let collisionCalibrationAppliedEpoch = -1;
+  let world = null, rendered = false, localAI = null;
+  let selection = null, showLeft = false, showRight = false, hoveredTerritoryStructureId = null;
   let kingdomActionNotice = '';
-  const localAI = LocalAI ? LocalAI.create({ Sim, getWorld: () => world, onStatus: updateLocalAIStatus }) : null;
+  const isResetCancellation = error => error && error.name === 'AbortError';
+  session.onUpdate = (nextWorld, _stats, reset) => {
+    world = nextWorld;
+    if (collisionCalibrationAppliedEpoch !== session.epoch) {
+      collisionCalibrationAppliedEpoch = session.epoch;
+      applyCollisionCalibrationToSimulation().catch(error => {
+        console.error('[Kingdom Hitboxes] não foi possível aplicar calibrações à simulação:', error);
+        setCollisionEditorStatus('Não foi possível aplicar os contornos à simulação: ' + error.message);
+      });
+    }
+    movementInterpolator.observe(world, performance.now(), { reset, speed: session.speed });
+    npcDamageBars.observe(world.people, performance.now(), reset);
+    structureDamageBars.observe(world.structures.map(s => ({ id: s.id, alive: s.destroyedDay == null,
+      lastAttackSequence: s.lastAttackSequence })), performance.now(), reset);
+    activityEffects.observe(world, animationTime, reset);
+    for (const person of world.people) if (person.combatAction?.day === world.day) {
+      actorAnimationClock.elapsed('combat:' + person.id, String(person.combatAction.id), animationTime);
+    }
+    for (const person of world.people) if (person.combatDefense?.day === world.day) {
+      actorAnimationClock.elapsed('defense:' + person.id, String(person.combatDefense.actionId), animationTime);
+    }
+    activeMiningSites = new Set(world.people.filter(person => person.alive && person.visualActivity?.day === world.day
+      && person.visualActivity.kind === 'mine').map(person => person.visualActivity.x + ':' + person.visualActivity.y));
+    actorAnimationClock.retain(new Set(world.people.filter(person => person.alive).flatMap(person => [person.id, 'shot:' + person.id, 'combat:' + person.id, 'defense:' + person.id])));
+    for (const kingdom of world.kingdoms) ensureTinyPalette(kingdom.palette);
+    if (reset) {
+      selection = null;
+      showRight = false;
+      collisionTestPlayer = null; collisionTestLastFrame = 0; collisionTestKeys.clear();
+      $('rightPanel').classList.remove('is-open');
+      kingdomActionNotice = '';
+      actorAnimationClock.clear();
+      invalidateStaticDepthCache();
+      resetMapViewport();
+    }
+    if (!rendered) {
+      rendered = true;
+      updateMapViewport();
+      render();
+      window.requestAnimationFrame(frame);
+    } else render();
+    if (localAI) localAI.pump();
+  };
+  session.onResponse = metrics => {
+    canvas.dataset.workerResponseMs = metrics.lastResponseMs.toFixed(2);
+    canvas.dataset.workerRevision = String(session.revision);
+    canvas.dataset.workerSnapshotBytes = String(metrics.lastSnapshotBytes);
+    canvas.dataset.workerResponseSamplesMs = JSON.stringify(metrics.responseSamplesMs);
+  };
+  session.onError = error => {
+    if (isResetCancellation(error)) return;
+    console.error('[Kingdom Worker de simulação]', error);
+    if ($('worldLine')) $('worldLine').textContent = 'Falha na simulação: ' + error.message;
+  };
+  localAI = LocalAI ? LocalAI.create({
+    getWorld: () => world,
+    getWorldEpoch: () => session.epoch,
+    setKingdomAiEnabled: enabled => session.setKingdomAiEnabled(enabled),
+    pullKingdomAiRequest: limit => session.pullKingdomAiRequest(limit),
+    applyKingdomAiDecision: (request, decision, metadata) => session.applyKingdomAiDecision(request, decision, metadata),
+    failKingdomAiRequest: (request, failure) => session.failKingdomAiRequest(request, failure),
+    onStatus: updateLocalAIStatus
+  }) : null;
   if (localAI) updateLocalAIStatus(localAI.getStatus());
+  if (localAI) {
+    let preferenceEnabled = false;
+    try {
+      preferenceEnabled = readLocalAiPreference(window.localStorage);
+    } catch (error) {
+      console.error('[Kingdom IA local] não foi possível ler a preferência:', error);
+    }
+    if (preferenceEnabled) {
+      localAI.enable().catch(error => {
+        console.error('[Kingdom IA local] não foi possível ativar a preferência salva:', error);
+      });
+    }
+  }
   const visualPack = 'tiny-swords';
-  const MIN_MAP_ZOOM = 1, MAX_MAP_ZOOM = 4;
+  // Spring, summer, autumn, winter: the four terrain palettes currently used on the map.
+  const SEASON_TERRAIN_PALETTES = Object.freeze([0, 2, 3, 4]);
+  // Blend in the next palette across the final two weeks of each season.
+  const SEASON_TERRAIN_TRANSITION_DAYS = 14;
+  const MIN_MAP_ZOOM = 1, MAX_MAP_ZOOM = 16;
+  const COLLISION_CALIBRATION_STORAGE_KEY = 'kingdom-collision-calibration-v3';
+  const LEGACY_COLLISION_CALIBRATION_STORAGE_KEY = 'kingdom-collision-calibration-v2';
   let mapZoom = 1, mapPanX = 0, mapPanY = 0;
-  let animationTime = 0, lastSpriteDraw = 0, assetRenderQueued = false, groundCacheKey = '';
-  const visualMotions = new Map();
+  let showCollisionHitboxes = true;
+  let collisionEditMode = false, collisionEditAddPointMode = false, collisionEditSelection = null, collisionEditDrag = null;
+  let collisionTestActive = false, collisionTestPlayer = null, collisionTestLastFrame = 0;
+  const collisionTestKeys = new Set();
+  let collisionCalibrationProfiles = Object.create(null);
+  try {
+    const currentCalibration = window.localStorage.getItem(COLLISION_CALIBRATION_STORAGE_KEY);
+    const isLegacyCalibration = !currentCalibration;
+    const savedCalibration = JSON.parse(currentCalibration
+      || window.localStorage.getItem(LEGACY_COLLISION_CALIBRATION_STORAGE_KEY) || 'null');
+    if (savedCalibration?.profiles && typeof savedCalibration.profiles === 'object') {
+      collisionCalibrationProfiles = { ...savedCalibration.profiles };
+      if (isLegacyCalibration && collisionCalibrationProfiles.house2) {
+        // The new static house2 profile absorbs the imported (-1, -1) entry shift.
+        // Rebase old saved deltas so existing local edits keep their effective point.
+        const oldHouse2 = collisionCalibrationProfiles.house2;
+        collisionCalibrationProfiles.house2 = { ...oldHouse2,
+          entryOffsetX: (Number(oldHouse2.entryOffsetX) || 0) + 1,
+          entryOffsetY: (Number(oldHouse2.entryOffsetY) || 0) + 1 };
+      }
+      if (isLegacyCalibration) {
+        window.localStorage.setItem(COLLISION_CALIBRATION_STORAGE_KEY, JSON.stringify({
+          ...savedCalibration, profiles: collisionCalibrationProfiles
+        }));
+      }
+    }
+  } catch (error) {
+    console.warn('[Kingdom Hitboxes] não foi possível ler calibrações locais:', error);
+  }
+  try { Sim.modules.Collision.setCollisionProfiles(collisionCalibrationProfiles); }
+  catch (error) { console.warn('[Kingdom Hitboxes] perfis salvos inválidos; usando perfis padrão:', error); }
+  let mapTransform = [1, 0, 0, 1, 0, 0];
+  let animationTime = 0, lastSpriteDraw = 0, lastAtmosphereUpdate = 0, assetRenderQueued = false, groundCacheKey = '', pendingClockDays = 0;
+  const movementInterpolator = createMovementInterpolator();
+  document.addEventListener('visibilitychange', () => movementInterpolator.markDiscontinuity());
+  const actorAnimationClock = createActorAnimationClock();
+  const activityEffects = createActivityEffects();
+  let activeMiningSites = new Set();
   const tinyTreeSprites = Object.create(null);
   const tinyBushSprites = [];
   const tinyStumpSprites = Object.create(null);
   const tinySheepSprites = Object.create(null);
-  const tinyPersonSprites = Object.create(null);
+  const animationRenderer = createAnimationRenderer({ onReady: queueAssetRender });
+  let waterRockDistanceWorld = null, waterRockDistances = null;
+  let waterRockPlacementsWorld = null, waterRockPlacements = null;
   const tinyBuildingSprites = Object.create(null);
+  const constructionFoundationSprites = Object.create(null);
+  const constructionFoundationFiles = {
+    castle: 'castelo-construcao.png', house: 'casa-construcao.png', tower: 'torre-construcao.png',
+    barracks: 'centro-militar-construcao.png', archery: 'arquearia-construcao.png', monastery: 'convento-construcao.png'
+  };
+  for (const [key, file] of Object.entries(constructionFoundationFiles)) {
+    const image = new Image();
+    image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
+    image.src = 'assets/construction-variants/' + file;
+    constructionFoundationSprites[key] = image;
+  }
   const tinyGoldSprites = Object.create(null);
+  const tinyRockSprites = Object.create(null);
+  const mapDecorationSprites = Object.create(null);
+  for (const sprite of MAP_DECORATION_SPRITES) {
+    const image = new Image();
+    image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
+    image.src = 'assets/map-decorations/' + sprite + '.png';
+    mapDecorationSprites[sprite] = image;
+  }
   const tinyTerrainAtlases = [];
   for (let color = 1; color <= 5; color++) {
     const image = new Image();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-    image.src = 'assets/tiny-swords/terrain/Tilemap_color' + color + '.png';
+    image.src = 'assets/kingdom-autotile/Tilemap_color' + color + '.png';
     tinyTerrainAtlases.push(image);
   }
-  const tinyWaterTile = new Image();
-  tinyWaterTile.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-  tinyWaterTile.src = 'assets/tiny-swords/terrain/water-background.png';
-  const tinyWaterFoam = new Image();
-  tinyWaterFoam.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-  tinyWaterFoam.src = 'assets/tiny-swords/terrain/water-foam.png';
+  // Water assets come from AutoTile.zip; its blue background happens to be
+  // pixel-identical to the older Tiny Swords water tile.
+  const autoTileWaterBackground = new Image();
+  autoTileWaterBackground.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
+  autoTileWaterBackground.src = 'assets/kingdom-autotile/water-background.png';
+  const autoTileWaterFoam = new Image();
+  autoTileWaterFoam.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
+  autoTileWaterFoam.src = 'assets/kingdom-autotile/water-foam.png';
+  const cloudSprites = Array.from({ length: 8 }, (_, index) => {
+    const image = new Image();
+    const asset = 'Clouds_' + String(index + 1).padStart(2, '0') + '.png';
+    image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
+    image.onerror = () => console.error('[Kingdom cloud asset] Falha ao carregar ' + asset);
+    image.src = 'assets/kingdom-clouds/' + asset;
+    return image;
+  });
+  const cloudSystem = createCloudSystem(cloudSprites, sessionSeed);
   const tinyFenceTilemap = new Image();
   tinyFenceTilemap.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
   tinyFenceTilemap.src = 'assets/tiny-swords/fences/tileset-fences-1.png';
   const tinyMeatSprite = new Image();
   tinyMeatSprite.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
   tinyMeatSprite.src = 'assets/tiny-swords/meat-resource.png';
-  const tinyElevationShadow = new Image();
-  tinyElevationShadow.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-  tinyElevationShadow.src = 'assets/tiny-swords/terrain/shadow.png';
+  const roadTileAtlas = new Image();
+  roadTileAtlas.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
+  roadTileAtlas.src = 'assets/kingdom-autotile/roads.png';
+  const cropFieldTexture = new Image();
+  cropFieldTexture.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
+  cropFieldTexture.src = 'assets/kingdom-autotile/crop-field.png';
+  const riceFieldDryPlantsTexture = new Image();
+  riceFieldDryPlantsTexture.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
+  riceFieldDryPlantsTexture.src = 'assets/kingdom-autotile/rice-field-dry-plants.png';
+  const healthBarSprites = { track: {}, fills: {} };
+  for (const part of ['left', 'center', 'right']) {
+    const image = new Image();
+    image.onload = queueAssetRender;
+    image.src = 'assets/kingdom-ui/hud-big-track-' + part + '.png';
+    healthBarSprites.track[part] = image;
+  }
+  const personBarSprites = { track: {}, fills: {} };
+  for (const part of ['left', 'center', 'right']) {
+    const image = new Image();
+    image.onload = queueAssetRender;
+    image.src = 'assets/kingdom-ui/hud-small-track-' + part + '.png';
+    personBarSprites.track[part] = image;
+  }
+  for (const color of ['red', 'yellow', 'green']) {
+    const image = new Image();
+    image.onload = queueAssetRender;
+    image.src = 'assets/kingdom-ui/hud-big-fill-' + color + '.png';
+    healthBarSprites.fills[color] = image;
+  }
+  for (const color of ['red', 'yellow', 'green', 'blue']) {
+    const image = new Image();
+    image.onload = queueAssetRender;
+    image.src = 'assets/kingdom-ui/hud-small-fill-' + color + '.png';
+    personBarSprites.fills[color] = image;
+  }
+  const commanderIcon = new Image();
+  commanderIcon.onload = queueAssetRender;
+  commanderIcon.src = 'assets/kingdom-ui/icon-05.png';
+  const generalSwordSprites = Object.create(null);
+  for (const color of ['black', 'cyan', 'purple', 'red', 'yellow']) {
+    generalSwordSprites[color] = {};
+    for (const part of ['left', 'center', 'right']) {
+      const image = new Image();
+      image.onload = queueAssetRender;
+      image.src = 'assets/kingdom-ui/sword-' + color + '-' + part + '.png';
+      generalSwordSprites[color][part] = image;
+    }
+  }
+  const tinyWoodSprite = new Image();
+  tinyWoodSprite.onload = queueAssetRender;
+  tinyWoodSprite.src = 'assets/tiny-swords/wood-resource.png';
+  for (let variant = 1; variant <= 4; variant++) {
+    const image = new Image();
+    image.onload = queueAssetRender;
+    image.src = 'assets/tiny-swords/rocks/rock-' + variant + '.png';
+    tinyRockSprites[variant] = image;
+  }
   for (let variant = 1; variant <= 6; variant++) {
     const image = new Image();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
@@ -70,72 +307,91 @@ export function mountGame() {
   function queueAssetRender() {
     if (assetRenderQueued) return;
     assetRenderQueued = true;
-    window.requestAnimationFrame(() => { assetRenderQueued = false; groundCacheKey = ''; render(); });
+    window.requestAnimationFrame(() => { assetRenderQueued = false; groundCacheKey = ''; if (world) render(); });
   }
   function visualPose(kind, agent) {
-    const key = kind + ':' + agent.id;
-    let motion = visualMotions.get(key);
-    if (!motion) {
-      motion = { fromX: agent.x, fromY: agent.y, toX: agent.x, toY: agent.y, start: animationTime, duration: 1 };
-      visualMotions.set(key, motion);
-    }
-    const progress = Math.max(0, Math.min(1, (animationTime - motion.start) / motion.duration));
-    const eased = progress * progress * (3 - 2 * progress);
-    const x = motion.fromX + (motion.toX - motion.fromX) * eased;
-    const y = motion.fromY + (motion.toY - motion.fromY) * eased;
-    if (Math.abs(agent.x - motion.toX) > .001 || Math.abs(agent.y - motion.toY) > .001) {
-      motion.fromX = x; motion.fromY = y;
-      motion.toX = agent.x; motion.toY = agent.y;
-      motion.start = animationTime;
-      motion.duration = Math.max(180, Math.min(720, 680 / Math.max(.5, session.speed)));
-    }
-    const activeProgress = Math.max(0, Math.min(1, (animationTime - motion.start) / motion.duration));
-    const activeEase = activeProgress * activeProgress * (3 - 2 * activeProgress);
-    return {
-      x: motion.fromX + (motion.toX - motion.fromX) * activeEase,
-      y: motion.fromY + (motion.toY - motion.fromY) * activeEase,
-      moving: activeProgress < 1,
-      dirX: motion.toX - motion.fromX
-    };
+    const pose = movementInterpolator.pose(kind, agent, animationTime);
+    if (kind !== 'person' || !agent.towerMounted) return pose;
+    const tower = world.structures.find(structure => structure.id === agent.towerDutyId);
+    return tower ? { ...pose, x: tower.x, y: tower.y - 3, moving: false }
+      : { ...pose, moving: false };
   }
   function clampMapPan() {
-    const maxX = Math.abs(canvas.offsetWidth * mapZoom - stage.clientWidth) / 2;
-    const maxY = Math.abs(canvas.offsetHeight * mapZoom - stage.clientHeight) / 2;
+    const mapSize = Math.min(stage.clientWidth, stage.clientHeight) * mapZoom;
+    const maxX = Math.max(0, (mapSize - stage.clientWidth) / 2);
+    const maxY = Math.max(0, (mapSize - stage.clientHeight) / 2);
     mapPanX = Math.max(-maxX, Math.min(maxX, mapPanX));
     mapPanY = Math.max(-maxY, Math.min(maxY, mapPanY));
   }
   function updateMapViewport() {
     clampMapPan();
-    canvas.style.setProperty('--map-zoom', mapZoom.toFixed(4));
-    canvas.style.setProperty('--map-pan-x', mapPanX.toFixed(2) + 'px');
-    canvas.style.setProperty('--map-pan-y', mapPanY.toFixed(2) + 'px');
     $('mapZoomLevel').textContent = Math.round(mapZoom * 100) + '%';
     $('mapZoomOut').disabled = mapZoom <= MIN_MAP_ZOOM + .001;
     $('mapZoomIn').disabled = mapZoom >= MAX_MAP_ZOOM - .001;
     $('mapZoomReset').disabled = mapZoom <= MIN_MAP_ZOOM + .001 && Math.abs(mapPanX) < 1 && Math.abs(mapPanY) < 1;
     $('cameraPosition').textContent = mapZoom > MIN_MAP_ZOOM + .001 ? 'ZOOM ' + Math.round(mapZoom * 100) + '%' : 'MAPA INTEIRO';
     canvas.style.cursor = mapZoom > MIN_MAP_ZOOM + .001 ? 'grab' : 'crosshair';
+    renderMiniMap();
   }
   function getMapViewport() {
-    const cssWidth = Math.max(1, canvas.offsetWidth), cssHeight = Math.max(1, canvas.offsetHeight);
-    const left = cssWidth / 2 + (-stage.clientWidth / 2 - mapPanX) / mapZoom;
-    const right = cssWidth / 2 + (stage.clientWidth / 2 - mapPanX) / mapZoom;
-    const top = cssHeight / 2 + (-stage.clientHeight / 2 - mapPanY) / mapZoom;
-    const bottom = cssHeight / 2 + (stage.clientHeight / 2 - mapPanY) / mapZoom;
-    const x = Math.max(0, Math.min(LOGICAL_SIZE, left / cssWidth * LOGICAL_SIZE));
-    const y = Math.max(0, Math.min(LOGICAL_SIZE, top / cssHeight * LOGICAL_SIZE));
-    const rightPx = Math.max(x, Math.min(LOGICAL_SIZE, right / cssWidth * LOGICAL_SIZE));
-    const bottomPx = Math.max(y, Math.min(LOGICAL_SIZE, bottom / cssHeight * LOGICAL_SIZE));
+    const camera = currentMapCamera();
+    const { x, y, width, height } = camera.view;
     const padding = 8; // Trees, buildings, and pens can extend several cells beyond their anchor.
     return {
-      x, y, width: rightPx - x, height: bottomPx - y,
+      x, y, width, height,
       bounds: {
         minX: Math.max(0, Math.floor(x / TILE) - padding),
-        maxX: Math.min(W - 1, Math.ceil(rightPx / TILE) + padding),
+        maxX: Math.min(W - 1, Math.ceil((x + width) / TILE) + padding),
         minY: Math.max(0, Math.floor(y / TILE) - padding),
-        maxY: Math.min(H - 1, Math.ceil(bottomPx / TILE) + padding)
+        maxY: Math.min(H - 1, Math.ceil((y + height) / TILE) + padding)
       }
     };
+  }
+  function currentMapCamera() {
+    return mapCamera(stage.clientWidth, stage.clientHeight, mapZoom, mapPanX, mapPanY,
+      window.devicePixelRatio || 1, LOGICAL_SIZE);
+  }
+  function renderMiniMap() {
+    if (!world || !miniMapContext || $('miniMapPanel').hidden) return;
+    const key = [world.seed, world.day, mapZoom, mapPanX.toFixed(1), mapPanY.toFixed(1), world.people.length, world.structures.length].join(':');
+    if (key === miniMapRenderKey) return;
+    miniMapRenderKey = key;
+    const map = miniMapContext, width = miniMapCanvas.width, height = miniMapCanvas.height;
+    map.clearRect(0, 0, width, height);
+    const tileWidth = width / W, tileHeight = height / H;
+    const colors = { blue: '#3974b8', red: '#b74f45', purple: '#8354a7', yellow: '#d5b346', black: '#59616b' };
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const tile = cell(x, y);
+        if (!tile) continue;
+        if (tile.terrain === 'water') map.fillStyle = '#3995a8';
+        else if (tile.kingdomId != null) {
+          const kingdom = getKingdom(tile.kingdomId);
+          map.fillStyle = colors[kingdom && kingdom.palette] || '#9c8751';
+        } else {
+          const biomass = Array.isArray(tile.plants) ? tile.plants.reduce((sum, amount) => sum + amount, 0) : 0;
+          map.fillStyle = biomass > 80 ? '#78934e' : biomass > 25 ? '#879351' : '#958751';
+        }
+        map.fillRect(x * tileWidth, y * tileHeight, tileWidth + .1, tileHeight + .1);
+      }
+    }
+    for (const structure of world.structures) {
+      map.fillStyle = colors[getKingdom(structure.kingdomId)?.palette] || '#d0b36c';
+      map.fillRect(structure.x - .6, structure.y - .6, 1.4, 1.4);
+    }
+    for (const person of world.people) if (person.alive && person.restingStructureId == null) {
+      map.fillStyle = colors[getKingdom(person.kingdomId)?.palette] || '#f0e2ae';
+      map.fillRect(person.x - .35, person.y - .35, .8, .8);
+    }
+    for (const animal of world.animals) if (animal.alive) {
+      map.fillStyle = '#fff1d0';
+      map.fillRect(animal.x - .3, animal.y - .3, .7, .7);
+    }
+    const view = getMapViewport();
+    const scaleX = width / LOGICAL_SIZE, scaleY = height / LOGICAL_SIZE;
+    map.strokeStyle = '#fff4ce'; map.lineWidth = 1.25;
+    map.strokeRect(view.x * scaleX + .5, view.y * scaleY + .5,
+      Math.max(1, view.width * scaleX - 1), Math.max(1, view.height * scaleY - 1));
   }
   function zoomMapTo(nextZoom, clientX, clientY) {
     const bounds = stage.getBoundingClientRect();
@@ -148,10 +404,12 @@ export function mountGame() {
     mapPanX = focusX - centerX - mapX * mapZoom;
     mapPanY = focusY - centerY - mapY * mapZoom;
     updateMapViewport();
+    drawMap();
   }
   function resetMapViewport() {
     mapZoom = MIN_MAP_ZOOM; mapPanX = 0; mapPanY = 0;
     updateMapViewport();
+    drawMap();
   }
   window.addEventListener('resize', updateMapViewport);
   for (let id = 1; id <= 4; id++) {
@@ -177,34 +435,22 @@ export function mountGame() {
     tinySheepSprites[action] = image;
   }
   const tinyPalettes = ['blue', 'red', 'purple', 'yellow', 'black'];
-  const tinyPersonActions = ['idle', 'run', 'interact-axe', 'interact-hammer', 'interact-knife'];
   const loadedTinyPalettes = new Set();
-  const tinyPersonFiles = {
-    idle: 'pawn_idle.png', run: 'pawn_run.png',
-    'interact-axe': 'pawn_interact-axe.png',
-    'interact-hammer': 'pawn_interact-hammer.png',
-    'interact-knife': 'pawn_interact-knife.png'
-  };
   function ensureTinyPalette(palette) {
     if (!tinyPalettes.includes(palette) || loadedTinyPalettes.has(palette)) return;
     loadedTinyPalettes.add(palette);
-    tinyPersonSprites[palette] = Object.create(null);
+    for (const action of ['idle', 'run', 'attack', 'arrow'])
+      animationRenderer.load(getUnitAnimation('arqueiro', action, palette)).catch(error => console.warn(error));
+    animationRenderer.load(getUnitAnimation('monge', 'heal-effect', palette)).catch(error => console.warn(error));
     tinyBuildingSprites[palette] = Object.create(null);
-    for (const action of tinyPersonActions) {
-      const image = new Image();
-      image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-      image.src = 'assets/tiny-swords/people/' + palette + '/' + tinyPersonFiles[action];
-      tinyPersonSprites[palette][action] = image;
-    }
-    for (const key of ['house1', 'house2', 'house3', 'castle', 'tower', 'barracks']) {
+    for (const key of ['house1', 'house2', 'house3', 'castle', 'tower', 'barracks', 'archery', 'monastery', 'farmhouse']) {
       const image = new Image();
       image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
       image.src = 'assets/tiny-swords/buildings/' + palette + '/' + key + '.png';
       tinyBuildingSprites[palette][key] = image;
     }
   }
-  // Load only the colors present in the current two-kingdom scenario; other colors load on demand.
-  for (const kingdom of world.kingdoms) ensureTinyPalette(kingdom.palette);
+  // Kingdom palettes load when the Worker first returns its world snapshot.
 
   function fmt(n, digits) { return Number(n || 0).toLocaleString('pt-BR', { maximumFractionDigits: digits || 0 }); }
   function qualityLabel(score) { return score >= .62 ? 'boa' : score >= .28 ? 'moderada' : 'ruim'; }
@@ -215,20 +461,12 @@ export function mountGame() {
   }
   function rgba(hex, alpha) { const c = rgb(hex); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + alpha + ')'; }
   function mix(a, b, amount) { return a.map((v, i) => Math.round(v + (b[i] - v) * amount)); }
-  function terrainLight(t) {
-    const left = cell(t.x - 1, t.y) || t, right = cell(t.x + 1, t.y) || t;
-    const up = cell(t.x, t.y - 1) || t, down = cell(t.x, t.y + 1) || t;
-    const gx = (right.heightM - left.heightM) / 32, gy = (down.heightM - up.heightM) / 32;
-    const nx = -gx, ny = -gy, nz = 1, length = Math.hypot(nx, ny, nz);
-    const season = Sim.modules.Cosmos.seasonIndex(world.day);
-    const sunAngle = [-.72, -.58, -.42, -.68][season];
-    const sunX = Math.cos(sunAngle) * .48, sunY = Math.sin(sunAngle) * .48, sunZ = .74;
-    const incidence = Math.max(0, (nx * sunX + ny * sunY + nz * sunZ) / length);
-    const altitude = Math.min(.12, t.heightM / 8000);
-    return Math.max(.58, Math.min(1.14, .64 + incidence * .43 + altitude));
-  }
-  function lit(color, amount) { return color.map(c => Math.max(0, Math.min(255, Math.round(c * amount)))); }
   function hashColor(x, y, salt) { return ((x * 92821 + y * 68917 + salt * 283) >>> 0) % 11; }
+  function autoTileHash(x, y, seed = 0) {
+    let value = Math.imul(x + seed * 33 + 17, 374761393) + Math.imul(y + seed * 7 + 53, 668265263);
+    value = Math.imul(value ^ (value >>> 13), 1274126177);
+    return ((value ^ (value >>> 16)) >>> 0) / 4294967295;
+  }
   function cell(x, y) { return x < 0 || y < 0 || x >= W || y >= H ? null : world.tiles[y * W + x]; }
   function plantIndex(id) { return Sim.plants.findIndex(p => p.id === id); }
   function getCommunity(id) { return world.communities.find(c => c.id === id && !c.dissolved); }
@@ -246,17 +484,16 @@ export function mountGame() {
     if (!image || !image.complete || !image.naturalWidth) return false;
     const frameWidth = 192, frameCount = Math.max(1, Math.floor(image.naturalWidth / frameWidth));
     const frame = ((Math.floor(animationTime / 100) + variation) % frameCount + frameCount) % frameCount;
-    const size = mass > 760 ? 1 : mass > 420 ? .84 : .68;
-    // Tree frames use the same 64 px ground-cell scale as the terrain tileset.
-    const scale = TILE / 64 * size;
+    const maturityScale = mass > 760 ? 1 : mass > 420 ? .84 : .68;
+    const naturalSize = .8 + (variation % 5) * .1;
+    const size = maturityScale * naturalSize;
+    const scale = spriteScale(TILE, size);
     const width = frameWidth * scale, height = image.naturalHeight * scale;
     const baseY = ({ 1: 241, 2: 249, 3: 170, 4: 168 })[treeId];
     const x = tile.x * TILE + TILE / 2 - width / 2;
-    const groundY = tile.y * TILE + TILE - 2;
+    const groundY = tile.y * TILE + TILE;
     const y = groundY - baseY * scale;
-    ctx.fillStyle = 'rgba(20,35,26,.29)';
-    ctx.beginPath(); ctx.ellipse(tile.x * TILE + TILE / 2, groundY, Math.max(4, width * .22), 2.5, -.12, 0, Math.PI * 2); ctx.fill();
-    ctx.drawImage(image, frame * frameWidth, 0, frameWidth, image.naturalHeight, Math.round(x), Math.round(y), Math.round(width), Math.round(height));
+    ctx.drawImage(image, frame * frameWidth, 0, frameWidth, image.naturalHeight, x, y, width, height);
     return true;
   }
 
@@ -285,19 +522,11 @@ export function mountGame() {
     const frameWidth = 128, frameCount = Math.max(1, Math.floor(image.naturalWidth / frameWidth));
     const frame = ((Math.floor(animationTime / 180) + variation) % frameCount + frameCount) % frameCount;
     const size = mass >= 70 ? 1 : .67;
-    const scale = TILE / 32 * size, width = frameWidth * scale, height = image.naturalHeight * scale;
-    const footY = tile.y * TILE + TILE - 2;
+    const scale = spriteScale(TILE, size), width = frameWidth * scale, height = image.naturalHeight * scale;
+    const footY = tile.y * TILE + TILE;
     const x = tile.x * TILE + TILE / 2 - width / 2;
     const y = footY - 79 * scale;
-    ctx.fillStyle = 'rgba(20,35,26,.24)';
-    ctx.beginPath(); ctx.ellipse(tile.x * TILE + TILE / 2, footY, 5.5, 1.8, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.drawImage(image, frame * frameWidth, 0, frameWidth, image.naturalHeight, Math.round(x), Math.round(y), Math.round(width), Math.round(height));
-    if (plantId === 'berry' && mass > 38) {
-      ctx.fillStyle = '#9e4d52'; ctx.fillRect(tile.x * TILE + 5, footY - 8, 2, 2); ctx.fillRect(tile.x * TILE + 10, footY - 6, 2, 2);
-    } else if (plantId === 'browse') {
-      ctx.fillStyle = mass >= 70 ? '#a9c26f' : '#829f5a';
-      ctx.fillRect(tile.x * TILE + 6, footY - 6, 2, 1); ctx.fillRect(tile.x * TILE + 10, footY - 9, 1, 2);
-    }
+    ctx.drawImage(image, frame * frameWidth, 0, frameWidth, image.naturalHeight, x, y, width, height);
     return true;
   }
 
@@ -309,43 +538,63 @@ export function mountGame() {
     if (!image || !image.complete || !image.naturalWidth) return false;
     const frameWidth = 128, frameCount = Math.max(1, Math.floor(image.naturalWidth / frameWidth));
     const frame = ((Math.floor(animationTime / (sheet === 'grass' ? 145 : 180)) + animal.id * 2) % frameCount + frameCount) % frameCount;
-    const scale = TILE / 32, width = frameWidth * scale, height = image.naturalHeight * scale;
-    const footY = y + TILE - 1, x0 = x + TILE / 2 - width / 2, y0 = footY - 84 * scale;
-    ctx.fillStyle = 'rgba(20,35,26,.3)';
-    ctx.beginPath(); ctx.ellipse(x + TILE / 2, footY, 6.2, 2, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.drawImage(image, frame * frameWidth, 0, frameWidth, image.naturalHeight, Math.round(x0), Math.round(y0), Math.round(width), Math.round(height));
+    const scale = spriteScale(TILE), width = frameWidth * scale, height = image.naturalHeight * scale;
+    const footY = y + TILE, x0 = x + TILE / 2 - width / 2, y0 = footY - 84 * scale;
+    ctx.drawImage(image, frame * frameWidth, 0, frameWidth, image.naturalHeight, x0, y0, width, height);
     return true;
   }
 
-  function tinyPersonAction(person, pose) {
-    const state = String(person.state || '').toLowerCase();
-    if (pose.moving) return 'run';
-    if ((person.carriedMeat || 0) > .01) return 'idle';
-    if (person.brain.lastAction === 'build' || state.includes('construindo')) return 'interact-hammer';
-    if (person.brain.lastAction === 'gather' || state.includes('coletando material')) return 'interact-axe';
-    if (person.brain.lastAction === 'hunt' || state.includes('caçando')) return 'interact-knife';
-    return 'idle';
+  function drawMilitaryPerson(person, x, y, pose) {
+    const palette = getKingdom(person.kingdomId)?.palette || 'blue';
+    const action = person.combatAction;
+    const contactElapsed = action ? actorAnimationClock.elapsed('combat:' + person.id, String(action.id), animationTime) : Infinity;
+    const attacking = action?.day === world.day && contactElapsed < action.durationMs;
+    const defense = person.combatDefense;
+    const defenseElapsed = defense ? actorAnimationClock.elapsed('defense:' + person.id, String(defense.actionId), animationTime) : Infinity;
+    const defending = defense?.day === world.day && defenseElapsed >= Math.max(0, defense.atMs - 100)
+      && defenseElapsed < defense.atMs + 200;
+    const preparingSpear = attacking && action.weapon === 'lanceiro' && contactElapsed < action.windupMs;
+    const shotElapsed = actorAnimationClock.elapsed('shot:' + person.id, String(person.lastArrowSequence || 0), animationTime);
+    const shooting = !action && person.militaryClass === 'arqueiro' && person.lastArrowSequence > 0 && shotElapsed < 800;
+    const restingPerson = (action || defense) && ['attack', 'defend'].includes(person.militaryAnimation)
+      ? { ...person, militaryAnimationDay: -1 } : person;
+    const animatedPerson = attacking || shooting ? { ...person, militaryAnimation: preparingSpear ? 'defend' : 'attack', militaryAnimationDay: world.day,
+      militaryFacingX: action ? Math.cos(action.angle) : person.militaryFacingX,
+      militaryFacingY: action ? Math.sin(action.angle) : person.militaryFacingY }
+      : defending ? { ...person, militaryAnimation: 'defend', militaryAnimationDay: world.day } : restingPerson;
+    let sprite = militarySpritePose(animatedPerson, attacking || shooting ? { ...pose, moving: false, dirX: 0, dirY: 0 } : pose, world.day);
+    let animation = getUnitAnimation(sprite.unit.folder.toLowerCase(), sprite.action, palette);
+    const battle = attacking || defending || shooting || animatedPerson.militaryAnimationDay === world.day;
+    const elapsedMs = attacking ? action.weapon === 'lanceiro' && !preparingSpear
+      ? contactElapsed - action.windupMs : contactElapsed : defending ? Math.max(0, defenseElapsed - defense.atMs + 100)
+      : shooting ? shotElapsed : actorAnimationClock.elapsed(person.id, animation.id + (battle ? ':' + world.day : ''), animationTime);
+    if (battle && getAnimationFrame(animation, elapsedMs, { loop: false }).done) {
+      sprite = militarySpritePose(restingPerson, pose, -1);
+      animation = getUnitAnimation(sprite.unit.folder.toLowerCase(), sprite.action, palette);
+    }
+    return animationRenderer.draw(ctx, animation, x + TILE / 2, y + TILE,
+      { elapsedMs, scale: spriteScale(TILE, CHARACTER_SPRITE_SCALE), flipX: sprite.flip,
+        rotation: pose.rotation || 0,
+        loop: battle ? animation.loop : true });
   }
 
   function drawTinySwordsPerson(person, x, y, child, pose) {
+    if (person.role === 'soldier') return drawMilitaryPerson(person, x, y, pose);
     const kingdom = getKingdom(person.kingdomId);
     const palette = kingdom ? kingdom.palette : 'blue';
     ensureTinyPalette(palette);
-    const image = tinyPersonSprites[palette] && tinyPersonSprites[palette][tinyPersonAction(person, pose)];
-    if (!image || !image.complete || !image.naturalWidth) return false;
-    const frameWidth = 192, frameCount = Math.max(1, Math.floor(image.naturalWidth / frameWidth));
-    const frame = ((Math.floor(animationTime / 100) + person.id * 3) % frameCount + frameCount) % frameCount;
-    const scale = TILE / 48 * (child ? .78 : 1);
-    const width = frameWidth * scale, height = image.naturalHeight * scale;
-    const x0 = x + TILE / 2 - width / 2;
-    const y0 = y + TILE - 135 * scale;
-    ctx.drawImage(image, frame * frameWidth, 0, frameWidth, image.naturalHeight, Math.round(x0), Math.round(y0), Math.round(width), Math.round(height));
-    return true;
+    const sprite = residentSpritePose(person, pose, world.day);
+    const animation = getUnitAnimation('pawn', sprite.action, palette);
+    return animationRenderer.draw(ctx, animation, x + TILE / 2, y + TILE,
+      { elapsedMs: actorAnimationClock.elapsed(person.id, animation.id, animationTime),
+        scale: spriteScale(TILE, CHARACTER_SPRITE_SCALE * (child ? .78 : 1)),
+        flipX: sprite.flip, loop: true });
   }
 
   function drawCarriedMeat(person, x, y, pose) {
     if ((person.carriedMeat || 0) <= .01 || !tinyMeatSprite.complete || !tinyMeatSprite.naturalWidth) return;
-    const size = 18;
+    if (person.role !== 'soldier' && residentSpritePose(person, pose, world.day).cargoInSprite === 'meat') return;
+    const size = 64 * spriteScale(TILE);
     const side = pose.dirX < 0 ? -1 : 1;
     const px = x + TILE / 2 + (side < 0 ? -size - 2 : 4);
     const py = y + TILE / 2 - size / 2 + 2;
@@ -357,19 +606,60 @@ export function mountGame() {
 
   function drawCarriedWood(person, x, y, pose) {
     if ((person.carriedWood || 0) + (person.carriedStone || 0) + (person.carriedFeed || 0) <= .01) return;
+    if (person.role !== 'soldier' && residentSpritePose(person, pose, world.day).cargoInSprite === 'wood'
+      && (person.carriedStone || 0) + (person.carriedFeed || 0) <= .01) return;
     const side = pose.dirX < 0 ? -1 : 1, px = x + TILE / 2 + (side < 0 ? -9 : 3), py = y + TILE / 2 - 2;
+    const isStone = (person.carriedStone || 0) > .01;
+    const image = isStone
+      ? tinyRockSprites[1 + Math.abs(Math.trunc(person.id || 0)) % 4]
+      : (person.carriedWood || 0) > .01 ? tinyWoodSprite : null;
+    if (image && image.complete && image.naturalWidth) {
+      const size = spriteScale(TILE) * 64;
+      ctx.save(); ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(image, Math.round(px - 1), Math.round(py - 2), size, size);
+      ctx.restore();
+      return;
+    }
+    if (isStone) {
+      ctx.fillStyle = '#59665f'; ctx.fillRect(px, py - 1, 7, 5);
+      ctx.fillStyle = '#a3aa99'; ctx.fillRect(px + 1, py - 1, 4, 2);
+      return;
+    }
     ctx.fillStyle = '#61432c'; ctx.fillRect(px, py, 7, 3);
     ctx.fillStyle = '#bc8c57'; ctx.fillRect(px + 1, py - 1, 5, 2);
     ctx.fillStyle = '#e0bd84'; ctx.fillRect(px, py, 1, 2); ctx.fillRect(px + 6, py, 1, 2);
   }
 
   function structureSpriteKey(structure) {
-    const defaults = { castelo: 'castle', torre: 'tower', centro_militar: 'barracks', abrigo: 'house1', 'posto de coleta': 'house2' };
+    if (structure.type === 'arquearia') return 'archery';
+    if (structure.type === 'monasterio') return 'monastery';
+    const defaults = { castelo: 'castle', torre: 'tower', centro_militar: 'barracks', monasterio: 'monastery', arquearia: 'archery', abrigo: 'house1', roça: 'farmhouse', 'posto de coleta': 'house2' };
     return structure.spriteKey || defaults[structure.type] || 'house3';
   }
 
+  const constructionFoundationSpecs = Object.freeze({
+    castle: { asset: 'castle', sprite: 'castle', width: 320, height: 256, visualTop: 140 },
+    house: { asset: 'house', sprite: 'house1', width: 128, height: 192, visualTop: 90 },
+    tower: { asset: 'tower', sprite: 'tower', width: 128, height: 256, visualTop: 148 },
+    barracks: { asset: 'barracks', sprite: 'barracks', width: 192, height: 256, visualTop: 9 },
+    archery: { asset: 'archery', sprite: 'archery', width: 192, height: 256, visualTop: 15 },
+    monastery: { asset: 'monastery', sprite: 'monastery', width: 192, height: 320, visualTop: 19 }
+  });
+
+  function constructionFoundationSpec(structure) {
+    if (structure.type === 'castelo') return constructionFoundationSpecs.castle;
+    if (structure.type === 'torre') return constructionFoundationSpecs.tower;
+    if (structure.type === 'centro_militar') return constructionFoundationSpecs.barracks;
+    if (structure.type === 'arquearia') return constructionFoundationSpecs.archery;
+    if (structure.type === 'monasterio') return constructionFoundationSpecs.monastery;
+    if (structure.type === 'abrigo' || structure.type === 'casa' || structureSpriteKey(structure) === 'house1') {
+      return constructionFoundationSpecs.house;
+    }
+    return null;
+  }
+
   function structureDisplayName(type) {
-    return ({ castelo: 'Castelo', torre: 'Torre', centro_militar: 'Centro de treinamento', vila: 'Vila', mercado: 'Mercado', curral: 'Curral', casa: 'Casa', abrigo: 'Abrigo', 'posto de coleta': 'Posto de coleta' })[type] || type;
+    return ({ castelo: 'Castelo', torre: 'Torre', centro_militar: 'Centro de treinamento', monasterio: 'Monastério', arquearia: 'Arquearia', vila: 'Vila', mercado: 'Mercado', curral: 'Curral', casa: 'Casa', abrigo: 'Abrigo', roça: 'Roça comunitária', 'posto de coleta': 'Posto de coleta' })[type] || type;
   }
 
   function drawTinySwordsBuilding(structure, community, kingdom, x, y) {
@@ -378,260 +668,436 @@ export function mountGame() {
     ensureTinyPalette(palette);
     const image = tinyBuildingSprites[palette] && tinyBuildingSprites[palette][spriteKey];
     if (!image || !image.complete || !image.naturalWidth) return false;
-    const scale = TILE / 64, width = image.naturalWidth * scale, height = image.naturalHeight * scale;
+    const scale = spriteScale(TILE), width = image.naturalWidth * scale, height = image.naturalHeight * scale;
     const x0 = x + TILE / 2 - width / 2;
-    const y0 = y + TILE - image.naturalHeight * .9 * scale;
+    const y0 = y + TILE - (BUILDING_FEET[spriteKey] || image.naturalHeight) * scale;
     ctx.save(); ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(image, Math.round(x0), Math.round(y0), Math.round(width), Math.round(height));
+    ctx.drawImage(image, x0, y0, width, height);
     ctx.restore();
     return true;
   }
 
-  function tinyTerrainPalette(t) {
-    return Math.max(0, Math.min(4, Math.floor(t.heightM / 320)));
+  function drawConstructionFoundation(x, y, spec) {
+    const image = constructionFoundationSprites[spec.asset];
+    if (!image || !image.complete || !image.naturalWidth) return false;
+    const scale = spriteScale(TILE), width = spec.width * scale, height = spec.height * scale;
+    const feet = BUILDING_FEET[spec.sprite] || spec.height;
+    const x0 = x + TILE / 2 - width / 2;
+    const y0 = y + TILE - feet * scale;
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(image, x0, y0, width, height);
+    ctx.restore();
+    return true;
   }
 
-  function tinyShoreTile(t, elevated) {
-    const north = cell(t.x, t.y - 1), south = cell(t.x, t.y + 1);
-    const west = cell(t.x - 1, t.y), east = cell(t.x + 1, t.y);
-    const exposed = neighbor => neighbor && (neighbor.terrain === 'water' || (elevated && t.heightM - neighbor.heightM > 105));
-    const n = exposed(north), s = exposed(south), w = exposed(west), e = exposed(east);
-    if (n && s && !w && !e) return { col: elevated ? 8 : 3, row: 1, rotate: Math.PI / 2 };
-    if (w && e && !n && !s) return { col: elevated ? 8 : 3, row: 1, rotate: 0 };
-    let col = w ? 0 : e ? 2 : 1, row = n ? 0 : s ? 2 : 1;
-    if (n && w) { col = 0; row = 0; }
-    else if (n && e) { col = 2; row = 0; }
-    else if (s && w) { col = 0; row = 2; }
-    else if (s && e) { col = 2; row = 2; }
-    return { col: col + (elevated ? 5 : 0), row, rotate: 0 };
+  function drawConstructionProgressBar(structure, x, y, spec) {
+    const scale = spriteScale(TILE);
+    const feet = BUILDING_FEET[spec.sprite] || spec.height;
+    const foundationTop = y + TILE - feet * scale + spec.visualTop * scale;
+    const width = Math.max(TILE * 2, spec.width * scale);
+    const ratio = structure.required > 0
+      ? Math.max(0, Math.min(1, (structure.progress || 0) / structure.required)) : 0;
+    drawWorldHealthBar(x + TILE / 2 - width / 2, foundationTop - 9, width, 7, ratio, 'yellow');
+  }
+
+  function tinyTerrainPalette(season = Sim.modules.Cosmos.seasonIndex(world.day)) {
+    return SEASON_TERRAIN_PALETTES[season] ?? SEASON_TERRAIN_PALETTES[0];
+  }
+
+  function seasonalTerrainTransition(day) {
+    const date = Sim.modules.Cosmos.calendarDate(day);
+    const daysRemaining = date.daysInSeason - date.dayOfSeason;
+    const denominator = Math.max(1, SEASON_TERRAIN_TRANSITION_DAYS - 1);
+    const progress = Math.max(0, Math.min(1,
+      (SEASON_TERRAIN_TRANSITION_DAYS - 1 - daysRemaining) / denominator));
+    return {
+      season: date.season,
+      nextSeason: date.nextSeason,
+      alpha: progress * progress * (3 - 2 * progress)
+    };
+  }
+
+  function tileElevation(t) {
+    return Number.isInteger(t.elevationLevel) ? t.elevationLevel : (t.heightM || 0) >= 320 ? 1 : 0;
+  }
+
+  function autoTileCoord(t, layer) {
+    const hasLayer = (x, y) => {
+      const neighbor = cell(x, y);
+      return !!neighbor && neighbor.terrain !== 'water' && tileElevation(neighbor) >= layer;
+    };
+    const west = hasLayer(t.x - 1, t.y), east = hasLayer(t.x + 1, t.y);
+    const north = hasLayer(t.x, t.y - 1), south = hasLayer(t.x, t.y + 1);
+    const col = !west && !east ? 3 : !west ? 0 : !east ? 2 : 1;
+    const row = !north && !south ? 3 : !north ? 0 : !south ? 2 : 1;
+    return { col, row };
   }
 
   function drawTinyAtlasTile(image, col, row, x, y) {
     if (!image || !image.complete || !image.naturalWidth) return false;
-    ctx.drawImage(image, col * 64, row * 64, 64, 64, x, y, TILE, TILE);
+    ctx.drawImage(image, col * 64, row * 64, 64, 64, ...alignedTileRect(x, y, TILE, mapTransform));
     return true;
   }
 
+  function hasElevation(x, y) {
+    const tile = cell(x, y);
+    return !!tile && tile.terrain !== 'water' && tileElevation(tile) > 0;
+  }
+
+  function rampFits(x, y, side) {
+    if (side !== 1 && side !== 2) return false;
+    const lower = cell(x, y), lowerFoot = cell(x, y + 1);
+    const highX = x + (side === 1 ? 1 : -1);
+    const high = cell(highX, y), highFoot = cell(highX, y + 1);
+    return !!lower && !!lowerFoot && !!high && !!highFoot
+      && lower.terrain !== 'water' && lowerFoot.terrain !== 'water'
+      && tileElevation(lower) === 0 && tileElevation(lowerFoot) === 0
+      && hasElevation(highX, y) && !hasElevation(highX, y + 1);
+  }
+
+  function isValidTinyRamp(tile) {
+    return tile && tile.rampSegment === 1 && tile.rampLevel === 1
+      && rampFits(tile.x, tile.y, tile.rampSide);
+  }
+
+  function hasLeftRamp(x, y) {
+    return isValidTinyRamp(cell(x - 1, y)) && cell(x - 1, y).rampSide === 1;
+  }
+
+  function hasRightRamp(x, y) {
+    return isValidTinyRamp(cell(x + 1, y)) && cell(x + 1, y).rampSide === 2;
+  }
+
+  function cliffColumn(x, y) {
+    const west = hasElevation(x - 1, y), east = hasElevation(x + 1, y);
+    return !west && !east ? 8 : !west ? 5 : !east ? 7 : 6;
+  }
+
+  function cliffTopCoord(x, y) {
+    let west = hasElevation(x - 1, y), east = hasElevation(x + 1, y);
+    const north = hasElevation(x, y - 1), south = hasElevation(x, y + 1);
+    if (!west && east && hasLeftRamp(x, y)) west = true;
+    if (!east && west && hasRightRamp(x, y)) east = true;
+    const col = !west && !east ? 3 : !west ? 0 : !east ? 2 : 1;
+    const row = !north && !south ? 3 : !north ? 0 : !south ? 2 : 1;
+    return { col: col + 5, row };
+  }
+
+  // Match AutoTile's paint order: the low ground stays visible, the south
+  // facing wall occupies the tile below the raised edge, then ramp and top.
   function drawTinyCliffFaces() {
-    const directions = [
-      { dx: 0, dy: 1, angle: 0 }, { dx: 0, dy: -1, angle: Math.PI },
-      { dx: 1, dy: 0, angle: Math.PI / 2 }, { dx: -1, dy: 0, angle: -Math.PI / 2 }
-    ];
     for (const t of world.tiles) {
-      if (t.terrain === 'water') continue;
-      let face = null;
-      for (const d of directions) {
-        const lower = cell(t.x + d.dx, t.y + d.dy);
-        const drop = lower ? t.heightM - lower.heightM : 0;
-        if (!lower || drop < 245 || t.heightM < 700 || t.slope < .4) continue;
-        if (!face || drop > face.drop) face = { ...d, lower, drop };
-      }
-      if (!face) continue;
-      const atlas = tinyTerrainAtlases[tinyTerrainPalette(t)];
+      if (!hasElevation(t.x, t.y) || hasElevation(t.x, t.y + 1)) continue;
+      const lower = cell(t.x, t.y + 1);
+      if (!lower) continue;
+      const atlas = tinyTerrainAtlases[tinyTerrainPalette()];
       if (!atlas || !atlas.complete || !atlas.naturalWidth) continue;
-      const x = face.lower.x * TILE + TILE / 2, y = face.lower.y * TILE + TILE / 2;
-      ctx.save();
-      ctx.translate(x, y); ctx.rotate(face.angle);
-      ctx.beginPath(); ctx.rect(-TILE / 2, -TILE / 2, TILE, TILE / 2); ctx.clip();
-      ctx.globalAlpha = Math.min(.78, .48 + face.drop / 1000);
-      ctx.drawImage(atlas, 6 * 64, 4 * 64, 64, 64, -TILE / 2, -TILE / 2, TILE, TILE);
-      ctx.restore();
+      let column = cliffColumn(t.x, t.y);
+      if (hasLeftRamp(t.x, t.y) && (column === 5 || column === 8)) column = 6;
+      if (hasRightRamp(t.x, t.y) && (column === 7 || column === 8)) column = 6;
+      const row = lower.terrain === 'water' ? 5 : 4;
+      drawTinyAtlasTile(atlas, column, row, t.x * TILE, lower.y * TILE);
     }
   }
 
-  function drawTinyElevationShadows() {
-    if (!tinyElevationShadow.complete || !tinyElevationShadow.naturalWidth) return;
+  function drawTinyElevationLayer() {
     for (const t of world.tiles) {
-      if (t.terrain === 'water' || t.heightM < 640) continue;
-      const south = cell(t.x, t.y + 1);
-      if (!south || south.terrain === 'water' || t.heightM - south.heightM < 105) continue;
-      ctx.globalAlpha = .24;
-      // The atlas places its opaque center one tile below the image origin.
-      ctx.drawImage(tinyElevationShadow, (t.x - 1) * TILE, t.y * TILE, TILE * 3, TILE * 3);
-      ctx.globalAlpha = 1;
+      if (!hasElevation(t.x, t.y)) continue;
+      const atlas = tinyTerrainAtlases[tinyTerrainPalette()];
+      const coord = cliffTopCoord(t.x, t.y);
+      drawTinyAtlasTile(atlas, coord.col, coord.row, t.x * TILE, t.y * TILE);
     }
   }
 
-  function drawTinyWaterFoam(bounds) {
-    if (!tinyWaterFoam.complete || !tinyWaterFoam.naturalWidth) return;
-    const frameCount = Math.max(1, Math.floor(tinyWaterFoam.naturalWidth / 192));
-    for (const t of world.waterTiles) {
-      if (t.x < bounds.minX || t.x > bounds.maxX || t.y < bounds.minY || t.y > bounds.maxY) continue;
-      const touchesLand = [[0, 1], [0, -1], [1, 0], [-1, 0]].some(([dx, dy]) => {
-        const neighbor = cell(t.x + dx, t.y + dy);
-        return neighbor && neighbor.terrain !== 'water';
-      });
-      if (!touchesLand || (t.x * 3 + t.y * 5 + world.seed) % 3 !== 0) continue;
-      const phase = ((Math.floor(animationTime / 100) + hashColor(t.x, t.y, world.seed)) % frameCount + frameCount) % frameCount;
-      ctx.globalAlpha = .18;
-      ctx.drawImage(tinyWaterFoam, phase * 192, 0, 192, 192,
-        t.x * TILE - TILE, t.y * TILE - TILE, TILE * 3, TILE * 3);
-      ctx.globalAlpha = 1;
+  function drawTinyRamps() {
+    for (const t of world.tiles) {
+      if (!isValidTinyRamp(t)) continue;
+      const high = cell(t.x + (t.rampSide === 1 ? 1 : -1), t.y);
+      const atlas = high && tinyTerrainAtlases[tinyTerrainPalette()];
+      if (!atlas || !atlas.complete || !atlas.naturalWidth) continue;
+      const column = t.rampSide === 1 ? 0 : 3;
+      drawTinyAtlasTile(atlas, column, 4, t.x * TILE, t.y * TILE);
+      drawTinyAtlasTile(atlas, column, 5, t.x * TILE, (t.y + 1) * TILE);
     }
   }
 
   function drawTinySwordsGround() {
     const baseAtlas = tinyTerrainAtlases[0];
     if (!baseAtlas || !baseAtlas.complete || !baseAtlas.naturalWidth) return false;
+    const transition = seasonalTerrainTransition(world.day);
+    const currentAtlas = tinyTerrainAtlases[tinyTerrainPalette(transition.season)];
     for (const t of world.tiles) {
-      const x = t.x * TILE, y = t.y * TILE, variation = hashColor(t.x, t.y, world.seed);
-      if (t.terrain === 'water') {
-        if (tinyWaterTile.complete && tinyWaterTile.naturalWidth) ctx.drawImage(tinyWaterTile, x, y, TILE, TILE);
-        else { ctx.fillStyle = '#31566c'; ctx.fillRect(x, y, TILE, TILE); }
-        if ((variation + world.day) % 7 === 0) {
-          ctx.fillStyle = 'rgba(204,235,215,.28)';
-          ctx.fillRect(x + 2 + variation % 7, y + (world.day + t.x) % 13, 5, 1);
-        }
-      } else {
-        const elevated = t.heightM >= 640 || t.terrain === 'rock';
-        if (t.terrain === 'rock') {
-          const stone = lit([104 + variation * 2, 110 + variation * 2, 105 + variation * 2], terrainLight(t));
-          ctx.fillStyle = 'rgb(' + stone.join(',') + ')'; ctx.fillRect(x, y, TILE, TILE);
-          if (variation % 3 === 0) { ctx.fillStyle = 'rgba(210,207,184,.56)'; ctx.fillRect(x + 2 + variation % 5, y + 3 + variation % 4, 4, 2); }
-          if (variation % 4 === 0) { ctx.fillStyle = 'rgba(46,55,55,.46)'; ctx.fillRect(x + 8, y + 9 + variation % 4, 5, 2); }
-        } else {
-          const tile = tinyShoreTile(t, elevated);
-          const atlas = tinyTerrainAtlases[tinyTerrainPalette(t)];
-          const terrainAtlas = atlas && atlas.complete && atlas.naturalWidth ? atlas : baseAtlas;
-          if (tile.rotate) {
-            ctx.save(); ctx.translate(x + TILE / 2, y + TILE / 2); ctx.rotate(tile.rotate);
-            drawTinyAtlasTile(terrainAtlas, tile.col, tile.row, -TILE / 2, -TILE / 2); ctx.restore();
-          } else drawTinyAtlasTile(terrainAtlas, tile.col, tile.row, x, y);
-        }
-      }
-      applyLayerTint(t, x, y);
+      if (t.terrain === 'water') continue;
+      const x = t.x * TILE, y = t.y * TILE;
+      const coord = autoTileCoord(t, 0);
+      drawTinyAtlasTile(currentAtlas && currentAtlas.complete && currentAtlas.naturalWidth
+        ? currentAtlas : baseAtlas, coord.col, coord.row, x, y);
     }
-    drawTinyElevationShadows();
-    drawTinyCliffFaces();
+    if (transition.alpha > 0) {
+      const nextAtlas = tinyTerrainAtlases[tinyTerrainPalette(transition.nextSeason)];
+      if (nextAtlas && nextAtlas.complete && nextAtlas.naturalWidth) {
+        ctx.save();
+        ctx.globalAlpha = transition.alpha;
+        for (const t of world.tiles) {
+          if (t.terrain === 'water') continue;
+          const coord = autoTileCoord(t, 0);
+          drawTinyAtlasTile(nextAtlas, coord.col, coord.row, t.x * TILE, t.y * TILE);
+        }
+        ctx.restore();
+      }
+    }
     return true;
   }
 
   function drawGround() {
     if (drawTinySwordsGround()) return;
     for (const t of world.tiles) {
+      if (t.terrain === 'water') continue;
       const x = t.x * TILE, y = t.y * TILE, variation = hashColor(t.x, t.y, world.seed);
-      const light = terrainLight(t);
-      if (t.terrain === 'water') {
-        const nearShore = [[0,1],[0,-1],[1,0],[-1,0]].some(([dx,dy]) => { const n = cell(t.x + dx, t.y + dy); return n && n.terrain !== 'water'; });
-        const lake = t.waterKind === 'lake' && world.lakes ? world.lakes[t.lakeId] : world.lake;
-        const depth = lake ? Math.min(1, Math.hypot(t.x - lake.x, t.y - lake.y) / Math.max(1, lake.r)) : .45;
-        const waterBase = mix([42, 91, 101], [31, 68, 86], depth);
-        ctx.fillStyle = 'rgb(' + lit(waterBase, light).join(',') + ')'; ctx.fillRect(x, y, TILE, TILE);
-        if (nearShore) { ctx.fillStyle = '#d2c99a38'; ctx.fillRect(x + 1, y + 1, TILE - 2, 1); }
-        if ((t.x * 3 + t.y * 5 + world.day) % 5 === 0) { ctx.fillStyle = '#a8d0c388'; ctx.fillRect(x + 2 + variation % 8, y + ((world.day + t.x) % 13), 5 + variation % 4, 1); }
-      } else if (t.terrain === 'rock') {
-        const stone = lit([112 + variation, 117 + variation, 105 + variation], light);
+      if (t.terrain === 'rock') {
+        const stone = [112 + variation, 117 + variation, 105 + variation];
         ctx.fillStyle = 'rgb(' + stone.join(',') + ')'; ctx.fillRect(x, y, TILE, TILE);
-        ctx.fillStyle = rgba('#d5d0b5', .2 + light * .08); ctx.fillRect(x + 2, y + 2, 8 + variation % 4, 3);
-        ctx.fillStyle = rgba('#34463e', .24 + t.slope * .12); ctx.fillRect(x + 7, y + 9, 7, 5);
+        ctx.fillStyle = rgba('#d5d0b5', .24); ctx.fillRect(x + 2, y + 2, 8 + variation % 4, 3);
+        ctx.fillStyle = rgba('#34463e', .3); ctx.fillRect(x + 7, y + 9, 7, 5);
         if (variation % 3 === 0) { ctx.fillStyle = '#789078'; ctx.fillRect(x + 4, y + 12, 4, 2); }
       } else {
         const wet = Math.max(0, Math.min(1, t.soilWaterMm / t.soilCapacityMm));
-        const high = Math.max(0, Math.min(1, (t.heightM - 370) / 750));
         let ground = t.soilType === 'shallow' ? [112, 116, 88] : t.soilType === 'sandy' ? [152, 139, 98] : t.soilType === 'riparian' ? [77, 111, 73] : [88, 119, 72];
-        ground = mix(ground, [119, 116, 99], high * .52);
         ground = mix(ground, [142, 123, 83], Math.max(0, .42 - wet) * .54);
-        ground = lit(ground.map(v => Math.min(220, v + variation * .75)), light);
+        ground = ground.map(v => Math.min(220, v + variation * .75));
         ctx.fillStyle = 'rgb(' + ground.join(',') + ')';
         ctx.fillRect(x, y, TILE, TILE);
         if (variation % 4 === 0) { ctx.fillStyle = '#d5c99a4d'; ctx.fillRect(x + 3 + variation % 5, y + 4 + variation % 6, 2, 1); }
-        if (t.slope > .26 && variation % 3 === 0) { ctx.fillStyle = rgba('#35463a', Math.min(.2, t.slope * .1)); ctx.fillRect(x + 2, y + 12, 5, 1); }
       }
-      applyLayerTint(t, x, y);
     }
-    drawContours();
   }
 
-  function drawContours() {
-    ctx.save(); ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(238,231,194,.18)';
+  function drawGroundPlants() {
     for (const t of world.tiles) {
       if (t.terrain === 'water') continue;
-      const level = Math.floor(t.heightM / 110);
-      const right = cell(t.x + 1, t.y), down = cell(t.x, t.y + 1);
-      if (right && right.terrain !== 'water' && Math.floor(right.heightM / 110) !== level) {
-        ctx.beginPath(); ctx.moveTo(t.x * TILE + 13, t.y * TILE + 2); ctx.lineTo(t.x * TILE + 15, t.y * TILE + 13); ctx.stroke();
-      }
-      if (down && down.terrain !== 'water' && Math.floor(down.heightM / 110) !== level) {
-        ctx.beginPath(); ctx.moveTo(t.x * TILE + 2, t.y * TILE + 13); ctx.lineTo(t.x * TILE + 13, t.y * TILE + 15); ctx.stroke();
+      const px = t.x * TILE, py = t.y * TILE;
+      if (t.cropFieldId == null) continue;
+      const tileSize = SOURCE_TILE_PIXELS;
+      const columns = Math.floor(cropFieldTexture.naturalWidth / tileSize);
+      const rows = Math.floor(cropFieldTexture.naturalHeight / tileSize);
+      if (!cropFieldTexture.complete || !columns || !rows) continue;
+      const variantCount = columns * rows;
+      const variant = Math.min(variantCount - 1,
+        Math.floor(autoTileHash(t.x, t.y, world.seed + 2147) * variantCount));
+      const sourceX = (variant % columns) * tileSize;
+      const sourceY = Math.floor(variant / columns) * tileSize;
+      ctx.save(); ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(cropFieldTexture, sourceX, sourceY, tileSize, tileSize,
+        ...alignedTileRect(px, py, TILE, mapTransform));
+      ctx.restore();
+    }
+  }
+
+  function drawTinyWaterFoam(bounds) {
+    const frameSize = 128, cropSize = 64, cropOffset = 32;
+    if (!autoTileWaterFoam.complete || !autoTileWaterFoam.naturalWidth
+        || autoTileWaterFoam.naturalHeight < frameSize) return;
+    const frameCount = Math.floor(autoTileWaterFoam.naturalWidth / frameSize);
+    if (!frameCount) return;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    const edges = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+    for (let y = bounds.minY; y <= bounds.maxY; y++) {
+      for (let x = bounds.minX; x <= bounds.maxX; x++) {
+        const tile = cell(x, y);
+        if (!tile || tile.terrain === 'water') continue;
+        const hasWaterEdge = edges.some(([dx, dy]) => {
+          const neighbor = cell(x + dx, y + dy);
+          return !neighbor || neighbor.terrain === 'water';
+        });
+        if (!hasWaterEdge) continue;
+        const frame = Math.floor(animationTime / 110
+          + autoTileHash(x, y, world.seed + 65) * frameCount) % frameCount;
+        const sourceX = frame * frameSize + cropOffset;
+        for (const [dx, dy] of edges) {
+          const neighbor = cell(x + dx, y + dy);
+          if (neighbor && neighbor.terrain !== 'water') continue;
+          ctx.drawImage(autoTileWaterFoam, sourceX, cropOffset, cropSize, cropSize,
+            x * TILE + dx * TILE * .18, y * TILE + dy * TILE * .18, TILE, TILE);
+        }
       }
     }
     ctx.restore();
   }
 
-  function applyLayerTint(t, x, y) {
-    if (layer === 'territory' && t.terrain !== 'water' && t.kingdomId !== undefined) {
-      const kingdom = getKingdom(t.kingdomId);
-      if (kingdom) {
-        ctx.fillStyle = rgba(kingdom.color, .18);
-        ctx.fillRect(x, y, TILE, TILE);
-        const east = cell(t.x + 1, t.y), south = cell(t.x, t.y + 1);
-        ctx.strokeStyle = rgba(kingdom.color, .88); ctx.lineWidth = 1;
-        if (east && east.kingdomId !== t.kingdomId) { ctx.beginPath(); ctx.moveTo(x + TILE, y); ctx.lineTo(x + TILE, y + TILE); ctx.stroke(); }
-        if (south && south.kingdomId !== t.kingdomId) { ctx.beginPath(); ctx.moveTo(x, y + TILE); ctx.lineTo(x + TILE, y + TILE); ctx.stroke(); }
-      } else {
-        ctx.fillStyle = 'rgba(223,214,174,.06)';
-        ctx.fillRect(x, y, TILE, TILE);
+  function getWaterRockDistances() {
+    if (waterRockDistanceWorld === world && waterRockDistances) return waterRockDistances;
+    const maxDistance = 24;
+    const distances = new Uint8Array(W * H);
+    distances.fill(255);
+    const queue = new Int32Array(W * H);
+    let head = 0, tail = 0;
+    const isOcean = tile => tile?.terrain === 'water' && tile.waterKind === 'ocean';
+    const neighbors = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+    for (const tile of world.waterTiles || []) {
+      if (!isOcean(tile)) continue;
+      const shoreCell = neighbors.some(([dx, dy]) => {
+        const neighbor = cell(tile.x + dx, tile.y + dy);
+        return neighbor && neighbor.terrain !== 'water';
+      });
+      if (!shoreCell) continue;
+      const index = tile.y * W + tile.x;
+      distances[index] = 1;
+      queue[tail++] = index;
+    }
+    while (head < tail) {
+      const index = queue[head++], distance = distances[index];
+      if (distance >= maxDistance) continue;
+      const x = index % W, y = Math.floor(index / W);
+      for (const [dx, dy] of neighbors) {
+        const nextX = x + dx, nextY = y + dy;
+        if (nextX < 0 || nextY < 0 || nextX >= W || nextY >= H) continue;
+        const nextIndex = nextY * W + nextX;
+        if (distances[nextIndex] !== 255 || !isOcean(world.tiles[nextIndex])) continue;
+        distances[nextIndex] = distance + 1;
+        queue[tail++] = nextIndex;
       }
-    } else if (layer === 'soil' && t.terrain !== 'water') {
-      const wet = t.soilWaterMm / t.soilCapacityMm;
-      ctx.fillStyle = wet > .52 ? rgba('#438ca0', .10 + wet * .16) : rgba('#a87a47', .06 + (1 - wet) * .17);
-      ctx.fillRect(x, y, TILE, TILE);
-    } else if (layer === 'climate') {
-      const region = world.regions[t.regionId];
-      const tint = region.rainfallMm > 1 ? '#4d9aaa' : region.temperatureC > 24 ? '#d29a4b' : '#9c946f';
-      ctx.fillStyle = rgba(tint, .13 + Math.min(.12, region.rainfallMm / 90));
-      ctx.fillRect(x, y, TILE, TILE);
-    } else if (layer === 'flora' && t.terrain === 'land') {
-      const amount = t.plants.reduce((s, v) => s + v, 0);
-      ctx.fillStyle = rgba('#9fc56d', Math.min(.28, amount / 3600));
-      ctx.fillRect(x, y, TILE, TILE);
-    } else if (layer === 'harvest') {
-      const score = t.terrain === 'water' ? t.fishingSuitability : t.huntingSuitability;
-      const tint = score >= .62 ? (t.terrain === 'water' ? '#4ba9a0' : '#8cb85e')
-        : score >= .28 ? '#d6ae54' : '#b66b5b';
-      ctx.fillStyle = rgba(tint, score >= .62 ? .43 : score >= .28 ? .34 : .22);
-      ctx.fillRect(x, y, TILE, TILE);
+    }
+    waterRockDistanceWorld = world;
+    waterRockDistances = distances;
+    return distances;
+  }
+
+  function getWaterRockPlacements() {
+    if (waterRockPlacementsWorld === world && waterRockPlacements) return waterRockPlacements;
+    const distances = getWaterRockDistances();
+    const bands = [
+      { min: 16, max: 24, limit: 10, candidates: [] },
+      { min: 8, max: 15, limit: 12, candidates: [] }
+    ];
+    const shoreDensities = [0, .5, .32, .2, .12, .065, .03, .012];
+    const placements = [];
+    for (const tile of world.waterTiles || []) {
+      const shoreDistance = distances[tile.y * W + tile.x];
+      if (shoreDistance >= 1 && shoreDistance <= 7) {
+        const chance = autoTileHash(tile.x, tile.y, world.seed + 4591);
+        if (chance >= shoreDensities[shoreDistance]) continue;
+        const variant = Math.floor(autoTileHash(tile.x, tile.y, world.seed + 4603) * 4) + 1;
+        const phase = Math.floor(autoTileHash(tile.x, tile.y, world.seed + 4619) * 16);
+        const size = Math.max(.58, 1.18 - (shoreDistance - 1) * .1);
+        placements.push({ x: tile.x, y: tile.y, variant, phase, size });
+        continue;
+      }
+      const band = bands.find(item => shoreDistance >= item.min && shoreDistance <= item.max);
+      if (!band) continue;
+      const density = shoreDistance <= 15 ? .018 : .01;
+      const chance = autoTileHash(tile.x, tile.y, world.seed + 5399);
+      if (chance >= density) continue;
+      band.candidates.push({ x: tile.x, y: tile.y, shoreDistance,
+        priority: autoTileHash(tile.x, tile.y, world.seed + 5417) });
+    }
+
+    const minSeparationSquared = 12 * 12;
+    for (const band of bands) {
+      band.candidates.sort((a, b) => a.priority - b.priority);
+      let placedInBand = 0;
+      for (const candidate of band.candidates) {
+        if (placements.some(rock => (rock.x - candidate.x) ** 2 + (rock.y - candidate.y) ** 2 < minSeparationSquared)) continue;
+        const variant = Math.floor(autoTileHash(candidate.x, candidate.y, world.seed + 5431) * 4) + 1;
+        const phase = Math.floor(autoTileHash(candidate.x, candidate.y, world.seed + 5443) * 16);
+        const size = Math.max(.58, 1.18 - (candidate.shoreDistance - 1) * .1);
+        placements.push({ x: candidate.x, y: candidate.y, variant, phase, size });
+        if (++placedInBand >= band.limit) break;
+      }
+    }
+    waterRockPlacementsWorld = world;
+    waterRockPlacements = placements;
+    return placements;
+  }
+
+  function drawWaterRocks(bounds) {
+    for (const rock of getWaterRockPlacements()) {
+      if (rock.x < bounds.minX - 2 || rock.x > bounds.maxX + 2
+          || rock.y < bounds.minY - 2 || rock.y > bounds.maxY + 2) continue;
+      animationRenderer.draw(ctx, 'nature.water-rocks-' + String(rock.variant).padStart(2, '0'),
+        (rock.x + .5) * TILE, (rock.y + .5) * TILE,
+        { elapsedMs: animationTime, phase: rock.phase, scale: spriteScale(TILE, rock.size) });
     }
   }
 
-  function drawGroundPlants() {
-    const berry = plantIndex('berry'), browse = plantIndex('browse'), grass = plantIndex('grass'), reeds = plantIndex('reed');
-    for (const t of world.tiles) {
-      if (t.terrain === 'water') continue;
-      const px = t.x * TILE, py = t.y * TILE;
-      const g = t.plants[grass], sh = t.plants[berry], br = t.plants[browse], reed = t.plants[reeds];
-      if (g > 22 && (t.x * 5 + t.y * 7) % 3 === 0) {
-        ctx.fillStyle = g > 110 ? '#9ab565' : '#809a53';
-        ctx.fillRect(px + 3 + (t.x % 4), py + 10 + (t.y % 3), 2, 3);
-        ctx.fillRect(px + 8 + (t.y % 4), py + 7 + (t.x % 4), 1, 3);
-      }
-      if (reed > 38 && (t.x + t.y) % 2 === 0) {
-        ctx.fillStyle = '#a7a454'; ctx.fillRect(px + 4, py + 4, 1, 8); ctx.fillRect(px + 8, py + 2, 1, 10); ctx.fillRect(px + 11, py + 6, 1, 7);
-      }
+  function drawRiceWindOverlay(bounds) {
+    if (!world || visualPack !== 'tiny-swords'
+        || !riceFieldDryPlantsTexture.complete || riceFieldDryPlantsTexture.naturalWidth === 0) return;
+    const crop = plantIndex('cultivated-root');
+    const tileSize = SOURCE_TILE_PIXELS;
+    const columns = Math.floor(riceFieldDryPlantsTexture.naturalWidth / tileSize);
+    const rows = Math.floor(riceFieldDryPlantsTexture.naturalHeight / tileSize);
+    if (!columns || !rows) return;
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    const minX = Math.max(0, bounds?.minX ?? 0), maxX = Math.min(W - 1, bounds?.maxX ?? W - 1);
+    const minY = Math.max(0, bounds?.minY ?? 0), maxY = Math.min(H - 1, bounds?.maxY ?? H - 1);
+    for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
+      const tile = world.tiles[y * W + x];
+      if (!tile || tile.terrain === 'water' || tile.cropFieldId == null || (tile.plants[crop] || 0) <= 80) continue;
+      const variantCount = columns * rows;
+      const variant = Math.min(variantCount - 1,
+        Math.floor(autoTileHash(tile.x, tile.y, world.seed + 2147) * variantCount));
+      const sourceX = (variant % columns) * tileSize;
+      const sourceY = Math.floor(variant / columns) * tileSize;
+      const [drawX, drawY, drawWidth, drawHeight] = alignedTileRect(
+        tile.x * TILE, tile.y * TILE, TILE, mapTransform
+      );
+      const localPhase = tile.x * .17 + tile.y * .11
+        + autoTileHash(tile.x, tile.y, world.seed + 7589) * .18;
+      const swayPixels = Math.round(Math.sin(animationTime / 1150 + localPhase) * 1.5);
+      const sway = swayPixels / Math.max(.01, mapTransform[0]);
+
+      ctx.save();
+      ctx.translate(drawX, drawY);
+      // Pivot at the roots: the tops drift sideways while the soil stays still.
+      ctx.transform(1, 0, -sway / Math.max(1, drawHeight), 1, sway, 0);
+      ctx.drawImage(riceFieldDryPlantsTexture, sourceX, sourceY, tileSize, tileSize,
+        0, 0, drawWidth, drawHeight);
+      ctx.restore();
     }
+    ctx.restore();
   }
 
   function drawRoads() {
-    const pathWidth = TILE * .38;
+    const directions = [
+      [0, -1], [1, -1], [1, 0], [1, 1],
+      [0, 1], [-1, 1], [-1, 0], [-1, -1]
+    ];
     for (const tile of world.tiles) {
-      if (tile.terrain !== 'land' || !isRoadTile(tile)) continue;
-      const x = tile.x * TILE, y = tile.y * TILE, cx = x + TILE / 2, cy = y + TILE / 2;
-      const neighbors = [
-        [-1, 0], [1, 0], [0, -1], [0, 1],
-        [-1, -1], [1, -1], [-1, 1], [1, 1]
-      ].filter(([dx, dy]) => isRoadTile(cell(tile.x + dx, tile.y + dy), false));
-      const alpha = Math.min(.43, .18 + tile.roadWear * .008);
-      ctx.save(); ctx.strokeStyle = 'rgba(113,84,52,' + alpha + ')'; ctx.lineWidth = pathWidth; ctx.lineCap = 'square';
-      ctx.beginPath();
-      if (neighbors.length) {
-        for (const [dx, dy] of neighbors) {
-          ctx.moveTo(cx, cy); ctx.lineTo(cx + dx * TILE / 2, cy + dy * TILE / 2);
+      if (tile.terrain !== 'land' || tile.cropFieldId != null || !isRoadTile(tile)) continue;
+      if (roadTileAtlas.complete && roadTileAtlas.naturalWidth >= 2048 && roadTileAtlas.naturalHeight >= 2048) {
+        let mask = 0;
+        for (let index = 0; index < directions.length; index++) {
+          const [dx, dy] = directions[index];
+          if (isRoadTile(cell(tile.x + dx, tile.y + dy), false)) mask |= 1 << index;
         }
+        const variant = Math.min(3, Math.floor(autoTileHash(tile.x, tile.y, world.seed + 781) * 4));
+        const sourceIndex = mask * 4 + variant;
+        const sourceX = sourceIndex % 32 * 64, sourceY = Math.floor(sourceIndex / 32) * 64;
+        const alpha = Math.min(.80, .42 + tile.roadWear / ROAD_RULES.maxWear * .38);
+        ctx.save(); ctx.imageSmoothingEnabled = false; ctx.globalAlpha = alpha;
+        ctx.drawImage(roadTileAtlas, sourceX, sourceY, 64, 64,
+          ...alignedTileRect(tile.x * TILE, tile.y * TILE, TILE, mapTransform));
+        ctx.restore();
       } else {
-        ctx.moveTo(cx - pathWidth / 2, cy); ctx.lineTo(cx + pathWidth / 2, cy);
+        const pathWidth = TILE * .38, x = tile.x * TILE, y = tile.y * TILE;
+        const cx = x + TILE / 2, cy = y + TILE / 2;
+        const neighbors = directions.filter(([dx, dy]) => isRoadTile(cell(tile.x + dx, tile.y + dy), false));
+        const alpha = Math.min(.43, .18 + tile.roadWear * .008);
+        ctx.save(); ctx.strokeStyle = 'rgba(113,84,52,' + alpha + ')'; ctx.lineWidth = pathWidth; ctx.lineCap = 'square';
+        ctx.beginPath();
+        if (neighbors.length) {
+          for (const [dx, dy] of neighbors) {
+            ctx.moveTo(cx, cy); ctx.lineTo(cx + dx * TILE / 2, cy + dy * TILE / 2);
+          }
+        } else {
+          ctx.moveTo(cx - pathWidth / 2, cy); ctx.lineTo(cx + pathWidth / 2, cy);
+        }
+        ctx.stroke();
+        ctx.restore();
       }
-      ctx.stroke();
-      ctx.restore();
     }
   }
 
@@ -654,25 +1120,33 @@ export function mountGame() {
       items.push(Object.assign({ kind, x, y, z, depth: (y + 1) * TILE * 2048 + z, order, id: id || 0, sequence: sequence++ }, extra || {}));
     }
     for (const t of world.tiles) {
-      if (t.terrain === 'water') continue;
+      if (t.terrain === 'water' || t.cropFieldId != null) continue;
       const tree = t.plants[broad], pine = t.plants[conifer];
       const variant = (t.x * 13 + t.y * 17 + world.seed) % 5;
+      const treeAnchor = !gateCells.has(t.i) && Sim.modules.Biosphere.Botany.isTreeAnchor(world, t);
       if ((t.stoneDeposit || 0) > .7 || (t.goldOre || 0) > .05) {
         add('mineral', t.x, t.y, t, .15, t.i, { tile: t, stone: t.stoneDeposit || 0, gold: t.goldOre || 0 });
       }
-      if (!gateCells.has(t.i) && Sim.modules.Biosphere.Botany.isTreeAnchor(world, t)) {
+      if (treeAnchor) {
         const type = tree >= pine ? 'broadleaf' : 'conifer', mass = type === 'broadleaf' ? tree : pine;
         add('tree', t.x, t.y, t, 0, t.i, { tile: t, type, mass, variant });
       }
+      let bushAnchor = false;
       for (const plantId of ['berry', 'browse']) {
-        if (isBushAssetAnchor(t, plantId)) add('bush', t.x, t.y, t, 1, t.i, { tile: t, plantId });
+        if (isBushAssetAnchor(t, plantId)) {
+          bushAnchor = true;
+          add('bush', t.x, t.y, t, 1, t.i, { tile: t, plantId });
+        }
       }
+      const decoration = !treeAnchor && !bushAnchor && !isRoadTile(t) && t.stoneDeposit <= .7 && t.goldOre <= .05
+        ? mapDecorationAt(t, world.seed) : null;
+      if (decoration) add('decoration', t.x, t.y, t, 1.5, t.i, { decoration });
       if (t.stump && t.stump.untilDay >= world.day) add('stump', t.x, t.y, t, 2, t.i, { tile: t, stump: t.stump });
     }
     for (const item of world.logs || []) {
       if (!item.available || item.amount <= .01) continue;
       const tile = cell(Math.round(item.x), Math.round(item.y));
-      if (tile) add('log', item.x, item.y, tile, 2.2, item.id, { resource: item });
+      if (tile && tile.cropFieldId == null) add('log', item.x, item.y, tile, 2.2, item.id, { resource: item });
     }
     for (const s of world.structures) {
       if (s.type === 'divisa') continue;
@@ -721,11 +1195,29 @@ export function mountGame() {
       add('animal', pose.x, pose.y, tile, 3, a.id, { animal: a, pose });
     }
     for (const p of world.people) {
-      if (!p.alive) continue;
+      if (!p.alive || p.restingStructureId != null) continue;
       const pose = visualPose('person', p);
       if (pose.x < bounds.minX || pose.x > bounds.maxX || pose.y < bounds.minY || pose.y > bounds.maxY) continue;
       const tile = cell(Math.round(p.x), Math.round(p.y));
       add('person', pose.x, pose.y, tile, 4, p.id, { person: p, pose });
+      if (p.towerMounted) {
+        const tower = world.structures.find(structure => structure.id === p.towerDutyId);
+        items[items.length - 1].depth = ((tower?.y ?? p.y) + 1) * TILE * 2048 + (tile?.heightM || 0) + 1;
+      }
+    }
+    for (const pile of world.loot || []) {
+      if (pile.available && pile.x >= bounds.minX && pile.x <= bounds.maxX && pile.y >= bounds.minY && pile.y <= bounds.maxY)
+        add('loot', pile.x, pile.y, cell(Math.round(pile.x), Math.round(pile.y)), 4.5, pile.id, { pile });
+    }
+    for (const effect of activityEffects.active(animationTime)) {
+      const recipient = effect.personId != null ? getPerson(effect.personId) : null;
+      if (effect.personId != null && !recipient) continue;
+      const flight = effect.projectile ? Math.min(1, (animationTime - effect.startedAt) / effect.duration) : 0;
+      const position = recipient ? visualPose('person', recipient) : effect.projectile
+        ? { x: effect.x + (effect.targetX - effect.x) * flight, y: effect.y + (effect.targetY - effect.y) * flight } : effect;
+      if (position.x < bounds.minX || position.x > bounds.maxX || position.y < bounds.minY || position.y > bounds.maxY) continue;
+      add('effect', position.x, position.y, cell(Math.round(position.x), Math.round(position.y)), 5, effect.id, { effect });
+      if (effect.projectile || recipient?.towerMounted) items[items.length - 1].depth = Number.MAX_SAFE_INTEGER;
     }
     return items;
   }
@@ -737,12 +1229,17 @@ export function mountGame() {
       if (item.kind === 'tree') drawTreeItem(item);
       else if (item.kind === 'mineral') drawMineralDeposit(item);
       else if (item.kind === 'bush') drawTinySwordsBush(item.tile, item.plantId);
+      else if (item.kind === 'decoration') drawMapDecoration(item);
       else if (item.kind === 'stump') drawTreeStump(item);
       else if (item.kind === 'log') drawLooseTreeLog(item);
+      else if (item.kind === 'loot') drawLootPile(item.pile);
       else if (item.kind === 'fence') drawFenceSegment(item);
       else if (item.kind === 'structure') drawStructure(item.structure);
       else if (item.kind === 'animal') drawAnimal(item.animal, item.pose);
       else if (item.kind === 'person') drawPerson(item.person, item.pose);
+      else if (item.kind === 'effect') animationRenderer.draw(ctx, item.effect.animation,
+        (item.x + .5) * TILE, (item.y + (item.effect.personId != null ? 1 : .5)) * TILE,
+        { elapsedMs: animationTime - item.effect.startedAt, scale: TILE / item.effect.pixels, rotation: item.effect.projectile ? Math.atan2(item.effect.targetY - item.effect.y, item.effect.targetX - item.effect.x) : 0 });
     }
   }
 
@@ -756,29 +1253,32 @@ export function mountGame() {
   }
 
   function drawTreeStump(item) {
-    if (visualPack === 'tiny-swords') {
-      const isConifer = item.stump.type === 'conifer';
-      const firstVariant = isConifer ? 1 : 3;
-      const variant = firstVariant + hashColor(item.tile.x, item.tile.y, world.seed + 281) % 2;
-      const image = tinyStumpSprites[variant];
-      if (image && image.complete && image.naturalWidth >= 128 && image.naturalHeight >= 256) {
-        const anchors = { 1: { x: 35, y: 48 }, 2: { x: 30.5, y: 53 }, 3: { x: 33, y: 40 }, 4: { x: 35, y: 36 } };
-        const anchor = anchors[variant], scale = TILE / 64;
-        const x = item.x * TILE + TILE / 2 - anchor.x * scale;
-        const groundY = (item.y + 1) * TILE - 2;
-        const y = groundY - anchor.y * scale;
-        ctx.save(); ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(image, 64, 192, 64, 64, Math.round(x), Math.round(y), 64 * scale, 64 * scale);
-        ctx.restore();
-        return;
-      }
-    }
-    const x = item.x * TILE, y = item.y * TILE;
-    ctx.fillStyle = 'rgba(21,31,24,.3)'; ctx.fillRect(x + 3, y + 12, 10, 2);
-    ctx.fillStyle = '#59402a'; ctx.fillRect(x + 6, y + 6, 5, 8);
-    ctx.fillStyle = '#9a7044'; ctx.fillRect(x + 5, y + 5, 7, 3);
-    ctx.fillStyle = '#d0a46b'; ctx.fillRect(x + 7, y + 6, 3, 1);
-    ctx.fillStyle = '#725132'; ctx.fillRect(x + 8, y + 6, 1, 1);
+    if (visualPack !== 'tiny-swords') return;
+    const isConifer = item.stump.type === 'conifer';
+    const firstVariant = isConifer ? 1 : 3;
+    const variant = firstVariant + hashColor(item.tile.x, item.tile.y, world.seed + 281) % 2;
+    const image = tinyStumpSprites[variant];
+    if (!image || !image.complete || image.naturalWidth < 128 || image.naturalHeight < 256) return;
+    const anchors = { 1: { x: 35, y: 48 }, 2: { x: 30.5, y: 53 }, 3: { x: 33, y: 40 }, 4: { x: 35, y: 36 } };
+    const anchor = anchors[variant], scale = spriteScale(TILE);
+    const x = item.x * TILE + TILE / 2 - anchor.x * scale;
+    const groundY = (item.y + 1) * TILE;
+    const y = groundY - anchor.y * scale;
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(image, 64, 192, 64, 64, x, y, 64 * scale, 64 * scale);
+    ctx.restore();
+  }
+
+  function drawMapDecoration(item) {
+    const image = mapDecorationSprites[item.decoration.sprite];
+    if (!image || !image.complete || !image.naturalWidth) return;
+    const scale = spriteScale(TILE, item.decoration.size);
+    const width = image.naturalWidth * scale, height = image.naturalHeight * scale;
+    const x = item.x * TILE + (TILE - width) / 2;
+    const y = (item.y + 1) * TILE - height;
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(image, x, y, width, height);
+    ctx.restore();
   }
 
   function drawMineralDeposit(item) {
@@ -786,150 +1286,80 @@ export function mountGame() {
     const gold = item.gold > .05;
     if (gold) {
       const variant = Math.max(1, Math.min(6, Math.ceil(item.gold / 3.5 * 6)));
+      const highlighted = activeMiningSites.has(item.x + ':' + item.y)
+        || selection?.kind === 'cell' && selection.x === item.x && selection.y === item.y;
+      if (highlighted && animationRenderer.draw(ctx, 'resource.gold-stone-' + variant + '-highlight',
+        x + TILE / 2, y + TILE / 2, { elapsedMs: animationTime, scale: spriteScale(TILE), phase: item.id || 0 })) return;
       const image = tinyGoldSprites[variant];
       if (image && image.complete && image.naturalWidth) {
-        const scale = TILE / 64, width = image.naturalWidth * scale, height = image.naturalHeight * scale;
+        const scale = spriteScale(TILE), width = image.naturalWidth * scale, height = image.naturalHeight * scale;
         ctx.save(); ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(image, Math.round(x + TILE / 2 - width / 2), Math.round(y + TILE / 2 - height / 2), Math.round(width), Math.round(height));
+        ctx.drawImage(image, x + TILE / 2 - width / 2, y + TILE / 2 - height / 2, width, height);
         ctx.restore();
-        return;
       }
+      return;
+    } else {
+      const variant = 1 + ((item.x * 13 + item.y * 17 + world.seed) % 4);
+      const image = tinyRockSprites[variant];
+      if (image && image.complete && image.naturalWidth) {
+        const scale = spriteScale(TILE) * (item.stone >= 8 ? 1.4 : 1);
+        const width = image.naturalWidth * scale, height = image.naturalHeight * scale;
+        ctx.save(); ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(image, x + TILE / 2 - width / 2, y + TILE / 2 - height / 2, width, height);
+        ctx.restore();
+      }
+      return;
     }
-    const size = Math.max(.7, Math.min(1.25, .72 + item.stone * .045 + item.gold * .08));
-    ctx.save();
-    ctx.fillStyle = 'rgba(25,31,29,.34)';
-    ctx.beginPath(); ctx.ellipse(x + 8, y + 13, 6 * size, 2, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#46544f'; ctx.fillRect(x + 3, y + 8, 5 * size, 5 * size);
-    ctx.fillRect(x + 8, y + 6, 5 * size, 6 * size);
-    ctx.fillStyle = '#69756c'; ctx.fillRect(x + 4, y + 8, 3 * size, 2 * size);
-    ctx.fillRect(x + 9, y + 6, 3 * size, 2 * size);
-    ctx.fillStyle = '#9b9d8c'; ctx.fillRect(x + 5, y + 8, 2, 1); ctx.fillRect(x + 10, y + 6, 2, 1);
-    if (gold) {
-      ctx.fillStyle = '#d29c36'; ctx.fillRect(x + 7, y + 10, 2, 2); ctx.fillRect(x + 11, y + 9, 2, 2);
-      ctx.fillStyle = '#f1d66b'; ctx.fillRect(x + 8, y + 10, 1, 1); ctx.fillRect(x + 12, y + 9, 1, 1);
+  }
+
+  function drawLootPile(pile) {
+    const x = pile.x * TILE, y = pile.y * TILE;
+    const stoneOnly = (pile.resources.stone || 0) > 0
+      && !['food', 'meat', 'wood', 'gold', 'feed'].some(resource => (pile.resources[resource] || 0) > 0);
+    if (stoneOnly) {
+      ctx.fillStyle = '#253b2b88'; ctx.fillRect(x + 1, y + 11, 14, 3);
+      ctx.fillStyle = '#596762'; ctx.fillRect(x + 2, y + 7, 5, 4);
+      ctx.fillRect(x + 8, y + 5, 6, 6);
+      ctx.fillStyle = '#a4aaa0'; ctx.fillRect(x + 3, y + 7, 2, 1);
+      ctx.fillRect(x + 9, y + 5, 3, 1);
+      return;
     }
-    ctx.restore();
+    ctx.fillStyle = '#253b2b88'; ctx.fillRect(x - 2, y + 10, 23, 5);
+    ctx.fillStyle = '#b28a51'; ctx.fillRect(x + 3, y + 3, 11, 10);
+    ctx.fillStyle = '#e1bb78'; ctx.fillRect(x + 5, y + 1, 7, 3);
+    ctx.fillStyle = '#76552f'; ctx.fillRect(x + 5, y + 4, 7, 1);
+    if (pile.resources.gold > 0) { ctx.fillStyle = '#f5cf58'; ctx.fillRect(x + 15, y + 8, 4, 4); }
+    if (pile.resources.wood > 0) { ctx.fillStyle = '#9d653c'; ctx.fillRect(x - 2, y + 8, 6, 3); }
+    if ((pile.resources.food || 0) + (pile.resources.meat || 0) > 0) { ctx.fillStyle = '#d27c57'; ctx.fillRect(x + 7, y + 7, 4, 4); }
+    if (pile.resources.stone > 0) { ctx.fillStyle = '#7c8982'; ctx.fillRect(x + 14, y + 3, 4, 4); }
   }
 
   function drawLooseTreeLog(item) {
     const x = item.x * TILE, y = item.y * TILE;
-    const unit = TILE / 16;
-    ctx.fillStyle = 'rgba(21,31,24,.28)'; ctx.fillRect(x + 2 * unit, y + 12 * unit, 13 * unit, 2 * unit);
-    ctx.fillStyle = '#67462d'; ctx.fillRect(x + 2 * unit, y + 8 * unit, 12 * unit, 4 * unit);
-    ctx.fillStyle = '#9d7143'; ctx.fillRect(x + 3 * unit, y + 7 * unit, 10 * unit, 3 * unit);
-    ctx.fillStyle = '#d4ad72'; ctx.fillRect(x + 2 * unit, y + 8 * unit, 2 * unit, 3 * unit); ctx.fillRect(x + 13 * unit, y + 8 * unit, 2 * unit, 3 * unit);
-    ctx.fillStyle = '#75502f'; ctx.fillRect(x + 3 * unit, y + 9 * unit, unit, unit); ctx.fillRect(x + 13 * unit, y + 9 * unit, unit, unit);
-    if (item.resource.amount > 12) { ctx.fillStyle = '#b68a56'; ctx.fillRect(x + 5 * unit, y + 8 * unit, 2 * unit, unit); }
+    if (!tinyWoodSprite.complete || !tinyWoodSprite.naturalWidth) return;
+    const scale = spriteScale(TILE);
+    ctx.drawImage(tinyWoodSprite, x + TILE / 2 - tinyWoodSprite.naturalWidth * scale / 2,
+      y + TILE - 46 * scale, tinyWoodSprite.naturalWidth * scale, tinyWoodSprite.naturalHeight * scale);
   }
 
   function drawTreeItem(item) {
-    const tile = item.tile, px = item.x * TILE, py = item.y * TILE;
-    if (drawTinySwordsTree(tile, item.type, item.mass)) return;
-    if (item.type === 'broadleaf') drawBroadleaf(px, py, item.mass, item.variant);
-    else drawConifer(px, py, item.mass, item.variant);
-  }
-
-  function drawBroadleaf(x, y, mass, variant) {
-    const crown = mass > 500 ? '#42673f' : '#527749';
-    const litCrown = mass > 500 ? '#6e9255' : '#82a361';
-    const spread = variant % 2 ? 1 : 0;
-    ctx.fillStyle = '#403f31'; ctx.fillRect(x + 7, y + 7, 2, 8);
-    ctx.fillStyle = 'rgba(31,49,35,.22)'; ctx.fillRect(x + 9, y + 13, 6, 2);
-    ctx.fillStyle = crown;
-    ctx.fillRect(x + 2 - spread, y + 5, 12 + spread, 6);
-    ctx.fillRect(x + 4, y + 3, 8 + (variant % 3), 8);
-    if (variant % 3 !== 0) ctx.fillRect(x + 1, y + 7, 4, 4);
-    ctx.fillStyle = litCrown;
-    ctx.fillRect(x + 3, y + 4, 4, 3); ctx.fillRect(x + 8, y + 5, 3 + variant % 2, 3);
-    if (mass > 700) { ctx.fillStyle = '#36573a'; ctx.fillRect(x + 5, y + 9, 7, 2); }
-  }
-
-  function drawConifer(x, y, mass, variant) {
-    const shade = mass > 550 ? '#2f5c49' : '#3f6c4e';
-    const light = mass > 550 ? '#5e8058' : '#70925d';
-    const width = variant % 2 ? 6 : 5;
-    ctx.fillStyle = '#554b36'; ctx.fillRect(x + 7, y + 8, 2, 7);
-    ctx.fillStyle = shade;
-    ctx.beginPath(); ctx.moveTo(x + 8, y + 1); ctx.lineTo(x + 8 + width, y + 12); ctx.lineTo(x + 8 - width, y + 12); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(x + 8, y + 4); ctx.lineTo(x + 13, y + 13); ctx.lineTo(x + 3, y + 13); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = light;
-    ctx.fillRect(x + 7, y + 4, 2, 3); ctx.fillRect(x + 5, y + 9, 3, 2);
-    if (variant % 3 === 1) ctx.fillRect(x + 10, y + 8, 2, 2);
-  }
-
-  function drawAtmosphere() {
-    ctx.save();
-    for (const r of world.regions) {
-      const x0 = (r.id % (W / 8)) * 8, y0 = Math.floor(r.id / (W / 8)) * 8;
-      const x = x0 * TILE, y = y0 * TILE, regionSize = 8 * TILE;
-      if (r.humidity > .66) {
-        ctx.fillStyle = 'rgba(92,112,118,' + Math.min(.13, (r.humidity - .58) * .2) + ')';
-        ctx.fillRect(x, y, regionSize, regionSize);
-      }
-      if (r.rainfallMm <= 1) continue;
-      ctx.strokeStyle = 'rgba(190,220,216,' + Math.min(.62, .24 + r.rainfallMm / 48) + ')';
-      ctx.lineWidth = 1;
-      for (let n = 0; n < 15; n++) {
-        const px = x + ((n * 71 + world.day * 5 + r.id * 13) % regionSize);
-        const py = y + ((n * 37 + world.day * 9 + r.id * 17) % regionSize);
-        ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px - 2, py + 5); ctx.stroke();
-      }
-    }
-    ctx.restore();
+    drawTinySwordsTree(item.tile, item.type, item.mass);
   }
 
   function drawCommunities() {
-    if (layer === 'society') for (const person of world.people) {
-      if (!person.alive || !person.leadingSheepId) continue;
-      const sheep = world.animals.find(animal => animal.id === person.leadingSheepId && animal.alive);
-      if (!sheep) continue;
-      ctx.save(); ctx.strokeStyle = 'rgba(247,225,174,.9)'; ctx.lineWidth = 1.5; ctx.setLineDash([2, 2]);
-      ctx.beginPath(); ctx.moveTo(person.x * TILE + 8, person.y * TILE + 9); ctx.lineTo(sheep.x * TILE + 8, sheep.y * TILE + 9); ctx.stroke(); ctx.restore();
-    }
-    for (const c of world.communities) {
-      if (c.dissolved || !c.memberIds.length) continue;
-      const count = c.memberIds.filter(id => getPerson(id)).length;
+    for (const community of world.communities) {
+      if (community.dissolved || !community.memberIds.length) continue;
+      const count = community.memberIds.filter(id => getPerson(id)).length;
       if (!count) continue;
-      if (layer === 'society') {
-        for (const [key, lastSeen] of Object.entries(c.usedCells || {})) {
-          if (world.day - lastSeen > 45) continue;
-          const index = Number(key), ux = index % W, uy = Math.floor(index / W);
-          ctx.fillStyle = rgba(c.color, .13); ctx.fillRect(ux * TILE + 2, uy * TILE + 2, TILE - 4, TILE - 4);
-        }
-        for (const structure of world.structures.filter(s => s.communityId === c.id && s.complete)) {
-          if (structure.type === 'divisa') continue;
-          const r = (structure.type === 'abrigo' ? 3 : 5) * TILE;
-          ctx.save(); ctx.setLineDash([2, 4]); ctx.strokeStyle = rgba(c.color, .42); ctx.lineWidth = 1;
-          ctx.beginPath(); ctx.arc(structure.x * TILE + 8, structure.y * TILE + 8, r, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
-        }
-        for (const property of c.properties || []) {
-          const r = (property.radius || 5) * TILE;
-          ctx.save(); ctx.fillStyle = rgba(c.color, .08); ctx.strokeStyle = rgba(c.color, .9); ctx.lineWidth = 1.5; ctx.setLineDash([5, 3]);
-          ctx.beginPath(); ctx.arc(property.x * TILE + 8, property.y * TILE + 8, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-          ctx.fillStyle = '#f4f0dfdf'; ctx.fillRect(property.x * TILE - 8, property.y * TILE - 5, 56, 10);
-          ctx.fillStyle = '#3e4f3e'; ctx.font = '6px system-ui'; ctx.textAlign = 'left'; ctx.fillText('PROPRIEDADE', property.x * TILE - 5, property.y * TILE + 2);
-          ctx.restore();
-        }
-      }
-      if (layer === 'society' || layer === 'harvest') {
-        for (const [kind, ground] of Object.entries(c.grounds || {})) {
-          if (!ground) continue;
-          ctx.save(); ctx.setLineDash([3, 4]); ctx.strokeStyle = rgba(c.color, .86); ctx.lineWidth = 1.5;
-          ctx.beginPath(); ctx.arc(ground.x * TILE + 8, ground.y * TILE + 8, (ground.radius || 4) * TILE, 0, Math.PI * 2); ctx.stroke();
-          ctx.fillStyle = '#f4f0dfdf'; ctx.fillRect(ground.x * TILE - 8, ground.y * TILE - 7, kind === 'hunting' ? 34 : 35, 10);
-          ctx.fillStyle = '#3e4f3e'; ctx.font = '6px system-ui'; ctx.textAlign = 'left';
-          ctx.fillText(kind === 'hunting' ? 'CAÇA' : 'PESCA', ground.x * TILE - 5, ground.y * TILE + 1);
-          ctx.restore();
-        }
-      }
       const radius = (4 + Math.min(4, Math.sqrt(count))) * TILE;
-      ctx.save(); ctx.setLineDash([3, 4]); ctx.strokeStyle = rgba(c.color, .66); ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.arc(c.x * TILE + 8, c.y * TILE + 8, radius, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
-      ctx.fillStyle = '#f4f0dfdf'; ctx.fillRect(c.x * TILE - 8, c.y * TILE - 5, Math.min(154, c.name.length * 5 + 14), 11);
-      ctx.fillStyle = '#3e4f3e'; ctx.font = '7px system-ui'; ctx.textAlign = 'left';
-      const leader = getPerson(c.leaderId);
-      const title = c.stage === 'reino' ? 'rei' : 'prefeito';
-      ctx.fillText(c.name + (leader ? ' · ' + title + ' ' + leader.name.split(' ')[0] : ''), c.x * TILE - 5, c.y * TILE + 3, 145);
+      ctx.save();
+      ctx.setLineDash([3, 4]);
+      ctx.strokeStyle = rgba(community.color, .66);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(community.x * TILE + 8, community.y * TILE + 8, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
     }
   }
 
@@ -952,15 +1382,181 @@ export function mountGame() {
     }
   }
 
+  function towerDiplomacyPanel(kingdom) {
+    const relations = Object.values(world.kingdomRelations || {}).filter(r => r.a === kingdom.id || r.b === kingdom.id);
+    const pressure = relations.map(r => '<div class="data-row"><span>Tensão nas fronteiras</span><b>'
+      + Math.round((r.tension || 0) * 100) + '% · ' + (r.towerPressure?.pairs.length || 0)
+      + ' pares de torres próximos · ' + (r.towerPressure?.overlappingPairs || 0) + ' sobreposições</b></div>').join('');
+    const targets = world.structures.filter(t => ['torre', 'centro_militar', 'arquearia', 'monasterio', 'mercado', 'castelo'].includes(t.type)
+      && t.complete && t.destroyedDay == null && t.kingdomId != null && t.kingdomId !== kingdom.id)
+      .sort((a, b) => Math.hypot(a.x - kingdom.x, a.y - kingdom.y) - Math.hypot(b.x - kingdom.x, b.y - kingdom.y))
+      .filter((t, i, all) => all.findIndex(other => other.type === t.type) === i).slice(0, 6);
+    const reports = (kingdom.militaryIntel || []).filter(r => ['enemy-approach', 'territory-lost'].includes(r.kind)).slice(-5).reverse();
+    const alerts = reports.map(r => '<div class="data-row"><span>Dia ' + r.day + ' · aviso ao rei</span><b>'
+      + esc(r.kind === 'territory-lost' ? 'Perdeu ' + r.tiles + ' células em ' + r.location.x + ',' + r.location.y
+        : r.soldiersObserved + ' inimigos avistados em ' + r.location.x + ',' + r.location.y) + '</b></div>').join('');
+    return pressure + alerts + '<div class="kingdom-actions">' + targets.map(t => (t.type === 'torre'
+      ? '<button type="button" data-structure-command="capture-tower" data-kingdom-id="' + kingdom.id + '" data-tower-id="' + t.id + '">Capturar torre ' + t.id + '</button>' : '')
+      + '<button type="button" data-structure-command="attack-installation" data-kingdom-id="' + kingdom.id
+      + '" data-structure-id="' + t.id + '">Atacar ' + esc(structureDisplayName(t.type)) + ' ' + t.id + '</button>').join('')
+      + '</div><p class="quiet">A captura exige enfraquecer a torre e ocupá-la por cinco dias. Ataques às demais instalações organizam um cerco com tropas e suprimentos. A paz inicial e os armistícios são respeitados.</p>';
+  }
+
+  function drawWorldHealthBar(x, y, width, height, value, colorOverride = null) {
+    const ratio = Math.max(0, Math.min(1, Number(value) || 0));
+    const color = colorOverride || (ratio < .3 ? 'red' : ratio < .6 ? 'yellow' : 'green');
+    const track = healthBarSprites.track, fill = healthBarSprites.fills[color];
+    const ready = [track.left, track.center, track.right, fill]
+      .every(image => image.complete && image.naturalWidth > 0);
+    if (!ready) {
+      ctx.fillStyle = '#15251f'; ctx.fillRect(x, y, width, height);
+      ctx.fillStyle = color === 'red' ? '#e76d59' : color === 'yellow' ? '#e7bd62' : '#86ce83';
+      ctx.fillRect(x + 1, y + 1, Math.max(0, (width - 2) * ratio), Math.max(0, height - 2));
+      return;
+    }
+
+    const scale = height / track.center.naturalHeight;
+    const capWidth = track.left.naturalWidth * scale;
+    const centerWidth = Math.max(0, width - capWidth * 2);
+    const repeatX = (image, startX, startY, destWidth, destHeight) => {
+      const sourceTileWidth = image.naturalWidth;
+      const destTileWidth = sourceTileWidth * scale;
+      for (let offset = 0; offset < destWidth; offset += destTileWidth) {
+        const partWidth = Math.min(destTileWidth, destWidth - offset);
+        const sourceWidth = partWidth / scale;
+        ctx.drawImage(image, 0, 0, sourceWidth, image.naturalHeight,
+          startX + offset, startY, partWidth, destHeight);
+      }
+    };
+
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(track.left, x, y, capWidth, height);
+    repeatX(track.center, x + capWidth, y, centerWidth, height);
+    ctx.drawImage(track.right, x + width - capWidth, y, capWidth, height);
+    const insetX = 8 * scale, fillY = y + 11 * scale, fillHeight = 24 * scale;
+    repeatX(fill, x + insetX, fillY, Math.max(0, (width - insetX * 2) * ratio), fillHeight);
+    ctx.restore();
+  }
+
+  function drawPersonStatusBar(x, y, width, height, value, color) {
+    const ratio = Math.max(0, Math.min(1, Number(value) || 0));
+    const track = personBarSprites.track, fill = personBarSprites.fills[color];
+    const ready = [track.left, track.center, track.right, fill]
+      .every(image => image.complete && image.naturalWidth > 0);
+    if (!ready) {
+      ctx.fillStyle = '#15251f';
+      ctx.fillRect(x, y, width, height);
+      ctx.fillStyle = color === 'red' ? '#e76d59' : color === 'yellow' ? '#e7bd62'
+        : color === 'blue' ? '#6daef1' : '#86ce83';
+      ctx.fillRect(x + 1, y + 1, Math.max(0, (width - 2) * ratio), Math.max(1, height - 2));
+      return;
+    }
+
+    const scale = height / track.center.naturalHeight;
+    const capWidth = track.left.naturalWidth * scale;
+    const centerWidth = Math.max(0, width - capWidth * 2);
+    const repeatX = (image, startX, startY, destWidth, destHeight) => {
+      const destTileWidth = image.naturalWidth * scale;
+      for (let offset = 0; offset < destWidth; offset += destTileWidth) {
+        const partWidth = Math.min(destTileWidth, destWidth - offset);
+        ctx.drawImage(image, 0, 0, partWidth / scale, image.naturalHeight,
+          startX + offset, startY, partWidth, destHeight);
+      }
+    };
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(track.left, x, y, capWidth, height);
+    repeatX(track.center, x + capWidth, y, centerWidth, height);
+    ctx.drawImage(track.right, x + width - capWidth, y, capWidth, height);
+    const insetX = 6 * scale, fillY = y + 8 * scale, fillHeight = 3 * scale;
+    repeatX(fill, x + insetX, fillY, Math.max(0, (width - insetX * 2) * ratio), fillHeight);
+    ctx.restore();
+  }
+
+  function drawLeaderBadge(person, x, y) {
+    const kingdom = getKingdom(person.kingdomId);
+    const rank = activeLeadershipRank(person, kingdom);
+    if (rank === 'comandante') {
+      if (commanderIcon.complete && commanderIcon.naturalWidth > 0) {
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(commanderIcon, x + 5.75, y - 11, 4.5, 4.5);
+        ctx.restore();
+      }
+      return;
+    }
+    if (rank !== 'general') return;
+
+    const color = kingdom?.palette === 'blue' ? 'cyan' : kingdom?.palette || 'black';
+    const sword = generalSwordSprites[color] || generalSwordSprites.black;
+    const { left, center, right } = sword;
+    if (![left, center, right].every(image => image.complete && image.naturalWidth > 0)) return;
+
+    const height = 7.5, scale = height / center.naturalHeight;
+    const leftWidth = left.naturalWidth * scale, rightWidth = right.naturalWidth * scale;
+    ctx.save();
+    ctx.font = '6px MedievalSharp, Georgia, serif';
+    const labelWidth = Math.min(100, ctx.measureText(person.name).width);
+    const width = Math.max(25.5, leftWidth + labelWidth + rightWidth + 2);
+    const startX = x + TILE / 2 - width / 2, startY = y - 13;
+    const centerWidth = width - leftWidth - rightWidth;
+    const repeatX = (image, fromX, destWidth) => {
+      const tileWidth = image.naturalWidth * scale;
+      for (let offset = 0; offset < destWidth; offset += tileWidth) {
+        const partWidth = Math.min(tileWidth, destWidth - offset);
+        ctx.drawImage(image, 0, 0, partWidth / scale, image.naturalHeight,
+          fromX + offset, startY, partWidth, height);
+      }
+    };
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(left, startX, startY, leftWidth, height);
+    repeatX(center, startX + leftWidth, centerWidth);
+    ctx.drawImage(right, startX + width - rightWidth, startY, rightWidth, height);
+    ctx.font = '6px MedievalSharp, Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#43372b';
+    ctx.fillText(person.name, startX + leftWidth + centerWidth / 2, startY + height / 2 + .5, centerWidth);
+    ctx.restore();
+  }
+
+  function drawStructureLife(s, x, y, constructionBarOffset = 0) {
+    if (!structureDamageBars.visible(s.id, performance.now())) return;
+    const life = towerVitality(s), ratio = life.health / life.maxHealth;
+    const spriteKey = structureSpriteKey(s);
+    const top = s.type === 'curral' ? y - Math.round(s.radius || 3.5) * TILE
+      : y + TILE - (BUILDING_FEET[spriteKey] || 150) * spriteScale(TILE);
+    const barHeight = 7, barY = (s.complete ? top - barHeight - 2 : y - barHeight - 2) + constructionBarOffset;
+    drawWorldHealthBar(x - 12, barY, 40, barHeight, ratio);
+    if (world.day - (s.lastAttackedDay ?? -Infinity) <= 1) {
+      ctx.strokeStyle = '#f6aa63'; ctx.lineWidth = 1; ctx.strokeRect(x - 13, barY - 1, 42, barHeight + 2);
+    }
+  }
+
   function drawStructure(s) {
-      if (s.type === 'curral') return;
+      const foundationSpec = constructionFoundationSpec(s);
+      if (!s.complete && !(s.progress > 0) && !foundationSpec) return;
+      if (s.type === 'curral' && s.complete && s.destroyedDay == null) { drawStructureLife(s, s.x * TILE, s.y * TILE); return; }
       const activeCommunity = getCommunity(s.communityId);
       const kingdom = getKingdom(s.kingdomId);
       if (!activeCommunity && !kingdom && !s.complete) return;
       const x = s.x * TILE, y = s.y * TILE;
+      if (s.destroyedDay != null) {
+        ctx.fillStyle = '#756f64'; ctx.fillRect(x - 5, y + 5, 23, 8);
+        ctx.fillStyle = '#a0977f'; ctx.fillRect(x - 2, y + 2, 6, 5); ctx.fillRect(x + 9, y + 4, 5, 4);
+        return;
+      }
       let drawnBuilding = false;
       if (s.complete) {
         drawnBuilding = drawTinySwordsBuilding(s, activeCommunity, kingdom, x, y);
+      }
+      if (!s.complete && foundationSpec) drawConstructionFoundation(x, y, foundationSpec);
+      if (!s.complete && s.progress > 0 && s.type !== 'curral') {
+        const height = (BUILDING_FEET[foundationSpec?.sprite || structureSpriteKey(s)] || 180) * spriteScale(TILE);
+        const reveal = height * (.15 + .85 * Math.min(1, s.progress / s.required));
+        ctx.save(); ctx.beginPath(); ctx.rect(x - TILE * 4, y + TILE - reveal, TILE * 8, reveal); ctx.clip();
+        drawTinySwordsBuilding(s, activeCommunity, kingdom, x, y); ctx.restore();
       }
       if (s.complete && s.type === 'centro_militar') {
         ctx.fillStyle = '#4d5f3c'; ctx.fillRect(x + TILE * .70, y + TILE * .10, 2, TILE * .48);
@@ -971,10 +1567,12 @@ export function mountGame() {
         ctx.fillStyle = activeCommunity ? (s.type === 'abrigo' ? '#b58a55' : '#a87849') : kingdom ? kingdom.color : '#776e5c';
         ctx.fillRect(x + 5, y + 7, 8, 5); ctx.fillRect(x + 7, y + 5, 4, 3);
         ctx.fillStyle = '#66543b'; ctx.fillRect(x + 8, y + 11, 2, 4);
-      } else {
+      } else if (!s.complete && !foundationSpec) {
         ctx.fillStyle = '#e2d4a5'; ctx.fillRect(x + 4, y + 11, 10, 2);
         ctx.fillStyle = '#b8844e'; ctx.fillRect(x + 7, y + 8, 2, 3); ctx.fillRect(x + 10, y + 7, 2, 4);
       }
+      if (!s.complete && foundationSpec) drawConstructionProgressBar(s, x, y, foundationSpec);
+      if (s.maxHealth) drawStructureLife(s, x, y, !s.complete && foundationSpec ? 9 : 0);
   }
 
   function drawAnimal(a, pose) {
@@ -996,13 +1594,23 @@ export function mountGame() {
       }
   }
 
+  const npcDamageBars = createDamageBarTracker();
+  const structureDamageBars = createDamageBarTracker();
   function drawPerson(p, pose) {
       const c = p.communityId ? getCommunity(p.communityId) : null;
-      const x = pose.x * TILE, y = pose.y * TILE, child = p.ageDays < 12 * 365;
+      const militarySprite = MILITARY_SPRITES[p.militaryClass];
+      const towerDrop = p.towerMounted
+        ? ((militarySprite?.foot || 0) * .625 + (militarySprite?.size || 0) * .1)
+          * spriteScale(TILE, CHARACTER_SPRITE_SCALE) : 0;
+      const x = pose.x * TILE, y = pose.y * TILE + towerDrop, child = p.ageDays < 12 * 365;
       const scale = child ? .72 : 1, color = c ? c.color : ['#d9c28b', '#cfb585', '#e0c99b', '#c9b27f'][p.id % 4];
-      ctx.fillStyle = 'rgba(22,35,27,.38)'; ctx.beginPath(); ctx.ellipse(x + 9, y + 13, child ? 3.5 : 5, 2, 0, 0, Math.PI * 2); ctx.fill();
       if (p.conflictRisk > .5) { ctx.strokeStyle = 'rgba(196,109,72,.52)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x + 8, y + 8, 7.5, 0, Math.PI * 2); ctx.stroke(); }
       if (!drawTinySwordsPerson(p, x, y, child, pose)) {
+        ctx.save();
+        ctx.translate(x + TILE / 2, y + TILE);
+        ctx.scale(CHARACTER_SPRITE_SCALE, CHARACTER_SPRITE_SCALE);
+        ctx.translate(-x - TILE / 2, -y - TILE);
+        ctx.fillStyle = 'rgba(22,35,27,.38)'; ctx.beginPath(); ctx.ellipse(x + TILE / 2, y + TILE, TILE * .25, TILE * .1, 0, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = color;
         ctx.fillRect(x + 8 - scale * 3, y + 7, scale * 6, scale * 5);
         ctx.fillRect(x + 8 - scale * 2, y + 3, scale * 4, scale * 4);
@@ -1013,9 +1621,23 @@ export function mountGame() {
           else ctx.fillRect(x + 5, y + 8, 2, 1);
           ctx.fillStyle = '#67553c'; ctx.fillRect(x + 7, y + 11, 1, 3); ctx.fillRect(x + 10, y + 11, 1, 3);
         }
+        ctx.restore();
       }
       drawCarriedMeat(p, x, y, pose);
       drawCarriedWood(p, x, y, pose);
+      const now = performance.now();
+      const isMonk = p.role === 'soldier' && p.militaryClass === 'monge';
+      if (npcDamageBars.visible(p.id, now)) {
+        const ratio = p.health < 30 ? 'red' : p.health < 60 ? 'yellow' : 'green';
+        drawPersonStatusBar(x + 2.5, y - (isMonk ? 12 : 8), 11, 2, p.health / 100, ratio);
+      }
+      if (p.role === 'soldier' && (npcDamageBars.visible(p.id, now) || selection?.kind === 'person' && selection.id === p.id)) {
+        drawPersonStatusBar(x + 2.5, y - (isMonk ? 10 : 6), 11, 2, (p.stamina ?? 100) / 100, 'yellow');
+        if (isMonk) {
+          drawPersonStatusBar(x + 2.5, y - 8, 11, 2, (p.mana ?? 100) / 100, 'blue');
+        }
+      }
+      drawLeaderBadge(p, x, y);
       if (p.health < 22) { ctx.fillStyle = '#bc574d'; ctx.fillRect(x + 12, y + 2, 3, 2); }
   }
 
@@ -1030,12 +1652,14 @@ export function mountGame() {
       ctx.beginPath(); ctx.moveTo(x + TILE / 2 - arm, y + TILE / 2); ctx.lineTo(x + TILE / 2 + arm, y + TILE / 2);
       ctx.moveTo(x + TILE / 2, y + TILE / 2 - arm); ctx.lineTo(x + TILE / 2, y + TILE / 2 + arm); ctx.stroke();
     } else if (selection.kind === 'person') {
-      const p = getPerson(selection.id); if (!p) return;
+      const p = getPerson(selection.id); if (!p || p.restingStructureId != null) return;
       ctx.strokeStyle = '#fff0b4'; ctx.lineWidth = 1.5;
-      ctx.strokeRect(p.x * TILE + 1, p.y * TILE + 1, 14, 15);
+      const pose = visualPose('person', p);
+      ctx.strokeRect(pose.x * TILE + 1, pose.y * TILE + 1, 14, 15);
     } else if (selection.kind === 'animal') {
       const a = getAnimal(selection.id); if (!a) return;
-      const x = a.x * TILE, y = a.y * TILE;
+      const pose = visualPose('animal', a);
+      const x = pose.x * TILE, y = pose.y * TILE;
       ctx.strokeStyle = '#fff5cd'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.ellipse(x + TILE / 2, y + TILE - 1, a.speciesId === 'sheep' ? 11 : 8, 4, 0, 0, Math.PI * 2); ctx.stroke();
     } else if (selection.kind === 'kingdom') {
@@ -1052,14 +1676,370 @@ export function mountGame() {
     }
   }
 
+  function drawHoveredStructureTerritory() {
+    const structure = world.structures.find(item => item.id === hoveredTerritoryStructureId
+      && ['castelo', 'torre'].includes(item.type) && item.complete && item.destroyedDay == null);
+    if (!structure) return;
+    const kingdom = getKingdom(structure.kingdomId);
+    if (!kingdom) return;
+    ctx.save();
+    ctx.fillStyle = rgba(kingdom.color, .14);
+    ctx.strokeStyle = rgba(kingdom.color, .92);
+    ctx.lineWidth = 1.5;
+    if (structure.type === 'castelo') {
+      for (const tile of world.tiles) {
+        if (tile.kingdomId === kingdom.id) ctx.fillRect(tile.x * TILE, tile.y * TILE, TILE, TILE);
+      }
+    } else {
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.arc((structure.x + .5) * TILE, (structure.y + .5) * TILE,
+        (structure.territoryRadius || 13) * TILE, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawOceanBackdrop(context, camera) {
+    context.fillStyle = '#16536e';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    if (!autoTileWaterBackground.complete || !autoTileWaterBackground.naturalWidth) return;
+    const pattern = context.createPattern(autoTileWaterBackground, 'repeat');
+    if (!pattern) return;
+    const patternScale = camera.transform[0] * TILE / autoTileWaterBackground.naturalWidth;
+    if (pattern.setTransform && typeof DOMMatrix === 'function') {
+      pattern.setTransform(new DOMMatrix([
+        patternScale, 0, 0, patternScale, camera.transform[4], camera.transform[5]
+      ]));
+    }
+    context.fillStyle = pattern;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  function collisionProfileKey(structure) {
+    return structure?.spriteKey || structureSpriteKey(structure);
+  }
+
+  function calibratedStructureHitbox(structure) {
+    return Sim.modules.Collision.structureHitbox(structure);
+  }
+
+  function defaultStructureEntry(structure) {
+    return Sim.modules.Collision.structureInteractionPoint(structure);
+  }
+
+  function calibratedStructureEntry(structure) {
+    return defaultStructureEntry(structure);
+  }
+
+  function setCollisionEditorStatus(message) {
+    const status = $('collisionEditorStatus');
+    status.textContent = message;
+    status.hidden = !message;
+  }
+
+  function syncCollisionEditorControls() {
+    const button = $('collisionEditToggle');
+    button.setAttribute('aria-pressed', String(collisionEditMode));
+    button.textContent = collisionEditMode ? 'Concluir edição' : 'Editar';
+    button.title = collisionEditMode
+      ? 'Selecione qualquer hitbox; arraste para mover ou use as alças para redimensionar'
+      : 'Ajustar hitboxes de construções, recursos, personagens e animais';
+    const addPoint = $('collisionAddPoint');
+    addPoint.hidden = !collisionEditMode;
+    addPoint.setAttribute('aria-pressed', String(collisionEditAddPointMode));
+    addPoint.textContent = collisionEditAddPointMode ? 'Clique no contorno' : '+ Ponto';
+    addPoint.title = collisionEditAddPointMode ? 'Clique numa aresta para adicionar um vértice'
+      : 'Adicionar vértices ao contorno da construção selecionada';
+    $('collisionProfileSave').hidden = !collisionEditMode;
+    if (!collisionEditMode) { collisionEditAddPointMode = false; setCollisionEditorStatus(''); }
+  }
+
+  function drawCollisionHitboxes(camera, bounds) {
+    if (!showCollisionHitboxes || !world) return;
+    const collision = Sim.modules.Collision;
+    const colors = {
+      npc: ['#20f4ff', 'rgba(32,244,255,.18)'],
+      structure: ['#ff5d4e', 'rgba(255,93,78,.15)'],
+      tree: ['#b9ff46', 'rgba(185,255,70,.2)'],
+      stone: ['#e4e8ec', 'rgba(228,232,236,.22)'],
+      gold: ['#ffd34f', 'rgba(255,211,79,.2)']
+    };
+    const scale = Math.max(.01, camera.transform[0]);
+    ctx.save();
+    ctx.setTransform(...camera.transform);
+    ctx.beginPath(); ctx.rect(camera.view.x, camera.view.y, camera.view.width, camera.view.height); ctx.clip();
+    ctx.lineWidth = 1.5 / scale;
+    const visible = hitbox => hitbox.x >= bounds.minX - 3 && hitbox.x <= bounds.maxX + 3
+      && hitbox.y >= bounds.minY - 3 && hitbox.y <= bounds.maxY + 3;
+    const draw = (hitbox, color, xOffset = .5, yOffset = 1) => {
+      if (!hitbox || !visible(hitbox)) return;
+      const centerX = (hitbox.x + xOffset) * TILE, centerY = (hitbox.y + yOffset) * TILE;
+      const [stroke, fill] = colors[color] || colors.stone;
+      ctx.beginPath();
+      if (hitbox.shape === 'circle') {
+        ctx.arc(centerX, centerY, hitbox.radius * TILE, 0, Math.PI * 2);
+      } else if (hitbox.shape === 'polygon' && hitbox.points?.length >= 3) {
+        ctx.moveTo((hitbox.points[0].x + xOffset) * TILE, (hitbox.points[0].y + yOffset) * TILE);
+        for (const point of hitbox.points.slice(1)) ctx.lineTo((point.x + xOffset) * TILE, (point.y + yOffset) * TILE);
+        ctx.closePath();
+      } else {
+        const halfWidth = hitbox.halfWidth * TILE;
+        const halfDepth = (hitbox.halfDepth ?? hitbox.halfHeight ?? 0) * TILE;
+        ctx.rect(centerX - halfWidth, centerY - halfDepth, halfWidth * 2, halfDepth * 2);
+      }
+      ctx.fillStyle = fill; ctx.fill();
+      ctx.strokeStyle = stroke; ctx.stroke();
+    };
+
+    const editTargets = collisionEditMode ? getCollisionEditTargets() : null;
+    const drawEntry = structure => {
+      const entry = calibratedStructureEntry(structure);
+      const entryX = (entry.x + .5) * TILE, entryY = (entry.y + .5) * TILE;
+      const selected = collisionEditSelection?.key === 'structure:' + structure.id;
+      const markerSize = (collisionEditMode && selected ? 5 : 3.5) / scale;
+      ctx.beginPath(); ctx.moveTo(entryX, entryY - markerSize); ctx.lineTo(entryX + markerSize, entryY);
+      ctx.lineTo(entryX, entryY + markerSize); ctx.lineTo(entryX - markerSize, entryY); ctx.closePath();
+      ctx.fillStyle = 'rgba(255,211,79,.9)'; ctx.fill();
+      ctx.strokeStyle = '#fff3bf'; ctx.stroke();
+    };
+    if (editTargets) {
+      const colorsByKind = { structure: 'structure', resourceTree: 'tree', resourceStone: 'stone',
+        resourceGold: 'gold', npc: 'npc', animal: 'npc' };
+      for (const target of editTargets) {
+        draw(target.hitbox, colorsByKind[target.colorKind], target.anchorX, target.anchorY);
+        if (target.kind === 'structure') drawEntry(target.entity);
+      }
+    } else {
+      for (const structure of world.structures) {
+        draw(calibratedStructureHitbox(structure), 'structure');
+        drawEntry(structure);
+      }
+      for (const hitbox of collision.worldCollisionIndex(world).resources.hitboxes) {
+        draw(hitbox, hitbox.resourceKind === 'tree' ? 'tree' : hitbox.resourceKind, .5, 1);
+      }
+      for (const person of world.people) {
+        if (!person.alive || person.restingStructureId != null) continue;
+        const pose = visualPose('person', person);
+        draw(collision.npcHitbox(person, pose.x, pose.y), 'npc');
+      }
+      for (const animal of world.animals) {
+        if (!animal.alive) continue;
+        const pose = visualPose('animal', animal);
+        draw(collision.animalHitbox(animal, pose.x, pose.y), 'npc');
+      }
+    }
+    if (collisionEditMode && collisionEditSelection) {
+      const target = editTargets.find(item => item.key === collisionEditSelection.key);
+      if (target) drawCollisionEditHandles(target, scale);
+    }
+    ctx.restore();
+  }
+
+  function collisionTestBlocked(x, y, index = Sim.modules.Collision.worldCollisionIndex(world)) {
+    const collision = Sim.modules.Collision, player = collisionTestPlayer;
+    if (!player) return true;
+    const body = collision.npcHitbox(player, x, y);
+    if (body.x - body.radius < 0 || body.y - body.radius < 0
+        || body.x + body.radius >= W || body.y + body.radius >= H) return true;
+    const tile = cell(Math.floor(x), Math.floor(y));
+    if (!tile || tile.terrain === 'water' || tile.terrain === 'rock') return true;
+    for (const structure of world.structures) {
+      const hitbox = calibratedStructureHitbox(structure);
+      if (hitbox && collision.hitboxesOverlap(body, hitbox)) return true;
+    }
+    const resourceIndex = index.resources;
+    const minX = Math.max(0, Math.floor(body.x - body.radius));
+    const maxX = Math.min(W - 1, Math.floor(body.x + body.radius));
+    const minY = Math.max(0, Math.floor(body.y - body.radius));
+    const maxY = Math.min(H - 1, Math.floor(body.y + body.radius));
+    const resources = new Set();
+    for (let tileY = minY; tileY <= maxY; tileY++) for (let tileX = minX; tileX <= maxX; tileX++) {
+      for (const hitbox of resourceIndex.byTile.get(tileY * W + tileX) || []) resources.add(hitbox);
+    }
+    for (const hitbox of resources) if (collision.hitboxesOverlap(body, hitbox)) return true;
+    for (const person of world.people) {
+      if (person === player || !person.alive || person.restingStructureId != null) continue;
+      if (collision.hitboxesOverlap(body, collision.npcHitbox(person))) return true;
+    }
+    for (const animal of world.animals) {
+      if (animal.alive && collision.hitboxesOverlap(body, collision.animalHitbox(animal))) return true;
+    }
+    return false;
+  }
+
+  function spawnCollisionTestPlayer() {
+    if (!world) return;
+    collisionTestPlayer = { id: 'collision-test-player', ageDays: 18 * 365, hitbox: { radius: .22 },
+      moving: false, facingX: 1 };
+    const camera = currentMapCamera();
+    const center = camera.toWorld(stage.clientWidth / 2, stage.clientHeight / 2);
+    const targetX = center.x / TILE - .5, targetY = center.y / TILE - 1;
+    const index = Sim.modules.Collision.worldCollisionIndex(world);
+    const tiles = world.tiles.slice().sort((a, b) => Math.hypot(a.x - targetX, a.y - targetY)
+      - Math.hypot(b.x - targetX, b.y - targetY));
+    const spawn = tiles.find(candidate => candidate.terrain !== 'water' && candidate.terrain !== 'rock'
+      && !collisionTestBlocked(candidate.x, candidate.y, index));
+    if (spawn) { collisionTestPlayer.x = spawn.x; collisionTestPlayer.y = spawn.y; }
+    else { collisionTestPlayer.x = Math.round(targetX); collisionTestPlayer.y = Math.round(targetY); }
+  }
+
+  function updateCollisionTestPlayer(now) {
+    if (!collisionTestActive || !world) return;
+    if (!collisionTestPlayer) spawnCollisionTestPlayer();
+    const elapsed = collisionTestLastFrame ? Math.min(.1, (now - collisionTestLastFrame) / 1000) : 0;
+    collisionTestLastFrame = now;
+    let dx = Number(collisionTestKeys.has('d') || collisionTestKeys.has('arrowright'))
+      - Number(collisionTestKeys.has('a') || collisionTestKeys.has('arrowleft'));
+    let dy = Number(collisionTestKeys.has('s') || collisionTestKeys.has('arrowdown'))
+      - Number(collisionTestKeys.has('w') || collisionTestKeys.has('arrowup'));
+    if (!dx && !dy) { collisionTestPlayer.moving = false; return; }
+    collisionTestPlayer.moving = true;
+    if (dx) collisionTestPlayer.facingX = Math.sign(dx);
+    const magnitude = Math.hypot(dx, dy); dx /= magnitude; dy /= magnitude;
+    const distance = 3.2 * elapsed, steps = Math.max(1, Math.ceil(distance / .075));
+    const stepX = dx * distance / steps, stepY = dy * distance / steps;
+    const index = Sim.modules.Collision.worldCollisionIndex(world);
+    for (let step = 0; step < steps; step++) {
+      const nextX = collisionTestPlayer.x + stepX;
+      if (!collisionTestBlocked(nextX, collisionTestPlayer.y, index)) collisionTestPlayer.x = nextX;
+      const nextY = collisionTestPlayer.y + stepY;
+      if (!collisionTestBlocked(collisionTestPlayer.x, nextY, index)) collisionTestPlayer.y = nextY;
+    }
+  }
+
+  function drawCollisionTestPlayer(camera) {
+    if (!collisionTestActive || !collisionTestPlayer) return;
+    const pose = collisionTestPlayer, collision = Sim.modules.Collision;
+    const centerX = (pose.x + .5) * TILE, footY = (pose.y + 1) * TILE;
+    const scale = Math.max(.01, camera.transform[0]);
+    ctx.save(); ctx.setTransform(...camera.transform);
+    const animation = getUnitAnimation('pawn', pose.moving ? 'run' : 'idle', 'blue');
+    animationRenderer.draw(ctx, animation, centerX, footY, {
+      elapsedMs: animationTime, scale: spriteScale(TILE, CHARACTER_SPRITE_SCALE),
+      flipX: pose.facingX < 0, loop: true
+    });
+    const body = collision.npcHitbox(pose);
+    ctx.beginPath(); ctx.arc((body.x + .5) * TILE, (body.y + 1) * TILE, body.radius * TILE, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(232,77,213,.16)'; ctx.fill(); ctx.strokeStyle = '#ff72e8'; ctx.lineWidth = 2 / scale; ctx.stroke();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.font = (7 / scale) + 'px ui-monospace, monospace';
+    ctx.lineWidth = 2 / scale; ctx.strokeStyle = '#1a2028'; ctx.strokeText('TESTE', centerX, footY - 38 / scale);
+    ctx.fillStyle = '#fff1ff'; ctx.fillText('TESTE', centerX, footY - 38 / scale);
+    ctx.restore();
+  }
+
+  function toggleCollisionTest() {
+    collisionTestActive = !collisionTestActive;
+    collisionTestPlayer = null; collisionTestLastFrame = 0; collisionTestKeys.clear();
+    if (collisionTestActive) {
+      if (collisionEditMode) toggleCollisionEditor();
+      showCollisionHitboxes = true;
+      const hitboxButton = $('hitboxToggle');
+      hitboxButton.setAttribute('aria-pressed', 'true'); hitboxButton.setAttribute('aria-label', 'Ocultar hitboxes de colisão');
+      hitboxButton.title = 'Ocultar hitboxes de colisão (H)'; hitboxButton.textContent = 'Hitbox ✓';
+      setCollisionEditorStatus('Personagem de teste: mova com WASD ou as setas. A simulação não é alterada.');
+    } else setCollisionEditorStatus('');
+    const button = $('collisionTestToggle');
+    button.setAttribute('aria-pressed', String(collisionTestActive));
+    button.textContent = collisionTestActive ? 'Sair teste' : 'Testar';
+    button.title = collisionTestActive ? 'Encerrar o teste de colisões' : 'Controlar personagem para testar colisões';
+    collisionTestLastFrame = 0;
+    drawMap();
+  }
+
+  function toggleCollisionHitboxes() {
+    showCollisionHitboxes = !showCollisionHitboxes;
+    if (!showCollisionHitboxes && collisionEditMode) {
+      collisionEditMode = false; collisionEditDrag = null; syncCollisionEditorControls();
+    }
+    const button = $('hitboxToggle');
+    button.setAttribute('aria-pressed', String(showCollisionHitboxes));
+    button.setAttribute('aria-label', (showCollisionHitboxes ? 'Ocultar' : 'Mostrar') + ' hitboxes de colisão');
+    button.title = (showCollisionHitboxes ? 'Ocultar' : 'Mostrar') + ' hitboxes de colisão (H)';
+    button.textContent = showCollisionHitboxes ? 'Hitbox ✓' : 'Hitbox';
+    drawMap();
+  }
+
+  function toggleCollisionEditor() {
+    if (!collisionEditMode && collisionTestActive) toggleCollisionTest();
+    collisionEditMode = !collisionEditMode;
+    collisionEditDrag = null;
+    if (collisionEditMode) {
+      showCollisionHitboxes = true;
+      const button = $('hitboxToggle');
+      button.setAttribute('aria-pressed', 'true'); button.setAttribute('aria-label', 'Ocultar hitboxes de colisão');
+      button.title = 'Ocultar hitboxes de colisão (H)'; button.textContent = 'Hitbox ✓';
+      setCollisionEditorStatus('Edição: clique numa hitbox colorida para selecioná-la. Arraste o corpo para mover e as alças para redimensionar; + Ponto refina construções.');
+    } else setCollisionEditorStatus('');
+    syncCollisionEditorControls();
+    drawMap();
+  }
+
+  function toggleCollisionAddPointMode() {
+    if (!collisionEditMode) return;
+    if (collisionEditSelection?.kind !== 'structure') {
+      setCollisionEditorStatus('Selecione uma construção antes de adicionar vértices.');
+      return;
+    }
+    collisionEditAddPointMode = !collisionEditAddPointMode;
+    syncCollisionEditorControls();
+    setCollisionEditorStatus(collisionEditAddPointMode
+      ? 'Clique numa aresta vermelha para inserir um vértice. Repita para continuar desenhando o contorno.'
+      : 'Modo de inserção de vértices encerrado. Arraste os quadrados para ajustar os pontos.');
+    drawMap();
+  }
+
+  function saveCollisionCalibration() {
+    const calibration = { schema: 'kingdom-collision-calibration/v3',
+      pointCoordinates: 'tile offsets relative to each hitbox center; sizeMultiplier and radiusMultiplier scale resource, NPC, and animal masks',
+      savedAt: new Date().toISOString(),
+      profiles: collisionCalibrationProfiles };
+    const json = JSON.stringify(calibration, null, 2);
+    try { window.localStorage.setItem(COLLISION_CALIBRATION_STORAGE_KEY, json); }
+    catch (error) { console.warn('[Kingdom Hitboxes] não foi possível salvar localmente:', error); }
+    const blobUrl = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = blobUrl; link.download = 'kingdom-collision-calibration.json';
+    document.body.appendChild(link); link.click(); link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    applyCollisionCalibrationToSimulation().then(() => {
+      collisionCalibrationAppliedEpoch = session.epoch;
+      setCollisionEditorStatus('Calibração salva e aplicada à física. O arquivo kingdom-collision-calibration.json também foi baixado.');
+    }).catch(error => {
+      console.error('[Kingdom Hitboxes] não foi possível aplicar calibrações à simulação:', error);
+      setCollisionEditorStatus('JSON baixado, mas não foi possível aplicar os contornos à simulação: ' + error.message);
+    });
+  }
+
+  function applyCollisionCalibrationToSimulation() {
+    const profiles = JSON.parse(JSON.stringify(collisionCalibrationProfiles));
+    Sim.modules.Collision.setCollisionProfiles(profiles);
+    return session.dispatch({ type: 'collision-profiles', profiles }).then(result => {
+      if (!result?.ok) throw new Error('o Worker não confirmou os perfis de colisão');
+      return result;
+    });
+  }
+
   function drawMap() {
+    if (!world) return;
     const displayContext = ctx;
+    const camera = currentMapCamera();
+    mapTransform = camera.transform;
+    if (canvas.width !== camera.width || canvas.height !== camera.height) {
+      canvas.width = camera.width; canvas.height = camera.height;
+      groundCacheCanvas.width = camera.width; groundCacheCanvas.height = camera.height;
+      groundCacheKey = '';
+    }
+    displayContext.setTransform(...camera.transform);
     const view = getMapViewport();
-    const nextGroundKey = [world.seed, world.day, visualPack, layer].join(':');
+    const nextGroundKey = [world.seed, world.day, visualPack, camera.width, camera.height, ...camera.transform].join(':');
     if (groundCacheKey !== nextGroundKey) {
       ctx = groundCacheContext;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, groundCacheCanvas.width, groundCacheCanvas.height);
+      ctx.setTransform(...camera.transform);
       ctx.imageSmoothingEnabled = false;
-      ctx.clearRect(0, 0, LOGICAL_SIZE, LOGICAL_SIZE);
       drawGround();
       drawGroundPlants();
       drawRoads();
@@ -1068,19 +2048,39 @@ export function mountGame() {
     }
     ctx = displayContext;
     ctx.imageSmoothingEnabled = false;
-    if (view.width <= 0 || view.height <= 0) return;
-    ctx.clearRect(view.x, view.y, view.width, view.height);
-    const sourceX = view.x * RENDER_SCALE, sourceY = view.y * RENDER_SCALE;
-    const sourceWidth = view.width * RENDER_SCALE, sourceHeight = view.height * RENDER_SCALE;
-    ctx.drawImage(groundCacheCanvas, sourceX, sourceY, sourceWidth, sourceHeight,
-      view.x, view.y, view.width, view.height);
     ctx.save();
-    ctx.beginPath(); ctx.rect(view.x, view.y, view.width, view.height); ctx.clip();
-    drawTinyWaterFoam(view.bounds);
-    drawAtmosphere();
-    drawDepthSortedWorld(view.bounds);
-    drawSelection();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawOceanBackdrop(ctx, camera);
     ctx.restore();
+    if (view.width > 0 && view.height > 0) {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(view.x, view.y, view.width, view.height); ctx.clip();
+      drawWaterRocks(view.bounds);
+      drawTinyWaterFoam(view.bounds);
+      ctx.restore();
+    }
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(groundCacheCanvas, 0, 0);
+    ctx.restore();
+    if (view.width > 0 && view.height > 0) {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(view.x, view.y, view.width, view.height); ctx.clip();
+      drawRiceWindOverlay(view.bounds);
+      drawHoveredStructureTerritory();
+      drawDepthSortedWorld(view.bounds);
+      ctx.restore();
+      const cameraCenter = camera.toWorld(stage.clientWidth / 2, stage.clientHeight / 2);
+      cloudSystem.drawShadows(ctx, camera, stage.clientWidth, stage.clientHeight, cameraCenter, mapZoom);
+      ctx.save();
+      ctx.beginPath(); ctx.rect(view.x, view.y, view.width, view.height); ctx.clip();
+      drawSelection();
+      ctx.restore();
+      cloudSystem.drawAtmosphere(ctx, camera, stage.clientWidth, stage.clientHeight, cameraCenter, mapZoom);
+    }
+    drawCollisionHitboxes(camera, view.bounds);
+    drawCollisionTestPlayer(camera);
   }
 
   function renderKingdomList() {
@@ -1089,8 +2089,11 @@ export function mountGame() {
       const ruler = getPerson(kingdom.rulerId);
       const soldiers = residents.filter(person => person.role === 'soldier').length;
       const patrolling = residents.filter(person => person.role === 'soldier' && String(person.state || '').startsWith('patrulhando')).length;
+      const campaign = (world.campaigns || []).find(item => item.status !== 'complete'
+        && (item.attackerId === kingdom.id || item.defenderId === kingdom.id));
+      const campaignStatus = campaign ? ' · campanha ' + (campaign.status === 'engaged' ? 'em combate' : campaign.status === 'withdrawing' ? 'retirada' : 'em marcha') : '';
       return '<button class="community-card" data-kingdom="' + kingdom.id + '" title="Inspecionar reino, moradias, tesouro e mercado" style="--community:' + esc(kingdom.color) + '">' +
-        '<i class="color-dot"></i><span><strong>' + esc(kingdom.name) + '</strong><small>' + residents.length + ' moradores · ' + soldiers + ' soldados (' + patrolling + ' em patrulha) · ' + (kingdom.homeIds || []).length + ' casas · ' + kingdom.towerIds.length + ' torres · rei ' + esc(ruler ? ruler.name : 'sem governante') + '</small></span><em>' + fmt(kingdom.territoryTileCount) + ' células</em></button>';
+        '<i class="color-dot"></i><span><strong>' + esc(kingdom.name) + '</strong><small>' + residents.length + ' moradores · ' + soldiers + ' soldados (' + patrolling + ' em patrulha)' + esc(campaignStatus) + ' · ' + (kingdom.homeIds || []).length + ' casas · ' + kingdom.towerIds.map(id => world.structures.find(structure => structure.id === id && structure.complete)).filter(Boolean).length + ' torres · rei ' + esc(ruler ? ruler.name : 'sem governante') + '</small></span><em>' + fmt(kingdom.territoryTileCount) + ' células</em></button>';
     }).join('');
     $('solitaryCount').textContent = world.kingdoms.length + ' domínios';
   }
@@ -1107,38 +2110,45 @@ export function mountGame() {
   }
 
   function renderEvents() {
-    $('events').innerHTML = world.events.slice(0, 14).map(e =>
-      '<div class="event">' + esc(e.text) + '<small>' + (e.day ? 'DIA ' + e.day : 'INÍCIO') + '</small></div>'
-    ).join('') || '<div class="empty-state">Ainda não há registros.</div>';
+    $('events').innerHTML = (world.chronicle || []).slice(0, 40).map(e => {
+      const date = Sim.modules.Cosmos.calendarDate(e.day);
+      return '<div class="event"><strong>' + esc(e.category) + '</strong><p>' + esc(e.text) + '</p><small>Dia ' + date.dayOfYear + ' · Ano ' + date.year + '</small></div>';
+    }).join('') || '<div class="empty-state">A história começa aqui. Nascimentos, perdas, obras e conflitos aparecerão neste diário.</div>';
   }
 
   function updateWorldLine(stats) {
     if (stats.dryRegions >= 5) $('worldLine').textContent = 'Seca em ' + stats.dryRegions + ' regiões altera água e alimento';
-    else if (stats.activeWars) $('worldLine').textContent = stats.activeWars + ' guerra(s) ativa(s) · ' + stats.borderIncidents + ' incursões descobertas';
+    else if (stats.activeWars) $('worldLine').textContent = stats.activeWars + ' guerra(s) · ' + (stats.activeCampaigns || 0) + ' campanha(s) · ' + stats.borderIncidents + ' incursões descobertas';
     else $('worldLine').textContent = world.kingdoms.length + ' reinos · ' + stats.peopleCount + ' moradores · ' + stats.borderIncidents + ' incursões descobertas';
   }
 
   function updateHeader(stats) {
     const region = world.regions[0] || { temperatureC: 18, rainfallMm: 0 };
     const avgTemp = world.regions.reduce((s, r) => s + r.temperatureC, 0) / world.regions.length;
-    $('day').textContent = fmt(world.day);
+    const calendar = Sim.modules.Cosmos.calendarDate(world.day);
+    const global = resourceSummary(world);
+    $('globalFood').textContent = fmt(global.food, 1);
+    $('globalGold').textContent = fmt(global.gold, 0);
+    $('day').textContent = fmt(calendar.dayOfYear);
+    $('day').parentElement.title = 'Dia ' + world.day + ' desde a criação · 365 dias por ano';
     $('year').textContent = fmt(stats.year);
     $('animalCount').textContent = fmt(stats.animalCount);
     $('peopleCount').textContent = fmt(stats.peopleCount);
     $('kingdomCount').textContent = fmt(stats.kingdomCount);
-    $('birthCount').textContent = fmt(stats.births);
-    $('deathCount').textContent = fmt(stats.deaths);
+    $('birthCount').textContent = fmt(global.births);
+    $('deathCount').textContent = fmt(global.deaths);
     $('conflictCount').textContent = fmt(stats.borderIncidents);
     $('harvestCount').textContent = fmt(stats.harvests.hunting);
     $('meatCount').textContent = fmt(stats.meatCarried, 1) + '/' + fmt(stats.meatStored, 1);
-    $('season').textContent = world.day ? seasonNames[stats.season].toUpperCase() + ' · DIA ' + stats.dayOfSeason + '/' + stats.daysInSeason + ' · ANO ' + stats.year : 'ESTADO INICIAL';
+    $('season').textContent = seasonNames[stats.season].toUpperCase();
     $('temperature').textContent = Math.round(avgTemp) + ' °C';
     $('rainfall').textContent = fmt(stats.rainfallMm, 1) + ' mm';
     $('moisture').textContent = Math.round(stats.soilMoisture * 100) + '%';
     $('foodPressureTag').hidden = stats.foodRiskPeople === 0;
     $('foodRiskCount').textContent = fmt(stats.foodRiskPeople);
     $('runState').textContent = session.paused ? 'PAUSADA' : 'ATIVA';
-    $('toggle').innerHTML = session.paused ? '▶ <span>Retomar</span>' : 'Ⅱ <span>Pausar</span>';
+    $('toggle').innerHTML = session.paused ? '▶' : 'Ⅱ';
+    $('toggle').title = session.paused ? 'Retomar' : 'Pausar';
     $('toggle').setAttribute('aria-label', session.paused ? 'Retomar simulação' : 'Pausar simulação');
     $('seedLabel').textContent = world.seed;
     $('mapDimensions').textContent = world.width + ' × ' + world.height + ' CÉLULAS · 10 m POR LADO';
@@ -1148,9 +2158,19 @@ export function mountGame() {
   }
 
   function openSelection(item) {
+    if (item) {
+      $('journal').hidden = true; $('journalToggle').setAttribute('aria-expanded', 'false');
+      $('settingsTray').hidden = true; $('settingsToggle').setAttribute('aria-expanded', 'false');
+    }
+    if (item && showLeft) {
+      showLeft = false;
+      $('leftPanel').classList.remove('is-open');
+      $('kingdomsToggle').setAttribute('aria-expanded', 'false');
+    }
     if (item && item.kind === 'kingdom' && (!selection || selection.kind !== 'kingdom' || selection.id !== item.id)) kingdomActionNotice = '';
     selection = item;
-    if (item && showRight) $('rightPanel').classList.remove('is-collapsed');
+    showRight = !!item;
+    $('rightPanel').classList.toggle('is-open', showRight);
     renderInspector();
     drawMap();
   }
@@ -1160,18 +2180,44 @@ export function mountGame() {
     const labels = { idle: 'desligada', loading: 'carregando', ready: 'ativa', working: 'pensando', error: 'indisponível' };
     $('localAiState').textContent = labels[status.phase] || status.phase;
     $('localAiStatus').textContent = status.text || '';
-    $('localAiToggle').textContent = status.phase === 'loading' ? 'Carregando modelo…' : status.phase === 'ready' || status.phase === 'working' ? 'Desativar IA local' : 'Ativar modelo local';
+    $('localAiToggle').textContent = status.phase === 'loading' ? 'Carregando modelo…' : status.phase === 'ready' || status.phase === 'working' ? 'Desativar IA local' : 'Ativar IA local';
     $('localAiToggle').disabled = status.phase === 'loading';
     $('localAiProgress').hidden = status.phase !== 'loading';
     $('localAiProgress').value = status.progress || 0;
   }
 
+  function persistLocalAIPreference(enabled) {
+    try {
+      writeLocalAiPreference(window.localStorage, enabled);
+      return true;
+    } catch (error) {
+      console.error('[Kingdom IA local] não foi possível salvar a preferência:', error);
+      $('localAiStatus').textContent = 'Não foi possível salvar a preferência de IA neste navegador.';
+      return false;
+    }
+  }
+
+  let lastInspectorSelection = '';
   function renderInspector() {
+    const selectionKey = selection ? selection.kind + ':' + (selection.id ?? (selection.x + ':' + selection.y)) : '';
+    const sameSelection = selectionKey === lastInspectorSelection;
+    lastInspectorSelection = selectionKey;
+    const root = $('inspector');
+    const opened = new Set((sameSelection ? [...root.querySelectorAll('details[open]')] : []).map(d => d.querySelector('summary')?.textContent));
+    const scroll = sameSelection ? root.scrollTop : 0;
+    renderInspectorContent();
+    for (const detail of root.querySelectorAll('details')) detail.open = opened.has(detail.querySelector('summary')?.textContent);
+    root.scrollTop = scroll;
+  }
+
+  function renderInspectorContent() {
+    if (!world) return;
     const root = $('inspector');
     if (!selection) {
+      $('rightPanel').classList.remove('is-open');
       $('inspectEyebrow').textContent = 'CAMPO DE OBSERVAÇÃO';
       $('inspectTitle').textContent = 'Um ecossistema em formação';
-      root.innerHTML = '<p class="intro">Dois reinos começam em um mapa de 96 × 96 células, cada um com quatro torres e dois soldados. Castelos e torres definem domínios; as terras sem dono são comuns. Moradores e ovelhas vivem e se deslocam sob essas regras.</p><div class="note-card"><b>Estradas vivas</b><span>Os passos dos moradores formam trilhas. Trechos consolidados aceleram a marcha; o pouco tráfego deixa árvores e arbustos voltarem a crescer.</span></div><div class="note-card"><b>Fronteiras</b><span>As pessoas reconhecem territórios estrangeiros. Uma invasão descoberta pode terminar em expulsão, morte ou guerra.</span></div><p class="quiet">Selecione um reino, célula, estrutura ou organismo para inspecionar suas condições.</p>';
+      root.innerHTML = '<p class="intro">Selecione uma pessoa, construção ou reino para acompanhar suas condições.</p>';
       return;
     }
     if (selection.kind === 'kingdom') {
@@ -1183,35 +2229,212 @@ export function mountGame() {
       const housed = homes.reduce((sum, home) => sum + home.residentIds.filter(id => getPerson(id)).length, 0);
       const treasury = kingdom.treasury.stock, market = kingdom.market;
       const structures = kingdom.structureIds.map(id => world.structures.find(s => s.id === id)).filter(Boolean);
-      const towers = structures.filter(s => s.type === 'torre' && s.complete);
+      const maintenanceHistory = (kingdom.fortificationMaintenance && kingdom.fortificationMaintenance.history || []).slice(-3).reverse();
+      const maintenancePanel = maintenanceHistory.length
+        ? '<h3>Manutenção recente</h3>' + maintenanceHistory.map(item =>
+          '<div class="event">Dia ' + fmt(item.day, 0) + ' · ' + fmt(item.paidStructures, 0) + '/' + fmt(item.fortificationCount, 0)
+          + ' pagas · ' + fmt(item.deferredStructures, 0) + ' adiadas · pagos: ' + fmt(item.paidCost.wood, 2) + ' madeira / '
+          + fmt(item.paidCost.stone, 2) + ' pedra · adiados: ' + fmt(item.deferredCost.wood, 2) + ' madeira / '
+          + fmt(item.deferredCost.stone, 2) + ' pedra · perda de integridade ' + fmt(item.integrityLost, 2)
+          + ' · ' + fmt(item.collapsedStructureIds && item.collapsedStructureIds.length, 0) + ' colapsos</div>').join('')
+        : '';
+      const reserveTransfers = (Array.isArray(kingdom.reserveTransfers) ? kingdom.reserveTransfers : []).slice(-3).reverse();
+      const reserveTransferPanel = reserveTransfers.length
+        ? '<h3>Repasses recentes do tesouro</h3>' + reserveTransfers.map(item => {
+          const reason = item.foodReason === 'emergency-community-below-one-day'
+            ? 'estoque abaixo de um dia; piso de seca liberado'
+            : item.foodReason === 'restore-two-day-community-buffer' ? 'buffer comunitário de dois dias'
+              : item.feedReason ? 'buffer de ração do rebanho' : 'reserva comunitária';
+          return '<div class="event">Dia ' + fmt(item.day, 0) + ' · tesouro → comunidade · ' + fmt(item.food, 3) + ' alimento / '
+            + fmt(item.feed, 3) + ' ração · tesouro restante ' + fmt(item.treasuryFood, 3) + ' alimento · reserva comum '
+            + fmt(item.communityFood, 3) + ' · piso de seca ' + fmt(item.protectedFoodFloor, 3) + ' · ' + esc(reason) + '</div>';
+        }).join('')
+        : '';
+      const towers = structures.filter(s => s.type === 'torre' && s.complete && !s.frontierOutpost);
+      const frontierTowers = structures.filter(s => s.frontierOutpost && (s.complete
+        || s.integrity > 0 && s.builtDay == null && (s.progress || 0) < (s.required || 1)));
       const militaryCenters = (kingdom.militaryCenterIds || []).map(id => world.structures.find(s => s.id === id && s.complete)).filter(Boolean);
       const soldiers = residents.filter(person => person.role === 'soldier');
+      const pendingRecruitments = residents.filter(person => person.alive && person.recruitmentOrder);
+      const activeKingdomProject = structures.find(structure => structure.kingdomProject && !structure.complete && structure.integrity > 0 && structure.builtDay == null);
+      const activeCommunityProject = world.structures.find(structure => structure.communityId === kingdom.communityId
+        && !structure.kingdomProject && !structure.complete && structure.integrity > 0 && structure.builtDay == null);
       const patrollingSoldiers = soldiers.filter(person => String(person.state || '').startsWith('patrulhando')).length;
       const soldierCapacity = militaryCenters.reduce((sum, center) => sum + (center.capacity || 8), 0);
-      const soldierSlots = Math.max(0, soldierCapacity - soldiers.length);
+      const soldierSlots = Math.max(0, soldierCapacity - soldiers.length - pendingRecruitments.length);
+      const constructionStatus = activeKingdomProject
+        ? '<div class="note-card"><b>Obra de defesa em andamento</b><span>'
+          + esc(activeKingdomProject.frontierOutpost ? 'Posto de fronteira' : structureDisplayName(activeKingdomProject.type))
+          + ' · ' + activeKingdomProject.progress + '/' + activeKingdomProject.required
+          + ' dias de trabalho · ' + esc(activeKingdomProject.lastConstructionWorkDay === world.day ? 'peão construindo no local' : 'aguardando peão no local')
+          + ' · ' + (activeKingdomProject.siegeBlocked ? 'obra interrompida por ataque' : 'depende da chegada e proteção dos trabalhadores') + '.</span></div>' : '';
+      const communityWorkStatus = activeCommunityProject && activeCommunityProject.workStatus;
+      const communityWorkStatusLabels = {
+        delegated: 'trabalhador designado', 'not-delegated': 'sem reserva de trabalhador',
+        blocked: 'obra bloqueada', 'worker-out-of-range': 'trabalhador fora do alcance',
+        'worker-approaching': 'trabalhador a caminho', 'worker-paused': 'atribuição pausada',
+        'worker-working': 'trabalhador avançando', 'worker-following-local-policy': 'decisão local em curso'
+      };
+      const communityConstructionStatus = activeCommunityProject
+        ? '<div class="note-card"><b>Obra comunitária em andamento</b><span>'
+          + esc(structureDisplayName(activeCommunityProject.type)) + ' · ' + fmt(activeCommunityProject.progress, 0)
+          + '/' + fmt(activeCommunityProject.required, 0) + ' dias · '
+          + (Number.isFinite(activeCommunityProject.lastProgressDay)
+            ? 'último avanço no dia ' + fmt(activeCommunityProject.lastProgressDay, 0) + '.'
+            : 'sem avanço registrado ainda.')
+          + (communityWorkStatus ? '<br>Diagnóstico do dia ' + fmt(communityWorkStatus.day, 0) + ' · '
+            + esc(communityWorkStatusLabels[communityWorkStatus.status] || communityWorkStatus.status) + ' · '
+            + esc(communityWorkStatus.reason || 'sem motivo informado')
+            + (communityWorkStatus.workerId != null && getPerson(communityWorkStatus.workerId)
+              ? ' · responsável: ' + esc(getPerson(communityWorkStatus.workerId).name) : '')
+            + (Number.isFinite(communityWorkStatus.distance) ? ' · distância ' + fmt(communityWorkStatus.distance, 1) + ' células' : '')
+            + (Number.isFinite(communityWorkStatus.safeNearby) ? ' · ' + fmt(communityWorkStatus.safeNearby, 0) + ' trabalhadores seguros de '
+              + fmt(communityWorkStatus.availableNearby, 0) + ' adultos livres próximos' : '')
+            + '</span></div>' : '<br>O diagnóstico de trabalho será registrado na próxima atualização da governança.</span></div>')
+        : '';
+      const recruitmentStatus = pendingRecruitments.length
+        ? '<div class="note-card"><b>Treinamento em andamento</b><span>' + pendingRecruitments.map(person =>
+          esc(person.name) + ' · ' + Math.max(0, person.recruitmentOrder.readyDay - world.day) + ' dias restantes').join(' · ') + '</span></div>' : '';
       const kingdomId = kingdom.id;
       const calendar = Sim.modules.Cosmos.calendarDate(world.day);
+      const strategy = kingdom.strategy;
+      const strategyGoalLabels = {
+        'secure-shared-food': 'proteger alimento compartilhado',
+        'secure-herd-feed': 'proteger a ração do rebanho',
+        'repair-damaged-structures': 'reparar construções danificadas',
+        'complete-community-structure': 'concluir obra comunitária',
+        'gather-construction-materials': 'reunir materiais de construção',
+        'maintain-autonomy': 'manter a iniciativa local'
+      };
+      const strategyActionLabels = { forage: 'buscar alimento', collect_feed: 'recolher ração', gather: 'reunir materiais', build: 'construir' };
+      const strategyActionLabel = strategy && strategy.goal === 'repair-damaged-structures'
+        ? 'reparar construções' : strategy && strategy.action
+          ? strategyActionLabels[strategy.action] || strategy.action : 'sem delegação';
+      const repairEvidence = strategy && strategy.evidence && strategy.evidence.repairs;
+      const repairEvidenceText = repairEvidence && Array.isArray(repairEvidence.damagedStructures) && repairEvidence.damagedStructures.length
+        ? repairEvidence.damagedStructures.map(item => item.type + ' ' + Math.round(item.integrity * 100) + '%'
+          + (item.healthRatio == null ? '' : ' · vida ' + Math.round(item.healthRatio * 100) + '%')).join(' · ')
+        : '';
+      const strategyOutcomeLabels = { planned: 'aguardando execução', maintained: 'sem nova ordem civil', completed: 'tarefa concluída', blocked: 'delegação sem trabalhador ou recurso observável', refused: 'ordem recusada pelo domínio' };
+      const frontier = kingdom.frontierExpansion;
+      const frontierStatusLabels = {
+        observing: 'observando terreno neutro', constructing: 'construindo posto', established: 'posto estabelecido',
+        cooldown: 'consolidando expansão', 'awaiting-resources': 'aguardando recursos', 'no-neutral-site': 'sem local neutro seguro',
+        'paused-war': 'adiada durante conflito', 'limit-reached': 'limite atual alcançado', blocked: 'obra bloqueada'
+      };
+      const frontierGuards = frontierTowers.filter(item => item.garrisonSoldierId != null
+        && getPerson(item.garrisonSoldierId)?.alive).length;
+      const frontierProject = frontierTowers.find(item => !item.complete && item.builtDay == null);
+      const frontierSite = frontierProject
+        ? ' · local ' + fmt(frontierProject.x, 0) + ', ' + fmt(frontierProject.y, 0) + ' · ' + frontierProject.progress + '/' + frontierProject.required + ' dias'
+        : '';
+      const frontierOutcome = frontier && frontier.lastOutcome;
+      const frontierOutcomeText = frontierOutcome && frontierOutcome.status === 'completed'
+        ? 'Último posto: ' + fmt(frontierOutcome.territoryTilesGained || 0) + ' células incorporadas em '
+          + fmt(frontierOutcome.site.x, 0) + ', ' + fmt(frontierOutcome.site.y, 0) + ' no dia ' + frontierOutcome.day
+          + ' · custo ' + fmt(frontierOutcome.cost.wood, 0) + ' madeira, ' + fmt(frontierOutcome.cost.stone, 0)
+          + ' pedra e ' + fmt(frontierOutcome.cost.gold, 0) + ' ouro.'
+        : frontierOutcome && frontierOutcome.status === 'planned'
+          ? 'Obra iniciada no dia ' + frontierOutcome.day + ' em ' + fmt(frontierOutcome.site.x, 0) + ', ' + fmt(frontierOutcome.site.y, 0) + '.'
+          : '';
+      const frontierPanel = '<h3>Expansão e patrulha de fronteira</h3>'
+        + '<div class="data-row"><span>Plano autônomo</span><b>' + esc(frontierStatusLabels[frontier && frontier.status] || 'observando terreno neutro')
+        + ' · ' + frontierTowers.length + ' postos · ' + frontierGuards + ' guarnições designadas</b></div>'
+        + (frontierProject ? '<div class="data-row"><span>Posto em obra</span><b>' + esc(frontierSite.slice(3)) + '</b></div>' : '')
+        + '<p class="quiet">' + esc(frontier && frontier.reason || 'O reino avalia locais neutros e reserva recursos do próprio tesouro para expandir.') + '</p>'
+        + (frontierOutcomeText ? '<div class="note-card"><span>' + esc(frontierOutcomeText) + '</span></div>' : '');
+      const strategyPanel = strategy
+        ? '<h3>Estratégia observável</h3>'
+          + '<div class="data-row"><span>Objetivo / ordem civil</span><b>' + esc(strategyGoalLabels[strategy.goal] || strategy.goal) + ' · '
+          + esc(strategyActionLabel) + '</b></div>'
+          + '<div class="data-row"><span>Postura da guarnição</span><b>' + (strategy.garrisonMode === 'patrol' ? 'patrulha autorizada' : 'reserva') + '</b></div>'
+          + '<div class="data-row"><span>Evidências agregadas</span><b>' + fmt(strategy.evidence && strategy.evidence.population) + ' moradores · '
+          + fmt(strategy.evidence && strategy.evidence.sharedFood, 1) + ' alimento compartilhado · '
+          + fmt(strategy.evidence && strategy.evidence.foodPerResident, 1) + ' por morador · '
+          + fmt(strategy.evidence && strategy.evidence.feedStock, 1) + '/' + fmt(strategy.evidence && strategy.evidence.feedTarget, 1) + ' ração</b></div>'
+          + (repairEvidence ? '<div class="data-row"><span>Construções danificadas que o rei conhece</span><b>'
+            + repairEvidence.damagedStructureCount + ' encontradas · ' + repairEvidence.criticalStructureCount + ' críticas'
+            + (repairEvidenceText ? ' · ' + esc(repairEvidenceText) : '') + '</b></div>' : '')
+          + '<p class="quiet">' + esc(strategy.reason || '') + '</p>'
+          + (strategy.aiPlan ? '<div class="note-card"><b>' + (strategy.goal === strategy.aiPlan.goal && strategy.action === strategy.aiPlan.action ? 'Ordem experimental do rei via IA' : 'Proposta experimental do rei') + ' · ' + esc(strategy.aiPlan.label || strategy.aiPlan.id) + '</b><span>'
+            + 'Justificativa do modelo, não verificada: ' + esc(strategy.aiPlan.reason || '') + ' · ' + esc(strategy.aiPlan.model || strategy.aiPlan.provider || 'modelo local')
+            + ' · pedido ' + esc(strategy.aiPlan.requestId || 'legado')
+            + ' · confiança ' + Math.round((strategy.aiPlan.confidence || 0) * 100) + '% · válida até o dia ' + strategy.aiPlan.expiresDay + '</span></div>' : '')
+          + (strategy.lastAiCommand ? '<div class="note-card"><b>Última ordem militar da IA local · recrutamento</b><span>'
+            + esc(strategy.lastAiCommand.personName) + ' iniciou treinamento; previsão de conclusão no dia ' + strategy.lastAiCommand.readyDay
+            + '. Dia da ordem: ' + strategy.lastAiCommand.day + '. ' + esc(strategy.lastAiCommand.reason || '') + '</span></div>' : '')
+          + (strategy.lastOutcome ? '<div class="note-card"><b>' + esc(strategyOutcomeLabels[strategy.lastOutcome.status] || strategy.lastOutcome.status) + '</b><span>'
+            + esc(strategy.lastOutcome.reason || ('Dia ' + strategy.lastOutcome.day)) + '</span></div>' : '')
+        : '<p class="quiet">O governante ainda não recebeu um relatório estratégico.</p>';
+      const campaign = (world.campaigns || []).find(item => item.status !== 'complete'
+        && (item.attackerId === kingdom.id || item.defenderId === kingdom.id));
+      let campaignPanel = '<h3>Campanha e logística</h3><p class="quiet">Nenhuma campanha ativa. Uma mobilização exige causa e local de incidente conhecidos pelo reino.</p>';
+      if (campaign) {
+        const side = campaign.attackerId === kingdom.id ? campaign.attacker : campaign.defender;
+        const activeTroops = side.troopIds.map(id => getPerson(id)).filter(Boolean);
+        const dailyRation = activeTroops.length * .78 / .72;
+        const foodDays = dailyRation > 0 ? side.supply.stock.food / dailyRation : 0;
+        const statusLabels = { mobilizing: 'reunindo suprimentos', marching: 'em marcha', engaged: 'em combate', withdrawing: 'retornando após armistício' };
+        const roleLabel = side.role === 'attacker' ? 'força atacante' : 'defesa local';
+        const evidence = campaign.evidence && campaign.evidence[side.role] || {};
+        const generalOrder = side.aiOrder;
+        const generalLabel = generalOrder?.action === 'advance' ? 'avançar ao objetivo'
+          : generalOrder?.action === 'hold_position' ? 'manter posição'
+            : generalOrder?.action === 'withdraw' ? 'retirada ordenada' : 'ordem por regras';
+        const objectiveTower = campaignTower(world, campaign);
+        const formation = side.formation;
+        const formationStateLabels = { forming: 'formando', marching: 'marchando', maintaining: 'mantendo posição', attacking: 'atacando', retreating: 'retirando' };
+        const formationTypeLabel = formation?.type === 'line' ? 'linha' : 'coluna';
+        const formationLeader = formation?.leaderId ? getPerson(formation.leaderId)?.name || 'reorganizando' : 'sem líder';
+        const recentCampaignEvents = (campaign.history || []).slice(-3).reverse().map(item =>
+          '<li>DIA ' + fmt(item.day) + ' · ' + esc(item.text || item.type) + '</li>').join('');
+        campaignPanel = '<h3>Campanha e logística</h3>'
+          + '<div class="data-row"><span>Missão / estado</span><b>' + esc(roleLabel + ' · ' + (statusLabels[campaign.status] || campaign.status)) + '</b></div>'
+          + '<div class="data-row"><span>Objetivo observado</span><b>' + fmt(campaign.target.x, 1) + ', ' + fmt(campaign.target.y, 1) + ' · ' + activeTroops.length + ' soldados · ' + fmt(foodDays, 1) + ' dias de ração</b></div>'
+          + (objectiveTower ? '<div class="data-row"><span>Objetivo principal</span><b>' + (side.role === 'attacker' ? campaign.evidence?.mission === 'capture-tower' ? 'Capturar' : 'Destruir' : 'Proteger') + ' · vida ' + fmt(towerVitality(objectiveTower).health) + ' / ' + fmt(towerVitality(objectiveTower).maxHealth) + '</b></div>' : '')
+          + '<div class="data-row"><span>Equipamento / lealdade</span><b>' + fmt(side.supply.stock.wood, 1) + ' madeira · ' + fmt(side.supply.stock.gold, 1) + ' ouro · coesão ' + fmt(side.morale, 0) + '%</b></div>'
+          + (formation ? '<div class="data-row"><span>Formação / posições</span><b>' + esc(formationTypeLabel) + ' · ' + esc(formationStateLabels[formation.state] || formation.state)
+            + ' · líder ' + esc(formationLeader) + ' · coesão ' + Math.round((formation.metrics?.cohesion ?? 1) * 100) + '% · fora dos postos ' + fmt(formation.metrics?.outsideSlots || 0) + '</b></div>' : '')
+          + (generalOrder ? '<div class="note-card"><b>Ordem experimental do general · ' + esc(generalLabel) + '</b><span>'
+            + 'Justificativa do modelo, não verificada: ' + esc(generalOrder.reason || '') + ' · ' + esc(generalOrder.model || 'modelo local')
+            + ' · pedido ' + esc(generalOrder.requestId || 'desconhecido') + ' · versão ' + fmt(generalOrder.version) + ' · dia ' + fmt(generalOrder.assignedDay) + '</span></div>'
+            : '<div class="data-row"><span>Plano do general</span><b>Regras determinísticas</b></div>')
+          + '<div class="data-row"><span>Motivo / evidência local</span><b>' + esc(campaign.cause) + ' · ' + esc(evidence.source || 'relato da guarnição') + '</b></div>'
+          + '<ul class="quiet campaign-events">' + recentCampaignEvents + '</ul>';
+      }
       $('inspectEyebrow').textContent = 'REINO · ASSENTAMENTO INICIAL';
       $('inspectTitle').textContent = kingdom.name;
-      root.innerHTML = '<div class="data-row"><span>Governante</span><b>' + esc(ruler ? ruler.name : 'sem governante') + '</b></div>' +
+      root.innerHTML = kingdomOverview(world, kingdom) + '<details class="gameplay-details"><summary>Gestão, construção e defesa</summary><div class="data-row"><span>Governante</span><b>' + esc(ruler ? ruler.name : 'sem governante') + '</b></div>' +
         '<div class="data-row"><span>Calendário conhecido pelo reino</span><b>' + (world.day ? esc(seasonNames[calendar.season]) + ' · dia ' + calendar.dayOfSeason + '/' + calendar.daysInSeason + ' · ano ' + calendar.year : 'Primavera · início do ano 1') + '</b></div>' +
         '<div class="data-row"><span>Próxima estação</span><b>' + esc(seasonNames[calendar.nextSeason]) + ' · em ' + calendar.daysUntilNextSeason + ' dias</b></div>' +
         '<div class="data-row"><span>Moradores / com moradia</span><b>' + residents.length + ' / ' + housed + '</b></div>' +
         '<div class="data-row"><span>Casas ocupadas</span><b>' + homes.filter(home => home.residentIds.some(id => getPerson(id))).length + ' de ' + homes.length + ' · capacidade ' + homes.reduce((sum, home) => sum + home.capacity, 0) + '</b></div>' +
-        '<div class="data-row"><span>Território controlado</span><b>' + fmt(kingdom.territoryTileCount * .01, 1) + ' hectares · ' + fmt(kingdom.territoryTileCount) + ' células · ' + towers.length + ' torres</b></div>' +
+        '<div class="data-row"><span>Território controlado</span><b>' + fmt(kingdom.territoryTileCount * .01, 1) + ' hectares · ' + fmt(kingdom.territoryTileCount) + ' células · ' + towers.length + ' torres · ' + frontierTowers.filter(item => item.complete).length + ' postos</b></div>' +
+        '<div class="data-row"><span>Classes / comando</span><b>' + ['guerreiro', 'lanceiro', 'arqueiro', 'monge'].map(c => soldiers.filter(p => p.militaryClass === c).length + ' ' + ({ guerreiro: 'infantes', lanceiro: 'lanceiros', arqueiro: 'arqueiros', monge: 'clérigos' })[c]).join(' · ') + '</b></div>' +
+        '<div class="data-row"><span>Cadeia de comando</span><b>' + (kingdom.militaryCommand?.generalIds.length || 0) + ' general · ' + (kingdom.militaryCommand?.units.length || 0) + ' unidades de até 10</b></div>' +
         '<div class="data-row"><span>Soldados / vagas</span><b>' + soldiers.length + ' / ' + soldierCapacity + (militaryCenters.length ? ' · ' + militaryCenters.length + ' centros · ' + patrollingSoldiers + ' em patrulha' : ' · sem centro militar') + '</b></div>' +
         '<div class="data-row"><span>Tesouro · alimento / madeira / pedra / ouro</span><b>' + fmt(treasury.food, 0) + ' / ' + fmt(treasury.wood, 0) + ' / ' + fmt(treasury.stone, 0) + ' / ' + fmt(treasury.gold, 0) + '</b></div>' +
         '<div class="data-row"><span>Mercado · alimento / ouro</span><b>' + fmt(market.stock.food, 0) + ' / ' + fmt(market.stock.gold, 0) + '</b></div>' +
         '<div class="data-row"><span>Preços · alimento / madeira / pedra</span><b>' + market.prices.food + ' / ' + market.prices.wood + ' / ' + market.prices.stone + ' ouro</b></div>' +
         '<div class="data-row"><span>Imposto / reserva para seca</span><b>' + Math.round(kingdom.policy.taxRate * 100) + '% / ' + kingdom.policy.droughtReserveDays + ' dias</b></div>' +
+        reserveTransferPanel +
+        maintenancePanel +
+        frontierPanel +
+        strategyPanel +
+        campaignPanel +
+        towerDiplomacyPanel(kingdom) +
         '<h3>Construção e defesa</h3>' +
-        '<div class="kingdom-actions"><button type="button" data-kingdom-command="torre" data-kingdom-id="' + kingdomId + '">Construir torre · 34 madeira · 24 pedra · 8 ouro</button>' +
-        '<button type="button" data-kingdom-command="centro_militar" data-kingdom-id="' + kingdomId + '">Construir centro militar · 32 madeira · 30 pedra · 12 ouro</button>' +
-        '<button type="button" data-kingdom-command="recruit" data-kingdom-id="' + kingdomId + '"' + (soldierSlots < 1 ? ' disabled' : '') + '>Recrutar lanceiro · 10 alimento · 8 madeira · 3 ouro</button></div>' +
-        (soldierSlots < 1 ? '<p class="quiet">Para recrutar, construa um centro militar com vaga. Cada centro comporta até 8 soldados.</p>' : '<p class="quiet">Um centro militar comporta até 8 soldados. O recrutamento também exige um morador adulto em boas condições. Soldados patrulham o próprio reino em dias de serviço e dão preferência a trilhas existentes.</p>') +
+        constructionStatus + communityConstructionStatus + recruitmentStatus +
+        '<div class="kingdom-actions"><button type="button" data-kingdom-command="torre" data-kingdom-id="' + kingdomId + '"' + (activeKingdomProject ? ' disabled' : '') + '>Construir torre · ' + Sim.kingdomCommands.timing.torre + ' dias · 34 madeira · 24 pedra · 8 ouro</button>' +
+        '<button type="button" data-kingdom-command="centro_militar" data-kingdom-id="' + kingdomId + '"' + (activeKingdomProject ? ' disabled' : '') + '>Construir centro militar · ' + Sim.kingdomCommands.timing.centro_militar + ' dias · 32 madeira · 30 pedra · 12 ouro</button>' +
+        '<button type="button" data-kingdom-command="recruit" data-kingdom-id="' + kingdomId + '"' + (soldierSlots < 1 ? ' disabled' : '') + '>Recrutar lanceiro · ' + Sim.kingdomCommands.timing.recruit + ' dias · 10 alimento · 8 madeira · 3 ouro</button>' +
+        ['guerreiro', 'arqueiro', 'monge'].map(unitClass => '<button type="button" data-kingdom-command="recruit" data-military-class="' + unitClass + '" data-kingdom-id="' + kingdomId + '"' + (soldierSlots < 1 ? ' disabled' : '') + '>Treinar ' + ({ guerreiro: 'infantaria', arqueiro: 'arqueiro', monge: 'clérigo' })[unitClass] + ' · 6 dias · 10 alimento · 8 madeira · 3 ouro</button>').join('') +
+        ['monasterio', 'arquearia'].map(building => '<button type="button" data-kingdom-command="' + building + '" data-kingdom-id="' + kingdomId + '"' + (activeKingdomProject ? ' disabled' : '') + '>Construir ' + structureDisplayName(building) + '</button>').join('') + '</div>' +
+        (soldierSlots < 1 ? '<p class="quiet">Para recrutar, construa um centro militar com vaga. Cada centro comporta até 60 militares.</p>' : '<p class="quiet">Um centro militar comporta até 60 militares. O recrutamento exige um morador adulto em boas condições. Após a promoção, ele deixa as tarefas civis para cumprir guarda, patrulha e campanha.</p>') +
+        '<p class="quiet">Soldo: ' + MILITARY_PAY.gold + ' ouro a cada ' + MILITARY_PAY.days + ' dias (' + fmt(MILITARY_PAY.gold / MILITARY_PAY.days, 2) + ' ouro/dia), pago pelo tesouro desde a promoção. O soldado compra alimento no mercado; valores sem cobertura ficam em atraso.</p>' +
         (kingdomActionNotice ? '<div class="note-card kingdom-action-notice" role="status">' + esc(kingdomActionNotice) + '</div>' : '') +
-        '<h3>Assentamento</h3><p>' + esc(structures.map(s => structureDisplayName(s.type)).join(' · ')) + '</p>' +
-        '<p class="quiet">As casas ficam distribuídas em torno do castelo. As torres estendem o território; os centros militares abrigam os soldados. O mercado e o tesouro mantêm estoques separados.</p>';
+
+        '<p class="quiet">As casas ficam distribuídas em torno do castelo. As torres estendem o território; os centros militares abrigam os soldados. O mercado e o tesouro mantêm estoques separados.</p></details>';
       return;
     }
     if (selection.kind === 'person') {
@@ -1222,31 +2445,72 @@ export function mountGame() {
       const skillLabels = { forage: 'coletor de alimento', hunt: 'caçador', gather: 'coletor de recursos', build: 'construtor', care: 'cuidador', diplomacy: 'mediador' };
       const leadingSkill = Object.entries(p.skills).sort((a, b) => b[1] - a[1])[0];
       const role = skillLabels[leadingSkill[0]] || 'generalista';
-      const actionLabels = { forage: 'buscar frutos', hunt: 'caçar', deliver: 'levar recursos ao abrigo', drink: 'buscar água conhecida', socialize: 'procurar companhia visível', rest: 'descansar', explore: 'explorar', build: 'construir', gather: 'cortar árvore ou extrair minério', collect_log: 'recolher tronco', collect_feed: 'guardar brotos para o rebanho', share: 'partilhar', trade: 'negociar no posto ou com outro reino', migrate: 'migrar', capture_sheep: 'capturar ovelha próxima', lead_sheep: 'conduzir ovelha ao curral', raid: 'assaltar armazém conhecido', patrol: 'patrulhar o reino' };
-      const choices = p.lastDecision && Array.isArray(p.lastDecision.scores) ? p.lastDecision.scores.map((score, i) => ({ action: Sim.actions[i], score }))
-        .sort((a, b) => b.score - a.score).slice(0, 3) : [];
-      const strategicPlan = p.strategicPlan;
+      const assignmentPhaseLabels = {
+        'personal-recovery': 'recompondo reserva pessoal',
+        'communal-collection': 'coleta destinada ao estoque comum',
+        'communal-delivery': 'transportando carga ao estoque comum'
+      };
+      const assignmentPhase = p.assignment && p.assignment.supplyPhase
+        ? ' · ' + (assignmentPhaseLabels[p.assignment.supplyPhase] || p.assignment.supplyPhase) : '';
+      const actionLabels = { forage: 'buscar frutos', hunt: 'caçar', deliver: 'levar recursos ao abrigo', drink: 'buscar água conhecida', socialize: 'procurar companhia visível', rest: 'descansar', explore: 'explorar', build: 'construir', gather: 'cortar árvore ou extrair minério', collect_log: 'recolher tronco', collect_feed: 'guardar brotos para o rebanho', share: 'partilhar', trade: 'negociar no posto ou com outro reino', migrate: 'migrar', capture_sheep: 'capturar ovelha próxima', lead_sheep: 'conduzir ovelha ao curral', raid: 'assaltar armazém conhecido', patrol: 'patrulhar o reino', campaign: 'marchar ou defender posição' };
+      Object.assign(actionLabels, { train: 'treinar combate simulado', guard: 'guardar o posto', return_garrison: 'reabastecer na guarnição' });
+      const choices = p.lastDecision && Array.isArray(p.lastDecision.scores) ? p.lastDecision.scores.map((score, i) => ({ action: (p.lastDecision.actions || Sim.actions)[i], score }))
+        .filter(choice => choice.score > -1e8).sort((a, b) => b.score - a.score).slice(0, 3) : [];
       const personalMemories = (p.personalMemory || []).slice(-3).reverse();
-      $('inspectEyebrow').textContent = p.role === 'soldier' ? 'SOLDADO · ' + (kingdom ? kingdom.name.toUpperCase() : 'SEM REINO') : kingdom ? 'MORADOR · ' + kingdom.name.toUpperCase() : 'INDIVÍDUO · SEM REINO';
+      const decisionBrain = p.role === 'soldier' && p.militaryBrain ? p.militaryBrain : p.brain;
+      const recoveryNeeds = [];
+      if (p.energy < GARRISON_RECOVERY.restEnergy) recoveryNeeds.push('energia até ' + GARRISON_RECOVERY.restEnergy + '%');
+      if (p.health < GARRISON_RECOVERY.restHealth) recoveryNeeds.push('saúde até ' + GARRISON_RECOVERY.restHealth + '%');
+      if (p.injury >= GARRISON_RECOVERY.restInjury) recoveryNeeds.push('tratar ferimentos');
+      $('inspectEyebrow').textContent = p.role === 'soldier' ? (p.militaryRank || p.militaryGrade || 'soldado').toUpperCase() + ' · ' + (kingdom ? kingdom.name.toUpperCase() : 'SEM REINO') : kingdom ? 'MORADOR · ' + kingdom.name.toUpperCase() : 'INDIVÍDUO · SEM REINO';
       $('inspectTitle').textContent = p.name;
       root.innerHTML = '<div class="data-row"><span>Estado atual</span><b>' + esc(p.state) + '</b></div>' +
+        (p.role === 'ruler' && kingdom?.lastSitingDecision ? '<div class="note-card"><b>Última escolha de local para obra</b><span>' + esc(kingdom.lastSitingDecision.label) + ' em ' + kingdom.lastSitingDecision.x + ',' + kingdom.lastSitingDecision.y + '. ' + esc(kingdom.lastSitingDecision.reason) + '</span></div>' : '') +
+        (p.restingStructureId != null || p.homeRestTargetId != null || p.militaryRestTargetId != null
+          ? '<div class="data-row"><span>Recuperação em casa</span><b>'
+            + esc(recoveryNeeds.length ? 'Falta recuperar: ' + recoveryNeeds.join(' · ') : 'Recuperado · sai no próximo dia') + '</b></div>' : '') +
         '<div class="data-row"><span>Idade aproximada</span><b>' + fmt(p.ageDays / 365, 1) + ' anos</b></div>' +
         '<div class="data-row"><span>Alimento / água</span><b>' + Math.round(p.foodReserve) + ' / ' + Math.round(p.hydration) + '%</b></div>' +
+        (p.role === 'soldier' ? '<div class="data-row"><span>Vitalidade de combate</span><b>' + Math.round(p.health / 100 * (p.maxCombatHealth || 100)) + ' / ' + (p.maxCombatHealth || 100) + '</b></div>' : '') +
+        (p.role === 'soldier' ? '<div class="data-row"><span>Estamina</span><b>' + Math.round(p.stamina ?? 100) + ' / 100</b></div>' : '') +
+        (p.militaryClass === 'monge' ? '<div class="data-row"><span>Mana · cura custa 30</span><b>' + Math.round(p.mana ?? 100) + ' / 100</b></div>' : '') +
+        (p.towerMounted ? '<div class="data-row"><span>Posto na torre</span><b>Alcance: 14 células</b></div>' : '') +
         '<div class="data-row"><span>Energia / saúde</span><b>' + Math.round(p.energy) + ' / ' + Math.round(p.health) + '%</b></div>' +
         '<div class="data-row"><span>Reino / moradia</span><b>' + esc(kingdom ? kingdom.name : 'sem reino') + ' · ' + esc(p.homeId ? 'casa ' + p.homeId : 'sem casa registrada') + '</b></div>' +
         '<div class="data-row"><span>Ferimentos / carga</span><b>' + Math.round(p.injury) + ' · carne ' + fmt(p.carriedMeat, 1) + ' · madeira ' + fmt(p.carriedWood, 1) + ' · pedra ' + fmt(p.carriedStone, 1) + ' · ração ' + fmt(p.carriedFeed, 1) + '</b></div>' +
+        ((p.carriedFood > .01 || p.carriedFruit > .01) ? '<div class="data-row"><span>Alimento na carga</span><b>' + fmt(p.carriedFood, 1) + ' para o estoque · ' + fmt(p.carriedFruit, 1) + ' frutos</b></div>' : '') +
         '<div class="data-row"><span>Necessidade social</span><b>' + Math.round(p.socialNeed) + '%</b></div>' +
+        '<div class="data-row"><span>Caminhos aprendidos</span><b>' + (p.knownRoutes?.length || 0) + ' · reutilizações: ' + (p.navigationCacheHits || 0) + '</b></div>' +
         '<div class="data-row"><span>Especialização emergente</span><b>' + esc(p.role === 'soldier' ? 'soldado ' + (p.militaryClass || '') : role) + ' · ' + Math.round(leadingSkill[1] * 100) + '%</b></div>' +
-        '<div class="data-row"><span>Prestígio / tarefa</span><b>' + fmt(p.prestige || 0, 1) + (p.assignment ? ' · ' + esc(p.assignment.title) + (p.assignment.pauseReason ? ' · suspensa por ' + esc(p.assignment.pauseReason) : ' · até dia ' + p.assignment.expiresDay) : ' · sem delegação ativa') + '</b></div>' +
+        '<div class="data-row"><span>Prestígio / tarefa</span><b>' + fmt(p.prestige || 0, 1) + (p.assignment ? ' · ' + esc(p.assignment.title) + esc(assignmentPhase) + (p.assignment.pauseReason ? ' · suspensa por ' + esc(p.assignment.pauseReason) : ' · até dia ' + p.assignment.expiresDay) : ' · sem delegação ativa') + '</b></div>' +
         '<div class="data-row"><span>Vínculos observados</span><b>' + links + '</b></div>' +
-        (p.role === 'soldier' ? '<div class="data-row"><span>Função militar</span><b>' + esc(p.militaryClass || 'soldado') + ' · guarnição do centro ' + (p.militaryCenterId || '—') + '</b></div>' : '') +
+        (p.role === 'soldier' ? '<div class="data-row"><span>Patente / nível</span><b>' + esc(p.militaryRank || p.militaryGrade || 'soldado') + (p.militaryGrade && p.militaryRank !== p.militaryGrade ? ' · carreira: ' + esc(p.militaryGrade) : '') + ' · nível ' + (p.militaryLevel || 1) + ' · mérito ' + fmt(p.militaryMerit || 0, 1) + '</b></div><div class="data-row"><span>Função militar</span><b>' + esc((p.militaryRank || 'soldado') + ' · ' + (p.militaryClass || 'soldado')) + ' · guarnição do centro ' + (p.militaryCenterId || '—') + '</b></div>'
+          + (p.campaignId != null && p.fieldCommand ? '<div class="note-card"><b>' + (p.fieldCommand.issuerId === p.id ? 'Ordem emitida' : 'Ordem recebida de ' + esc(getPerson(p.fieldCommand.issuerId)?.name || 'general')) + '</b><span>' + esc(p.fieldCommand.reason) + ' Formação: ' + (p.fieldCommand.formationType === 'line' ? 'linha' : 'coluna') + '. Alvo: ' + p.fieldCommand.target.x + ',' + p.fieldCommand.target.y + '.</span></div>' : '')
+          + '<div class="data-row"><span>Soldo do rei</span><b>' + MILITARY_PAY.gold + ' ouro / ' + MILITARY_PAY.days + ' dias (' + fmt(MILITARY_PAY.gold / MILITARY_PAY.days, 2) + '/dia)</b></div>'
+          + '<div class="data-row"><span>Saldo pessoal / atrasado</span><b>' + fmt(p.militaryWallet?.stock.gold || 0) + ' / ' + fmt(p.militaryPayArrears || 0) + ' ouro</b></div>'
+          + '<div class="data-row"><span>Próximo soldo</span><b>Dia ' + (p.nextMilitaryPayDay ?? '—') + '</b></div>' : '') +
         '<h3>Reino e fronteiras</h3><div class="note-card"><b>' + esc(kingdom ? kingdom.name : 'Terra comum') + '</b><span>' + esc(p.perception && p.perception.territorialAwareness && p.perception.territorialAwareness.warningText || (kingdom ? 'Você reconhece este domínio e os riscos de atravessar fronteiras estrangeiras.' : 'Você vive em terra comum, sem a proteção territorial de um reino.')) + '</span></div>' +
-        '<h3>Decisão e aprendizado</h3><div class="brain-box"><strong>Rede individual · ' + p.brain.inputSize + ' → ' + p.brain.hiddenSize + ' → ' + p.brain.actionCount + '</strong><small>Avalia necessidades, alimento, água, risco de fronteira, reservas do reino e áreas de caça; resultados positivos e negativos ajustam decisões futuras.</small><div class="brain-metrics"><span>Intenção<b>' + esc(actionLabels[p.brain.lastAction] || p.brain.lastAction) + '</b></span><span>Atualizações<b>' + fmt(p.brain.updates) + '</b></span><span>Recompensa média<b>' + p.brain.rewardMean.toFixed(2) + '</b></span><span>Memória por ação<b>individual</b></span></div></div>' +
-        (strategicPlan ? '<div class="note-card"><b>Plano individual do modelo local · ' + esc(actionLabels[strategicPlan.action] || strategicPlan.action) + (strategicPlan.expiresDay >= world.day ? ' · ativo' : ' · expirado') + '</b><span>' + esc(strategicPlan.reason || 'Sem justificativa registrada.') + ' · confiança ' + Math.round(strategicPlan.confidence * 100) + '% · dia ' + strategicPlan.createdDay + '</span></div>' : '') +
+        '<h3>Decisão e aprendizado</h3><div class="brain-box"><strong>' + (p.militaryBrain && p.role === 'soldier' ? 'Rede militar' : 'Rede individual') + ' · ' + decisionBrain.inputSize + ' → ' + decisionBrain.hiddenSize + ' → ' + decisionBrain.actionCount + '</strong><small>' + (p.role === 'soldier' ? 'Compara guarda, patrulha e treino. Campanhas e necessidades urgentes limitam as opções disponíveis; os resultados ajustam seus pesos militares.' : p.role === 'ruler' ? 'O rei usa uma rede maior para comparar necessidades, recursos e riscos do reino; seus pesos também aprendem com os resultados.' : 'Avalia necessidades, alimento, água, risco de fronteira e áreas próximas; resultados positivos e negativos ajustam decisões futuras.') + '</small><div class="brain-metrics"><span>Intenção<b>' + esc(actionLabels[p.brain.lastAction] || p.brain.lastAction) + '</b></span><span>Atualizações<b>' + fmt(decisionBrain.updates) + '</b></span><span>Recompensa média<b>' + decisionBrain.rewardMean.toFixed(2) + '</b></span><span>Memória por ação<b>individual</b></span></div></div>' +
         (personalMemories.length ? '<h3>Memória pessoal recente</h3>' + personalMemories.map(memory => '<div class="event">Dia ' + memory.day + ': ' + esc(memory.state) + ' — ' + esc(memory.lesson) + '</div>').join('') : '') +
         '<div class="note-card"><b>O que aprendeu</b><span>' + esc(p.lastLesson || 'Ainda está aprendendo com o ambiente.') + '</span></div>' +
         (choices.length ? '<h3>Alternativas avaliadas</h3>' + choices.map(item => '<div class="data-row"><span>' + esc(actionLabels[item.action] || item.action) + '</span><b>' + item.score.toFixed(2) + '</b></div>').join('') : '') +
         (p.parents ? '<div class="note-card"><b>Dependência familiar</b><span>Esta pessoa nasceu durante a simulação e ainda recebe cuidado de seus responsáveis.</span></div>' : '');
+      if (window.ForjaHUD) {
+        const meters = document.createElement('div');
+        meters.className = 'vital-meters';
+        for (const [label, value, color] of [['Vida', p.health, p.health < 30 ? 'red' : 'green'], ['Energia', p.energy, 'yellow'], ['Água', p.hydration, 'blue']]) {
+          const meter = document.createElement('div');
+          meter.className = 'vital-meter';
+          const heading = document.createElement('div');
+          heading.className = 'vital-meter-label';
+          const name = document.createElement('span'); name.textContent = label;
+          const amount = document.createElement('b'); amount.textContent = Math.round(value) + '%';
+          heading.append(name, amount);
+          meter.append(heading, window.ForjaHUD.create({ size: 'small', color, value, label, width: 220 }));
+          meters.append(meter);
+        }
+        root.prepend(meters);
+      }
       return;
     }
     if (selection.kind === 'animal') {
@@ -1265,8 +2529,19 @@ export function mountGame() {
         '<div class="data-row"><span>Altitude</span><b>' + Math.round(t.heightM) + ' m</b></div>' +
         (a.speciesId === 'sheep' && a.herdCommunityId != null
           ? '<div class="brain-box"><strong>Manejo do rebanho · IA individual desligada</strong><small>A ovelha permanece no curral e recebe uma ração pequena. Os moradores recolhem brotos para manter o estoque comunitário.</small><div class="brain-metrics"><span>Ração diária<b>' + fmt(DOMESTIC_SHEEP_DAILY_FEED, 2) + '</b></span><span>Recebida hoje<b>' + fmt(a.lastFeedAmount || 0, 2) + '</b></span><span>Ração no reino<b>' + fmt((getCommunity(a.herdCommunityId) || { stores: {} }).stores.feed || 0, 1) + '</b></span><span>Aprendizado<b>desativado</b></span></div></div>'
-          : '<div class="brain-box"><strong>Controlador individual · rede ' + a.brain.inputSize + ' → ' + a.brain.hiddenSize + ' → ' + a.brain.actionCount + '</strong><small>50% mais neurônios ocultos e atualização dos pesos 1,5× mais rápida. As necessidades e o habitat continuam limitando as ações possíveis.</small><div class="brain-metrics"><span>Última intenção<b>' + esc(a.brain.lastAction) + '</b></span><span>Decisões<b>' + a.brain.decisions + '</b></span><span>Atualizações<b>' + a.brain.updates + '</b></span><span>Pesos<b>independentes</b></span></div></div>') +
+          : '<div class="brain-box"><strong>Controlador individual · rede ' + a.brain.inputSize + ' → ' + a.brain.hiddenSize + ' → ' + a.brain.actionCount + '</strong><small>As necessidades e o habitat limitam as ações possíveis; a rede aprende com os resultados das decisões.</small><div class="brain-metrics"><span>Última intenção<b>' + esc(a.brain.lastAction) + '</b></span><span>Decisões<b>' + a.brain.decisions + '</b></span><span>Atualizações<b>' + a.brain.updates + '</b></span><span>Pesos<b>independentes</b></span></div></div>') +
         '<p class="quiet">' + (profile.prey.length ? 'A dieta inclui ' + profile.prey.map(id => Sim.animals.find(s => s.id === id).name.toLowerCase()).join(', ') + '; a predação depende de encontros e do estado da presa.' : 'A dieta retira biomassa vegetal disponível; não há reposição automática de indivíduos.') + '</p>';
+      return;
+    }
+    if (selection.kind === 'loot') {
+      const pile = (world.loot || []).find(p => p.id === selection.id && p.available);
+      if (!pile) { selection = null; renderInspector(); return; }
+      $('inspectEyebrow').textContent = 'RECURSOS · LIVRES NO CHÃO';
+      $('inspectTitle').textContent = 'Recursos derrubados';
+      const labels = { food: 'Alimento', meat: 'Carne', wood: 'Madeira', stone: 'Pedra', gold: 'Ouro', feed: 'Ração' };
+      root.innerHTML = Object.entries(pile.resources).filter(([, n]) => n > .001).map(([resource, amount]) =>
+        '<div class="data-row"><span>' + esc(labels[resource] || resource) + '</span><b>' + fmt(amount, 1) + '</b></div>').join('')
+        + '<p class="quiet">Qualquer pessoa pode recolher os recursos. O limite de carga é de 24 unidades por viagem.</p>';
       return;
     }
     if (selection.kind === 'log') {
@@ -1328,21 +2603,15 @@ export function mountGame() {
       const s = world.structures.find(item => item.id === selection.id);
       if (!s) { selection = null; renderInspector(); return; }
       const kingdom = getKingdom(s.kingdomId);
-      $('inspectEyebrow').textContent = kingdom ? 'REINO · ESTRUTURA' : 'CONSTRUÇÃO';
-      $('inspectTitle').textContent = structureDisplayName(s.type);
-      root.innerHTML = '<div class="data-row"><span>Reino</span><b>' + esc(kingdom ? kingdom.name : 'Sem reino · terra comum') + '</b></div>' +
-        '<div class="data-row"><span>Estado</span><b>' + (s.complete ? 'concluída no dia ' + s.builtDay : 'em construção · ' + Math.floor(s.progress / s.required * 100) + '%') + '</b></div>' +
-        '<div class="data-row"><span>Localização</span><b>' + s.x + ', ' + s.y + '</b></div>' +
-        (s.type === 'casa' ? '<div class="data-row"><span>Moradores / capacidade</span><b>' + s.residentIds.filter(id => getPerson(id)).length + ' / ' + s.capacity + '</b></div><div class="data-row"><span>Custo debitado</span><b>' + fmt(s.cost.wood, 0) + ' madeira · ' + fmt(s.cost.stone, 0) + ' pedra</b></div>' : '') +
-        (kingdom && ['castelo', 'vila', 'mercado', 'curral'].includes(s.type) ? '<div class="data-row"><span>Custo debitado</span><b>' + fmt(s.cost.wood, 0) + ' madeira · ' + fmt(s.cost.stone, 0) + ' pedra' + (s.cost.gold ? ' · ' + fmt(s.cost.gold, 0) + ' ouro' : '') + '</b></div>' : '') +
-        (s.type === 'mercado' && kingdom ? '<div class="data-row"><span>Estoque do mercado</span><b>comida ' + fmt(kingdom.market.stock.food, 0) + ' · ouro ' + fmt(kingdom.market.stock.gold, 0) + '</b></div>' : '') +
-        (s.type === 'torre' ? '<div class="data-row"><span>Alcance territorial</span><b>' + (s.territoryRadius || 13) + ' células</b></div><div class="data-row"><span>Custo de construção</span><b>34 madeira · 24 pedra · 8 ouro</b></div>' + (kingdom ? '<div class="kingdom-actions"><button type="button" data-structure-command="destroy-tower" data-kingdom-id="' + kingdom.id + '" data-tower-id="' + s.id + '">Destruir torre</button></div><p class="quiet">O domínio será recalculado a partir das estruturas restantes. Os materiais não são reembolsados.</p>' : '') : '') +
-        (s.type === 'centro_militar' ? '<div class="data-row"><span>Guarnição</span><b>' + (s.soldierIds || []).map(id => getPerson(id)).filter(Boolean).length + ' / ' + (s.capacity || 8) + ' soldados</b></div><div class="data-row"><span>Custo de construção</span><b>32 madeira · 30 pedra · 12 ouro</b></div>' : '') +
-        (s.type === 'abrigo' ? '<div class="data-row"><span>Frutos armazenados</span><b>' + fmt(s.fruitStored, 1) + ' unidades</b></div><div class="data-row"><span>Carne armazenada</span><b>' + fmt(s.meatStored, 1) + ' unidades</b></div>' : '') +
-        (s.type === 'curral' ? '<div class="data-row"><span>Rebanho próximo</span><b>' + world.animals.filter(a => a.alive && (a.herdCommunityId === s.communityId || Math.hypot(a.x - s.x, a.y - s.y) <= (s.radius || 3.5))).length + ' ovelhas · raio ' + (s.radius || 3.5) + ' células</b></div>' : '') +
-        (s.type === 'posto de coleta' ? '<div class="data-row"><span>Mercado</span><b>ouro ' + fmt(world.market.gold, 0) + ' · alimento ' + fmt(world.market.food, 0) + ' · madeira ' + fmt(world.market.wood, 0) + ' · pedra ' + fmt(world.market.stone, 0) + ' · ovelhas ' + fmt(world.market.sheep, 0) + '</b></div>' : '') +
-        (s.type === 'divisa' ? '<div class="data-row"><span>Área demarcada</span><b>caça · raio ' + (s.radius || 4) + ' células</b></div>' : '') +
-        '<p class="quiet">Cada obra consome madeira, pedra, alimento, energia e tempo de trabalho. Abrigos guardam frutos e carne levados pelos moradores; currais usam as cercas do tileset e mantêm o rebanho dentro do perímetro; postos permitem negociar comida, madeira, pedra, ração e ovelhas com ouro.</p>';
+      $('inspectEyebrow').textContent = kingdom ? kingdom.name.toUpperCase() : 'CONSTRUÇÃO';
+      $('inspectTitle').textContent = s.frontierOutpost ? 'Posto de fronteira' : structureDisplayName(s.type);
+      root.innerHTML = buildingCard(world, s) +
+        (s.type === 'castelo' && kingdom ? '<button type="button" data-inspect-kingdom="' + kingdom.id + '">Abrir card do reino</button>' : '') +
+        (s.type === 'torre' && s.complete && s.destroyedDay == null ? '<details class="gameplay-details"><summary>Ordens militares</summary><div class="kingdom-actions">' + world.kingdoms.filter(k => k.id !== s.kingdomId).map(k => '<button type="button" data-structure-command="capture-tower" data-kingdom-id="' + k.id + '" data-tower-id="' + s.id + '">Rei de ' + esc(k.name) + ': ordenar captura</button>').join('') +
+          (kingdom && !s.frontierOutpost ? '<button type="button" data-structure-command="destroy-tower" data-kingdom-id="' + kingdom.id + '" data-tower-id="' + s.id + '">Destruir torre</button>' : '') + '</div></details>' : '') +
+        (['centro_militar', 'arquearia', 'monasterio', 'mercado', 'castelo'].includes(s.type) && s.complete && s.destroyedDay == null ? '<details class="gameplay-details"><summary>Ordens militares</summary><div class="kingdom-actions">' + world.kingdoms.filter(k => k.id !== s.kingdomId).map(k => '<button type="button" data-structure-command="attack-installation" data-kingdom-id="' + k.id + '" data-structure-id="' + s.id + '">Rei de ' + esc(k.name) + ': ordenar ataque</button>').join('') + '</div></details>' : '');
+      const meter = root.querySelector('.construction-meter');
+      if (meter && window.ForjaHUD) meter.append(window.ForjaHUD.create({ size: 'small', color: 'yellow', value: Number(meter.dataset.progress), label: 'Progresso da construção' }));
       return;
     }
     const d = Sim.inspectTile(world, selection.x, selection.y);
@@ -1368,10 +2637,12 @@ export function mountGame() {
   }
 
   function render() {
-    const stats = Sim.snapshot(world);
+    if (!world) return;
+    const stats = world.stats;
     $('assetCreditTiny').hidden = false;
     updateHeader(stats);
     drawMap();
+    renderMiniMap();
     renderKingdomList();
     renderSpecies(stats);
     renderEvents();
@@ -1381,10 +2652,16 @@ export function mountGame() {
   function pickEntity(mapX, mapY) {
     const tileX = Math.floor(mapX), tileY = Math.floor(mapY);
     const x = mapX - .5, y = mapY - .5;
-    const p = world.people.filter(a => a.alive && Math.hypot(a.x - x, a.y - y) < .72).sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0];
+    const nearestActor = (kind, agents) => agents.filter(agent => agent.alive && agent.restingStructureId == null)
+      .map(agent => { const pose = visualPose(kind, agent); return { agent, distance: Math.hypot(pose.x - x, pose.y - y) }; })
+      .filter(item => item.distance < .72).sort((a, b) => a.distance - b.distance)[0]?.agent;
+    const p = nearestActor('person', world.people);
     if (p) return { kind: 'person', id: p.id };
-    const a = world.animals.filter(o => o.alive && Math.hypot(o.x - x, o.y - y) < .72).sort((u, v) => Math.hypot(u.x - x, u.y - y) - Math.hypot(v.x - x, v.y - y))[0];
+    const a = nearestActor('animal', world.animals);
     if (a) return { kind: 'animal', id: a.id };
+    const pile = (world.loot || []).filter(p => p.available && Math.hypot(p.x - x, p.y - y) < .85)
+      .sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0];
+    if (pile) return { kind: 'loot', id: pile.id };
     const looseLog = (world.logs || []).filter(item => item.available && item.amount > .01 && Math.hypot(item.x - x, item.y - y) < .72)
       .sort((u, v) => Math.hypot(u.x - x, u.y - y) - Math.hypot(v.x - x, v.y - y))[0];
     if (looseLog) return { kind: 'log', id: looseLog.id };
@@ -1397,7 +2674,7 @@ export function mountGame() {
         const palette = kingdom ? kingdom.palette : community ? communityPalette(community.id) : 'blue';
         const sprite = tinyBuildingSprites[palette] && tinyBuildingSprites[palette][spriteKey];
         if (sprite && sprite.complete && sprite.naturalWidth) {
-          const width = sprite.naturalWidth / 64, height = sprite.naturalHeight / 64;
+          const width = sprite.naturalWidth / 48, height = sprite.naturalHeight / 48;
           const left = s.x + .5 - width / 2, top = s.y + 1 - height * .9;
           return mapX >= left - .18 && mapX <= left + width + .18
             && mapY >= top - .18 && mapY <= top + height + .18;
@@ -1417,11 +2694,11 @@ export function mountGame() {
       const season = Sim.modules.Cosmos.seasonIndex(world.day);
       const treeId = type === 'conifer' ? 1 + variation % 2 : season < 2 ? 3 : 4;
       const sprite = tinyTreeSprites[treeId];
-      const size = mass > 760 ? 1 : mass > 420 ? .84 : .68, scale = TILE / 64 * size;
+      const size = mass > 760 ? 1 : mass > 420 ? .84 : .68, scale = spriteScale(TILE, size);
       const width = 192 * scale, height = (sprite && sprite.naturalHeight || (treeId < 3 ? 256 : 192)) * scale;
       const baseY = ({ 1: 241, 2: 249, 3: 170, 4: 168 })[treeId];
       const left = (tx + .5) * TILE - width / 2;
-      const groundY = (ty + 1) * TILE - 2;
+      const groundY = (ty + 1) * TILE;
       const top = groundY - baseY * scale;
       if (pointPx >= left && pointPx <= left + width && pointPy >= top && pointPy <= top + height) {
         trees.push({ x: tx, y: ty, depth: ty, distance: Math.hypot(tx - x, ty - y) });
@@ -1432,14 +2709,385 @@ export function mountGame() {
       return { kind: 'cell', x: trees[0].x, y: trees[0].y };
     }
     const kingdom = world.kingdoms.find(k => Math.hypot(k.x - x, k.y - y) < 12);
-    if (kingdom && layer === 'territory') return { kind: 'kingdom', id: kingdom.id };
+    if (kingdom) return { kind: 'kingdom', id: kingdom.id };
     return { kind: 'cell', x: tileX, y: tileY };
+  }
+
+  function territoryStructureAtMapPosition(mapX, mapY) {
+    return world.structures.filter(structure => ['castelo', 'torre'].includes(structure.type)
+      && structure.complete && structure.destroyedDay == null).map(structure => {
+      const kingdom = getKingdom(structure.kingdomId), community = getCommunity(structure.communityId);
+      const spriteKey = structureSpriteKey(structure);
+      const palette = kingdom ? kingdom.palette : community ? communityPalette(community.id) : 'blue';
+      const sprite = tinyBuildingSprites[palette] && tinyBuildingSprites[palette][spriteKey];
+      const width = sprite && sprite.complete && sprite.naturalWidth ? sprite.naturalWidth / 48 : 1.1;
+      const height = sprite && sprite.complete && sprite.naturalHeight ? sprite.naturalHeight / 48 : 1.1;
+      const left = structure.x + .5 - width / 2, top = structure.y + 1 - height * .9;
+      return mapX >= left - .18 && mapX <= left + width + .18
+        && mapY >= top - .18 && mapY <= top + height + .18 ? structure : null;
+    }).filter(Boolean).sort((a, b) => Math.hypot(a.x - mapX, a.y - mapY) - Math.hypot(b.x - mapX, b.y - mapY))[0] || null;
+  }
+
+  function collisionStructureAtMapPosition(mapX, mapY) {
+    const candidates = [];
+    for (const structure of world.structures) {
+      const hitbox = calibratedStructureHitbox(structure);
+      if (!hitbox) continue;
+      const spriteKey = structureSpriteKey(structure);
+      const kingdom = getKingdom(structure.kingdomId), community = getCommunity(structure.communityId);
+      const palette = kingdom ? kingdom.palette : community ? communityPalette(community.id) : 'blue';
+      const sprite = tinyBuildingSprites[palette] && tinyBuildingSprites[palette][spriteKey];
+      const width = sprite?.complete && sprite.naturalWidth ? sprite.naturalWidth / SOURCE_TILE_PIXELS : Math.max(1.2, hitbox.halfWidth * 2);
+      const height = sprite?.complete && sprite.naturalHeight ? sprite.naturalHeight / SOURCE_TILE_PIXELS : 1.8;
+      const left = structure.x + .5 - width / 2;
+      const top = structure.y + 1 - (BUILDING_FEET[spriteKey] || (height * SOURCE_TILE_PIXELS)) / SOURCE_TILE_PIXELS;
+      const insideArt = mapX >= left - .2 && mapX <= left + width + .2
+        && mapY >= top - .2 && mapY <= top + height + .2;
+      const centerX = hitbox.x + .5, centerY = hitbox.y + 1;
+      const entry = calibratedStructureEntry(structure);
+      const nearCollider = Math.abs(mapX - centerX) <= hitbox.halfWidth + .45
+        && Math.abs(mapY - centerY) <= hitbox.halfDepth + .45;
+      const nearEntry = Math.hypot(mapX - entry.x - .5, mapY - entry.y - .5) < .35;
+      if (insideArt || nearCollider || nearEntry) {
+        candidates.push({ structure, distance: Math.hypot(mapX - centerX, mapY - centerY), insideArt });
+      }
+    }
+    return candidates.sort((a, b) => Number(b.insideArt) - Number(a.insideArt) || a.distance - b.distance)[0]?.structure || null;
+  }
+
+  function collisionEditorPoint(event) {
+    const rect = stage.getBoundingClientRect();
+    const point = currentMapCamera().toWorld(event.clientX - rect.left, event.clientY - rect.top);
+    return { x: point.x / TILE, y: point.y / TILE };
+  }
+
+  function collisionEditTolerance(pixels = 10) {
+    return Math.max(.015, pixels / Math.max(1, currentMapCamera().scale * TILE));
+  }
+
+  function getCollisionEditTargets(bounds = getMapViewport().bounds, includeKey = null) {
+    const collision = Sim.modules.Collision, targets = [];
+    const inView = (hitbox, key) => {
+      if (key === includeKey) return true;
+      if (!bounds || !hitbox) return false;
+      const halfWidth = hitbox.shape === 'circle' ? hitbox.radius
+        : hitbox.shape === 'polygon' && hitbox.points?.length
+          ? Math.max(...hitbox.points.map(point => Math.abs(point.x - hitbox.x))) : hitbox.halfWidth;
+      const halfDepth = hitbox.shape === 'circle' ? hitbox.radius
+        : hitbox.shape === 'polygon' && hitbox.points?.length
+          ? Math.max(...hitbox.points.map(point => Math.abs(point.y - hitbox.y))) : hitbox.halfDepth;
+      return hitbox.x + halfWidth >= bounds.minX - 3 && hitbox.x - halfWidth <= bounds.maxX + 3
+        && hitbox.y + halfDepth >= bounds.minY - 3 && hitbox.y - halfDepth <= bounds.maxY + 3;
+    };
+    for (const structure of world.structures) {
+      const hitbox = calibratedStructureHitbox(structure);
+      const key = 'structure:' + structure.id;
+      if (hitbox && inView(hitbox, key)) targets.push({ key, kind: 'structure',
+        profileKey: collisionProfileKey(structure), entity: structure, hitbox,
+        anchorX: .5, anchorY: 1, colorKind: 'structure', label: collisionProfileKey(structure) });
+    }
+    for (const hitbox of collision.worldCollisionIndex(world).resources.hitboxes) {
+      const resource = hitbox.resourceKind, tile = world.tiles[hitbox.resourceId];
+      const key = 'resource:' + resource + ':' + hitbox.resourceId;
+      if (!tile || !inView(hitbox, key)) continue;
+      targets.push({ key, kind: 'resource',
+        profileKey: 'resource:' + resource, entity: tile, hitbox, anchorX: .5, anchorY: 1,
+        colorKind: 'resource' + resource[0].toUpperCase() + resource.slice(1),
+        label: resource === 'tree' ? 'todas as árvores' : resource === 'stone' ? 'todas as pedras' : 'todo o ouro' });
+    }
+    for (const person of world.people) {
+      if (!person.alive || person.restingStructureId != null) continue;
+      const pose = visualPose('person', person), group = person.ageDays < 12 * 365 ? 'child' : 'adult';
+      const hitbox = collision.npcHitbox(person, pose.x, pose.y);
+      const key = 'npc:' + person.id;
+      if (!inView(hitbox, key)) continue;
+      targets.push({ key, kind: 'npc', profileKey: 'npc:' + group,
+        entity: person, hitbox, anchorX: .5, anchorY: 1,
+        colorKind: 'npc', label: group === 'child' ? 'todas as crianças' : 'todos os NPCs adultos' });
+    }
+    for (const animal of world.animals) {
+      if (!animal.alive) continue;
+      const pose = visualPose('animal', animal), species = String(animal.speciesId);
+      const hitbox = collision.animalHitbox(animal, pose.x, pose.y);
+      const key = 'animal:' + animal.id;
+      if (!inView(hitbox, key)) continue;
+      targets.push({ key, kind: 'animal', profileKey: 'animal:' + species,
+        entity: animal, hitbox, anchorX: .5, anchorY: 1,
+        colorKind: 'animal', label: 'todos os animais ' + species });
+    }
+    return targets;
+  }
+
+  function ensureMutableCollisionProfile(target) {
+    if (!collisionCalibrationProfiles[target.profileKey]
+        || typeof collisionCalibrationProfiles[target.profileKey] !== 'object') {
+      const hitbox = target.hitbox;
+      if (target.kind === 'structure') collisionCalibrationProfiles[target.profileKey] = {
+        offsetX: 0, offsetY: 0, halfWidth: hitbox.halfWidth, halfDepth: hitbox.halfDepth,
+        entryOffsetX: 0, entryOffsetY: 0
+      };
+      else if (target.kind === 'resource') collisionCalibrationProfiles[target.profileKey] = {
+        offsetX: 0, offsetY: 0, sizeMultiplier: 1
+      };
+      else collisionCalibrationProfiles[target.profileKey] = { offsetX: 0, offsetY: 0, radiusMultiplier: 1 };
+      applyCollisionProfilesLocally();
+    }
+    return collisionCalibrationProfiles[target.profileKey];
+  }
+
+  function applyCollisionProfilesLocally() {
+    Sim.modules.Collision.setCollisionProfiles(collisionCalibrationProfiles);
+  }
+
+  function collisionHitboxVertices(hitbox, anchorX = .5, anchorY = 1) {
+    if (hitbox.shape === 'polygon' && hitbox.points?.length >= 3) {
+      return hitbox.points.map(point => ({ x: point.x + anchorX, y: point.y + anchorY }));
+    }
+    return [
+      { x: hitbox.x + anchorX - hitbox.halfWidth, y: hitbox.y + anchorY - hitbox.halfDepth },
+      { x: hitbox.x + anchorX + hitbox.halfWidth, y: hitbox.y + anchorY - hitbox.halfDepth },
+      { x: hitbox.x + anchorX + hitbox.halfWidth, y: hitbox.y + anchorY + hitbox.halfDepth },
+      { x: hitbox.x + anchorX - hitbox.halfWidth, y: hitbox.y + anchorY + hitbox.halfDepth }
+    ];
+  }
+
+  function drawCollisionEditHandles(target, scale) {
+    const { hitbox, anchorX, anchorY } = target;
+    const centerX = (hitbox.x + anchorX) * TILE, centerY = (hitbox.y + anchorY) * TILE;
+    const handle = 4 / scale;
+    let points;
+    if (hitbox.shape === 'circle') points = [[centerX + hitbox.radius * TILE, centerY]];
+    else if (hitbox.shape === 'polygon' && hitbox.points?.length >= 3) {
+      points = hitbox.points.map(point => [(point.x + anchorX) * TILE, (point.y + anchorY) * TILE]);
+    } else points = [
+      [centerX - hitbox.halfWidth * TILE, centerY - hitbox.halfDepth * TILE],
+      [centerX + hitbox.halfWidth * TILE, centerY - hitbox.halfDepth * TILE],
+      [centerX + hitbox.halfWidth * TILE, centerY + hitbox.halfDepth * TILE],
+      [centerX - hitbox.halfWidth * TILE, centerY + hitbox.halfDepth * TILE]
+    ];
+    ctx.fillStyle = '#fff8df'; ctx.strokeStyle = '#ae4938'; ctx.lineWidth = 1.5 / scale;
+    for (const [x, y] of points) {
+      ctx.fillRect(x - handle, y - handle, handle * 2, handle * 2);
+      ctx.strokeRect(x - handle, y - handle, handle * 2, handle * 2);
+    }
+  }
+
+  function collisionEditTargetAt(point) {
+    const targets = getCollisionEditTargets();
+    const direct = targets.filter(target => target.kind !== 'structure'
+      && collisionEditDistanceToHitbox(point, target) <= .02)
+      .sort((a, b) => Math.hypot(point.x - a.hitbox.x - a.anchorX, point.y - a.hitbox.y - a.anchorY)
+        - Math.hypot(point.x - b.hitbox.x - b.anchorX, point.y - b.hitbox.y - b.anchorY));
+    if (direct.length) return direct[0];
+    const clickedStructure = collisionStructureAtMapPosition(point.x, point.y);
+    if (clickedStructure) return targets.find(target => target.kind === 'structure' && target.entity.id === clickedStructure.id) || null;
+    return targets.map(target => ({ target, distance: collisionEditDistanceToHitbox(point, target) }))
+      .filter(candidate => candidate.distance <= collisionEditTolerance(12))
+      .sort((a, b) => a.distance - b.distance)[0]?.target || null;
+  }
+
+  function collisionEditDistanceToHitbox(point, target) {
+    const hitbox = target.hitbox, x = point.x - target.anchorX, y = point.y - target.anchorY;
+    if (hitbox.shape === 'circle') return Math.max(0, Math.hypot(x - hitbox.x, y - hitbox.y) - hitbox.radius);
+    if (hitbox.shape === 'polygon' && hitbox.points?.length >= 3) {
+      const vertices = collisionHitboxVertices(hitbox, target.anchorX, target.anchorY);
+      if (pointInCollisionPolygon(point, vertices)) return 0;
+      let distance = Infinity;
+      for (let index = 0; index < vertices.length; index++) {
+        distance = Math.min(distance, closestPointOnSegment(point, vertices[index], vertices[(index + 1) % vertices.length]).distance);
+      }
+      return distance;
+    }
+    return Math.hypot(Math.max(0, Math.abs(x - hitbox.x) - hitbox.halfWidth),
+      Math.max(0, Math.abs(y - hitbox.y) - hitbox.halfDepth));
+  }
+
+  function pointInCollisionPolygon(point, vertices) {
+    let inside = false;
+    for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+      const a = vertices[i], b = vertices[j];
+      if ((a.y > point.y) !== (b.y > point.y)
+          && point.x < (b.x - a.x) * (point.y - a.y) / ((b.y - a.y) || Number.EPSILON) + a.x) inside = !inside;
+    }
+    return inside;
+  }
+
+  function closestPointOnSegment(point, a, b) {
+    const dx = b.x - a.x, dy = b.y - a.y, lengthSquared = dx * dx + dy * dy;
+    const t = lengthSquared ? Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSquared)) : 0;
+    return { x: a.x + t * dx, y: a.y + t * dy, t,
+      distance: Math.hypot(point.x - a.x - t * dx, point.y - a.y - t * dy) };
+  }
+
+  function initialCollisionProfilePoints(hitbox) {
+    if (hitbox.shape === 'polygon' && hitbox.points?.length >= 3) {
+      return hitbox.points.map(point => ({ x: point.x - hitbox.x, y: point.y - hitbox.y }));
+    }
+    return [
+      { x: -hitbox.halfWidth, y: -hitbox.halfDepth },
+      { x: hitbox.halfWidth, y: -hitbox.halfDepth },
+      { x: hitbox.halfWidth, y: hitbox.halfDepth },
+      { x: -hitbox.halfWidth, y: hitbox.halfDepth }
+    ];
+  }
+
+  function addCollisionHitboxPoint(target, point) {
+    if (target.kind !== 'structure') return false;
+    const structure = target.entity, hitbox = target.hitbox;
+    if (!hitbox) return false;
+    const vertices = collisionHitboxVertices(hitbox, target.anchorX, target.anchorY);
+    let closest = null;
+    for (let index = 0; index < vertices.length; index++) {
+      const projection = closestPointOnSegment(point, vertices[index], vertices[(index + 1) % vertices.length]);
+      if (!closest || projection.distance < closest.distance) closest = { ...projection, index };
+    }
+    if (!closest || closest.distance > collisionEditTolerance(14)) {
+      setCollisionEditorStatus('Clique mais perto de uma aresta vermelha para inserir um vértice.');
+      return false;
+    }
+    const profile = ensureMutableCollisionProfile(target);
+    const localPoints = Array.isArray(profile.points) && profile.points.length >= 3
+      ? profile.points.map(vertex => Array.isArray(vertex) ? { x: Number(vertex[0]), y: Number(vertex[1]) } : { x: vertex.x, y: vertex.y })
+      : initialCollisionProfilePoints(hitbox);
+    const modelPoint = { x: point.x - target.anchorX - hitbox.x, y: point.y - target.anchorY - hitbox.y };
+    localPoints.splice(closest.index + 1, 0, modelPoint);
+    profile.points = localPoints;
+    applyCollisionProfilesLocally();
+    setCollisionEditorStatus('Vértice adicionado. Arraste os quadrados para refinar o contorno; use + Ponto para inserir mais.');
+    drawMap();
+    return true;
+  }
+
+  function beginCollisionEditPointer(event) {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    const point = collisionEditorPoint(event);
+    if (collisionEditAddPointMode) {
+      const selected = collisionEditSelection && getCollisionEditTargets().find(target => target.key === collisionEditSelection.key);
+      if (selected?.kind === 'structure') addCollisionHitboxPoint(selected, point);
+      else setCollisionEditorStatus('Selecione uma construção antes de adicionar pontos.');
+      event.preventDefault();
+      return;
+    }
+    const target = collisionEditTargetAt(point);
+    if (!target) {
+      setCollisionEditorStatus('Clique numa hitbox colorida para selecionar esse tipo de objeto.');
+      return;
+    }
+    collisionEditSelection = { key: target.key, profileKey: target.profileKey, kind: target.kind };
+    const hitbox = target.hitbox, centerX = hitbox.x + target.anchorX, centerY = hitbox.y + target.anchorY;
+    let drag = null;
+    if (target.kind === 'structure') {
+      const entry = calibratedStructureEntry(target.entity), entryX = entry.x + .5, entryY = entry.y + .5;
+      if (Math.hypot(point.x - entryX, point.y - entryY) < collisionEditTolerance(12)) {
+        drag = { kind: 'entry', pointerId: event.pointerId, key: target.key,
+          offsetX: entryX - point.x, offsetY: entryY - point.y };
+      }
+    }
+    if (!drag) {
+      ensureMutableCollisionProfile(target);
+      const vertices = collisionHitboxVertices(hitbox, target.anchorX, target.anchorY);
+      const vertexIndex = hitbox.shape === 'polygon'
+        ? vertices.findIndex(vertex => Math.hypot(point.x - vertex.x, point.y - vertex.y) < collisionEditTolerance(10)) : -1;
+      if (vertexIndex >= 0) {
+        drag = { kind: 'vertex', pointerId: event.pointerId, key: target.key, vertexIndex,
+          offsetX: vertices[vertexIndex].x - point.x, offsetY: vertices[vertexIndex].y - point.y };
+      } else if (hitbox.shape === 'circle') {
+        const radiusHandle = { x: centerX + hitbox.radius, y: centerY };
+        if (Math.hypot(point.x - radiusHandle.x, point.y - radiusHandle.y) < collisionEditTolerance(10)) {
+          drag = { kind: 'resizeCircle', pointerId: event.pointerId, key: target.key,
+            offsetX: radiusHandle.x - point.x, offsetY: radiusHandle.y - point.y };
+        }
+      } else if (hitbox.shape !== 'polygon') {
+        const corners = [
+          { x: centerX - hitbox.halfWidth, y: centerY - hitbox.halfDepth, sideX: -1, sideY: -1 },
+          { x: centerX + hitbox.halfWidth, y: centerY - hitbox.halfDepth, sideX: 1, sideY: -1 },
+          { x: centerX - hitbox.halfWidth, y: centerY + hitbox.halfDepth, sideX: -1, sideY: 1 },
+          { x: centerX + hitbox.halfWidth, y: centerY + hitbox.halfDepth, sideX: 1, sideY: 1 }
+        ];
+        const corner = corners.find(handle => Math.hypot(point.x - handle.x, point.y - handle.y) < collisionEditTolerance(10));
+        if (corner) drag = { kind: 'resize', pointerId: event.pointerId, key: target.key,
+          sideX: corner.sideX, sideY: corner.sideY };
+      }
+      const distance = collisionEditDistanceToHitbox(point, target);
+      if (!drag && distance <= collisionEditTolerance(2)) drag = { kind: 'move', pointerId: event.pointerId, key: target.key,
+        offsetX: centerX - point.x, offsetY: centerY - point.y };
+      if (drag) {
+        drag.profileKey = target.profileKey;
+        drag.anchorX = target.anchorX; drag.anchorY = target.anchorY;
+      }
+    }
+    if (drag) {
+      collisionEditDrag = drag;
+      try { canvas.setPointerCapture(event.pointerId); } catch (_) {}
+      canvas.style.cursor = 'grabbing';
+    } else {
+      const suffix = target.kind === 'structure' ? '. O losango dourado move a porta de interação.' : '.';
+      setCollisionEditorStatus('Selecionado: ' + target.label + '. Arraste o corpo para mover e as alças para redimensionar' + suffix);
+    }
+    event.preventDefault();
+    drawMap();
+  }
+
+  function updateCollisionEditPointer(event) {
+    if (!collisionEditDrag || collisionEditDrag.pointerId !== event.pointerId) return false;
+    const drag = collisionEditDrag;
+    const target = getCollisionEditTargets(undefined, drag.key).find(item => item.key === drag.key);
+    if (!target) { collisionEditDrag = null; return true; }
+    const point = collisionEditorPoint(event), current = target.hitbox;
+    const profile = ensureMutableCollisionProfile(target), modelX = point.x - target.anchorX, modelY = point.y - target.anchorY;
+    const baseX = current.x - (Number(profile.offsetX) || 0), baseY = current.y - (Number(profile.offsetY) || 0);
+    if (drag.kind === 'move') {
+      profile.offsetX = modelX + drag.offsetX - baseX;
+      profile.offsetY = modelY + drag.offsetY - baseY;
+    } else if (drag.kind === 'resize') {
+      const oppositeX = current.x - drag.sideX * current.halfWidth;
+      const oppositeY = current.y - drag.sideY * current.halfDepth;
+      const halfWidth = Math.max(.06, Math.abs(modelX + drag.offsetX - oppositeX) / 2);
+      const halfDepth = Math.max(.06, Math.abs(modelY + drag.offsetY - oppositeY) / 2);
+      let centerX = (modelX + drag.offsetX + oppositeX) / 2;
+      let centerY = (modelY + drag.offsetY + oppositeY) / 2;
+      if (target.kind === 'structure') {
+        profile.offsetX = centerX - baseX;
+        profile.offsetY = centerY - baseY;
+        profile.halfWidth = halfWidth; profile.halfDepth = halfDepth;
+      } else {
+        const baseSize = current.halfWidth / Math.max(.0001, Number(profile.sizeMultiplier) || 1);
+        // Resource masks are deliberately square; keep the opposite corner fixed as it resizes.
+        const halfSize = Math.max(halfWidth, halfDepth);
+        centerX = oppositeX + drag.sideX * halfSize;
+        centerY = oppositeY + drag.sideY * halfSize;
+        profile.offsetX = centerX - baseX;
+        profile.offsetY = centerY - baseY;
+        profile.sizeMultiplier = Math.max(.05, Math.min(8, halfSize / baseSize));
+      }
+    } else if (drag.kind === 'resizeCircle') {
+      const baseRadius = current.radius / Math.max(.0001, Number(profile.radiusMultiplier) || 1);
+      profile.radiusMultiplier = Math.max(.05, Math.min(8, Math.hypot(modelX + drag.offsetX - current.x,
+        modelY + drag.offsetY - current.y) / baseRadius));
+    } else if (drag.kind === 'entry') {
+      const base = defaultStructureEntry(target.entity);
+      profile.entryOffsetX = Math.round(point.x + drag.offsetX - .5) - base.x + (Number(profile.entryOffsetX) || 0);
+      profile.entryOffsetY = Math.round(point.y + drag.offsetY - .5) - base.y + (Number(profile.entryOffsetY) || 0);
+    } else if (drag.kind === 'vertex') {
+      if (!Array.isArray(profile.points) || profile.points.length < 3) {
+        profile.points = initialCollisionProfilePoints(current);
+      }
+      profile.points[drag.vertexIndex] = {
+        x: modelX + drag.offsetX - current.x,
+        y: modelY + drag.offsetY - current.y
+      };
+    }
+    applyCollisionProfilesLocally();
+    event.preventDefault();
+    drawMap();
+    return true;
   }
 
   const activeMapPointers = new Map();
   let mapDrag = null, pinchGesture = null, mapGestureMoved = false, ignoreNextMapClick = false;
   function beginMapPointer(event) {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
+    if (collisionEditMode) { beginCollisionEditPointer(event); return; }
     activeMapPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     try { canvas.setPointerCapture(event.pointerId); } catch (_) {}
     if (activeMapPointers.size === 1) {
@@ -1456,7 +3104,21 @@ export function mountGame() {
     }
   }
   function moveMapPointer(event) {
-    if (!activeMapPointers.has(event.pointerId)) return;
+    if (updateCollisionEditPointer(event)) return;
+    if (!activeMapPointers.has(event.pointerId)) {
+      if (event.pointerType === 'mouse' && world) {
+        const rect = stage.getBoundingClientRect();
+        const point = currentMapCamera().toWorld(event.clientX - rect.left, event.clientY - rect.top);
+        const structure = territoryStructureAtMapPosition(point.x / TILE, point.y / TILE);
+        const nextHoveredId = structure?.id ?? null;
+        if (nextHoveredId !== hoveredTerritoryStructureId) {
+          hoveredTerritoryStructureId = nextHoveredId;
+          canvas.style.cursor = hoveredTerritoryStructureId ? 'pointer' : mapZoom > MIN_MAP_ZOOM + .001 ? 'grab' : 'crosshair';
+          drawMap();
+        }
+      }
+      return;
+    }
     activeMapPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (activeMapPointers.size >= 2) {
       const points = Array.from(activeMapPointers.values()).slice(0, 2);
@@ -1487,6 +3149,20 @@ export function mountGame() {
     }
   }
   function endMapPointer(event) {
+    if (collisionEditDrag?.pointerId === event.pointerId) {
+      const selected = collisionEditSelection;
+      collisionEditDrag = null;
+      canvas.style.cursor = 'crosshair';
+      applyCollisionCalibrationToSimulation().then(() => {
+        setCollisionEditorStatus(selected
+          ? 'Ajuste aplicado à física para ' + selected.profileKey + '. Salvar JSON persiste e exporta este perfil.'
+          : 'Ajuste aplicado à física. Salvar JSON persiste e exporta os perfis.');
+      }).catch(error => {
+        setCollisionEditorStatus('A prévia visual foi ajustada, mas a física da simulação não confirmou: ' + error.message);
+      });
+      drawMap();
+      return;
+    }
     activeMapPointers.delete(event.pointerId);
     if (activeMapPointers.size === 1) {
       const [pointerId, point] = activeMapPointers.entries().next().value;
@@ -1513,6 +3189,12 @@ export function mountGame() {
   }
   canvas.addEventListener('pointerdown', beginMapPointer);
   canvas.addEventListener('pointermove', moveMapPointer);
+  canvas.addEventListener('pointerleave', () => {
+    if (hoveredTerritoryStructureId == null) return;
+    hoveredTerritoryStructureId = null;
+    canvas.style.cursor = mapZoom > MIN_MAP_ZOOM + .001 ? 'grab' : 'crosshair';
+    drawMap();
+  });
   canvas.addEventListener('pointerup', endMapPointer);
   canvas.addEventListener('pointercancel', endMapPointer);
   canvas.addEventListener('wheel', event => {
@@ -1522,85 +3204,252 @@ export function mountGame() {
   $('mapZoomIn').addEventListener('click', () => zoomMapTo(mapZoom * 1.25));
   $('mapZoomOut').addEventListener('click', () => zoomMapTo(mapZoom / 1.25));
   $('mapZoomReset').addEventListener('click', resetMapViewport);
+  $('hitboxToggle').addEventListener('click', toggleCollisionHitboxes);
+  $('collisionEditToggle').addEventListener('click', toggleCollisionEditor);
+  $('collisionAddPoint').addEventListener('click', toggleCollisionAddPointMode);
+  $('collisionProfileSave').addEventListener('click', saveCollisionCalibration);
+  $('collisionTestToggle').addEventListener('click', toggleCollisionTest);
+  miniMapCanvas.addEventListener('click', event => {
+    if (!world) return;
+    const rect = miniMapCanvas.getBoundingClientRect();
+    const targetX = Math.max(0, Math.min(W - 1, (event.clientX - rect.left) / rect.width * W));
+    const targetY = Math.max(0, Math.min(H - 1, (event.clientY - rect.top) / rect.height * H));
+    const scale = currentMapCamera().scale;
+    mapPanX = scale * (LOGICAL_SIZE / 2 - targetX * TILE);
+    mapPanY = scale * (LOGICAL_SIZE / 2 - targetY * TILE);
+    clampMapPan(); updateMapViewport(); drawMap();
+  });
 
   canvas.addEventListener('click', event => {
+    if (!world) return;
+    if (collisionEditMode) return;
     if (ignoreNextMapClick) { ignoreNextMapClick = false; return; }
-    const rect = canvas.getBoundingClientRect();
-    const mapX = (event.clientX - rect.left) / rect.width * W;
-    const mapY = (event.clientY - rect.top) / rect.height * H;
-    if (mapX >= 0 && mapX < W && mapY >= 0 && mapY < H) { showRight = true; $('rightPanel').classList.remove('is-collapsed'); openSelection(pickEntity(mapX, mapY)); }
+    const rect = stage.getBoundingClientRect();
+    const point = currentMapCamera().toWorld(event.clientX - rect.left, event.clientY - rect.top);
+    const mapX = point.x / TILE;
+    const mapY = point.y / TILE;
+    if (mapX >= 0 && mapX < W && mapY >= 0 && mapY < H) openSelection(pickEntity(mapX, mapY));
   });
 
-  function advanceWorldOneDay() {
-    session.advance();
-    if (localAI) localAI.pump(world);
+  function advanceWorld(days = 1, source = 'clock') {
+    session.advance(days, source).catch(error => {
+      if (!isResetCancellation(error)) console.error('[Kingdom Worker de simulação]', error);
+    });
+  }
+  function submitClockDays(days) {
+    pendingClockDays += days;
+    const targetBatch = session.speed >= 8 ? 3 : 1;
+    if (pendingClockDays >= targetBatch) {
+      const batch = Math.min(3, pendingClockDays);
+      pendingClockDays -= batch;
+      advanceWorld(batch);
+    }
+  }
+  function flushClockDays() {
+    while (pendingClockDays > 0) {
+      const batch = Math.min(3, pendingClockDays);
+      pendingClockDays -= batch;
+      advanceWorld(batch);
+    }
   }
 
-  $('toggle').addEventListener('click', () => { session.paused = !session.paused; render(); });
-  $('step').addEventListener('click', () => { session.paused = true; advanceWorldOneDay(); render(); });
+  $('toggle').addEventListener('click', () => {
+    const paused = !session.paused;
+    movementInterpolator.markDiscontinuity();
+    if (paused) pendingClockDays = 0;
+    session.paused = paused;
+    session.setPaused(paused).catch(error => {
+      if (!isResetCancellation(error)) console.error('[Kingdom Worker de simulação]', error);
+    });
+    render();
+  });
+  $('step').addEventListener('click', () => {
+    movementInterpolator.markDiscontinuity();
+    pendingClockDays = 0;
+    if (!session.paused) {
+      session.paused = true;
+      session.setPaused(true).catch(error => {
+        if (!isResetCancellation(error)) console.error('[Kingdom Worker de simulação]', error);
+      });
+    }
+    advanceWorld(1, 'manual');
+    render();
+  });
   $('localAiToggle').addEventListener('click', async () => {
     if (!localAI) return;
-    if (localAI.isEnabled()) { localAI.disable(world); return; }
-    try { await localAI.enable(world); } catch { render(); }
+    if (localAI.isEnabled()) {
+      if (!persistLocalAIPreference(false)) return;
+      localAI.disable();
+      return;
+    }
+    if (!persistLocalAIPreference(true)) return;
+    try { await localAI.enable(); } catch (error) {
+      console.error('[Kingdom IA local] não foi possível ativar a IA:', error);
+      render();
+    }
   });
-  $('speed').addEventListener('change', e => { session.speed = Number(e.target.value) || 1; });
-  $('layer').addEventListener('change', e => { layer = e.target.value; render(); });
+  $('speedCycle').addEventListener('click', event => {
+    flushClockDays();
+    const speeds = [1, 2, 3];
+    const index = speeds.indexOf(session.speed);
+    session.speed = speeds[(index + 1) % speeds.length];
+    const label = session.speed + '×';
+    event.currentTarget.textContent = label;
+    event.currentTarget.setAttribute('aria-label', 'Velocidade da simulação: ' + label);
+    event.currentTarget.title = 'Acelerar para ' + speeds[(speeds.indexOf(session.speed) + 1) % speeds.length] + '×';
+  });
   $('restart').addEventListener('click', () => {
-    const requestedSeed = Number($('seedInput').value);
+    const requestedSeed = $('seedInput').value.trim() ? Number($('seedInput').value) : randomSeed();
     const seed = Number.isFinite(requestedSeed) ? Math.min(0xffffffff, Math.max(1, Math.trunc(requestedSeed))) : 1;
-    world = session.reset(seed); if (localAI) localAI.syncWorld(world); visualMotions.clear(); $('seedInput').value = seed; selection = null; clock.reset(); resetMapViewport(); render();
+    $('seedInput').value = ''; 
+    pendingClockDays = 0;
+    clock.reset();
+    session.reset(seed, !!(localAI && localAI.isEnabled())).catch(error => {
+      if (!isResetCancellation(error)) console.error('[Kingdom Worker de simulação]', error);
+    });
   });
   $('seedInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('restart').click(); });
+  const setKingdomPanel = open => {
+    showLeft = open;
+    $('leftPanel').classList.toggle('is-open', open);
+    $('kingdomsToggle').setAttribute('aria-expanded', String(open));
+    if (open) {
+      $('journal').hidden = true; $('journalToggle').setAttribute('aria-expanded', 'false');
+      $('settingsTray').hidden = true; $('settingsToggle').setAttribute('aria-expanded', 'false');
+      showRight = false;
+      $('rightPanel').classList.remove('is-open');
+    } else if (selection) {
+      showRight = true;
+      $('rightPanel').classList.add('is-open');
+    }
+  };
+  const setSettingsPanel = open => {
+    if (open) {
+      showLeft = false; $('leftPanel').classList.remove('is-open'); $('kingdomsToggle').setAttribute('aria-expanded', 'false');
+      showRight = false; $('rightPanel').classList.remove('is-open');
+      $('journal').hidden = true; $('journalToggle').setAttribute('aria-expanded', 'false');
+    }
+    $('settingsTray').hidden = !open;
+    $('settingsToggle').setAttribute('aria-expanded', String(open));
+  };
+  $('kingdomsToggle').addEventListener('click', () => setKingdomPanel(!showLeft));
+  $('settingsToggle').addEventListener('click', () => setSettingsPanel($('settingsTray').hidden));
+  $('settingsClose').addEventListener('click', () => setSettingsPanel(false));
+  $('environmentToggle').addEventListener('click', () => {
+    const open = !$('mapTags').classList.contains('is-open');
+    $('mapTags').classList.toggle('is-open', open);
+    $('environmentToggle').setAttribute('aria-expanded', String(open));
+  });
   $('journalToggle').addEventListener('click', () => {
     const panel = $('journal'), open = panel.hidden;
+    if (open) { setKingdomPanel(false); setSettingsPanel(false); showRight = false; $('rightPanel').classList.remove('is-open'); }
     panel.hidden = !open; $('journalToggle').setAttribute('aria-expanded', String(open));
   });
   $('journalClose').addEventListener('click', () => { $('journal').hidden = true; $('journalToggle').setAttribute('aria-expanded', 'false'); });
-  $('leftClose').addEventListener('click', () => {
-    showLeft = !showLeft; $('leftPanel').classList.toggle('is-collapsed', !showLeft);
-    $('leftClose').textContent = showLeft ? '−' : '+';
-  });
+  $('leftClose').addEventListener('click', () => setKingdomPanel(false));
   $('rightClose').addEventListener('click', () => {
-    showRight = false; $('rightPanel').classList.add('is-collapsed');
+    showRight = false; $('rightPanel').classList.remove('is-open');
   });
+  window.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && collisionEditMode) {
+      toggleCollisionEditor();
+      return;
+    }
+    if (event.key.toLowerCase() === 'h' && !event.repeat && !event.altKey && !event.ctrlKey && !event.metaKey
+        && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)
+        && !document.activeElement?.isContentEditable) {
+      toggleCollisionHitboxes();
+      return;
+    }
+    const movementKey = event.key.toLowerCase();
+    if (collisionTestActive && ['w', 'a', 's', 'd', 'arrowup', 'arrowleft', 'arrowdown', 'arrowright'].includes(movementKey)
+        && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)
+        && !document.activeElement?.isContentEditable) {
+      collisionTestKeys.add(movementKey);
+      event.preventDefault();
+      return;
+    }
+    if (event.key !== 'Escape') return;
+    setKingdomPanel(false); setSettingsPanel(false);
+    $('journal').hidden = true; $('journalToggle').setAttribute('aria-expanded', 'false');
+    $('mapTags').classList.remove('is-open'); $('environmentToggle').setAttribute('aria-expanded', 'false');
+    showRight = false; $('rightPanel').classList.remove('is-open');
+  });
+  window.addEventListener('keyup', event => { collisionTestKeys.delete(event.key.toLowerCase()); });
+  window.addEventListener('blur', () => collisionTestKeys.clear());
   $('kingdomList').addEventListener('click', e => {
     const button = e.target.closest('[data-kingdom]');
-    if (button) { showRight = true; openSelection({ kind: 'kingdom', id: Number(button.dataset.kingdom) }); }
+    if (button) { setKingdomPanel(false); openSelection({ kind: 'kingdom', id: Number(button.dataset.kingdom) }); }
   });
   $('inspector').addEventListener('click', event => {
+    const inspectStructure = event.target.closest('[data-inspect-structure]');
+    if (inspectStructure) { openSelection({ kind: 'structure', id: Number(inspectStructure.dataset.inspectStructure) }); return; }
+    const inspectKingdom = event.target.closest('[data-inspect-kingdom]');
+    if (inspectKingdom) { openSelection({ kind: 'kingdom', id: Number(inspectKingdom.dataset.inspectKingdom) }); return; }
     const button = event.target.closest('[data-kingdom-command], [data-structure-command]');
     if (!button) return;
+    if (button.dataset.structureCommand === 'attack-installation') {
+      session.dispatch({ type: 'attack-installation', kingdomId: Number(button.dataset.kingdomId), structureId: Number(button.dataset.structureId) }).then(result => {
+        selection = { kind: 'kingdom', id: Number(button.dataset.kingdomId) };
+        kingdomActionNotice = result?.ok ? 'O rei ordenou o ataque à instalação. A tropa será mobilizada com suprimentos para o cerco.' : result?.reason || 'Não foi possível ordenar o ataque.';
+        render();
+      }).catch(error => { if (!isResetCancellation(error)) { kingdomActionNotice = error.message; render(); } });
+      return;
+    }
+    if (button.dataset.structureCommand === 'capture-tower') {
+      session.dispatch({ type: 'capture-tower', kingdomId: Number(button.dataset.kingdomId), towerId: Number(button.dataset.towerId) }).then(result => {
+        selection = { kind: 'kingdom', id: Number(button.dataset.kingdomId) };
+        kingdomActionNotice = result?.ok ? 'O rei ordenou a captura. A tropa será mobilizada com suprimentos para tomar a torre.' : result?.reason || 'Não foi possível ordenar a captura.';
+        render();
+      }).catch(error => { if (!isResetCancellation(error)) { kingdomActionNotice = error.message; render(); } });
+      return;
+    }
     if (button.dataset.structureCommand === 'destroy-tower') {
       const kingdomId = Number(button.dataset.kingdomId), towerId = Number(button.dataset.towerId);
-      const result = session.dispatch({ type: 'destroy-tower', kingdomId, towerId });
-      invalidateStaticDepthCache();
-      selection = { kind: 'kingdom', id: kingdomId };
-      kingdomActionNotice = result && result.ok
-        ? 'Torre destruída. O domínio encolheu em ' + fmt(result.territoryTilesLost) + ' células.'
-        : result && result.reason || 'A torre não pôde ser destruída.';
-      render();
+      session.dispatch({ type: 'destroy-tower', kingdomId, towerId }).then(result => {
+        selection = { kind: 'kingdom', id: kingdomId };
+        kingdomActionNotice = result && result.ok
+          ? 'Torre destruída. O domínio encolheu em ' + fmt(result.territoryTilesLost) + ' células.'
+          : result && result.reason || 'A torre não pôde ser destruída.';
+        render();
+      }).catch(error => {
+        if (isResetCancellation(error)) return;
+        kingdomActionNotice = 'A ordem falhou: ' + error.message;
+        render();
+      });
       return;
     }
     const kingdomId = Number(button.dataset.kingdomId);
     const command = button.dataset.kingdomCommand;
-    const result = command === 'recruit'
-      ? session.dispatch({ type: 'recruit-soldier', kingdomId })
-      : session.dispatch({ type: 'kingdom-structure', kingdomId, building: command });
-    invalidateStaticDepthCache();
-    if (!result || !result.ok) kingdomActionNotice = result && result.reason || 'A ordem não foi concluída.';
-    else if (command === 'recruit') kingdomActionNotice = result.person.name + ' foi recrutado como lanceiro. O tesouro pagou alimento, madeira e ouro.';
-    else kingdomActionNotice = (command === 'torre' ? 'Torre concluída.' : 'Centro militar concluído.') + ' Os recursos foram debitados e o domínio foi atualizado.';
-    render();
+    const request = command.startsWith('recruit')
+      ? { type: 'recruit-soldier', kingdomId, militaryClass: button.dataset.militaryClass || 'lanceiro' }
+      : { type: 'kingdom-structure', kingdomId, building: command };
+    session.dispatch(request).then(result => {
+      if (!result || !result.ok) kingdomActionNotice = result && result.reason || 'A ordem não foi concluída.';
+      else if (command.startsWith('recruit')) kingdomActionNotice = result.pending
+        ? result.person.name + ' começou treinamento; o tesouro pagou alimento, madeira e ouro. Pronto no dia ' + result.readyDay + '.'
+        : result.person.name + ' foi recrutado como lanceiro. O tesouro pagou alimento, madeira e ouro.';
+      else kingdomActionNotice = ('Construção iniciada: ' + structureDisplayName(command) + '.')
+        + ' Os recursos foram debitados. Trabalho necessário: ' + result.structure.required + ' dias no local.';
+      render();
+    }).catch(error => {
+      if (isResetCancellation(error)) return;
+      kingdomActionNotice = 'A ordem falhou: ' + error.message;
+      render();
+    });
   });
 
+  let lastAnimationFrame = 0;
   function frame(now) {
-    animationTime = now;
+    if (lastAnimationFrame && !session.paused) animationTime += Math.min(100, now - lastAnimationFrame) * session.speed;
+    lastAnimationFrame = now;
+    const elapsed = lastAtmosphereUpdate ? Math.min(.1, (now - lastAtmosphereUpdate) / 1000) : 0;
+    lastAtmosphereUpdate = now;
+    cloudSystem.update(elapsed);
+    updateCollisionTestPlayer(now);
     const days = clock.advance(now, session.paused, session.speed);
-    if (days > 0) {
-      for (let i = 0; i < days; i++) advanceWorldOneDay();
-      render();
-    }
-    if (now - lastSpriteDraw >= 1000 / 24) {
+    if (days > 0) submitClockDays(days);
+    if (now - lastSpriteDraw >= 1000 / 60) {
       lastSpriteDraw = now;
       drawMap();
     }
@@ -1608,6 +3457,4 @@ export function mountGame() {
   }
 
   updateMapViewport();
-  render();
-  window.requestAnimationFrame(frame);
 }

@@ -5,7 +5,7 @@ import { COLORS, COMMUNITY_FORMS } from '../../config/ecosystem.js';
 import { rand } from '../core/random.js';
 import { log } from '../core/events.js';
 import { plantBiomass } from '../ecology/plants.js';
-import { communityFoodStock } from '../economy/inventories.js';
+import { communityFoodStock, transferStores } from '../economy/inventories.js';
 
 export function activeCommunity(w, person) {
     return person.communityId === null ? null : w.communities.find(c => c.id === person.communityId && !c.dissolved) || null;
@@ -85,9 +85,9 @@ export function mergeCommunities(w, aId, bId) {
     const keep = a.createdDay <= b.createdDay ? a : b, lose = keep === a ? b : a;
     for (const p of w.people) if (p.communityId === lose.id) { p.communityId = keep.id; if (!keep.memberIds.includes(p.id)) keep.memberIds.push(p.id); }
     keep.usedCells = Object.assign(keep.usedCells || {}, lose.usedCells || {});
-    keep.stores.food = (keep.stores.food || 0) + (lose.stores.food || 0);
-    keep.stores.meat = (keep.stores.meat || 0) + (lose.stores.meat || 0);
-    for (const key of ['wood', 'stone', 'feed', 'gold']) keep.stores[key] = (keep.stores[key] || 0) + (lose.stores[key] || 0);
+    for (const key of ['food', 'meat', 'wood', 'stone', 'feed', 'gold']) {
+      transferStores(lose, keep, key, lose.stores[key] || 0);
+    }
     ensureCommunityGovernanceState(keep); ensureCommunityGovernanceState(lose);
     keep.properties.push(...lose.properties.map(property => Object.assign({}, property, { communityId: keep.id })));
     keep.assignments.push(...lose.assignments);
@@ -138,8 +138,15 @@ export function updateCommunityStages(w) {
         if (c.isKingdomGroup) continue;
         c.dissolved = true; log(w, c.name + ' deixou de existir; não restaram membros vivos.'); continue;
       }
-      c.x += (members.reduce((s, p) => s + p.x, 0) / members.length - c.x) * .12;
-      c.y += (members.reduce((s, p) => s + p.y, 0) / members.length - c.y) * .12;
+      if (c.isKingdomGroup) {
+        const kingdom = w.kingdoms.find(item => item.id === c.kingdomId);
+        const seat = w.structures.find(s => s.kingdomId === c.kingdomId && s.complete
+          && s.type === 'castelo' && s.destroyedDay == null && s.integrity !== 0) || kingdom;
+        if (seat) { c.x = seat.x; c.y = seat.y; }
+      } else {
+        c.x += (members.reduce((s, p) => s + p.x, 0) / members.length - c.x) * .12;
+        c.y += (members.reduce((s, p) => s + p.y, 0) / members.length - c.y) * .12;
+      }
       for (const p of members) recordCommunityUse(w, p);
       if (c.isKingdomGroup) continue;
       const links = Object.values(w.socialLinks).filter(l => members.some(p => p.id === l.a) && members.some(p => p.id === l.b));
@@ -186,11 +193,9 @@ export function splitCommunities(w) {
       }
       c.properties = retainedProperties;
       for (const person of distant) if (person.assignment) person.assignment.communityId = newGroup.id;
-      for (const key of ['food', 'wood', 'stone', 'feed', 'gold']) {
-        newGroup.stores[key] = (c.stores[key] || 0) * share;
-        c.stores[key] = (c.stores[key] || 0) * (1 - share);
+      for (const key of ['food', 'meat', 'wood', 'stone', 'feed', 'gold']) {
+        transferStores(c, newGroup, key, (c.stores[key] || 0) * share);
       }
-      newGroup.stores.meat = 0;
       c.memberIds = members.filter(p => !distant.includes(p)).map(p => p.id);
       c.splitCooldown = 365; newGroup.splitCooldown = 365; w.splits++;
       const cause = lowFood ? 'a reserva de alimento se esgotou' : 'a tensão por recursos afastou os membros';

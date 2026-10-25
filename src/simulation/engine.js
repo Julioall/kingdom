@@ -21,9 +21,10 @@ import {
 } from './individuals/actions.js';
 import { corralGate, moveOne } from './individuals/movement.js';
 import {
-  applyStrategicAiDecision, failStrategicAiRequest, pullStrategicAiRequests,
-  setStrategicAiEnabled
-} from './individuals/strategy.js';
+  animalHitbox, collidesWithWorldPositionAt, hitboxSurfaceDistance, hitboxesOverlap, mineralHitbox, npcHitbox,
+  setCollisionProfiles, setStructureCollisionProfiles,
+  structureHitbox, structureInteractionPoint, treeHitbox, worldCollisionIndex
+} from './physics/hitboxes.js';
 
 import {
   acquireCommunityProperty, assignCommunityTasks, communitySatisfaction,
@@ -33,11 +34,26 @@ import { updateCommunityStages, updateSocialLinks } from './society/communities.
 import { canCommunityBuild, chooseBuildSite, workOnCommunityStructure } from './settlements/construction.js';
 import { findTradePartner, performTrade } from './economy/trade.js';
 import { transferCommunityFood } from './economy/inventories.js';
-import { buildKingdomStructure, destroyKingdomTower, recruitKingdomSoldier } from './kingdoms/commands.js';
+import { buildKingdomStructure, chooseKingdomBuildSite, destroyKingdomTower, recruitKingdomSoldier, KINGDOM_PROJECT_TIMING } from './kingdoms/commands.js';
+import { recordKingdomFrontierOutcomes, updateKingdomFrontierExpansion } from './kingdoms/frontier.js';
+import {
+  applyKingdomStrategicAiDecision, failKingdomStrategicAiRequest, observeKingdomStrategy,
+  planKingdomStrategy, pullKingdomStrategicAiRequests, setStrategicAiEnabled,
+  updateKingdomStrategies
+} from './kingdoms/strategy.js';
+import {
+  applyCampaignGeneralAiDecision, campaignOrderFor, drawCampaignRation,
+  failCampaignGeneralAiRequest, maintainKingdomFortifications,
+  prepareKingdomCampaigns, pullCampaignGeneralAiRequest, resolveKingdomCampaigns,
+  setCampaignGeneralAiEnabled
+} from './kingdoms/campaigns.js';
 
 // Stable public surface consumed by the UI and local tools. Keep subsystem
 // capabilities grouped here instead of importing simulation internals in views.
 const modules = {
+  Collision: { animalHitbox, collidesWithWorldPositionAt, npcHitbox, structureHitbox, structureInteractionPoint,
+    setCollisionProfiles, setStructureCollisionProfiles, treeHitbox, mineralHitbox,
+    hitboxesOverlap, hitboxSurfaceDistance, worldCollisionIndex },
   Cosmos: { seasonIndex, calendarDate },
   Atmosphere: { updateClimate, triggerDrought },
   Geosphere: { updateSoilAndWater, lowestNeighbor },
@@ -80,14 +96,40 @@ const modules = {
     transferCommunityFood,
     feedCommunalHerds,
     setStrategicAiEnabled,
-    pullStrategicAiRequests,
-    applyStrategicAiDecision,
-    failStrategicAiRequest
+    pullStrategicAiRequests: pullKingdomStrategicAiRequests,
+    applyStrategicAiDecision: applyKingdomStrategicAiDecision,
+    failStrategicAiRequest: failKingdomStrategicAiRequest
+  },
+  KingdomStrategy: {
+    observe: observeKingdomStrategy,
+    plan: planKingdomStrategy,
+    update: updateKingdomStrategies,
+    setStrategicAiEnabled,
+    pullStrategicAiRequests: pullKingdomStrategicAiRequests,
+    applyStrategicAiDecision: applyKingdomStrategicAiDecision,
+    failStrategicAiRequest: failKingdomStrategicAiRequest
+  },
+  KingdomCampaigns: {
+    orderFor: campaignOrderFor,
+    drawRation: drawCampaignRation,
+    prepare: prepareKingdomCampaigns,
+    resolve: resolveKingdomCampaigns,
+    maintainFortifications: maintainKingdomFortifications,
+    setGeneralAiEnabled: setCampaignGeneralAiEnabled,
+    pullGeneralAiRequest: pullCampaignGeneralAiRequest,
+    applyGeneralAiDecision: applyCampaignGeneralAiDecision,
+    failGeneralAiRequest: failCampaignGeneralAiRequest
+  },
+  KingdomFrontier: {
+    update: updateKingdomFrontierExpansion,
+    recordOutcomes: recordKingdomFrontierOutcomes
   }
 };
 
 const kingdomCommands = {
+  timing: KINGDOM_PROJECT_TIMING,
   buildKingdomStructure,
+  chooseKingdomBuildSite,
   destroyKingdomTower,
   recruitKingdomSoldier
 };

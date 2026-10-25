@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kingdom — laboratório de combate</title>
+<style>
+body{margin:0;padding:24px;background:#142122;color:#edf4e8;font:16px system-ui;max-width:1100px;margin:auto}h1{font-size:24px}p{color:#bed0c3}button,select{font:inherit;padding:10px;background:#29413c;color:inherit;border:1px solid #63847a;border-radius:6px}label{display:inline-block;margin:8px 18px 8px 0}canvas{display:block;width:100%;background:#243830;border:1px solid #63847a;border-radius:8px;margin:16px 0}input{width:65%;vertical-align:middle}output{font-variant-numeric:tabular-nums}pre{white-space:pre-wrap;color:#c7e6d4}.legend{display:flex;gap:24px;flex-wrap:wrap}.body{color:#62d7ed}.guard{color:#f2cb70}.weapon{color:#ff8b73}
+</style>
+<h1>Laboratório de combate</h1>
+<p>Mesma geometria e resolução usadas pela simulação. Arraste o tempo para conferir preparação, contato e recuperação com os sprites reais.</p>
+<label>Arma <select id="weapon"><option value="guerreiro">Espada</option><option value="lanceiro">Lança</option><option value="arqueiro">Arco</option></select></label>
+<label>Cenário <select id="scenario"><option value="front">Escudo frontal</option><option value="rear">Ataque pelas costas</option><option value="body">Corpo sem guarda</option><option value="spear">Guarda com lança</option><option value="dodge">Esquiva lateral</option><option value="tower">Alvo na torre</option><option value="range">Fora do alcance</option></select></label>
+<button id="play">Reproduzir</button>
+<canvas id="arena" width="1040" height="480" aria-label="Arena de calibração do combate"></canvas>
+<div class="legend"><span class="body">○ Corpo</span><span class="guard">○ Escudo / guarda</span><span class="weapon">— Arma / flecha</span><span>○ Base de navegação</span></div>
+<p><label for="time">Tempo</label><input id="time" type="range" min="0" max="1000" value="0" step="1"> <output id="timeValue">0 ms</output></p>
+<pre id="result"></pre>
+<script type="module" src="/src/ui/combat-lab.js"></script>
+</html>

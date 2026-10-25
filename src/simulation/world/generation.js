@@ -1,65 +1,71 @@
 import { HEIGHT, PLANTS, REGION_SIDE, WIDTH } from '../../config/ecosystem.js';
 import { idx } from './spatial.js';
-import { hash01 } from '../core/math.js';
+import { hash01, spatialNoise } from '../core/math.js';
 import { plantBiomass, seedPlants } from '../ecology/plants.js';
 import { seedAnimals } from '../ecology/animals.js';
 import { addIndividuals } from '../individuals/lifecycle.js';
 import { refreshHarvestSuitability } from './queries.js';
 import { log } from '../core/events.js';
 import { rand } from '../core/random.js';
-import { initializeKingdoms, INITIAL_SOLDIERS_PER_KINGDOM, updateKingdomMarkets } from '../kingdoms/initialization.js';
+import { initializeKingdoms, INITIAL_MILITARY_ROSTER, INITIAL_POPULATION_PER_KINGDOM, updateKingdomMarkets } from '../kingdoms/initialization.js';
 import { recruitKingdomSoldier } from '../kingdoms/commands.js';
+import { updateMilitaryCommand } from '../kingdoms/military.js';
+import { generateIslandTerrain } from './island-terrain.js';
 
 export function createWorld(seed) {
     const cleanSeed = (Number(seed) >>> 0) || 1;
     const w = {
       seed: cleanSeed, width: WIDTH, height: HEIGHT, day: 0, year: 1, season: 0, rngState: cleanSeed,
-      nextId: 1, tiles: [], regions: [], animals: [], people: [], communities: [], kingdoms: [], structures: [], settlements: [], logs: [], lake: null, lakes: [],
+      nextId: 1, tiles: [], regions: [], animals: [], people: [], communities: [], kingdoms: [], structures: [], settlements: [], logs: [], loot: [], lake: null, lakes: [],
       market: { gold: 240, food: 110, feed: 64, wood: 90, stone: 72, sheep: 4, transactions: 0 },
       socialLinks: {}, communityRelations: {}, events: [], deaths: 0, births: 0, rainEvents: 0,
-      strategicAI: { enabled: false, requests: [], enqueuedDay: -1, enqueuedToday: 0, decisions: 0, failures: 0 },
+      strategicAI: { enabled: false, requests: [], pendingByKingdom: {}, nextDecisionDays: {}, nextRequestSequence: 1, enqueuedDay: -1, enqueuedToday: 0, decisions: 0, failures: 0 },
       conflicts: 0, trades: 0, splits: 0, raidAttempts: 0, successfulRaids: 0,
-      kingdomRelations: {}, borderIncidents: 0, wars: [],
-      deathsByCause: { starvation: 0, dehydration: 0, age: 0, injury: 0, predation: 0, harvest: 0, invasion: 0 },
+      kingdomRelations: {}, borderIncidents: 0, wars: [], campaigns: [], territoryClaims: [], treaties: [],
+      deathsByCause: { starvation: 0, dehydration: 0, age: 0, injury: 0, combat: 0, predation: 0, harvest: 0, invasion: 0 },
       birthsByKind: { people: 0, animals: 0 },
-      harvests: { hunting: 0, fishing: 0 },
-      lastWeatherEvent: -999, selectedLayer: 'ecosystem'
+      harvests: { hunting: 0, fishing: 0, plantFoodBiomass: 0, cultivatedFoodBiomass: 0 },
+      ecologyFlows: {
+        humanFoodRegrowth: 0, humanFoodNaturalLoss: 0,
+        humanFoodSettlementLoss: 0, humanFoodEcologicalLoss: 0,
+        humanFoodCultivatedRegrowth: 0, humanFoodCultivationSeeded: 0
+      },
+      lastWeatherEvent: -999
     };
-    const scale = WIDTH / 192;
-    const lakes = [
-      { x: 48 * scale, y: 96 * scale, r: 7.2 * scale }, { x: 144 * scale, y: 96 * scale, r: 7.2 * scale },
-      { x: 96 * scale, y: 48 * scale, r: 7.2 * scale }, { x: 96 * scale, y: 144 * scale, r: 7.2 * scale }
-    ];
+    const generatedTerrain = generateIslandTerrain(WIDTH, HEIGHT, cleanSeed);
+    const lakes = generatedTerrain.freshwaterLakes;
     w.lakes = lakes.map(lake => ({ ...lake }));
     w.lake = w.lakes[0];
     for (let y = 0; y < HEIGHT; y++) for (let x = 0; x < WIDTH; x++) {
       const i = idx(x, y);
-      const nearestLake = lakes.reduce((best, lake) => {
-        const distance = Math.hypot(x - lake.x, y - lake.y);
-        return !best || distance < best.distance ? { lake, distance } : best;
-      }, null);
-      const lakeDistance = nearestLake.distance;
-      const edgeVariation = (hash01(cleanSeed + 337, x, y) - .5) * .38;
-      const inLake = lakes.some(lake => Math.hypot(x - lake.x, y - lake.y) < lake.r + edgeVariation);
-      const water = inLake;
-      const shoreDistance = Math.max(0, lakeDistance - nearestLake.lake.r);
-      const soilType = water ? 'water' : shoreDistance < 2.1 ? 'riparian' : hash01(cleanSeed + 7, x, y) < .16 ? 'sandy' : 'loam';
+      const waterKind = generatedTerrain.waterKind[i] || null;
+      const water = waterKind !== null;
+      const waterDist = generatedTerrain.waterDistance[i];
+      const soilType = water ? 'water' : waterDist < 2.1 ? 'riparian' : hash01(cleanSeed + 7, x, y) < .16 ? 'sandy' : 'loam';
       const capacity = soilType === 'riparian' ? 158 : soilType === 'shallow' ? 72 : soilType === 'sandy' ? 88 : 132;
       const plants = new Float32Array(PLANTS.length);
-      const seedBank = new Float32Array(PLANTS.length);
       const t = {
         x, y, i, regionId: Math.floor(y / REGION_SIDE) * (WIDTH / REGION_SIDE) + Math.floor(x / REGION_SIDE), kingdomId: null,
-        waterKind: inLake ? 'lake' : null,
-        heightM: 0, slope: 0, terrain: water ? 'water' : 'land',
+        waterKind,
+        heightM: generatedTerrain.heightM[i], slope: generatedTerrain.slope[i], terrain: water ? 'water' : 'land',
+        elevationLevel: generatedTerrain.elevationLevel[i], autoTileVariant: generatedTerrain.autoTileVariant[i],
+        rampSide: generatedTerrain.rampSide[i], rampLevel: generatedTerrain.rampLevel[i], rampSegment: generatedTerrain.rampSegment[i],
         soilType, soilCapacityMm: capacity, soilWaterMm: water ? capacity : 18 + hash01(cleanSeed + 11, x, y) * 48,
         roadWear: 0, peoplePresence: 0, civilizationPressure: 0,
         mineralNitrogenGPerM2: soilType === 'riparian' ? 3 + hash01(cleanSeed + 17, x, y) * 4 : 1.2 + hash01(cleanSeed + 19, x, y) * 4,
         organicMatterGPerM2: 1200 + hash01(cleanSeed + 23, x, y) * 5200,
         detritusGPerM2: 10 + hash01(cleanSeed + 29, x, y) * 22,
-        seedBank, stoneDeposit: soilType === 'sandy' && hash01(cleanSeed + 43, x, y) < .16 ? 3 + hash01(cleanSeed + 47, x, y) * 8 : 0,
-        goldOre: hash01(cleanSeed + 53, x, y) < .0045 ? 1 + hash01(cleanSeed + 59, x, y) * 2.5 : 0,
+        plantResourceMask: 0,
+        stoneDeposit: !water && hash01(cleanSeed + 43, x, y)
+          < (spatialNoise(cleanSeed + 61, x, y, 12) > .62 ? .065 : .004)
+          ? 3 + hash01(cleanSeed + 47, x, y) * 8 : 0,
+        goldOre: !water && hash01(cleanSeed + 53, x, y)
+          < (spatialNoise(cleanSeed + 67, x, y, 12) > .66 ? .025 : .0005)
+          ? 1 + hash01(cleanSeed + 59, x, y) * 2.5 : 0,
         surfaceWaterMm: water ? 24 : 0, plants, shade: 0, temperatureC: 18,
-        rainfallMm: 0, waterDist: water ? 0 : lakeDistance, lakeId: inLake ? lakes.findIndex(lake => Math.hypot(x - lake.x, y - lake.y) < lake.r + edgeVariation) : null, stump: null
+        rainfallMm: 0, waterDist, lakeId: waterKind === 'lake' ? lakes.reduce((best, lake, lakeId) =>
+          Math.hypot(x - lake.x, y - lake.y) < best.distance ? { distance: Math.hypot(x - lake.x, y - lake.y), lakeId } : best,
+        { distance: Infinity, lakeId: -1 }).lakeId : null, stump: null
       };
       w.tiles.push(t);
     }
@@ -71,16 +77,36 @@ export function createWorld(seed) {
     seedPlants(w);
     seedAnimals(w, { sheep: 24 });
     initializeKingdoms(w);
-    addIndividuals(w, 50, true);
+    addIndividuals(w, INITIAL_POPULATION_PER_KINGDOM * w.kingdoms.length, true);
     for (const kingdom of w.kingdoms) {
-      for (let index = 0; index < INITIAL_SOLDIERS_PER_KINGDOM; index++) {
-        const recruitment = recruitKingdomSoldier(w, kingdom.id);
-        if (!recruitment.ok) throw new Error('Não foi possível formar a guarnição inicial de ' + kingdom.name + ': ' + recruitment.reason);
+      for (const { militaryClass, count } of INITIAL_MILITARY_ROSTER) {
+        for (let index = 0; index < count; index++) {
+          const recruitment = recruitKingdomSoldier(w, kingdom.id, { immediate: true, militaryClass });
+          if (!recruitment.ok) throw new Error('Não foi possível formar a guarnição inicial de ' + kingdom.name + ': ' + recruitment.reason);
+        }
       }
     }
+    updateMilitaryCommand(w, 0);
     updateKingdomMarkets(w);
     refreshHarvestSuitability(w);
-    log(w, 'Cinquenta moradores começaram em dois reinos, cada um com quatro torres e dois soldados. As terras além desses domínios permanecem comuns.');
+    const humanFoodBiomass = w.tiles.reduce((sum, tile) => {
+      for (let index = 0; index < PLANTS.length; index++) {
+        if (PLANTS[index].foodFor === 'people') sum += tile.plants[index];
+      }
+      return sum;
+    }, 0);
+    w.ecologyReportCursor = {
+      day: w.day,
+      humanFoodBiomass,
+      plantFoodHarvested: w.harvests.plantFoodBiomass,
+      humanFoodRegrowth: w.ecologyFlows.humanFoodRegrowth,
+      humanFoodNaturalLoss: w.ecologyFlows.humanFoodNaturalLoss,
+      humanFoodSettlementLoss: w.ecologyFlows.humanFoodSettlementLoss,
+      humanFoodCultivatedRegrowth: w.ecologyFlows.humanFoodCultivatedRegrowth,
+      humanFoodCultivationSeeded: w.ecologyFlows.humanFoodCultivationSeeded,
+      cultivatedFoodHarvested: w.harvests.cultivatedFoodBiomass
+    };
+    log(w, 'Cem habitantes começaram em dois reinos, cada um com 10 infantes, 5 lanceiros, 4 arqueiros e 2 clérigos. As tropas patrulham antes das campanhas de fronteira. As terras além desses domínios permanecem comuns.');
     return w;
   }
 

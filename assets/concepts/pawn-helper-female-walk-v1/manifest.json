@@ -1,0 +1,129 @@
+{
+  "status": "experimental_preview; not integrated into game",
+  "animation": "walk",
+  "source": "generated-sheet.png",
+  "source_sha256": "d3e9e72944b7fd5d397f3f7f5785d0bcd23daf24a79f5656ed4fa51c52c5c397",
+  "source_grid": {
+    "columns": 4,
+    "rows": 2,
+    "cell": [
+      384,
+      512
+    ],
+    "order": "row-major"
+  },
+  "frame_size": [
+    192,
+    192
+  ],
+  "frames": 8,
+  "frame_duration_ms": 100,
+  "fps": 10,
+  "loop": true,
+  "anchor": [
+    96,
+    135
+  ],
+  "anchor_kind": "shared bottom-center of content including shadow; not anatomical feet",
+  "normalization": {
+    "shared_scale": 0.18274111675126903,
+    "method": "sprite-pipeline shared scale and bottom-center; no frame-1 lock",
+    "alpha_threshold_for_bounds": 8,
+    "alpha_processing": "preserved within cropped content"
+  },
+  "sheet": "pawn-helper-female-walk.png",
+  "individual_frames": "frames/01.png ... frames/08.png",
+  "previews": [
+    "walk-preview.gif",
+    "walk-preview.webp",
+    "index.html"
+  ],
+  "frame_records": [
+    {
+      "index": 0,
+      "bbox_alpha_gt_zero": [
+        69,
+        64,
+        123,
+        135
+      ],
+      "sha256": "8108b7993fe8e0a36e0e0311e7285a1c4a326ef382b1f6022c94b1a2b6cdae8b"
+    },
+    {
+      "index": 1,
+      "bbox_alpha_gt_zero": [
+        69,
+        64,
+        123,
+        135
+      ],
+      "sha256": "e4e583f13ff2a6c58858715a89d5ab7cda2ac695b3bcd053588e959d4fd7b241"
+    },
+    {
+      "index": 2,
+      "bbox_alpha_gt_zero": [
+        69,
+        64,
+        122,
+        135
+      ],
+      "sha256": "87da99f2057a9f078ff221645c25d38f29c5bc11380df06cdcb0797d5682a3dd"
+    },
+    {
+      "index": 3,
+      "bbox_alpha_gt_zero": [
+        69,
+        63,
+        122,
+        135
+      ],
+      "sha256": "2323040256951db9e2d75cf27e3a68640813cec836e81c51ed1d91593a5885bb"
+    },
+    {
+      "index": 4,
+      "bbox_alpha_gt_zero": [
+        69,
+        63,
+        123,
+        135
+      ],
+      "sha256": "21f0fe070fd4edaf86714c45ea3ff2418f47b2c94d55df20a25e559c2c37b896"
+    },
+    {
+      "index": 5,
+      "bbox_alpha_gt_zero": [
+        69,
+        64,
+        123,
+        135
+      ],
+      "sha256": "8f51985ef65ae2312fca85fa50e75b818db372b98743d2d87e0efdbd367b1415"
+    },
+    {
+      "index": 6,
+      "bbox_alpha_gt_zero": [
+        69,
+        64,
+        122,
+        135
+      ],
+      "sha256": "d6f6dd564fa2332432bc74f3bbb34c43d7230b68813bc8a864edc91e7283547f"
+    },
+    {
+      "index": 7,
+      "bbox_alpha_gt_zero": [
+        69,
+        63,
+        122,
+        135
+      ],
+      "sha256": "e7cb2c9074bdb5662882b7ffccfa531045b8b0b3d0b66811caf540efd25947e1"
+    }
+  ],
+  "limitations": [
+    "Original generated phase shapes can drift; normalization only aligns content.",
+    "8 frames and 10 FPS selected for this test, not inferred author timing.",
+    "This character is not a pixel-exact replacement for the shipped pawn.",
+    "No in-game animation manifest was modified."
+  ]
+}

@@ -1,17 +1,30 @@
-import { transferInventory, spendInventory } from '../economy/inventories.js';
+import { chooseRearCorralSite } from './rear-sites.js';
+import { initializeTowerHealth } from './fortifications.js';
+import { transferInventory, transferStoresToInventory, spendInventory } from '../economy/inventories.js';
+import { DOMESTIC_SHEEP_DAILY_FEED, HEIGHT, WIDTH } from '../../config/ecosystem.js';
+import { log } from '../core/events.js';
 import { cellAt } from '../world/spatial.js';
 import { recomputeKingdomTerritories, TERRITORY_RULES } from './territories.js';
 import { KINGDOM_BUILD_COSTS } from './commands.js';
+import { kingdomFoodDemand } from '../economy/food-policy.js';
+import { isTreeAnchor } from '../ecology/plants.js';
 
 const KINGDOM_STARTS = [
-  { name: 'Valedouro', short: 'Valedouro', color: '#507db2', palette: 'blue', x: 22, y: 22, innerX: 1, innerY: 1 },
-  { name: 'Corvânia', short: 'Corvânia', color: '#bd625c', palette: 'red', x: 74, y: 74, innerX: -1, innerY: -1 },
+  { name: 'Valedouro', short: 'Valedouro', color: '#507db2', palette: 'blue', x: Math.round(18 * WIDTH / 36), y: Math.round(7 * HEIGHT / 26), innerX: 1, innerY: 1 },
+  { name: 'Corvânia', short: 'Corvânia', color: '#bd625c', palette: 'red', x: Math.round(18 * WIDTH / 36), y: Math.round(19 * HEIGHT / 26), innerX: -1, innerY: -1 },
   { name: 'Albruma', short: 'Albruma', color: '#a27db8', palette: 'purple', x: 74, y: 22, innerX: -1, innerY: 1 },
   { name: 'Eryndor', short: 'Eryndor', color: '#c8a54a', palette: 'yellow', x: 22, y: 74, innerX: 1, innerY: -1 }
 ];
 const INITIAL_KINGDOM_COUNT = 2;
 const INITIAL_TOWER_OFFSETS = [[16, 7], [7, 16], [-16, -7], [-7, -16]];
-export const INITIAL_SOLDIERS_PER_KINGDOM = 2;
+export const INITIAL_POPULATION_PER_KINGDOM = 50;
+export const INITIAL_MILITARY_ROSTER = Object.freeze([
+  { school: 'centro_militar', militaryClass: 'guerreiro', count: 10 },
+  { school: 'centro_militar', militaryClass: 'lanceiro', count: 5 },
+  { school: 'arquearia', militaryClass: 'arqueiro', count: 4 },
+  { school: 'monasterio', militaryClass: 'monge', count: 2 }
+]);
+export const INITIAL_SOLDIERS_PER_KINGDOM = INITIAL_MILITARY_ROSTER.reduce((sum, entry) => sum + entry.count, 0);
 
 const BASE_PRICES = { food: .35, wood: .65, stone: .8, gold: 2, feed: .28 };
 
@@ -19,9 +32,11 @@ function placeStructure(world, kingdom, type, x, y, cost, extra = {}) {
   if (!spendInventory(kingdom.treasury, cost)) throw new Error('Estoque insuficiente para a estrutura inicial: ' + type);
   const structure = {
     id: world.nextId++, type, kingdomId: kingdom.id, communityId: kingdom.communityId || null, x, y,
-    complete: true, progress: 1, required: 1, builtDay: world.day,
+    entryTile: type === 'torre' ? { x, y: y + 1 } : undefined,
+    complete: true, progress: 1, required: 1, builtDay: world.day, integrity: 1, lastMaintenanceThreshold: 1,
     cost: { ...cost }, residentIds: [], ...extra
   };
+  initializeTowerHealth(structure);
   world.structures.push(structure);
   kingdom.structureIds.push(structure.id);
   return structure;
@@ -30,11 +45,13 @@ function placeStructure(world, kingdom, type, x, y, cost, extra = {}) {
 function initialTowerSite(world, castle, offset) {
   const desiredX = castle.x + offset[0], desiredY = castle.y + offset[1];
   const candidates = [];
-  for (let radius = 0; radius <= 3; radius++) {
+  for (let radius = 0; radius <= 24; radius++) {
     for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
       if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius && radius > 0) continue;
       const tile = cellAt(world, desiredX + dx, desiredY + dy);
       if (!tile || tile.terrain !== 'land' || Math.hypot(tile.x - castle.x, tile.y - castle.y) > TERRITORY_RULES.castleRadius) continue;
+      const entrance = cellAt(world, tile.x, tile.y + 1);
+      if (!entrance || entrance.terrain !== 'land' || isTreeAnchor(world, entrance)) continue;
       const overlaps = world.structures.some(structure => {
         if (!structure.complete) return false;
         const existingRadius = structure.type === 'curral' ? (structure.radius || 3.5) : 2.5;
@@ -66,9 +83,14 @@ export function initializeKingdoms(world) {
       x: start.x, y: start.y, createdDay: world.day, rulerId: null, memberIds: [],
       innerX: start.innerX, innerY: start.innerY, communityId: null,
       settlementIds: [], structureIds: [], homeIds: [], towerIds: [], militaryCenterIds: [], territoryTileCount: 0,
-      treasury: { ownerType: 'kingdom', ownerId: id, stock: { food: 180, wood: 420, stone: 300, gold: 180, feed: 90 } },
+      treasury: { ownerType: 'kingdom', ownerId: id, stock: { food: 4800, wood: 1200, stone: 700, gold: 9000, feed: 180 } },
       policy: { taxRate: .075, droughtReserveDays: 30, priorities: ['food', 'water', 'housing', 'defense'] },
-      satisfaction: .62, prestige: 0, legacy: null
+      satisfaction: .62, prestige: 0, legacy: null,
+      frontierExpansion: {
+        enabled: true, outpostIds: [], nextDecisionDay: 31, lastProjectStartedDay: null,
+        pendingProjectId: null, status: 'observing',
+        reason: 'O reino observa a fronteira e só avança com recursos do próprio tesouro.', lastOutcome: null
+      }
     };
     world.kingdoms[index] = kingdom;
     return kingdom;
@@ -96,14 +118,20 @@ export function initializeKingdoms(world) {
     const marketStructure = placeStructure(world, kingdom, 'mercado', kingdom.x, kingdom.y - kingdom.innerY * 14,
       { wood: 20, stone: 10 }, { spriteKey: 'house2' });
     const militaryCenter = placeStructure(world, kingdom, 'centro_militar', kingdom.x, kingdom.y + kingdom.innerY * 14,
-      { wood: 32, stone: 30, gold: 12 }, { spriteKey: 'barracks', capacity: 8, soldierIds: [] });
+      { wood: 32, stone: 30, gold: 12 }, { spriteKey: 'barracks', capacity: 60, soldierIds: [] });
     kingdom.militaryCenterIds.push(militaryCenter.id);
-    const pen = placeStructure(world, kingdom, 'curral', kingdom.x + kingdom.innerX * 15, kingdom.y,
+    const rearSite = chooseRearCorralSite(world, kingdom, homeOffsets.map(([dx, dy]) => ({ x: kingdom.x + dx, y: kingdom.y + dy })));
+    if (!rearSite) throw new Error('Não há retaguarda segura para o curral de ' + kingdom.name);
+    const pen = placeStructure(world, kingdom, 'curral', rearSite.x, rearSite.y,
       { wood: 14, stone: 8 }, { radius: 3.5, spriteKey: null });
     for (const [dx, dy] of homeOffsets) {
-      const home = placeStructure(world, kingdom, 'casa', kingdom.x + dx, kingdom.y + dy, { wood: 8, stone: 2 }, { capacity: 4, spriteKey: 'house1' });
+      const home = placeStructure(world, kingdom, 'casa', kingdom.x + dx, kingdom.y + dy, { wood: 8, stone: 2 }, { capacity: 13, spriteKey: 'house1' });
       kingdom.homeIds.push(home.id);
     }
+    placeStructure(world, kingdom, 'monasterio', kingdom.x + kingdom.innerX * 7, kingdom.y + 15,
+      KINGDOM_BUILD_COSTS.monasterio, { spriteKey: 'monastery', trainingClass: 'monge' });
+    placeStructure(world, kingdom, 'arquearia', kingdom.x + kingdom.innerX * 7, kingdom.y - 15,
+      KINGDOM_BUILD_COSTS.arquearia, { spriteKey: 'archery', trainingClass: 'arqueiro' });
     placeInitialTowers(world, kingdom, castle);
 
     const settlement = {
@@ -124,12 +152,62 @@ export function initializeKingdoms(world) {
   recomputeKingdomTerritories(world);
 }
 
-export function updateKingdomMarkets(world) {
+function collectKingdomTax(world, kingdom, day, dailyFoodDemand, population) {
+  const community = world.communities.find(item => item.id === kingdom.communityId && !item.dissolved);
+  if (!community) return null;
+  const rate = Math.max(0, Math.min(.25, Number(kingdom.policy && kingdom.policy.taxRate) || 0));
+  const sheep = world.animals.filter(animal => animal.alive && animal.speciesId === 'sheep'
+    && animal.herdCommunityId === community.id).length;
+  const floors = {
+    food: dailyFoodDemand * 2,
+    wood: 18,
+    stone: 12,
+    feed: Math.max(8, sheep * 5),
+    gold: 4
+  };
+  const tax = {};
+  for (const resource of ['food', 'wood', 'stone', 'feed', 'gold']) {
+    const surplus = Math.max(0, (community.stores[resource] || 0) - floors[resource]);
+    const assessment = surplus * rate;
+    if (assessment <= .01) continue;
+    const moved = transferStoresToInventory(community, kingdom.treasury, resource, assessment);
+    if (moved > .01) tax[resource] = moved;
+  }
+  const total = Object.values(tax).reduce((sum, amount) => sum + amount, 0);
+  kingdom.taxLedger ||= { cycles: 0, total: {}, history: [] };
+  kingdom.taxLedger.cycles++;
+  kingdom.taxLedger.lastDay = day;
+  for (const [resource, amount] of Object.entries(tax)) {
+    kingdom.taxLedger.total[resource] = Number(((kingdom.taxLedger.total[resource] || 0) + amount).toFixed(2));
+  }
+  const status = total > .01 ? 'collected' : 'protected-reserve';
+  const record = { day, status, assessedRate: rate, population, tax, protectedFloors: floors };
+  kingdom.taxLedger.history.push(record);
+  if (kingdom.taxLedger.history.length > 24) kingdom.taxLedger.history.shift();
+  const message = total > .01
+    ? kingdom.name + ' recolheu tributos de ' + Object.entries(tax).map(([resource, amount]) => Number(amount.toFixed(2)) + ' ' + resource).join(', ') + ' no dia ' + day + '.'
+    : kingdom.name + ' não recolheu tributo no dia ' + day + ': os estoques comunitários ficaram dentro das reservas protegidas.';
+  community.history.push(message);
+  log(world, message);
+  return record;
+}
+
+export function updateKingdomMarkets(world, marketDay = world.day) {
   for (const kingdom of world.kingdoms || []) {
     const market = kingdom.market;
-    if (!market || market.lastUpdateDay === world.day) continue;
-    const population = kingdom.memberIds.filter(id => world.people.some(person => person.id === id && person.alive)).length;
-    const demand = { food: population * .78 * 30, wood: population * .05 * 30, stone: population * .025 * 30, gold: population * .01 * 30, feed: population * .08 * 30 };
+    if (!market || market.lastUpdateDay === marketDay) continue;
+    const foodDemand = kingdomFoodDemand(world, kingdom);
+    const population = foodDemand.members.length;
+    const dailyFoodDemand = foodDemand.dailyFoodNeed;
+    const sheep = world.animals.filter(animal => animal.alive && animal.speciesId === 'sheep'
+      && animal.herdCommunityId === kingdom.communityId).length;
+    const demand = {
+      food: dailyFoodDemand * 30,
+      wood: population * .05 * 30,
+      stone: population * .025 * 30,
+      gold: population * .01 * 30,
+      feed: sheep * DOMESTIC_SHEEP_DAILY_FEED * 30
+    };
     for (const resource of Object.keys(BASE_PRICES)) {
       const supply = Math.max(0, market.stock[resource] || 0);
       const ratio = demand[resource] / Math.max(1, supply);
@@ -137,15 +215,20 @@ export function updateKingdomMarkets(world) {
       market.demand[resource] = demand[resource];
       market.prices[resource] = Math.round(BASE_PRICES[resource] * Math.max(.65, Math.min(2.8, .82 + ratio * .12)) * 100) / 100;
     }
-    market.lastUpdateDay = world.day;
+    market.lastUpdateDay = marketDay;
+    if (marketDay > 0 && marketDay % 30 === 0) collectKingdomTax(world, kingdom, marketDay, dailyFoodDemand, population);
   }
 }
 
 export function assignHome(world, kingdom, person) {
   if (!kingdom || !person) return false;
-  const home = kingdom.homeIds.map(id => world.structures.find(s => s.id === id && s.type === 'casa' && s.residentIds.length < s.capacity)).find(Boolean);
+  const home = kingdom.homeIds.map(id => world.structures.find(s => s.id === id && s.type === 'casa' && s.complete
+    && s.destroyedDay == null && s.residentIds.length < s.capacity)).find(Boolean);
   let chosen = home;
   if (!chosen) {
+    if (world.structures.some(s => s.kingdomId === kingdom.id && s.type === 'casa' && s.kingdomProject
+      && !s.complete && s.destroyedDay == null && s.integrity > 0)) return false;
+    if ((kingdom.treasury.stock.wood || 0) < 8 || (kingdom.treasury.stock.stone || 0) < 2) return false;
     const slots = [];
     for (let radius = 14; radius <= 30; radius += 5) {
       for (let offset = -radius; offset <= radius; offset += 5) {
@@ -162,13 +245,17 @@ export function assignHome(world, kingdom, person) {
       site = tile; break;
     }
     if (!site) return false;
-    chosen = placeStructure(world, kingdom, 'casa', site.x, site.y, { wood: 8, stone: 2 }, { capacity: 4, spriteKey: 'house1' });
+    chosen = placeStructure(world, kingdom, 'casa', site.x, site.y, { wood: 8, stone: 2 }, {
+      capacity: 13, spriteKey: 'house1', kingdomProject: true, complete: false, progress: 0,
+      required: 10, builtDay: null, createdDay: world.day, constructionStartedDay: null
+    });
     kingdom.homeIds.push(chosen.id);
     const settlement = world.settlements.find(item => item.id === kingdom.capitalSettlementId);
     if (settlement) settlement.homeIds.push(chosen.id);
+    log(world, kingdom.name + ' planejou uma casa para os moradores sem vaga; a obra aguarda um peão no local.');
+    return false;
   }
   chosen.residentIds.push(person.id);
   person.homeId = chosen.id;
   return true;
 }
-

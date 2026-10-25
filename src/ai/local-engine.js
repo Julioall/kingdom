@@ -1,4 +1,8 @@
-const MODEL_ID = 'SmolLM2-360M-Instruct-q4f32_1-MLC';
+import { validateDecisionRequest } from './contracts.js';
+import { getAiModelForRole } from './model-manifest.js';
+
+const MODEL_ID = getAiModelForRole('king').model;
+const GENERAL_MODEL_ID = getAiModelForRole('general').model;
 
   function parseDecision(text) {
     const source = String(text || '').replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
@@ -22,16 +26,40 @@ const MODEL_ID = 'SmolLM2-360M-Instruct-q4f32_1-MLC';
     const normalized = source.toLowerCase();
     const labeled = normalized.match(/(?:action|a[cç][aã]o)\s*[:=]\s*["'`]?([a-z_]+)/i);
     if (labeled && candidates.includes(labeled[1])) {
-      return { action: labeled[1], confidence: .55, reason: 'Ação selecionada a partir do contexto individual.' };
+      return { action: labeled[1], confidence: .55, reason: 'Ação selecionada a partir do contexto do reino.' };
     }
     const tokens = normalized.match(/[a-z_]+/g) || [];
     const matches = candidates.filter(action => tokens.includes(action));
     if (matches.length === 1) {
-      return { action: matches[0], confidence: .55, reason: 'Ação selecionada a partir do contexto individual.' };
+      return { action: matches[0], confidence: .55, reason: 'Ação selecionada a partir do contexto do reino.' };
     }
     throw new Error(matches.length > 1
       ? 'A resposta citou mais de uma ação candidata.'
       : 'A resposta não identificou uma ação candidata.');
+  }
+
+  function parseStrictStrategicDecision(text, candidateActions) {
+    let decision;
+    try { decision = JSON.parse(String(text || '').trim()); }
+    catch (_) { throw new Error('A resposta estratégica não é um objeto JSON completo.'); }
+    if (!decision || typeof decision !== 'object' || Array.isArray(decision)) {
+      throw new Error('A resposta estratégica não é um objeto JSON completo.');
+    }
+    const keys = Object.keys(decision).sort();
+    if (keys.length !== 3 || keys[0] !== 'action' || keys[1] !== 'confidence' || keys[2] !== 'reason') {
+      throw new Error('A decisão deve conter somente action, confidence e reason.');
+    }
+    const candidates = Array.isArray(candidateActions) ? candidateActions : [];
+    if (typeof decision.action !== 'string' || !candidates.includes(decision.action)) {
+      throw new Error('A resposta JSON selecionou uma ação fora da lista permitida.');
+    }
+    if (!Number.isFinite(decision.confidence) || decision.confidence < 0 || decision.confidence > 1) {
+      throw new Error('A confiança da decisão deve ser um número entre 0 e 1.');
+    }
+    if (typeof decision.reason !== 'string' || !decision.reason.trim()) {
+      throw new Error('A decisão precisa incluir uma justificativa curta.');
+    }
+    return decision;
   }
 
   function describeError(error) {
@@ -48,16 +76,23 @@ const MODEL_ID = 'SmolLM2-360M-Instruct-q4f32_1-MLC';
 
   function create(options) {
     const settings = options || {};
-    const Sim = settings.Sim;
     const getWorld = settings.getWorld || (() => null);
+    const getWorldEpoch = settings.getWorldEpoch || (() => 0);
+    const setKingdomAiEnabled = settings.setKingdomAiEnabled || (async () => false);
+    const pullKingdomAiRequest = settings.pullKingdomAiRequest || (async () => null);
+    const applyKingdomAiDecision = settings.applyKingdomAiDecision || (async () => false);
+    const failKingdomAiRequest = settings.failKingdomAiRequest || (async () => false);
     const onStatus = typeof settings.onStatus === 'function' ? settings.onStatus : () => {};
     const customLoader = settings.loadEngine;
-    let engine = null, worker = null, enabled = false, loading = null, busy = false, pumpPromise = null;
+    let engine = null, enabled = false, loading = null, busy = false, pumpPromise = null;
+    let activeAbortController = null;
+    let lastPollAt = 0;
     let generation = 0;
-    let state = { phase: 'idle', text: 'Desativada. A IA neural individual continua controlando as ações do dia a dia.', progress: 0, model: MODEL_ID };
+    let currentModel = MODEL_ID;
+    let state = { phase: 'idle', text: 'Desativada. Reis e generais seguem as políticas determinísticas de contingência.', progress: 0, model: MODEL_ID };
 
     function report(phase, text, progress) {
-      state = { phase, text: String(text || ''), progress: Number.isFinite(progress) ? Math.max(0, Math.min(1, progress)) : state.progress, model: MODEL_ID };
+      state = { phase, text: String(text || ''), progress: Number.isFinite(progress) ? Math.max(0, Math.min(1, progress)) : state.progress, model: currentModel };
       onStatus(Object.assign({}, state));
     }
 
@@ -67,56 +102,39 @@ const MODEL_ID = 'SmolLM2-360M-Instruct-q4f32_1-MLC';
         const update = progress || {};
         report('loading', update.text || 'Carregando o modelo local…', update.progress);
       });
-      if (typeof navigator === 'undefined' || !navigator.gpu) throw new Error('Este navegador não oferece WebGPU. A IA neural existente permanece ativa.');
-      report('loading', 'Carregando o motor local de IA…', 0);
-      const webllm = await import('@mlc-ai/web-llm');
+      report('loading', 'Conectando ao serviço local do Ollama…', 0);
+      const ollama = await import('./ollama-client.js');
+      const health = await ollama.checkLocalAiService();
       if (token !== generation) return null;
-      if (typeof Worker === 'undefined' || !webllm.CreateWebWorkerMLCEngine) throw new Error('O navegador não conseguiu iniciar o Web Worker do modelo.');
-      const createdWorker = new Worker(new URL('./llm.worker.ts', import.meta.url), { type: 'module' });
-      worker = createdWorker;
-      try {
-        const loaded = await webllm.CreateWebWorkerMLCEngine(createdWorker, MODEL_ID, {
-          initProgressCallback: progress => {
-            if (token !== generation) return;
-            const update = progress || {};
-            report('loading', update.text || 'Preparando o modelo…', update.progress);
-          }
-        });
-        if (token !== generation) {
-          createdWorker.terminate();
-          if (worker === createdWorker) worker = null;
-          return null;
-        }
-        return loaded;
-      } catch (error) {
-        createdWorker.terminate();
-        if (worker === createdWorker) worker = null;
-        throw error;
-      }
+      const models = health.models || [];
+      const kingModel = models.find(item => item.role === 'king');
+      const generalModel = models.find(item => item.role === 'general');
+      if (!kingModel?.installed) throw new Error('O modelo do rei ' + MODEL_ID + ' não está instalado. Execute “npm run ai:prepare -- --pull”.');
+      if (!generalModel?.installed) throw new Error('O modelo do general ' + GENERAL_MODEL_ID + ' não está instalado. Execute “npm run ai:prepare -- --pull”.');
+      report('loading', 'Serviço ativo · rei ' + MODEL_ID + ' e general ' + GENERAL_MODEL_ID + ' disponíveis no Ollama.', 1);
+      return { decide: (request, options) => ollama.requestLocalAiDecision(request.role, request, options) };
     }
 
-    async function enable(world) {
-      if (enabled && engine) { if (world && Sim) Sim.modules.SocietyExperiment.setStrategicAiEnabled(world, true); return true; }
+    async function enable() {
+      if (enabled && engine) { await setKingdomAiEnabled(true); return true; }
       if (loading) return loading;
-      report('loading', 'Preparando IA local. O primeiro uso baixa o modelo para este navegador…', 0);
+      report('loading', 'Preparando IA do reino pelo Ollama local…', 0);
       const token = generation;
       loading = (async () => {
         try {
           const loadedEngine = await loadEngine(token);
           if (token !== generation) return false;
           engine = loadedEngine;
-          if (!engine || !engine.chat || !engine.chat.completions) throw new Error('O motor não disponibilizou a interface de geração de decisões.');
+          if (!engine || (typeof engine.decide !== 'function' && (!engine.chat || !engine.chat.completions))) throw new Error('O provedor não disponibilizou a interface de geração de decisões.');
           enabled = true;
-          const currentWorld = getWorld() || world;
-          if (currentWorld && Sim) Sim.modules.SocietyExperiment.setStrategicAiEnabled(currentWorld, true);
-          report('ready', 'IA local ativa. Os NPCs recebem planos individuais em fila; as ações continuam limitadas pelo estado do mundo.', 1);
-          pump(currentWorld);
+          await setKingdomAiEnabled(true);
+          report('ready', 'IA experimental ativa · rei ' + MODEL_ID + ' e general ' + GENERAL_MODEL_ID + '. Uma inferência atende a fila compartilhada por vez.', 1);
+          pump();
           return true;
         } catch (error) {
           if (token !== generation) return false;
           enabled = false; engine = null;
-          const currentWorld = getWorld() || world;
-          if (currentWorld && Sim) Sim.modules.SocietyExperiment.setStrategicAiEnabled(currentWorld, false);
+          try { await setKingdomAiEnabled(false); } catch { /* Keep the visible load failure as the primary status. */ }
           report('error', error && error.message ? error.message : 'Não foi possível carregar o modelo local.', 0);
           throw error;
         } finally { if (token === generation) loading = null; }
@@ -124,19 +142,27 @@ const MODEL_ID = 'SmolLM2-360M-Instruct-q4f32_1-MLC';
       return loading;
     }
 
-    function disable(world) {
+    function disable() {
       generation++;
       loading = null; busy = false; pumpPromise = null;
+      if (activeAbortController) { activeAbortController.abort(); activeAbortController = null; }
+      lastPollAt = 0;
       enabled = false;
-      const currentWorld = getWorld() || world;
-      if (currentWorld && Sim) Sim.modules.SocietyExperiment.setStrategicAiEnabled(currentWorld, false);
-      if (worker) { worker.terminate(); worker = null; }
+      setKingdomAiEnabled(false).catch(error => {
+        if (error && error.name === 'AbortError') return;
+        console.warn('[Kingdom IA local] não foi possível atualizar o estado da IA:', describeError(error));
+      });
       engine = null;
-      report('idle', 'Desativada. A IA neural individual continua controlando as ações do dia a dia.', 0);
+      report('idle', 'Desativada. Reis e generais seguem as políticas determinísticas de contingência.', 0);
     }
 
-    async function answerRequest(request, world) {
+    async function answerRequest(request, signal) {
+      const contractError = validateDecisionRequest(request);
+      if (contractError) throw new Error('Pedido estratégico inválido: ' + contractError + '.');
       const token = generation;
+      const requestEpoch = request.worldEpoch;
+      const requestModel = getAiModelForRole(request.role);
+      currentModel = requestModel?.model || MODEL_ID;
       const decisionSchema = JSON.stringify({
         type: 'object',
         properties: {
@@ -147,63 +173,97 @@ const MODEL_ID = 'SmolLM2-360M-Instruct-q4f32_1-MLC';
         required: ['action', 'confidence', 'reason'],
         additionalProperties: false
       });
-      const response = await engine.chat.completions.create({
-        messages: [
-          { role: 'system', content: 'You advise one person in a simulated ecosystem. Use only the supplied observations. If kingdomCalendar is present, this person is a ruler: use the calendar and days until the next season to favor practical preparation when urgent needs permit. Choose exactly one feasible action from this allowed list: ' + request.candidateActions.join(', ') + '. Output exactly one JSON object with keys action, confidence, and reason; action must exactly match one identifier from the list, confidence must be a number from 0 to 1, and reason must be one short sentence in Portuguese. Do not add Markdown, explanations, or any text outside the JSON object.' },
-          { role: 'user', content: JSON.stringify(request.context) }
-        ],
-        temperature: .1,
-        max_tokens: 96,
-        response_format: { type: 'json_object', schema: decisionSchema }
-      });
-      if (token !== generation || !enabled || world !== getWorld()) return { accepted: false, decision: {} };
+      let response;
+      if (typeof engine.decide === 'function') {
+        response = await engine.decide(request, { signal });
+      } else {
+        response = await engine.chat.completions.create({
+          messages: [
+            { role: 'system', content: request.role === 'general'
+              ? 'Você é o general de um reino simulado. Use apenas os fatos observados da campanha deste lado. Escolha exatamente um ID permitido: ' + request.candidateActions.join(', ') + '. A simulação controla recursos, alvos e resultados; não invente informações nem emita ordens fora da lista. Responda com um único JSON contendo action, confidence e reason curta em português.'
+              : 'Você é a conselheira estratégica do governante de um reino simulado. Use apenas o relatório agregado deste reino e as decisões estratégicas recentes deste governante. Escolha exatamente um ID viável desta lista: ' + request.candidateActions.join(', ') + '. Não invente ordens nem altere recursos. Responda com um único objeto JSON com as chaves action, confidence e reason. action deve corresponder exatamente a um ID da lista; confidence deve ser um número de 0 a 1; reason deve ser uma frase curta em português. Não inclua Markdown nem texto fora do JSON.' },
+            { role: 'user', content: JSON.stringify(request.context) }
+          ],
+          temperature: .1,
+          max_tokens: requestModel?.selectedOutputTokens || 192,
+          response_format: { type: 'json_object', schema: decisionSchema }
+        });
+      }
+      if (token !== generation || !enabled || requestEpoch !== getWorldEpoch()) return { accepted: false, decision: {} };
       const choice = response && response.choices && response.choices[0];
-      if (!choice) throw new Error('WebLLM retornou uma resposta sem opções.');
-      if (choice.finish_reason === 'error') throw new Error('WebLLM encerrou a geração com erro.');
-      const text = choice.message ? choice.message.content : '';
-      const decision = parseStrategicDecision(text, request.candidateActions);
-      const accepted = Sim.modules.SocietyExperiment.applyStrategicAiDecision(world, request.personId, request.requestedDay, decision);
-      if (!accepted) Sim.modules.SocietyExperiment.failStrategicAiRequest(world, request.personId, request.requestedDay);
+      if (!response || (!response.decision && !choice)) throw new Error('O provedor de IA retornou uma resposta sem decisão.');
+      if (choice && choice.finish_reason === 'error') throw new Error('O provedor de IA encerrou a geração com erro.');
+      const text = response.decision ? JSON.stringify(response.decision) : choice.message ? choice.message.content : '';
+      const decision = parseStrictStrategicDecision(text, request.candidateActions);
+      const providerMetadata = {
+        provider: response.provider || 'custom',
+        model: response.model || requestModel?.model || MODEL_ID,
+        ...(Number.isFinite(response.elapsedMs) ? { elapsedMs: response.elapsedMs } : {}),
+        ...(Number.isFinite(response.outputTokens) ? { outputTokens: response.outputTokens } : {})
+      };
+      const accepted = await applyKingdomAiDecision(request, decision, providerMetadata);
       return { accepted, decision };
     }
 
-    function pump(world) {
-      if (!enabled || !engine || busy || !Sim) return pumpPromise || Promise.resolve(false);
-      const currentWorld = getWorld() || world;
+    function pump(force = false) {
+      if (!enabled || !engine || busy) return pumpPromise || Promise.resolve(false);
+      const currentWorld = getWorld();
       if (!currentWorld) return Promise.resolve(false);
-      const requests = Sim.modules.SocietyExperiment.pullStrategicAiRequests(currentWorld, 1);
-      if (!requests.length) return Promise.resolve(false);
-      const request = requests[0];
+      const now = Date.now();
+      if (!force && now - lastPollAt < 500) return Promise.resolve(false);
+      lastPollAt = now;
+      const currentEpoch = getWorldEpoch();
       const token = generation;
       busy = true;
-      report('working', 'Analisando ' + request.context.person.name + ' · dia ' + request.requestedDay + '…', 1);
-      pumpPromise = answerRequest(request, currentWorld).then(result => {
-        if (enabled && token === generation && currentWorld === getWorld()) {
-          if (result.accepted) report('ready', 'Plano individual de ' + request.context.person.name + ': ' + result.decision.action + '.', 1);
-          else report('ready', 'Resposta descartada: a ação não estava disponível para ' + request.context.person.name + '.', 1);
+      pumpPromise = (async () => {
+        let request = null;
+        try {
+          request = await pullKingdomAiRequest(1);
+          if (!request || token !== generation || !enabled || currentEpoch !== getWorldEpoch()) return false;
+          if (request.worldEpoch !== currentEpoch) return false;
+          const requestModel = getAiModelForRole(request.role);
+          currentModel = requestModel?.model || MODEL_ID;
+          const roleLabel = request.role === 'general' ? 'campanha do general' : 'reino ' + request.context.kingdom.name;
+          report('working', 'Analisando a ' + roleLabel + ' · dia ' + request.requestedDay + ' · ' + currentModel + '…', 1);
+          activeAbortController = new AbortController();
+          try {
+            const result = await answerRequest(request, activeAbortController.signal);
+            if (enabled && token === generation && currentEpoch === getWorldEpoch()) {
+              if (result.accepted) report('ready', request.role === 'general'
+                ? 'O general de ' + (request.context.kingdom?.name || 'um reino') + ' definiu: ' + result.decision.action + '.'
+                : 'O rei de ' + request.context.kingdom.name + ' escolheu: ' + result.decision.action + '.', 1);
+              else report('ready', 'Resposta descartada: a opção não está mais válida para ' + (request.context.kingdom?.name || 'a campanha') + '.', 1);
+            }
+            return result.accepted;
+          } catch (error) {
+            if (token !== generation || currentEpoch !== getWorldEpoch()) return false;
+            const detail = describeError(error);
+            await failKingdomAiRequest(request, { reason: detail, provider: 'ollama', model: requestModel?.model || MODEL_ID });
+            console.warn('[Kingdom IA local] resposta estratégica inválida; o fallback determinístico assumiu:', detail);
+            if (enabled) report('ready', 'A decisão de ' + (request.role === 'general' ? 'campanha' : 'estratégia do rei')
+              + ' falhou; as regras determinísticas assumiram. Detalhe: ' + detail, 1);
+            return false;
+          }
+        } catch (error) {
+          if (token !== generation || currentEpoch !== getWorldEpoch()) return false;
+          const detail = describeError(error);
+          console.warn('[Kingdom IA local] não foi possível consultar a fila:', detail);
+          if (enabled) report('ready', 'A fila dos reis falhou; a estratégia determinística continua ativa. Detalhe: ' + detail, 1);
+          return false;
+        } finally {
+          if (token === generation) {
+            activeAbortController = null;
+            busy = false; pumpPromise = null;
+            if (request && enabled) pump(true);
+          }
         }
-        return result.accepted;
-      }).catch(error => {
-        if (token !== generation || currentWorld !== getWorld()) return false;
-        Sim.modules.SocietyExperiment.failStrategicAiRequest(currentWorld, request.personId, request.requestedDay);
-        const detail = describeError(error);
-        console.warn('[Kingdom IA local] resposta inválida; a rede neural assumiu:', detail);
-        if (enabled) report('ready', 'A decisão local falhou; a rede neural individual assumiu. Detalhe: ' + detail, 1);
-        return false;
-      }).finally(() => {
-        if (token !== generation) return;
-        busy = false; pumpPromise = null;
-        if (enabled) pump(getWorld() || currentWorld);
-      });
+      })();
       return pumpPromise;
     }
 
-    function syncWorld(world) {
-      const currentWorld = getWorld() || world;
-      if (currentWorld && Sim) Sim.modules.SocietyExperiment.setStrategicAiEnabled(currentWorld, enabled && !!engine);
-    }
+    function syncWorld() { return setKingdomAiEnabled(enabled && !!engine); }
 
     return { enable, disable, pump, syncWorld, isEnabled: () => enabled, getStatus: () => Object.assign({}, state), modelId: MODEL_ID };
   }
 
-  export default { create, parseDecision, parseStrategicDecision, describeError, MODEL_ID };
+  export default { create, parseDecision, parseStrategicDecision, parseStrictStrategicDecision, describeError, MODEL_ID };
