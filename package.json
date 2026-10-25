@@ -22,7 +22,8 @@
     "diagnose-survival": "node scripts/diagnose-survival.mjs",
     "diagnose-economy": "node scripts/diagnose-economy.mjs",
     "diagnose-energy-budget": "node scripts/diagnose-energy-budget.mjs",
-    "diagnose-starvation-causes": "node scripts/diagnose-starvation-causes.mjs"
+    "diagnose-starvation-causes": "node scripts/diagnose-starvation-causes.mjs",
+    "test": "node --test tests/integration/*.test.mjs"
   },
   "devDependencies": {
     "acorn": "^8.19.0",
