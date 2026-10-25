@@ -51,13 +51,6 @@ function findPersonById(w, id) {
     return w.people.find(person => person.id === id && person.alive);
   }
 
-function detailStarted(profile) {
-    return profile && typeof profile.recordDetail === 'function' ? profile.now() : null;
-  }
-
-function recordDetail(profile, name, startedAt) {
-    if (startedAt !== null) profile.recordDetail(name, profile.now() - startedAt);
-  }
 
 function kingdomRepairProgress(w, community) {
     if (!community) return 0;
@@ -707,15 +700,13 @@ export function resolveResourceConflict(w, a, b, tile, resourceKind, patchValue)
     return { winner, loser, loserGroup };
   }
 
-function updatePeopleCore(w, profile = null) {
-    const preparationStarted = detailStarted(profile);
+function updatePeopleCore(w) {
     refreshHarvestSuitability(w);
     const living = w.people.filter(p => p.alive).sort((a, b) => a.id - b.id);
     const trainingPairs = militaryTrainingPairs(w);
     const communityCounts = new Map();
     w.resourceClaims = new Map(); w.contestedResources = new Set();
     for (const p of living) if (p.communityId !== null) communityCounts.set(p.communityId, (communityCounts.get(p.communityId) || 0) + 1);
-    recordDetail(profile, 'people.prepare', preparationStarted);
     for (const p of living) {
       if (!p.alive) continue;
       p.ageDays++;
@@ -725,17 +716,12 @@ function updatePeopleCore(w, profile = null) {
       p.injury = Math.max(0, p.injury - .018);
       if (p.role === 'soldier' && p.health >= 60) p.tacticalRecovering = false;
       if (p.ageDays < 12 * 365) {
-        const dependentStarted = detailStarted(profile);
         updateDependent(w, p);
-        recordDetail(profile, 'people.dependents', dependentStarted);
         continue;
       }
       let emergencyCarriedRationToday = 0;
-      const perceptionStarted = detailStarted(profile);
       p.perception = Senses.observe(w, p, 'person', PLANTS);
-      recordDetail(profile, 'people.perception', perceptionStarted);
 
-      const decisionStarted = detailStarted(profile);
       const community = activeCommunity(w, p);
       if (p.role === 'soldier') clearCivilianDuties(w, p, false);
       const campaignOrder = campaignOrderFor(w, p);
@@ -960,9 +946,7 @@ function updatePeopleCore(w, profile = null) {
           : patrolDuty ? 'patrol' : p.role === 'soldier'
             ? p.hydration < 40 && waterTarget ? 'drink' : p.energy < 30 || p.health < 42 || p.injury >= 5 ? 'rest' : 'guard'
             : choosePeopleAction(w, p, inputs, utility))));
-      recordDetail(profile, 'people.decisions', decisionStarted);
       if (p.militaryBrain && action !== militaryAction) p.militaryBrain.pending = null;
-      const actionStarted = detailStarted(profile);
       if (action === 'patrol' || action === 'guard' || action === 'collect_loot' || p.role === 'soldier') {
         // Patrol is a duty rather than a neural-network action; do not train the last learned action on it.
         p.brain.pending = null;
@@ -1007,18 +991,7 @@ function updatePeopleCore(w, profile = null) {
       const target = community ? community : null;
 
       if (action === 'forage') {
-        const forageRecorder = p.forageDiagnosticRecorder;
-        const targetResource = typeof forageRecorder === 'function' && food
-          ? (p.perception.resources || []).find(resource => resource.x === food.x && resource.y === food.y) : null;
-        const diagnosticTarget = food ? {
-          tileIndex: food.i, x: food.x, y: food.y, distance: Number(distance(p, food).toFixed(2)),
-          perceivedBiomass: targetResource
-            ? Number(HUMAN_FOOD.reduce((sum, id) => sum + (targetResource.biomass[id] || 0), 0).toFixed(2)) : null
-        } : null;
-        if (typeof forageRecorder === 'function') forageRecorder({
-          phase: 'selected', day: w.day, personId: p.id, x: Number(p.x.toFixed(2)), y: Number(p.y.toFixed(2)),
-          reserveBefore: Number(p.foodReserve.toFixed(3)), hydration: Number(p.hydration.toFixed(2)), target: diagnosticTarget
-        });
+
         if (food && distance(p, food) <= 1.6) {
           const dispute = claimForagePatch(w, p, food);
           if (dispute && dispute.loser === p) {
@@ -1035,19 +1008,10 @@ function updatePeopleCore(w, profile = null) {
                 p.lastLesson = 'A carga de alimento já está cheia; levá-la ao abrigo libera espaço para outra coleta.';
               }
             } else {
-            const reserveBefore = p.foodReserve;
-            const targetBiomassBefore = typeof forageRecorder === 'function' ? plantBiomass(food, HUMAN_FOOD) : null;
             const harvest = harvestHumanFood(w, food, clamp(1.8 + p.skills.forage * 3.2, 1.8, 5));
             const use = Math.min(harvest, Math.max(0, (91 - p.foodReserve) / FOOD_RESERVE_PER_UNIT));
             addFoodReserve(p, use * FOOD_RESERVE_PER_UNIT, 'personal-harvest');
-            if (typeof forageRecorder === 'function') forageRecorder({
-              phase: 'harvested', day: w.day, personId: p.id, x: Number(p.x.toFixed(2)), y: Number(p.y.toFixed(2)),
-              reserveBefore: Number(reserveBefore.toFixed(3)), reserveAfter: Number(p.foodReserve.toFixed(3)),
-              hydration: Number(p.hydration.toFixed(2)), target: diagnosticTarget,
-              biomassBefore: Number(targetBiomassBefore.toFixed(2)),
-              biomassAfter: Number(plantBiomass(food, HUMAN_FOOD).toFixed(2)),
-              harvestedBiomass: Number(harvest.toFixed(3)), reserveFoodUsed: Number(use.toFixed(3))
-            });
+
             p.energy = clamp(p.energy + use * .18, 0, 100);
             const surplus = Math.max(0, harvest - use);
             const fruitShelter = nearestShelterFor(w, p);
@@ -1275,27 +1239,22 @@ function updatePeopleCore(w, profile = null) {
         const cause = p.ageDays >= 82 * 365 ? 'age' : p.injury > 4 && p.health < 15 ? 'injury' : p.hydration < 5 ? 'dehydration' : 'starvation';
         killPerson(w, p, cause);
       }
-      recordDetail(profile, 'people.actions', actionStarted);
     }
-    const socialLifecycleStarted = detailStarted(profile);
     updateSocialLinks(w);
     updateCommunityStages(w);
     splitCommunities(w);
     updateCommunityGovernance(w);
     reproducePeople(w);
-    recordDetail(profile, 'people.socialLifecycle', socialLifecycleStarted);
   }
 
-export function updatePeople(w, profile = null) {
-    const startedAt = detailStarted(profile);
-    const saved = ['peopleById', 'peopleSpatialIndex', 'peopleProfile']
+
+export function updatePeople(w) {
+    const saved = ['peopleById', 'peopleSpatialIndex']
       .map(key => ({ key, hadValue: Object.prototype.hasOwnProperty.call(w, key), value: w[key] }));
     w.peopleById = new Map((w.people || []).map(person => [person.id, person]));
-    w.peopleSpatialIndex = profile?.disablePeopleSpatialIndex ? null : createPersonSpatialIndex(w.people);
-    w.peopleProfile = profile;
-    recordDetail(profile, 'people.indexBuild', startedAt);
+    w.peopleSpatialIndex = createPersonSpatialIndex(w.people);
     try {
-      return updatePeopleCore(w, profile);
+      return updatePeopleCore(w);
     } finally {
       for (const { key, hadValue, value } of saved) {
         if (hadValue) w[key] = value;
@@ -1303,7 +1262,6 @@ export function updatePeople(w, profile = null) {
       }
     }
   }
-
 export function nearestPerson(w, p, radius) {
     const sightings = p.perception && p.perception.people || [];
     return sightings.filter(s => s.visible && s.distance <= radius)

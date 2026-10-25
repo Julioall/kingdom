@@ -1,7 +1,7 @@
 export function chronicleEntry(text) {
   if (/^Nasceu /i.test(text)) return { category: 'Nascimento', text: text.split(';')[0] + '.' };
   if (/morreu|faleceu|morto|morta|perdeu a vida/i.test(text)) return { category: 'Perda', text: text.split('. Valores observados')[0].split(';')[0] };
-  // Keep economic accounting and decision traces in the diagnostic log only.
+  // Keep internal accounting and decision details out of the player journal.
   if (/repass|buffer|piso de seca|biomassa|pontos|comparou .*locais|limiar|deleg|\bIA\b|modelo|inferência|salário|pagamento|reserva.*→/i.test(text)
     && !/^Nasceu /i.test(text)) return null;
   if (/guerra|paz|tratado|captur|conquist|cerco|destru|colaps|batalha/i.test(text)) return { category: 'Conflito', text };

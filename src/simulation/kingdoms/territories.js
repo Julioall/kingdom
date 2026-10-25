@@ -135,22 +135,6 @@ export function markTerritoryStep(world, person, tile) {
   const owner = world.kingdoms.find(kingdom => kingdom.id === ownerId);
   if (!person.territoryExposure || person.territoryExposure.ownerId !== ownerId) {
     person.territoryExposure = { ownerId, enteredDay: world.day, lastCheckDay: -1 };
-    const entryRecorder = person.territoryEntryDiagnosticRecorder;
-    if (typeof entryRecorder === 'function') {
-      const warningUntilDay = person.territoryWarnings && person.territoryWarnings[ownerId];
-      const warningActive = Number.isFinite(warningUntilDay) && warningUntilDay >= world.day;
-      const entryReason = person.role === 'soldier' && (person.campaignId != null || person.militaryReturningHome) ? 'campaign'
-        : !warningActive ? 'no-active-warning'
-          : person.foodReserve <= 8 ? 'critical-food'
-            : person.hydration <= 9 ? 'critical-hydration' : 'warning-override';
-      entryRecorder({
-        day: world.day, personId: person.id, homeKingdomId: person.kingdomId, ownerId,
-        x: tile.x, y: tile.y, role: person.role, campaignId: person.campaignId ?? null,
-        foodReserve: Number(person.foodReserve.toFixed(3)), hydration: Number(person.hydration.toFixed(3)),
-        warningUntilDay: Number.isFinite(warningUntilDay) ? warningUntilDay : null,
-        warningActive, entryReason
-      });
-    }
   }
   person.territoryAwareness = { ownerId, name: owner?.name || 'reino estrangeiro', warning: true, day: world.day };
   person.lastLesson = 'Você entrou no território de ' + (owner?.name || 'outro reino') + '. A guarda pode abordar você; uma morte pode iniciar uma guerra.';
@@ -217,25 +201,6 @@ export function resolveBorderIncursions(world, killPerson) {
       ? Math.min(.72, .09 + Math.min(guard.soldiers, 4) * .1 + (relation.status === 'at-war' ? .24 : 0))
       : 0;
     const killed = rand(world) < deathChance;
-    const incidentRecorder = world.borderIncidentDiagnosticRecorder;
-    if (typeof incidentRecorder === 'function') incidentRecorder({
-      day: world.day,
-      personId: person.id,
-      role: person.role,
-      homeId: home.id,
-      hostId: host.id,
-      relationStatus: relation.status,
-      exposureDays: Math.max(0, world.day - (exposure.enteredDay ?? world.day)),
-      injury: Number((person.injury || 0).toFixed(3)),
-      foodReserve: Number((person.foodReserve || 0).toFixed(3)),
-      hydration: Number((person.hydration || 0).toFixed(3)),
-      warningActive: Number.isFinite(person.territoryWarnings?.[host.id])
-        && person.territoryWarnings[host.id] >= world.day,
-      guard,
-      detectionChance,
-      deathChance,
-      killed
-    });
     if (killed) {
       killPerson(person, 'invasion');
       const warChance = Math.min(.82, .18 + relation.tension * .58 + guard.soldiers * .025);

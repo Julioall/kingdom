@@ -11,23 +11,6 @@ function storesOf(owner) {
     return owner.stores;
   }
 
-function recordCommunityFlow(community, category, delta) {
-    // The economy diagnostic installs this optional recorder; normal simulation
-    // communities carry no flow log or observer overhead beyond this check.
-    const recorder = community && community.economyFlowRecorder;
-    if (category && typeof recorder === 'function') recorder(category, delta);
-  }
-
-function recordInventoryFlow(owner, category, delta) {
-    const recorder = owner && owner.inventoryFlowRecorder;
-    if (category && typeof recorder === 'function') recorder(category, delta);
-  }
-
-function recordFoodReserveFlow(person, category, delta) {
-    const recorder = person && person.foodReserveFlowRecorder;
-    if (category && typeof recorder === 'function' && delta !== 0) recorder({ personId: person.id, category, delta });
-  }
-
 function validCosts(costs) {
     return !!costs && Object.entries(costs).every(([key, amount]) => key && Number.isFinite(amount) && amount >= 0);
   }
@@ -91,16 +74,11 @@ export function exchangeResources(first, firstGives, second, secondGives) {
   }
 
 export function addCommunityStore(community, resource, amount, category = 'collection') {
-    const added = addResource(storesOf(community), resource, amount);
-    if (added > 0) recordCommunityFlow(community, category, { [resource]: added });
-    return added;
+    return addResource(storesOf(community), resource, amount);
   }
 
 export function spendStoreInventory(community, costs, category = 'consumption') {
-    const spent = spendFrom(storesOf(community), costs);
-    if (spent) recordCommunityFlow(community, category,
-      Object.fromEntries(Object.entries(costs).map(([resource, amount]) => [resource, -amount])));
-    return spent;
+    return spendFrom(storesOf(community), costs);
   }
 
 export function consumeStoreInventory(community, costs, category = 'consumption') {
@@ -109,10 +87,6 @@ export function consumeStoreInventory(community, costs, category = 'consumption'
 
 export function transferStores(sourceCommunity, destinationCommunity, resource, amount) {
     const moved = transferResource(storesOf(sourceCommunity), storesOf(destinationCommunity), resource, amount);
-    if (moved > 0) {
-      recordCommunityFlow(sourceCommunity, 'community-redistribution', { [resource]: -moved });
-      recordCommunityFlow(destinationCommunity, 'community-redistribution', { [resource]: moved });
-    }
     return moved;
   }
 
@@ -123,21 +97,16 @@ export function transferStoresToInventory(sourceCommunity, destinationInventory,
 export function transferStoreResourceToAccount(sourceCommunity, destinationAccount, resource, amount, category = 'community-account-transfer') {
     const destination = destinationAccount && destinationAccount.stock ? destinationAccount.stock : destinationAccount;
     const moved = transferResource(storesOf(sourceCommunity), destination, resource, amount);
-    if (moved > 0) recordCommunityFlow(sourceCommunity, category, { [resource]: -moved });
     return moved;
   }
 
 export function moveCarriedResource(person, carriedResource, community, storeResource, amount, category = 'collection') {
     const moved = transferResource(person, storesOf(community), carriedResource, amount, storeResource);
-    if (moved > 0) recordCommunityFlow(community, category, { [storeResource]: moved });
     return moved;
   }
 
 export function spendInventory(owner, costs, category = 'inventory-spend') {
-    const spent = spendFrom(inventoryOf(owner), costs);
-    if (spent) recordInventoryFlow(owner, category,
-      Object.fromEntries(Object.entries(costs).map(([resource, amount]) => [resource, -amount])));
-    return spent;
+    return spendFrom(inventoryOf(owner), costs);
   }
 
 export function spendResource(account, costs) {
@@ -146,7 +115,6 @@ export function spendResource(account, costs) {
 
 export function addFoodReserve(person, amount, category = 'other-food-inflow') {
     const added = addResource(person, 'foodReserve', amount, 100);
-    recordFoodReserveFlow(person, category, added);
     return added;
   }
 
@@ -155,7 +123,6 @@ export function consumeFoodReserve(person, amount, category = 'other-food-consum
         || !Number.isFinite(amount) || amount <= 0) return 0;
     const consumed = Math.min(person.foodReserve, amount);
     const spent = consumed > 0 && spendResource(person, { foodReserve: consumed }) ? consumed : 0;
-    recordFoodReserveFlow(person, category, -spent);
     return spent;
   }
 
@@ -165,7 +132,6 @@ export function consumeCarriedFood(person, amount, category = 'personal-carried-
     const consumed = Math.min(person.carriedFood, amount);
     if (consumed <= 0) return 0;
     person.carriedFood = Math.max(0, person.carriedFood - consumed);
-    recordInventoryFlow(person, category, { carriedFood: -consumed });
     return consumed;
   }
 
@@ -175,7 +141,6 @@ export function consumeEdibleCargo(person, nutrition, category = 'emergency-carr
     for (const [field, value] of [['carriedFood', 1], ['carriedFruit', 1], ['carriedMeat', MEAT_NUTRITIONAL_VALUE]]) {
       const quantity = Math.min(Math.max(0, Number(person[field]) || 0), remaining / value);
       if (quantity <= 0 || !spendFrom(person, { [field]: quantity })) continue;
-      recordInventoryFlow(person, category, { [field]: -quantity });
       remaining = Math.max(0, remaining - quantity * value);
       if (remaining <= 1e-9) break;
     }
@@ -184,23 +149,16 @@ export function consumeEdibleCargo(person, nutrition, category = 'emergency-carr
 
 export function transferFoodReserve(source, destination, amount, category = 'food-reserve-transfer') {
     const moved = transferResource(source, destination, 'foodReserve', amount, 'foodReserve', 100);
-    recordFoodReserveFlow(source, category, -moved);
-    recordFoodReserveFlow(destination, category, moved);
     return moved;
   }
 
 export function transferInventory(source, destination, resource, amount, category = 'inventory-transfer') {
     const moved = transferResource(inventoryOf(source), inventoryOf(destination), resource, amount);
-    if (moved > 0) {
-      recordInventoryFlow(source, category, { [resource]: -moved });
-      recordInventoryFlow(destination, category, { [resource]: moved });
-    }
     return moved;
   }
 
 export function transferInventoryToStores(source, destination, resource, amount, category = 'inventory-transfer-to-stores') {
     const moved = transferResource(inventoryOf(source), storesOf(destination), resource, amount);
-    if (moved > 0) recordInventoryFlow(source, category, { [resource]: -moved });
     return moved;
   }
 

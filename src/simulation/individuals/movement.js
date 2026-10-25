@@ -148,14 +148,6 @@ function personOnTile(w, tile, except = null) {
     && hitboxesOverlap(destinationHitbox, npcHitbox(person))) || null;
 }
 
-function measureRouting(w, action) {
-  const profile = w.peopleProfile;
-  if (!profile || typeof profile.recordDetail !== 'function') return action();
-  const startedAt = profile.now();
-  try { return action(); }
-  finally { profile.recordDetail('people.routing', profile.now() - startedAt); }
-}
-
 function personById(w, id) {
   if (w.peopleById instanceof Map) {
     const person = w.peopleById.get(id);
@@ -216,19 +208,6 @@ function respondToPassageRequest(w, person) {
 }
 
 function findRouteStep(w, agent, destination, aquatic, pen, corrals, startOverride = null, movementOptions = null, avoidFirstStepIndex = -1) {
-  const profile = w.peopleProfile;
-  if (!profile || typeof profile.recordDetail !== 'function') {
-    return findRouteStepCore(w, agent, destination, aquatic, pen, corrals, startOverride, movementOptions, avoidFirstStepIndex);
-  }
-  const startedAt = profile.now();
-  try {
-    return findRouteStepCore(w, agent, destination, aquatic, pen, corrals, startOverride, movementOptions, avoidFirstStepIndex);
-  } finally {
-    profile.recordDetail('people.routeSearch', profile.now() - startedAt);
-  }
-}
-
-function findRouteStepCore(w, agent, destination, aquatic, pen, corrals, startOverride = null, movementOptions = null, avoidFirstStepIndex = -1) {
   const start = startOverride || cellAt(w, Math.round(agent.x), Math.round(agent.y));
   if (!start) return null;
   const count = w.tiles.length, startIndex = start.y * w.width + start.x;
@@ -373,7 +352,7 @@ export function moveOne(w, agent, target, aquatic, movementOptions = null) {
     }
     let first;
     if (!aquatic && agent.speciesId == null) {
-      const preferred = measureRouting(w, () => stepToward(current, false));
+      const preferred = stepToward(current, false);
       const blocker = personOnTile(w, preferred, agent);
       if (blocker) {
         blocker.passageRequest = { requesterId: agent.id, x: preferred.x, y: preferred.y, expiresDay: w.day + 1 };
@@ -381,16 +360,15 @@ export function moveOne(w, agent, target, aquatic, movementOptions = null) {
         respondToPassageRequest(w, blocker);
         const canEnterFree = tile => canEnter(w, agent, tile, aquatic, pen, corrals, movementOptions) && !personOnTile(w, tile, agent);
         const canStepFree = (from, to) => canStep(w, agent, from, to, aquatic, pen, corrals, movementOptions) && !personOnTile(w, to, agent);
-        first = !personOnTile(w, preferred, agent) ? preferred : measureRouting(w, () => localCongestionStep(w, agent,
-          currentTile, canStepFree) || persistentCongestionStep(w, agent, currentTile, destination, canEnterFree, canStepFree, movementOptions));
-        if (!first) agent.navigationCongestionWaits = (agent.navigationCongestionWaits || 0) + 1;
-        else delete agent.navigationCongestion;
+        first = !personOnTile(w, preferred, agent) ? preferred : localCongestionStep(w, agent,
+          currentTile, canStepFree) || persistentCongestionStep(w, agent, currentTile, destination, canEnterFree, canStepFree, movementOptions);
+        if (first) delete agent.navigationCongestion;
       } else {
         first = preferred;
         delete agent.navigationCongestion;
       }
     } else {
-      first = measureRouting(w, () => stepToward(current, true));
+      first = stepToward(current, true);
     }
     let route = first ? [first] : [];
     if (route.length && agent.speciesId == null && isRoadTile(currentTile, true) && isRoadTile(first, true)) {
@@ -406,21 +384,6 @@ export function moveOne(w, agent, target, aquatic, movementOptions = null) {
           && distance(second, destination) < distance(first, destination) - .001) route.push(second);
     }
     if (!route.length) return false;
-    const territoryMovementRecorder = agent.territoryMovementDiagnosticRecorder;
-    if (typeof territoryMovementRecorder === 'function' && (agent.foodReserve <= 8 || agent.hydration <= 9)) {
-      const activeTerritoryWarnings = Object.entries(agent.territoryWarnings || {})
-        .filter(([, untilDay]) => untilDay >= w.day).map(([ownerId, untilDay]) => ({ ownerId: Number(ownerId), untilDay }));
-      if (activeTerritoryWarnings.length) {
-        const targetTile = cellAt(w, Math.round(target.x), Math.round(target.y));
-        territoryMovementRecorder({
-          day: w.day, personId: agent.id, start: { x: Number(agent.x.toFixed(2)), y: Number(agent.y.toFixed(2)) },
-          target: { x: Number(target.x.toFixed(2)), y: Number(target.y.toFixed(2)), kingdomId: targetTile?.kingdomId ?? null },
-          reserve: Number(agent.foodReserve.toFixed(3)), hydration: Number(agent.hydration.toFixed(2)),
-          activeWarnings: activeTerritoryWarnings,
-          route: route.map(tile => ({ x: tile.x, y: tile.y, kingdomId: tile.kingdomId ?? null }))
-        });
-      }
-    }
     for (const next of route) {
       let boundaryCost = 0;
       if (agent.communityId !== undefined && agent.communityId !== null) {

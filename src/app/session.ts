@@ -11,7 +11,6 @@ import {
 
 type PendingRequest = {
   epoch: number;
-  sentAt: number;
   resolve: (response: SimulationWorkerResponse) => void;
   reject: (error: Error) => void;
 };
@@ -23,10 +22,8 @@ export class GameSession {
   speed = 1;
   revision = 0;
   epoch = 1;
-  metrics = { responses: 0, lastResponseMs: 0, maxResponseMs: 0, lastSnapshotBytes: 0, responseSamplesMs: [] as number[] };
   ready: Promise<WorldView>;
   onUpdate: ((world: WorldView, stats: Record<string, unknown>, reset: boolean) => void) | null = null;
-  onResponse: ((metrics: typeof this.metrics) => void) | null = null;
   onError: ((error: Error) => void) | null = null;
 
   private readonly worker: Worker;
@@ -69,11 +66,6 @@ export class GameSession {
     this.queuedClockDays = 0;
     this.queuedManualDays = 0;
     this.paused = false;
-    this.metrics.responses = 0;
-    this.metrics.lastResponseMs = 0;
-    this.metrics.maxResponseMs = 0;
-    this.metrics.lastSnapshotBytes = 0;
-    this.metrics.responseSamplesMs.length = 0;
     this.ready = this.send('reset', { seed, kingdomAiEnabled }, this.epoch).then(() => {
       if (!this.world) throw new Error('O Worker reiniciou sem devolver o estado do mundo.');
       return this.world;
@@ -142,7 +134,7 @@ export class GameSession {
       ...payload
     } as SimulationWorkerRequest;
     return new Promise((resolve, reject) => {
-      this.pending.set(requestId, { epoch, sentAt: performance.now(), resolve, reject });
+      this.pending.set(requestId, { epoch, resolve, reject });
       this.worker.postMessage(request);
     });
   }
@@ -198,16 +190,8 @@ export class GameSession {
       const nextWorld = applyWorldSnapshot(response.snapshot, response.snapshot.reset ? null : this.world);
       this.world = nextWorld;
       this.stats = nextWorld.stats;
-      const columns = response.snapshot.tileColumns;
-      this.metrics.lastSnapshotBytes = columns.scalars.byteLength + columns.ids.byteLength + columns.types.byteLength + columns.plants.byteLength;
       this.onUpdate?.(nextWorld, nextWorld.stats, response.snapshot.reset);
     }
-    this.metrics.responses++;
-    this.metrics.lastResponseMs = performance.now() - pending.sentAt;
-    this.metrics.maxResponseMs = Math.max(this.metrics.maxResponseMs, this.metrics.lastResponseMs);
-    this.metrics.responseSamplesMs.push(Number(this.metrics.lastResponseMs.toFixed(2)));
-    if (this.metrics.responseSamplesMs.length > 120) this.metrics.responseSamplesMs.shift();
-    this.onResponse?.(this.metrics);
     pending.resolve(response);
   }
 

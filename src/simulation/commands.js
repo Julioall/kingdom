@@ -1,6 +1,5 @@
 import engine from './engine.js';
 import { orderTowerCapture, orderInstallationAttack } from './kingdoms/frontier-conflicts.js';
-import { invalidateNavigation } from './individuals/navigation-cache.js';
 
 export function dispatchCommand(world, command) {
   if (!world || !command || typeof command !== 'object') throw new Error('Comando inválido.');
@@ -12,10 +11,6 @@ export function dispatchCommand(world, command) {
     case 'add-individuals':
       if (!Number.isInteger(command.count) || command.count < 1 || command.count > 100) throw new Error('Quantidade de indivíduos inválida.');
       engine.addIndividuals(world, command.count, false);
-      return { ok: true };
-    case 'collision-profiles':
-      engine.modules.Collision.setCollisionProfiles(command.profiles);
-      invalidateNavigation(world);
       return { ok: true };
     case 'kingdom-structure':
       if (!Number.isInteger(command.kingdomId)) throw new Error('Reino inválido.');

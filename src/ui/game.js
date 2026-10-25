@@ -55,20 +55,14 @@ export function mountGame() {
   const sessionSeed = randomSeed();
   const session = new GameSession(undefined, sessionSeed);
   const clock = new SimulationClock();
-  let collisionCalibrationAppliedEpoch = -1;
+
   let world = null, rendered = false, localAI = null;
   let selection = null, showLeft = false, showRight = false, hoveredTerritoryStructureId = null;
   let kingdomActionNotice = '';
   const isResetCancellation = error => error && error.name === 'AbortError';
   session.onUpdate = (nextWorld, _stats, reset) => {
     world = nextWorld;
-    if (collisionCalibrationAppliedEpoch !== session.epoch) {
-      collisionCalibrationAppliedEpoch = session.epoch;
-      applyCollisionCalibrationToSimulation().catch(error => {
-        console.error('[Kingdom Hitboxes] não foi possível aplicar calibrações à simulação:', error);
-        setCollisionEditorStatus('Não foi possível aplicar os contornos à simulação: ' + error.message);
-      });
-    }
+
     movementInterpolator.observe(world, performance.now(), { reset, speed: session.speed });
     npcDamageBars.observe(world.people, performance.now(), reset);
     structureDamageBars.observe(world.structures.map(s => ({ id: s.id, alive: s.destroyedDay == null,
@@ -87,7 +81,7 @@ export function mountGame() {
     if (reset) {
       selection = null;
       showRight = false;
-      collisionTestPlayer = null; collisionTestLastFrame = 0; collisionTestKeys.clear();
+
       $('rightPanel').classList.remove('is-open');
       kingdomActionNotice = '';
       actorAnimationClock.clear();
@@ -101,12 +95,6 @@ export function mountGame() {
       window.requestAnimationFrame(frame);
     } else render();
     if (localAI) localAI.pump();
-  };
-  session.onResponse = metrics => {
-    canvas.dataset.workerResponseMs = metrics.lastResponseMs.toFixed(2);
-    canvas.dataset.workerRevision = String(session.revision);
-    canvas.dataset.workerSnapshotBytes = String(metrics.lastSnapshotBytes);
-    canvas.dataset.workerResponseSamplesMs = JSON.stringify(metrics.responseSamplesMs);
   };
   session.onError = error => {
     if (isResetCancellation(error)) return;
@@ -145,37 +133,7 @@ export function mountGame() {
   const COLLISION_CALIBRATION_STORAGE_KEY = 'kingdom-collision-calibration-v3';
   const LEGACY_COLLISION_CALIBRATION_STORAGE_KEY = 'kingdom-collision-calibration-v2';
   let mapZoom = 1, mapPanX = 0, mapPanY = 0;
-  let showCollisionHitboxes = true;
-  let collisionEditMode = false, collisionEditAddPointMode = false, collisionEditSelection = null, collisionEditDrag = null;
-  let collisionTestActive = false, collisionTestPlayer = null, collisionTestLastFrame = 0;
-  const collisionTestKeys = new Set();
-  let collisionCalibrationProfiles = Object.create(null);
-  try {
-    const currentCalibration = window.localStorage.getItem(COLLISION_CALIBRATION_STORAGE_KEY);
-    const isLegacyCalibration = !currentCalibration;
-    const savedCalibration = JSON.parse(currentCalibration
-      || window.localStorage.getItem(LEGACY_COLLISION_CALIBRATION_STORAGE_KEY) || 'null');
-    if (savedCalibration?.profiles && typeof savedCalibration.profiles === 'object') {
-      collisionCalibrationProfiles = { ...savedCalibration.profiles };
-      if (isLegacyCalibration && collisionCalibrationProfiles.house2) {
-        // The new static house2 profile absorbs the imported (-1, -1) entry shift.
-        // Rebase old saved deltas so existing local edits keep their effective point.
-        const oldHouse2 = collisionCalibrationProfiles.house2;
-        collisionCalibrationProfiles.house2 = { ...oldHouse2,
-          entryOffsetX: (Number(oldHouse2.entryOffsetX) || 0) + 1,
-          entryOffsetY: (Number(oldHouse2.entryOffsetY) || 0) + 1 };
-      }
-      if (isLegacyCalibration) {
-        window.localStorage.setItem(COLLISION_CALIBRATION_STORAGE_KEY, JSON.stringify({
-          ...savedCalibration, profiles: collisionCalibrationProfiles
-        }));
-      }
-    }
-  } catch (error) {
-    console.warn('[Kingdom Hitboxes] não foi possível ler calibrações locais:', error);
-  }
-  try { Sim.modules.Collision.setCollisionProfiles(collisionCalibrationProfiles); }
-  catch (error) { console.warn('[Kingdom Hitboxes] perfis salvos inválidos; usando perfis padrão:', error); }
+
   let mapTransform = [1, 0, 0, 1, 0, 0];
   let animationTime = 0, lastSpriteDraw = 0, lastAtmosphereUpdate = 0, assetRenderQueued = false, groundCacheKey = '', pendingClockDays = 0;
   const movementInterpolator = createMovementInterpolator();
@@ -1717,309 +1675,6 @@ export function mountGame() {
     context.fillRect(0, 0, canvas.width, canvas.height);
   }
 
-  function collisionProfileKey(structure) {
-    return structure?.spriteKey || structureSpriteKey(structure);
-  }
-
-  function calibratedStructureHitbox(structure) {
-    return Sim.modules.Collision.structureHitbox(structure);
-  }
-
-  function defaultStructureEntry(structure) {
-    return Sim.modules.Collision.structureInteractionPoint(structure);
-  }
-
-  function calibratedStructureEntry(structure) {
-    return defaultStructureEntry(structure);
-  }
-
-  function setCollisionEditorStatus(message) {
-    const status = $('collisionEditorStatus');
-    status.textContent = message;
-    status.hidden = !message;
-  }
-
-  function syncCollisionEditorControls() {
-    const button = $('collisionEditToggle');
-    button.setAttribute('aria-pressed', String(collisionEditMode));
-    button.textContent = collisionEditMode ? 'Concluir edição' : 'Editar';
-    button.title = collisionEditMode
-      ? 'Selecione qualquer hitbox; arraste para mover ou use as alças para redimensionar'
-      : 'Ajustar hitboxes de construções, recursos, personagens e animais';
-    const addPoint = $('collisionAddPoint');
-    addPoint.hidden = !collisionEditMode;
-    addPoint.setAttribute('aria-pressed', String(collisionEditAddPointMode));
-    addPoint.textContent = collisionEditAddPointMode ? 'Clique no contorno' : '+ Ponto';
-    addPoint.title = collisionEditAddPointMode ? 'Clique numa aresta para adicionar um vértice'
-      : 'Adicionar vértices ao contorno da construção selecionada';
-    $('collisionProfileSave').hidden = !collisionEditMode;
-    if (!collisionEditMode) { collisionEditAddPointMode = false; setCollisionEditorStatus(''); }
-  }
-
-  function drawCollisionHitboxes(camera, bounds) {
-    if (!showCollisionHitboxes || !world) return;
-    const collision = Sim.modules.Collision;
-    const colors = {
-      npc: ['#20f4ff', 'rgba(32,244,255,.18)'],
-      structure: ['#ff5d4e', 'rgba(255,93,78,.15)'],
-      tree: ['#b9ff46', 'rgba(185,255,70,.2)'],
-      stone: ['#e4e8ec', 'rgba(228,232,236,.22)'],
-      gold: ['#ffd34f', 'rgba(255,211,79,.2)']
-    };
-    const scale = Math.max(.01, camera.transform[0]);
-    ctx.save();
-    ctx.setTransform(...camera.transform);
-    ctx.beginPath(); ctx.rect(camera.view.x, camera.view.y, camera.view.width, camera.view.height); ctx.clip();
-    ctx.lineWidth = 1.5 / scale;
-    const visible = hitbox => hitbox.x >= bounds.minX - 3 && hitbox.x <= bounds.maxX + 3
-      && hitbox.y >= bounds.minY - 3 && hitbox.y <= bounds.maxY + 3;
-    const draw = (hitbox, color, xOffset = .5, yOffset = 1) => {
-      if (!hitbox || !visible(hitbox)) return;
-      const centerX = (hitbox.x + xOffset) * TILE, centerY = (hitbox.y + yOffset) * TILE;
-      const [stroke, fill] = colors[color] || colors.stone;
-      ctx.beginPath();
-      if (hitbox.shape === 'circle') {
-        ctx.arc(centerX, centerY, hitbox.radius * TILE, 0, Math.PI * 2);
-      } else if (hitbox.shape === 'polygon' && hitbox.points?.length >= 3) {
-        ctx.moveTo((hitbox.points[0].x + xOffset) * TILE, (hitbox.points[0].y + yOffset) * TILE);
-        for (const point of hitbox.points.slice(1)) ctx.lineTo((point.x + xOffset) * TILE, (point.y + yOffset) * TILE);
-        ctx.closePath();
-      } else {
-        const halfWidth = hitbox.halfWidth * TILE;
-        const halfDepth = (hitbox.halfDepth ?? hitbox.halfHeight ?? 0) * TILE;
-        ctx.rect(centerX - halfWidth, centerY - halfDepth, halfWidth * 2, halfDepth * 2);
-      }
-      ctx.fillStyle = fill; ctx.fill();
-      ctx.strokeStyle = stroke; ctx.stroke();
-    };
-
-    const editTargets = collisionEditMode ? getCollisionEditTargets() : null;
-    const drawEntry = structure => {
-      const entry = calibratedStructureEntry(structure);
-      const entryX = (entry.x + .5) * TILE, entryY = (entry.y + .5) * TILE;
-      const selected = collisionEditSelection?.key === 'structure:' + structure.id;
-      const markerSize = (collisionEditMode && selected ? 5 : 3.5) / scale;
-      ctx.beginPath(); ctx.moveTo(entryX, entryY - markerSize); ctx.lineTo(entryX + markerSize, entryY);
-      ctx.lineTo(entryX, entryY + markerSize); ctx.lineTo(entryX - markerSize, entryY); ctx.closePath();
-      ctx.fillStyle = 'rgba(255,211,79,.9)'; ctx.fill();
-      ctx.strokeStyle = '#fff3bf'; ctx.stroke();
-    };
-    if (editTargets) {
-      const colorsByKind = { structure: 'structure', resourceTree: 'tree', resourceStone: 'stone',
-        resourceGold: 'gold', npc: 'npc', animal: 'npc' };
-      for (const target of editTargets) {
-        draw(target.hitbox, colorsByKind[target.colorKind], target.anchorX, target.anchorY);
-        if (target.kind === 'structure') drawEntry(target.entity);
-      }
-    } else {
-      for (const structure of world.structures) {
-        draw(calibratedStructureHitbox(structure), 'structure');
-        drawEntry(structure);
-      }
-      for (const hitbox of collision.worldCollisionIndex(world).resources.hitboxes) {
-        draw(hitbox, hitbox.resourceKind === 'tree' ? 'tree' : hitbox.resourceKind, .5, 1);
-      }
-      for (const person of world.people) {
-        if (!person.alive || person.restingStructureId != null) continue;
-        const pose = visualPose('person', person);
-        draw(collision.npcHitbox(person, pose.x, pose.y), 'npc');
-      }
-      for (const animal of world.animals) {
-        if (!animal.alive) continue;
-        const pose = visualPose('animal', animal);
-        draw(collision.animalHitbox(animal, pose.x, pose.y), 'npc');
-      }
-    }
-    if (collisionEditMode && collisionEditSelection) {
-      const target = editTargets.find(item => item.key === collisionEditSelection.key);
-      if (target) drawCollisionEditHandles(target, scale);
-    }
-    ctx.restore();
-  }
-
-  function collisionTestBlocked(x, y, index = Sim.modules.Collision.worldCollisionIndex(world)) {
-    const collision = Sim.modules.Collision, player = collisionTestPlayer;
-    if (!player) return true;
-    const body = collision.npcHitbox(player, x, y);
-    if (body.x - body.radius < 0 || body.y - body.radius < 0
-        || body.x + body.radius >= W || body.y + body.radius >= H) return true;
-    const tile = cell(Math.floor(x), Math.floor(y));
-    if (!tile || tile.terrain === 'water' || tile.terrain === 'rock') return true;
-    for (const structure of world.structures) {
-      const hitbox = calibratedStructureHitbox(structure);
-      if (hitbox && collision.hitboxesOverlap(body, hitbox)) return true;
-    }
-    const resourceIndex = index.resources;
-    const minX = Math.max(0, Math.floor(body.x - body.radius));
-    const maxX = Math.min(W - 1, Math.floor(body.x + body.radius));
-    const minY = Math.max(0, Math.floor(body.y - body.radius));
-    const maxY = Math.min(H - 1, Math.floor(body.y + body.radius));
-    const resources = new Set();
-    for (let tileY = minY; tileY <= maxY; tileY++) for (let tileX = minX; tileX <= maxX; tileX++) {
-      for (const hitbox of resourceIndex.byTile.get(tileY * W + tileX) || []) resources.add(hitbox);
-    }
-    for (const hitbox of resources) if (collision.hitboxesOverlap(body, hitbox)) return true;
-    for (const person of world.people) {
-      if (person === player || !person.alive || person.restingStructureId != null) continue;
-      if (collision.hitboxesOverlap(body, collision.npcHitbox(person))) return true;
-    }
-    for (const animal of world.animals) {
-      if (animal.alive && collision.hitboxesOverlap(body, collision.animalHitbox(animal))) return true;
-    }
-    return false;
-  }
-
-  function spawnCollisionTestPlayer() {
-    if (!world) return;
-    collisionTestPlayer = { id: 'collision-test-player', ageDays: 18 * 365, hitbox: { radius: .22 },
-      moving: false, facingX: 1 };
-    const camera = currentMapCamera();
-    const center = camera.toWorld(stage.clientWidth / 2, stage.clientHeight / 2);
-    const targetX = center.x / TILE - .5, targetY = center.y / TILE - 1;
-    const index = Sim.modules.Collision.worldCollisionIndex(world);
-    const tiles = world.tiles.slice().sort((a, b) => Math.hypot(a.x - targetX, a.y - targetY)
-      - Math.hypot(b.x - targetX, b.y - targetY));
-    const spawn = tiles.find(candidate => candidate.terrain !== 'water' && candidate.terrain !== 'rock'
-      && !collisionTestBlocked(candidate.x, candidate.y, index));
-    if (spawn) { collisionTestPlayer.x = spawn.x; collisionTestPlayer.y = spawn.y; }
-    else { collisionTestPlayer.x = Math.round(targetX); collisionTestPlayer.y = Math.round(targetY); }
-  }
-
-  function updateCollisionTestPlayer(now) {
-    if (!collisionTestActive || !world) return;
-    if (!collisionTestPlayer) spawnCollisionTestPlayer();
-    const elapsed = collisionTestLastFrame ? Math.min(.1, (now - collisionTestLastFrame) / 1000) : 0;
-    collisionTestLastFrame = now;
-    let dx = Number(collisionTestKeys.has('d') || collisionTestKeys.has('arrowright'))
-      - Number(collisionTestKeys.has('a') || collisionTestKeys.has('arrowleft'));
-    let dy = Number(collisionTestKeys.has('s') || collisionTestKeys.has('arrowdown'))
-      - Number(collisionTestKeys.has('w') || collisionTestKeys.has('arrowup'));
-    if (!dx && !dy) { collisionTestPlayer.moving = false; return; }
-    collisionTestPlayer.moving = true;
-    if (dx) collisionTestPlayer.facingX = Math.sign(dx);
-    const magnitude = Math.hypot(dx, dy); dx /= magnitude; dy /= magnitude;
-    const distance = 3.2 * elapsed, steps = Math.max(1, Math.ceil(distance / .075));
-    const stepX = dx * distance / steps, stepY = dy * distance / steps;
-    const index = Sim.modules.Collision.worldCollisionIndex(world);
-    for (let step = 0; step < steps; step++) {
-      const nextX = collisionTestPlayer.x + stepX;
-      if (!collisionTestBlocked(nextX, collisionTestPlayer.y, index)) collisionTestPlayer.x = nextX;
-      const nextY = collisionTestPlayer.y + stepY;
-      if (!collisionTestBlocked(collisionTestPlayer.x, nextY, index)) collisionTestPlayer.y = nextY;
-    }
-  }
-
-  function drawCollisionTestPlayer(camera) {
-    if (!collisionTestActive || !collisionTestPlayer) return;
-    const pose = collisionTestPlayer, collision = Sim.modules.Collision;
-    const centerX = (pose.x + .5) * TILE, footY = (pose.y + 1) * TILE;
-    const scale = Math.max(.01, camera.transform[0]);
-    ctx.save(); ctx.setTransform(...camera.transform);
-    const animation = getUnitAnimation('pawn', pose.moving ? 'run' : 'idle', 'blue');
-    animationRenderer.draw(ctx, animation, centerX, footY, {
-      elapsedMs: animationTime, scale: spriteScale(TILE, CHARACTER_SPRITE_SCALE),
-      flipX: pose.facingX < 0, loop: true
-    });
-    const body = collision.npcHitbox(pose);
-    ctx.beginPath(); ctx.arc((body.x + .5) * TILE, (body.y + 1) * TILE, body.radius * TILE, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(232,77,213,.16)'; ctx.fill(); ctx.strokeStyle = '#ff72e8'; ctx.lineWidth = 2 / scale; ctx.stroke();
-    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.font = (7 / scale) + 'px ui-monospace, monospace';
-    ctx.lineWidth = 2 / scale; ctx.strokeStyle = '#1a2028'; ctx.strokeText('TESTE', centerX, footY - 38 / scale);
-    ctx.fillStyle = '#fff1ff'; ctx.fillText('TESTE', centerX, footY - 38 / scale);
-    ctx.restore();
-  }
-
-  function toggleCollisionTest() {
-    collisionTestActive = !collisionTestActive;
-    collisionTestPlayer = null; collisionTestLastFrame = 0; collisionTestKeys.clear();
-    if (collisionTestActive) {
-      if (collisionEditMode) toggleCollisionEditor();
-      showCollisionHitboxes = true;
-      const hitboxButton = $('hitboxToggle');
-      hitboxButton.setAttribute('aria-pressed', 'true'); hitboxButton.setAttribute('aria-label', 'Ocultar hitboxes de colisão');
-      hitboxButton.title = 'Ocultar hitboxes de colisão (H)'; hitboxButton.textContent = 'Hitbox ✓';
-      setCollisionEditorStatus('Personagem de teste: mova com WASD ou as setas. A simulação não é alterada.');
-    } else setCollisionEditorStatus('');
-    const button = $('collisionTestToggle');
-    button.setAttribute('aria-pressed', String(collisionTestActive));
-    button.textContent = collisionTestActive ? 'Sair teste' : 'Testar';
-    button.title = collisionTestActive ? 'Encerrar o teste de colisões' : 'Controlar personagem para testar colisões';
-    collisionTestLastFrame = 0;
-    drawMap();
-  }
-
-  function toggleCollisionHitboxes() {
-    showCollisionHitboxes = !showCollisionHitboxes;
-    if (!showCollisionHitboxes && collisionEditMode) {
-      collisionEditMode = false; collisionEditDrag = null; syncCollisionEditorControls();
-    }
-    const button = $('hitboxToggle');
-    button.setAttribute('aria-pressed', String(showCollisionHitboxes));
-    button.setAttribute('aria-label', (showCollisionHitboxes ? 'Ocultar' : 'Mostrar') + ' hitboxes de colisão');
-    button.title = (showCollisionHitboxes ? 'Ocultar' : 'Mostrar') + ' hitboxes de colisão (H)';
-    button.textContent = showCollisionHitboxes ? 'Hitbox ✓' : 'Hitbox';
-    drawMap();
-  }
-
-  function toggleCollisionEditor() {
-    if (!collisionEditMode && collisionTestActive) toggleCollisionTest();
-    collisionEditMode = !collisionEditMode;
-    collisionEditDrag = null;
-    if (collisionEditMode) {
-      showCollisionHitboxes = true;
-      const button = $('hitboxToggle');
-      button.setAttribute('aria-pressed', 'true'); button.setAttribute('aria-label', 'Ocultar hitboxes de colisão');
-      button.title = 'Ocultar hitboxes de colisão (H)'; button.textContent = 'Hitbox ✓';
-      setCollisionEditorStatus('Edição: clique numa hitbox colorida para selecioná-la. Arraste o corpo para mover e as alças para redimensionar; + Ponto refina construções.');
-    } else setCollisionEditorStatus('');
-    syncCollisionEditorControls();
-    drawMap();
-  }
-
-  function toggleCollisionAddPointMode() {
-    if (!collisionEditMode) return;
-    if (collisionEditSelection?.kind !== 'structure') {
-      setCollisionEditorStatus('Selecione uma construção antes de adicionar vértices.');
-      return;
-    }
-    collisionEditAddPointMode = !collisionEditAddPointMode;
-    syncCollisionEditorControls();
-    setCollisionEditorStatus(collisionEditAddPointMode
-      ? 'Clique numa aresta vermelha para inserir um vértice. Repita para continuar desenhando o contorno.'
-      : 'Modo de inserção de vértices encerrado. Arraste os quadrados para ajustar os pontos.');
-    drawMap();
-  }
-
-  function saveCollisionCalibration() {
-    const calibration = { schema: 'kingdom-collision-calibration/v3',
-      pointCoordinates: 'tile offsets relative to each hitbox center; sizeMultiplier and radiusMultiplier scale resource, NPC, and animal masks',
-      savedAt: new Date().toISOString(),
-      profiles: collisionCalibrationProfiles };
-    const json = JSON.stringify(calibration, null, 2);
-    try { window.localStorage.setItem(COLLISION_CALIBRATION_STORAGE_KEY, json); }
-    catch (error) { console.warn('[Kingdom Hitboxes] não foi possível salvar localmente:', error); }
-    const blobUrl = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-    const link = document.createElement('a');
-    link.href = blobUrl; link.download = 'kingdom-collision-calibration.json';
-    document.body.appendChild(link); link.click(); link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-    applyCollisionCalibrationToSimulation().then(() => {
-      collisionCalibrationAppliedEpoch = session.epoch;
-      setCollisionEditorStatus('Calibração salva e aplicada à física. O arquivo kingdom-collision-calibration.json também foi baixado.');
-    }).catch(error => {
-      console.error('[Kingdom Hitboxes] não foi possível aplicar calibrações à simulação:', error);
-      setCollisionEditorStatus('JSON baixado, mas não foi possível aplicar os contornos à simulação: ' + error.message);
-    });
-  }
-
-  function applyCollisionCalibrationToSimulation() {
-    const profiles = JSON.parse(JSON.stringify(collisionCalibrationProfiles));
-    Sim.modules.Collision.setCollisionProfiles(profiles);
-    return session.dispatch({ type: 'collision-profiles', profiles }).then(result => {
-      if (!result?.ok) throw new Error('o Worker não confirmou os perfis de colisão');
-      return result;
-    });
-  }
 
   function drawMap() {
     if (!world) return;
@@ -2079,8 +1734,8 @@ export function mountGame() {
       ctx.restore();
       cloudSystem.drawAtmosphere(ctx, camera, stage.clientWidth, stage.clientHeight, cameraCenter, mapZoom);
     }
-    drawCollisionHitboxes(camera, view.bounds);
-    drawCollisionTestPlayer(camera);
+
+
   }
 
   function renderKingdomList() {
@@ -2731,7 +2386,7 @@ export function mountGame() {
   function collisionStructureAtMapPosition(mapX, mapY) {
     const candidates = [];
     for (const structure of world.structures) {
-      const hitbox = calibratedStructureHitbox(structure);
+      const hitbox = Sim.modules.Collision.structureHitbox(structure);
       if (!hitbox) continue;
       const spriteKey = structureSpriteKey(structure);
       const kingdom = getKingdom(structure.kingdomId), community = getCommunity(structure.communityId);
@@ -2744,7 +2399,7 @@ export function mountGame() {
       const insideArt = mapX >= left - .2 && mapX <= left + width + .2
         && mapY >= top - .2 && mapY <= top + height + .2;
       const centerX = hitbox.x + .5, centerY = hitbox.y + 1;
-      const entry = calibratedStructureEntry(structure);
+      const entry = Sim.modules.Collision.structureInteractionPoint(structure);
       const nearCollider = Math.abs(mapX - centerX) <= hitbox.halfWidth + .45
         && Math.abs(mapY - centerY) <= hitbox.halfDepth + .45;
       const nearEntry = Math.hypot(mapX - entry.x - .5, mapY - entry.y - .5) < .35;
@@ -2755,339 +2410,12 @@ export function mountGame() {
     return candidates.sort((a, b) => Number(b.insideArt) - Number(a.insideArt) || a.distance - b.distance)[0]?.structure || null;
   }
 
-  function collisionEditorPoint(event) {
-    const rect = stage.getBoundingClientRect();
-    const point = currentMapCamera().toWorld(event.clientX - rect.left, event.clientY - rect.top);
-    return { x: point.x / TILE, y: point.y / TILE };
-  }
-
-  function collisionEditTolerance(pixels = 10) {
-    return Math.max(.015, pixels / Math.max(1, currentMapCamera().scale * TILE));
-  }
-
-  function getCollisionEditTargets(bounds = getMapViewport().bounds, includeKey = null) {
-    const collision = Sim.modules.Collision, targets = [];
-    const inView = (hitbox, key) => {
-      if (key === includeKey) return true;
-      if (!bounds || !hitbox) return false;
-      const halfWidth = hitbox.shape === 'circle' ? hitbox.radius
-        : hitbox.shape === 'polygon' && hitbox.points?.length
-          ? Math.max(...hitbox.points.map(point => Math.abs(point.x - hitbox.x))) : hitbox.halfWidth;
-      const halfDepth = hitbox.shape === 'circle' ? hitbox.radius
-        : hitbox.shape === 'polygon' && hitbox.points?.length
-          ? Math.max(...hitbox.points.map(point => Math.abs(point.y - hitbox.y))) : hitbox.halfDepth;
-      return hitbox.x + halfWidth >= bounds.minX - 3 && hitbox.x - halfWidth <= bounds.maxX + 3
-        && hitbox.y + halfDepth >= bounds.minY - 3 && hitbox.y - halfDepth <= bounds.maxY + 3;
-    };
-    for (const structure of world.structures) {
-      const hitbox = calibratedStructureHitbox(structure);
-      const key = 'structure:' + structure.id;
-      if (hitbox && inView(hitbox, key)) targets.push({ key, kind: 'structure',
-        profileKey: collisionProfileKey(structure), entity: structure, hitbox,
-        anchorX: .5, anchorY: 1, colorKind: 'structure', label: collisionProfileKey(structure) });
-    }
-    for (const hitbox of collision.worldCollisionIndex(world).resources.hitboxes) {
-      const resource = hitbox.resourceKind, tile = world.tiles[hitbox.resourceId];
-      const key = 'resource:' + resource + ':' + hitbox.resourceId;
-      if (!tile || !inView(hitbox, key)) continue;
-      targets.push({ key, kind: 'resource',
-        profileKey: 'resource:' + resource, entity: tile, hitbox, anchorX: .5, anchorY: 1,
-        colorKind: 'resource' + resource[0].toUpperCase() + resource.slice(1),
-        label: resource === 'tree' ? 'todas as árvores' : resource === 'stone' ? 'todas as pedras' : 'todo o ouro' });
-    }
-    for (const person of world.people) {
-      if (!person.alive || person.restingStructureId != null) continue;
-      const pose = visualPose('person', person), group = person.ageDays < 12 * 365 ? 'child' : 'adult';
-      const hitbox = collision.npcHitbox(person, pose.x, pose.y);
-      const key = 'npc:' + person.id;
-      if (!inView(hitbox, key)) continue;
-      targets.push({ key, kind: 'npc', profileKey: 'npc:' + group,
-        entity: person, hitbox, anchorX: .5, anchorY: 1,
-        colorKind: 'npc', label: group === 'child' ? 'todas as crianças' : 'todos os NPCs adultos' });
-    }
-    for (const animal of world.animals) {
-      if (!animal.alive) continue;
-      const pose = visualPose('animal', animal), species = String(animal.speciesId);
-      const hitbox = collision.animalHitbox(animal, pose.x, pose.y);
-      const key = 'animal:' + animal.id;
-      if (!inView(hitbox, key)) continue;
-      targets.push({ key, kind: 'animal', profileKey: 'animal:' + species,
-        entity: animal, hitbox, anchorX: .5, anchorY: 1,
-        colorKind: 'animal', label: 'todos os animais ' + species });
-    }
-    return targets;
-  }
-
-  function ensureMutableCollisionProfile(target) {
-    if (!collisionCalibrationProfiles[target.profileKey]
-        || typeof collisionCalibrationProfiles[target.profileKey] !== 'object') {
-      const hitbox = target.hitbox;
-      if (target.kind === 'structure') collisionCalibrationProfiles[target.profileKey] = {
-        offsetX: 0, offsetY: 0, halfWidth: hitbox.halfWidth, halfDepth: hitbox.halfDepth,
-        entryOffsetX: 0, entryOffsetY: 0
-      };
-      else if (target.kind === 'resource') collisionCalibrationProfiles[target.profileKey] = {
-        offsetX: 0, offsetY: 0, sizeMultiplier: 1
-      };
-      else collisionCalibrationProfiles[target.profileKey] = { offsetX: 0, offsetY: 0, radiusMultiplier: 1 };
-      applyCollisionProfilesLocally();
-    }
-    return collisionCalibrationProfiles[target.profileKey];
-  }
-
-  function applyCollisionProfilesLocally() {
-    Sim.modules.Collision.setCollisionProfiles(collisionCalibrationProfiles);
-  }
-
-  function collisionHitboxVertices(hitbox, anchorX = .5, anchorY = 1) {
-    if (hitbox.shape === 'polygon' && hitbox.points?.length >= 3) {
-      return hitbox.points.map(point => ({ x: point.x + anchorX, y: point.y + anchorY }));
-    }
-    return [
-      { x: hitbox.x + anchorX - hitbox.halfWidth, y: hitbox.y + anchorY - hitbox.halfDepth },
-      { x: hitbox.x + anchorX + hitbox.halfWidth, y: hitbox.y + anchorY - hitbox.halfDepth },
-      { x: hitbox.x + anchorX + hitbox.halfWidth, y: hitbox.y + anchorY + hitbox.halfDepth },
-      { x: hitbox.x + anchorX - hitbox.halfWidth, y: hitbox.y + anchorY + hitbox.halfDepth }
-    ];
-  }
-
-  function drawCollisionEditHandles(target, scale) {
-    const { hitbox, anchorX, anchorY } = target;
-    const centerX = (hitbox.x + anchorX) * TILE, centerY = (hitbox.y + anchorY) * TILE;
-    const handle = 4 / scale;
-    let points;
-    if (hitbox.shape === 'circle') points = [[centerX + hitbox.radius * TILE, centerY]];
-    else if (hitbox.shape === 'polygon' && hitbox.points?.length >= 3) {
-      points = hitbox.points.map(point => [(point.x + anchorX) * TILE, (point.y + anchorY) * TILE]);
-    } else points = [
-      [centerX - hitbox.halfWidth * TILE, centerY - hitbox.halfDepth * TILE],
-      [centerX + hitbox.halfWidth * TILE, centerY - hitbox.halfDepth * TILE],
-      [centerX + hitbox.halfWidth * TILE, centerY + hitbox.halfDepth * TILE],
-      [centerX - hitbox.halfWidth * TILE, centerY + hitbox.halfDepth * TILE]
-    ];
-    ctx.fillStyle = '#fff8df'; ctx.strokeStyle = '#ae4938'; ctx.lineWidth = 1.5 / scale;
-    for (const [x, y] of points) {
-      ctx.fillRect(x - handle, y - handle, handle * 2, handle * 2);
-      ctx.strokeRect(x - handle, y - handle, handle * 2, handle * 2);
-    }
-  }
-
-  function collisionEditTargetAt(point) {
-    const targets = getCollisionEditTargets();
-    const direct = targets.filter(target => target.kind !== 'structure'
-      && collisionEditDistanceToHitbox(point, target) <= .02)
-      .sort((a, b) => Math.hypot(point.x - a.hitbox.x - a.anchorX, point.y - a.hitbox.y - a.anchorY)
-        - Math.hypot(point.x - b.hitbox.x - b.anchorX, point.y - b.hitbox.y - b.anchorY));
-    if (direct.length) return direct[0];
-    const clickedStructure = collisionStructureAtMapPosition(point.x, point.y);
-    if (clickedStructure) return targets.find(target => target.kind === 'structure' && target.entity.id === clickedStructure.id) || null;
-    return targets.map(target => ({ target, distance: collisionEditDistanceToHitbox(point, target) }))
-      .filter(candidate => candidate.distance <= collisionEditTolerance(12))
-      .sort((a, b) => a.distance - b.distance)[0]?.target || null;
-  }
-
-  function collisionEditDistanceToHitbox(point, target) {
-    const hitbox = target.hitbox, x = point.x - target.anchorX, y = point.y - target.anchorY;
-    if (hitbox.shape === 'circle') return Math.max(0, Math.hypot(x - hitbox.x, y - hitbox.y) - hitbox.radius);
-    if (hitbox.shape === 'polygon' && hitbox.points?.length >= 3) {
-      const vertices = collisionHitboxVertices(hitbox, target.anchorX, target.anchorY);
-      if (pointInCollisionPolygon(point, vertices)) return 0;
-      let distance = Infinity;
-      for (let index = 0; index < vertices.length; index++) {
-        distance = Math.min(distance, closestPointOnSegment(point, vertices[index], vertices[(index + 1) % vertices.length]).distance);
-      }
-      return distance;
-    }
-    return Math.hypot(Math.max(0, Math.abs(x - hitbox.x) - hitbox.halfWidth),
-      Math.max(0, Math.abs(y - hitbox.y) - hitbox.halfDepth));
-  }
-
-  function pointInCollisionPolygon(point, vertices) {
-    let inside = false;
-    for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
-      const a = vertices[i], b = vertices[j];
-      if ((a.y > point.y) !== (b.y > point.y)
-          && point.x < (b.x - a.x) * (point.y - a.y) / ((b.y - a.y) || Number.EPSILON) + a.x) inside = !inside;
-    }
-    return inside;
-  }
-
-  function closestPointOnSegment(point, a, b) {
-    const dx = b.x - a.x, dy = b.y - a.y, lengthSquared = dx * dx + dy * dy;
-    const t = lengthSquared ? Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSquared)) : 0;
-    return { x: a.x + t * dx, y: a.y + t * dy, t,
-      distance: Math.hypot(point.x - a.x - t * dx, point.y - a.y - t * dy) };
-  }
-
-  function initialCollisionProfilePoints(hitbox) {
-    if (hitbox.shape === 'polygon' && hitbox.points?.length >= 3) {
-      return hitbox.points.map(point => ({ x: point.x - hitbox.x, y: point.y - hitbox.y }));
-    }
-    return [
-      { x: -hitbox.halfWidth, y: -hitbox.halfDepth },
-      { x: hitbox.halfWidth, y: -hitbox.halfDepth },
-      { x: hitbox.halfWidth, y: hitbox.halfDepth },
-      { x: -hitbox.halfWidth, y: hitbox.halfDepth }
-    ];
-  }
-
-  function addCollisionHitboxPoint(target, point) {
-    if (target.kind !== 'structure') return false;
-    const structure = target.entity, hitbox = target.hitbox;
-    if (!hitbox) return false;
-    const vertices = collisionHitboxVertices(hitbox, target.anchorX, target.anchorY);
-    let closest = null;
-    for (let index = 0; index < vertices.length; index++) {
-      const projection = closestPointOnSegment(point, vertices[index], vertices[(index + 1) % vertices.length]);
-      if (!closest || projection.distance < closest.distance) closest = { ...projection, index };
-    }
-    if (!closest || closest.distance > collisionEditTolerance(14)) {
-      setCollisionEditorStatus('Clique mais perto de uma aresta vermelha para inserir um vértice.');
-      return false;
-    }
-    const profile = ensureMutableCollisionProfile(target);
-    const localPoints = Array.isArray(profile.points) && profile.points.length >= 3
-      ? profile.points.map(vertex => Array.isArray(vertex) ? { x: Number(vertex[0]), y: Number(vertex[1]) } : { x: vertex.x, y: vertex.y })
-      : initialCollisionProfilePoints(hitbox);
-    const modelPoint = { x: point.x - target.anchorX - hitbox.x, y: point.y - target.anchorY - hitbox.y };
-    localPoints.splice(closest.index + 1, 0, modelPoint);
-    profile.points = localPoints;
-    applyCollisionProfilesLocally();
-    setCollisionEditorStatus('Vértice adicionado. Arraste os quadrados para refinar o contorno; use + Ponto para inserir mais.');
-    drawMap();
-    return true;
-  }
-
-  function beginCollisionEditPointer(event) {
-    if (event.pointerType === 'mouse' && event.button !== 0) return;
-    const point = collisionEditorPoint(event);
-    if (collisionEditAddPointMode) {
-      const selected = collisionEditSelection && getCollisionEditTargets().find(target => target.key === collisionEditSelection.key);
-      if (selected?.kind === 'structure') addCollisionHitboxPoint(selected, point);
-      else setCollisionEditorStatus('Selecione uma construção antes de adicionar pontos.');
-      event.preventDefault();
-      return;
-    }
-    const target = collisionEditTargetAt(point);
-    if (!target) {
-      setCollisionEditorStatus('Clique numa hitbox colorida para selecionar esse tipo de objeto.');
-      return;
-    }
-    collisionEditSelection = { key: target.key, profileKey: target.profileKey, kind: target.kind };
-    const hitbox = target.hitbox, centerX = hitbox.x + target.anchorX, centerY = hitbox.y + target.anchorY;
-    let drag = null;
-    if (target.kind === 'structure') {
-      const entry = calibratedStructureEntry(target.entity), entryX = entry.x + .5, entryY = entry.y + .5;
-      if (Math.hypot(point.x - entryX, point.y - entryY) < collisionEditTolerance(12)) {
-        drag = { kind: 'entry', pointerId: event.pointerId, key: target.key,
-          offsetX: entryX - point.x, offsetY: entryY - point.y };
-      }
-    }
-    if (!drag) {
-      ensureMutableCollisionProfile(target);
-      const vertices = collisionHitboxVertices(hitbox, target.anchorX, target.anchorY);
-      const vertexIndex = hitbox.shape === 'polygon'
-        ? vertices.findIndex(vertex => Math.hypot(point.x - vertex.x, point.y - vertex.y) < collisionEditTolerance(10)) : -1;
-      if (vertexIndex >= 0) {
-        drag = { kind: 'vertex', pointerId: event.pointerId, key: target.key, vertexIndex,
-          offsetX: vertices[vertexIndex].x - point.x, offsetY: vertices[vertexIndex].y - point.y };
-      } else if (hitbox.shape === 'circle') {
-        const radiusHandle = { x: centerX + hitbox.radius, y: centerY };
-        if (Math.hypot(point.x - radiusHandle.x, point.y - radiusHandle.y) < collisionEditTolerance(10)) {
-          drag = { kind: 'resizeCircle', pointerId: event.pointerId, key: target.key,
-            offsetX: radiusHandle.x - point.x, offsetY: radiusHandle.y - point.y };
-        }
-      } else if (hitbox.shape !== 'polygon') {
-        const corners = [
-          { x: centerX - hitbox.halfWidth, y: centerY - hitbox.halfDepth, sideX: -1, sideY: -1 },
-          { x: centerX + hitbox.halfWidth, y: centerY - hitbox.halfDepth, sideX: 1, sideY: -1 },
-          { x: centerX - hitbox.halfWidth, y: centerY + hitbox.halfDepth, sideX: -1, sideY: 1 },
-          { x: centerX + hitbox.halfWidth, y: centerY + hitbox.halfDepth, sideX: 1, sideY: 1 }
-        ];
-        const corner = corners.find(handle => Math.hypot(point.x - handle.x, point.y - handle.y) < collisionEditTolerance(10));
-        if (corner) drag = { kind: 'resize', pointerId: event.pointerId, key: target.key,
-          sideX: corner.sideX, sideY: corner.sideY };
-      }
-      const distance = collisionEditDistanceToHitbox(point, target);
-      if (!drag && distance <= collisionEditTolerance(2)) drag = { kind: 'move', pointerId: event.pointerId, key: target.key,
-        offsetX: centerX - point.x, offsetY: centerY - point.y };
-      if (drag) {
-        drag.profileKey = target.profileKey;
-        drag.anchorX = target.anchorX; drag.anchorY = target.anchorY;
-      }
-    }
-    if (drag) {
-      collisionEditDrag = drag;
-      try { canvas.setPointerCapture(event.pointerId); } catch (_) {}
-      canvas.style.cursor = 'grabbing';
-    } else {
-      const suffix = target.kind === 'structure' ? '. O losango dourado move a porta de interação.' : '.';
-      setCollisionEditorStatus('Selecionado: ' + target.label + '. Arraste o corpo para mover e as alças para redimensionar' + suffix);
-    }
-    event.preventDefault();
-    drawMap();
-  }
-
-  function updateCollisionEditPointer(event) {
-    if (!collisionEditDrag || collisionEditDrag.pointerId !== event.pointerId) return false;
-    const drag = collisionEditDrag;
-    const target = getCollisionEditTargets(undefined, drag.key).find(item => item.key === drag.key);
-    if (!target) { collisionEditDrag = null; return true; }
-    const point = collisionEditorPoint(event), current = target.hitbox;
-    const profile = ensureMutableCollisionProfile(target), modelX = point.x - target.anchorX, modelY = point.y - target.anchorY;
-    const baseX = current.x - (Number(profile.offsetX) || 0), baseY = current.y - (Number(profile.offsetY) || 0);
-    if (drag.kind === 'move') {
-      profile.offsetX = modelX + drag.offsetX - baseX;
-      profile.offsetY = modelY + drag.offsetY - baseY;
-    } else if (drag.kind === 'resize') {
-      const oppositeX = current.x - drag.sideX * current.halfWidth;
-      const oppositeY = current.y - drag.sideY * current.halfDepth;
-      const halfWidth = Math.max(.06, Math.abs(modelX + drag.offsetX - oppositeX) / 2);
-      const halfDepth = Math.max(.06, Math.abs(modelY + drag.offsetY - oppositeY) / 2);
-      let centerX = (modelX + drag.offsetX + oppositeX) / 2;
-      let centerY = (modelY + drag.offsetY + oppositeY) / 2;
-      if (target.kind === 'structure') {
-        profile.offsetX = centerX - baseX;
-        profile.offsetY = centerY - baseY;
-        profile.halfWidth = halfWidth; profile.halfDepth = halfDepth;
-      } else {
-        const baseSize = current.halfWidth / Math.max(.0001, Number(profile.sizeMultiplier) || 1);
-        // Resource masks are deliberately square; keep the opposite corner fixed as it resizes.
-        const halfSize = Math.max(halfWidth, halfDepth);
-        centerX = oppositeX + drag.sideX * halfSize;
-        centerY = oppositeY + drag.sideY * halfSize;
-        profile.offsetX = centerX - baseX;
-        profile.offsetY = centerY - baseY;
-        profile.sizeMultiplier = Math.max(.05, Math.min(8, halfSize / baseSize));
-      }
-    } else if (drag.kind === 'resizeCircle') {
-      const baseRadius = current.radius / Math.max(.0001, Number(profile.radiusMultiplier) || 1);
-      profile.radiusMultiplier = Math.max(.05, Math.min(8, Math.hypot(modelX + drag.offsetX - current.x,
-        modelY + drag.offsetY - current.y) / baseRadius));
-    } else if (drag.kind === 'entry') {
-      const base = defaultStructureEntry(target.entity);
-      profile.entryOffsetX = Math.round(point.x + drag.offsetX - .5) - base.x + (Number(profile.entryOffsetX) || 0);
-      profile.entryOffsetY = Math.round(point.y + drag.offsetY - .5) - base.y + (Number(profile.entryOffsetY) || 0);
-    } else if (drag.kind === 'vertex') {
-      if (!Array.isArray(profile.points) || profile.points.length < 3) {
-        profile.points = initialCollisionProfilePoints(current);
-      }
-      profile.points[drag.vertexIndex] = {
-        x: modelX + drag.offsetX - current.x,
-        y: modelY + drag.offsetY - current.y
-      };
-    }
-    applyCollisionProfilesLocally();
-    event.preventDefault();
-    drawMap();
-    return true;
-  }
 
   const activeMapPointers = new Map();
   let mapDrag = null, pinchGesture = null, mapGestureMoved = false, ignoreNextMapClick = false;
   function beginMapPointer(event) {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
-    if (collisionEditMode) { beginCollisionEditPointer(event); return; }
+
     activeMapPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     try { canvas.setPointerCapture(event.pointerId); } catch (_) {}
     if (activeMapPointers.size === 1) {
@@ -3104,7 +2432,7 @@ export function mountGame() {
     }
   }
   function moveMapPointer(event) {
-    if (updateCollisionEditPointer(event)) return;
+
     if (!activeMapPointers.has(event.pointerId)) {
       if (event.pointerType === 'mouse' && world) {
         const rect = stage.getBoundingClientRect();
@@ -3149,20 +2477,7 @@ export function mountGame() {
     }
   }
   function endMapPointer(event) {
-    if (collisionEditDrag?.pointerId === event.pointerId) {
-      const selected = collisionEditSelection;
-      collisionEditDrag = null;
-      canvas.style.cursor = 'crosshair';
-      applyCollisionCalibrationToSimulation().then(() => {
-        setCollisionEditorStatus(selected
-          ? 'Ajuste aplicado à física para ' + selected.profileKey + '. Salvar JSON persiste e exporta este perfil.'
-          : 'Ajuste aplicado à física. Salvar JSON persiste e exporta os perfis.');
-      }).catch(error => {
-        setCollisionEditorStatus('A prévia visual foi ajustada, mas a física da simulação não confirmou: ' + error.message);
-      });
-      drawMap();
-      return;
-    }
+
     activeMapPointers.delete(event.pointerId);
     if (activeMapPointers.size === 1) {
       const [pointerId, point] = activeMapPointers.entries().next().value;
@@ -3204,11 +2519,11 @@ export function mountGame() {
   $('mapZoomIn').addEventListener('click', () => zoomMapTo(mapZoom * 1.25));
   $('mapZoomOut').addEventListener('click', () => zoomMapTo(mapZoom / 1.25));
   $('mapZoomReset').addEventListener('click', resetMapViewport);
-  $('hitboxToggle').addEventListener('click', toggleCollisionHitboxes);
-  $('collisionEditToggle').addEventListener('click', toggleCollisionEditor);
-  $('collisionAddPoint').addEventListener('click', toggleCollisionAddPointMode);
-  $('collisionProfileSave').addEventListener('click', saveCollisionCalibration);
-  $('collisionTestToggle').addEventListener('click', toggleCollisionTest);
+
+
+
+
+
   miniMapCanvas.addEventListener('click', event => {
     if (!world) return;
     const rect = miniMapCanvas.getBoundingClientRect();
@@ -3222,7 +2537,7 @@ export function mountGame() {
 
   canvas.addEventListener('click', event => {
     if (!world) return;
-    if (collisionEditMode) return;
+
     if (ignoreNextMapClick) { ignoreNextMapClick = false; return; }
     const rect = stage.getBoundingClientRect();
     const point = currentMapCamera().toWorld(event.clientX - rect.left, event.clientY - rect.top);
@@ -3351,32 +2666,15 @@ export function mountGame() {
     showRight = false; $('rightPanel').classList.remove('is-open');
   });
   window.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && collisionEditMode) {
-      toggleCollisionEditor();
-      return;
-    }
-    if (event.key.toLowerCase() === 'h' && !event.repeat && !event.altKey && !event.ctrlKey && !event.metaKey
-        && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)
-        && !document.activeElement?.isContentEditable) {
-      toggleCollisionHitboxes();
-      return;
-    }
-    const movementKey = event.key.toLowerCase();
-    if (collisionTestActive && ['w', 'a', 's', 'd', 'arrowup', 'arrowleft', 'arrowdown', 'arrowright'].includes(movementKey)
-        && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)
-        && !document.activeElement?.isContentEditable) {
-      collisionTestKeys.add(movementKey);
-      event.preventDefault();
-      return;
-    }
+
     if (event.key !== 'Escape') return;
     setKingdomPanel(false); setSettingsPanel(false);
     $('journal').hidden = true; $('journalToggle').setAttribute('aria-expanded', 'false');
     $('mapTags').classList.remove('is-open'); $('environmentToggle').setAttribute('aria-expanded', 'false');
     showRight = false; $('rightPanel').classList.remove('is-open');
   });
-  window.addEventListener('keyup', event => { collisionTestKeys.delete(event.key.toLowerCase()); });
-  window.addEventListener('blur', () => collisionTestKeys.clear());
+
+
   $('kingdomList').addEventListener('click', e => {
     const button = e.target.closest('[data-kingdom]');
     if (button) { setKingdomPanel(false); openSelection({ kind: 'kingdom', id: Number(button.dataset.kingdom) }); }
@@ -3446,7 +2744,7 @@ export function mountGame() {
     const elapsed = lastAtmosphereUpdate ? Math.min(.1, (now - lastAtmosphereUpdate) / 1000) : 0;
     lastAtmosphereUpdate = now;
     cloudSystem.update(elapsed);
-    updateCollisionTestPlayer(now);
+
     const days = clock.advance(now, session.paused, session.speed);
     if (days > 0) submitClockDays(days);
     if (now - lastSpriteDraw >= 1000 / 60) {

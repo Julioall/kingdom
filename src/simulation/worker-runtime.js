@@ -79,7 +79,7 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
           if (source !== 'clock' && source !== 'manual') throw new Error('Origem do avanço inválida.');
           if (paused && source === 'clock') throw new Error('A simulação está pausada.');
           for (let day = 0; day < request.days; day++) {
-            engine.stepDay(world, null, { includeSnapshot: includeDailySnapshots });
+            engine.stepDay(world, { includeSnapshot: includeDailySnapshots });
           }
           revision++;
           return capture(request);

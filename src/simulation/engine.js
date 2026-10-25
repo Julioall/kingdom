@@ -22,7 +22,6 @@ import {
 import { corralGate, moveOne } from './individuals/movement.js';
 import {
   animalHitbox, collidesWithWorldPositionAt, hitboxSurfaceDistance, hitboxesOverlap, mineralHitbox, npcHitbox,
-  setCollisionProfiles, setStructureCollisionProfiles,
   structureHitbox, structureInteractionPoint, treeHitbox, worldCollisionIndex
 } from './physics/hitboxes.js';
 
@@ -52,7 +51,7 @@ import {
 // capabilities grouped here instead of importing simulation internals in views.
 const modules = {
   Collision: { animalHitbox, collidesWithWorldPositionAt, npcHitbox, structureHitbox, structureInteractionPoint,
-    setCollisionProfiles, setStructureCollisionProfiles, treeHitbox, mineralHitbox,
+    treeHitbox, mineralHitbox,
     hitboxesOverlap, hitboxSurfaceDistance, worldCollisionIndex },
   Cosmos: { seasonIndex, calendarDate },
   Atmosphere: { updateClimate, triggerDrought },

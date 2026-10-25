@@ -43,7 +43,6 @@ export function makePerson(w, x, y, newborn) {
       namingForm: COMMUNITY_FORMS[Math.floor(rand(w) * COMMUNITY_FORMS.length)], namingVoice: .4 + rand(w) * .6,
       energy: newborn ? 65 : 58 + rand(w) * 38, hydration: 55 + rand(w) * 43, foodReserve: 0
     };
-    if (typeof w.foodReserveFlowRecorder === 'function') person.foodReserveFlowRecorder = w.foodReserveFlowRecorder;
     addFoodReserve(person, newborn ? 0 : 55 + rand(w) * 40, 'new-person-provisions');
     Object.assign(person, {
       socialNeed: 45 + rand(w) * 50, sociability: .25 + rand(w) * .75, trust: .2 + rand(w) * .65,

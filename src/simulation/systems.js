@@ -22,32 +22,22 @@ import { recordKingdomFrontierOutcomes, updateKingdomFrontierExpansion } from '.
 const DAYS_PER_MARKET_CYCLE = 30;
 const DAYS_PER_WORLD_REPORT = 30;
 
-function measurePhase(profile, phase, action, arg1, arg2, arg3, arg4) {
-  if (!profile) return action(arg1, arg2, arg3, arg4);
-  const startedAt = profile.now();
-  try {
-    return action(arg1, arg2, arg3, arg4);
-  } finally {
-    profile.record(phase, profile.now() - startedAt);
-  }
-}
-
-function updateEnvironment(world, day, profile) {
-  const weather = measurePhase(profile, 'climate', updateClimate, world, day);
+function updateEnvironment(world, day) {
+  const weather = updateClimate(world, day);
 
   // Traffic influences plant recovery, so refresh roads before soil and vegetation.
-  measurePhase(profile, 'roads', updateRoadWear, world);
-  measurePhase(profile, 'soilWater', updateSoilAndWater, world);
-  measurePhase(profile, 'plants', updatePlants, world, day);
-  measurePhase(profile, 'animals', updateAnimals, world);
+  updateRoadWear(world);
+  updateSoilAndWater(world);
+  updatePlants(world, day);
+  updateAnimals(world);
 
   // People and animals need current ownership when they decide where to move.
-  measurePhase(profile, 'territoryBeforeActions', recomputeKingdomTerritories, world);
+  recomputeKingdomTerritories(world);
   return weather;
 }
 
-function updateSociety(world, profile) {
-  measurePhase(profile, 'people', updatePeople, world, profile);
+function updateSociety(world) {
+  updatePeople(world);
 }
 
 function updateMarketMaintenance(world, day) {
@@ -56,10 +46,10 @@ function updateMarketMaintenance(world, day) {
   maintainKingdomFortifications(world, day);
 }
 
-function updateResourcesAndMarkets(world, day, profile) {
-  measurePhase(profile, 'looseLogs', updateLooseLogs, world);
-  measurePhase(profile, 'decomposition', decompose, world);
-  measurePhase(profile, 'marketMaintenance', updateMarketMaintenance, world, day);
+function updateResourcesAndMarkets(world, day) {
+  updateLooseLogs(world);
+  decompose(world);
+  updateMarketMaintenance(world, day);
 }
 
 function advanceCalendar(world, day) {
@@ -117,52 +107,51 @@ function reportWorldState(world, day, stats) {
   };
 }
 
-function resolveEndOfDayConsequences(world, day, profile) {
+function resolveEndOfDayConsequences(world, day) {
   // Commands and construction may have changed structures during today's actions.
-  measurePhase(profile, 'territoryAfterActions', recomputeKingdomTerritories, world);
-  measurePhase(profile, 'frontierOutcomes', recordKingdomFrontierOutcomes, world, day);
+  recomputeKingdomTerritories(world);
+  recordKingdomFrontierOutcomes(world, day);
   observeMilitaryFrontiers(world, day);
   recordRoyalSitingOutcomes(world, day);
-  measurePhase(profile, 'borderIncursions', resolveBorderIncursions, world,
-    (person, cause) => killPerson(world, person, cause));
+  resolveBorderIncursions(world, (person, cause) => killPerson(world, person, cause));
 
   if (day % DAYS_PER_WORLD_REPORT !== 0) return;
-  const stats = measurePhase(profile, 'worldReportSnapshot', snapshot, world);
-  measurePhase(profile, 'worldReport', reportWorldState, world, day, stats);
+  const stats = snapshot(world);
+  reportWorldState(world, day, stats);
 }
 
-export function stepDay(world, profile = null, options = null) {
+export function stepDay(world, options = null) {
   const nextDay = world.day + 1;
 
   // 1. Weather and ecology establish the conditions for the day.
-  const weather = updateEnvironment(world, nextDay, profile);
+  const weather = updateEnvironment(world, nextDay);
 
   // 2. Rulers may fund a neutral frontier post from their own treasury before resolving today's needs.
-  measurePhase(profile, 'frontier', updateKingdomFrontierExpansion, world, nextDay);
+  updateKingdomFrontierExpansion(world, nextDay);
 
   // 3. Known war incidents mobilize forces and make field rations available before needs resolve.
   updateCombatResources(world, nextDay);
   updateTowerShifts(world, nextDay);
-  measurePhase(profile, 'campaignPrepare', prepareKingdomCampaigns, world, nextDay);
+  prepareKingdomCampaigns(world, nextDay);
 
   // 4. Residents respond to current needs, resources, territory, and military orders.
-  measurePhase(profile, 'militaryPayroll', payMilitarySalaries, world, nextDay);
-  updateSociety(world, profile);
-  measurePhase(profile, 'clericHealing', updateClericHealing, world, nextDay);
+  payMilitarySalaries(world, nextDay);
+  updateSociety(world);
+  updateClericHealing(world, nextDay);
   fightBattlefieldSkirmishes(world, nextDay);
-  measurePhase(profile, 'campaignResolve', resolveKingdomCampaigns, world, nextDay);
+  resolveKingdomCampaigns(world, nextDay);
   defendTowers(world, nextDay);
 
   // 5. Loose materials decay; market prices and fortification upkeep refresh monthly.
-  updateResourcesAndMarkets(world, nextDay, profile);
+  updateResourcesAndMarkets(world, nextDay);
 
   // 6. Border incidents use the new date and territory after today's actions.
-  measurePhase(profile, 'calendar', advanceCalendar, world, nextDay);
-  measurePhase(profile, 'constructionProgress', advanceKingdomProjects, world, nextDay);
-  resolveEndOfDayConsequences(world, nextDay, profile);
+  advanceCalendar(world, nextDay);
+  advanceKingdomProjects(world, nextDay);
+  resolveEndOfDayConsequences(world, nextDay);
 
   const capturedSnapshot = options && options.includeSnapshot === false
-    ? null : measurePhase(profile, 'simulationSnapshot', snapshot, world);
+    ? null : snapshot(world);
   return { weather, snapshot: capturedSnapshot };
 }
 

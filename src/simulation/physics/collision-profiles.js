@@ -1,4 +1,4 @@
-// Calibrated in the in-game collision editor against the current building sprites.
+// Static ground-plane collision profiles for the current building sprites.
 // Offsets and entry offsets are measured in map tiles relative to each structure anchor.
 export const STRUCTURE_COLLISION_PROFILES = Object.freeze({
   house1: Object.freeze({ offsetX: .026011604818151568, offsetY: -.7574672774770335,

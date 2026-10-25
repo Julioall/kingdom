@@ -152,7 +152,7 @@ export function resolveCombatAction(world, actor, action, candidates, applyDamag
   }
   action.result ??= { kind: 'miss', atMs: end };
   action.phase = 'complete';
-  // Bounded diagnostic/event history, separate from economic entity IDs and RNG.
+  // Keep bounded combat events for playback effects without changing entity IDs or RNG.
   world.combatEvents ??= [];
   world.combatEvents.push({ ...action, hitTargets: [...action.hitTargets] });
   world.combatEvents = world.combatEvents.slice(-128);

@@ -92,14 +92,6 @@ function popHeap(workspace) {
   return firstIndex;
 }
 
-function measureRouteSearch(world, action) {
-  const profile = world.peopleProfile;
-  if (!profile || typeof profile.recordDetail !== 'function') return action();
-  const startedAt = profile.now();
-  try { return action(); }
-  finally { profile.recordDetail('people.routeSearch', profile.now() - startedAt); }
-}
-
 // A* minimizes travel effort, so a modest detour along an established road can
 // beat crossing open ground. Every edge still obeys the normal movement rules.
 export function findPreferredRoute(world, start, destination, canEnter, canStep, preferRoads = false, arrivalRadius = 0) {
@@ -212,10 +204,8 @@ export function rememberedRouteStep(world, agent, from, destination, canEnter, c
   if (!next || !canStep(start, next)) {
     const sharedKey = contextKey + '|' + key + '|' + (exact ? 'exact' : 'near');
     let path = options.cacheable ? commonRouteFrom(world, sharedKey, start, canStep) : null;
-    if (path) agent.navigationSharedCacheHits = (agent.navigationSharedCacheHits || 0) + 1;
-    else {
-      path = measureRouteSearch(world, () => findPreferredRoute(world, start, destination, canEnter, canStep, preferRoads, arrivalRadius));
-      agent.navigationReplans = (agent.navigationReplans || 0) + 1;
+    if (!path) {
+      path = findPreferredRoute(world, start, destination, canEnter, canStep, preferRoads, arrivalRadius);
       if (path && options.cacheable) rememberCommonRoute(world, sharedKey, path);
     }
     route = path?.length > 1 ? { key, path, cursor: 0 } : null;
@@ -240,9 +230,7 @@ export function rememberRouteArrival(agent, tileIndex) {
 }
 
 export function congestionRouteStep(world, agent, start, destination, canEnter, canStep, preferRoads = false, arrivalRadius = 0) {
-  const path = measureRouteSearch(world, () => findPreferredRoute(world, start, destination, canEnter, canStep, preferRoads, arrivalRadius));
-  agent.navigationReplans = (agent.navigationReplans || 0) + 1;
-  agent.navigationCongestionReplans = (agent.navigationCongestionReplans || 0) + 1;
+  const path = findPreferredRoute(world, start, destination, canEnter, canStep, preferRoads, arrivalRadius);
   // A failed occupancy search leaves the terrain route intact. Temporary
   // occupants must never populate the failed-terrain or shared-route caches.
   if (!path || path.length < 2) return null;

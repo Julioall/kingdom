@@ -33,84 +33,21 @@ const CONIFER_INDEX = PLANTS.findIndex(plant => plant.id === 'conifer');
 let structureIndexCache = new WeakMap();
 let resourceIndexCache = new WeakMap();
 let worldIndexCache = new WeakMap();
-let runtimeStructureCollisionProfiles = Object.create(null);
-let runtimeResourceCollisionProfiles = Object.create(null);
-let runtimeNpcCollisionProfiles = Object.create(null);
-let runtimeAnimalCollisionProfiles = Object.create(null);
 
 function structureProfile(sprite) {
-  return runtimeStructureCollisionProfiles[sprite] || STRUCTURE_COLLISION_PROFILES[sprite] || {};
+  return STRUCTURE_COLLISION_PROFILES[sprite] || {};
 }
-
-export function setCollisionProfiles(profiles) {
-  if (!profiles || typeof profiles !== 'object' || Array.isArray(profiles)) throw new Error('Perfis de colisão inválidos.');
-  const nextStructures = Object.create(null), nextResources = Object.create(null);
-  const nextNpcs = Object.create(null), nextAnimals = Object.create(null);
-  for (const [sprite, profile] of Object.entries(profiles)) {
-    if (!profile || typeof profile !== 'object' || Array.isArray(profile)) throw new Error('Perfil de colisão inválido: ' + sprite + '.');
-    if (Object.hasOwn(STRUCTURE_COLLISION_PROFILES, sprite)) {
-      const base = STRUCTURE_COLLISION_PROFILES[sprite];
-      const points = Array.isArray(profile.points) ? profile.points.map(point => Array.isArray(point)
-        ? { x: Number(point[0]), y: Number(point[1]) }
-        : { x: Number(point?.x), y: Number(point?.y) }).filter(point => Number.isFinite(point.x) && Number.isFinite(point.y)) : [];
-      if (profile.points != null && (points.length < 3 || points.length > 64)) throw new Error('O polígono de ' + sprite + ' precisa ter de 3 a 64 pontos válidos.');
-      nextStructures[sprite] = {
-        ...base,
-        offsetX: base.offsetX + (Number(profile.offsetX) || 0),
-        offsetY: base.offsetY + (Number(profile.offsetY) || 0),
-        halfWidth: Number.isFinite(profile.halfWidth) ? Math.max(.08, profile.halfWidth) : base.halfWidth,
-        halfDepth: Number.isFinite(profile.halfDepth) ? Math.max(.08, profile.halfDepth) : base.halfDepth,
-        entryOffsetX: base.entryOffsetX + (Number(profile.entryOffsetX) || 0),
-        entryOffsetY: base.entryOffsetY + (Number(profile.entryOffsetY) || 0),
-        points: points.length >= 3 ? points : base.points
-      };
-      continue;
-    }
-    const match = /^(resource|npc|animal):(.+)$/.exec(sprite);
-    if (!match) throw new Error('Perfil de colisão inválido: ' + sprite + '.');
-    const [, family, key] = match;
-    const normalized = {
-      offsetX: Number(profile.offsetX) || 0,
-      offsetY: Number(profile.offsetY) || 0,
-      sizeMultiplier: Number.isFinite(profile.sizeMultiplier) ? Math.max(.05, Math.min(8, profile.sizeMultiplier)) : 1,
-      radiusMultiplier: Number.isFinite(profile.radiusMultiplier) ? Math.max(.05, Math.min(8, profile.radiusMultiplier)) : 1
-    };
-    if (family === 'resource' && ['tree', 'stone', 'gold'].includes(key)) nextResources[key] = normalized;
-    else if (family === 'npc' && ['adult', 'child'].includes(key)) nextNpcs[key] = normalized;
-    else if (family === 'animal') nextAnimals[key] = normalized;
-    else throw new Error('Categoria de colisão desconhecida: ' + sprite + '.');
-  }
-  runtimeStructureCollisionProfiles = nextStructures;
-  runtimeResourceCollisionProfiles = nextResources;
-  runtimeNpcCollisionProfiles = nextNpcs;
-  runtimeAnimalCollisionProfiles = nextAnimals;
-  resourceIndexCache = new WeakMap();
-  worldIndexCache = new WeakMap();
-  return true;
-}
-
-export const setStructureCollisionProfiles = setCollisionProfiles;
-
-const DEFAULT_RESOURCE_PROFILE = Object.freeze({ offsetX: 0, offsetY: 0, sizeMultiplier: 1 });
-const DEFAULT_ACTOR_PROFILE = Object.freeze({ offsetX: 0, offsetY: 0, radiusMultiplier: 1 });
-function resourceProfile(kind) { return runtimeResourceCollisionProfiles[kind] || DEFAULT_RESOURCE_PROFILE; }
-function npcProfile(person) {
-  const group = Number.isFinite(person?.ageDays) && person.ageDays < 12 * 365 ? 'child' : 'adult';
-  return runtimeNpcCollisionProfiles[group] || DEFAULT_ACTOR_PROFILE;
-}
-function animalProfile(actor) { return runtimeAnimalCollisionProfiles[String(actor?.speciesId)] || DEFAULT_ACTOR_PROFILE; }
 
 export function npcHitbox(person, x = person?.x, y = person?.y) {
   if (!person || !Number.isFinite(x) || !Number.isFinite(y)) return null;
   const custom = person.hitbox && typeof person.hitbox === 'object' ? person.hitbox : null;
   const defaultRadius = Number.isFinite(person.ageDays) && person.ageDays < 12 * 365
     ? CHILD_NPC_RADIUS : DEFAULT_NPC_RADIUS;
-  const profile = npcProfile(person);
   return {
     shape: 'circle',
-    x: x + (Number(custom?.offsetX) || 0) + profile.offsetX,
-    y: y - NPC_COLLISION_RAISE + (Number(custom?.offsetY) || 0) + profile.offsetY,
-    radius: Math.max(0, (Number.isFinite(custom?.radius) ? custom.radius : defaultRadius) * profile.radiusMultiplier),
+    x: x + (Number(custom?.offsetX) || 0),
+    y: y - NPC_COLLISION_RAISE + (Number(custom?.offsetY) || 0),
+    radius: Math.max(0, Number.isFinite(custom?.radius) ? custom.radius : defaultRadius),
     entityId: person.id ?? null
   };
 }
@@ -119,11 +56,10 @@ function actorHitbox(actor, x, y) {
   if (actor?.speciesId == null) return npcHitbox(actor, x, y);
   if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
   const custom = actor.hitbox && typeof actor.hitbox === 'object' ? actor.hitbox : null;
-  const profile = animalProfile(actor);
   return {
-    shape: 'circle', x: x + (Number(custom?.offsetX) || 0) + profile.offsetX,
-    y: y + (Number(custom?.offsetY) || 0) + profile.offsetY,
-    radius: Math.max(0, (Number.isFinite(custom?.radius) ? custom.radius : DEFAULT_ANIMAL_RADIUS) * profile.radiusMultiplier),
+    shape: 'circle', x: x + (Number(custom?.offsetX) || 0),
+    y: y + (Number(custom?.offsetY) || 0),
+    radius: Math.max(0, Number.isFinite(custom?.radius) ? custom.radius : DEFAULT_ANIMAL_RADIUS),
     entityId: actor.id ?? null
   };
 }
@@ -182,9 +118,8 @@ export function treeHitbox(world, tile) {
   const type = broadleaf >= conifer ? 'broadleaf' : 'conifer';
   const mass = Math.max(broadleaf, conifer);
   const scale = mass > 760 ? 1 : mass > 420 ? .84 : .68;
-  const profile = resourceProfile('tree');
-  const halfSize = (type === 'conifer' ? .22 : .2) * scale * profile.sizeMultiplier;
-  return { shape: 'rectangle', x: tile.x + profile.offsetX, y: tile.y - TREE_COLLISION_RAISE + profile.offsetY,
+  const halfSize = (type === 'conifer' ? .22 : .2) * scale;
+  return { shape: 'rectangle', x: tile.x, y: tile.y - TREE_COLLISION_RAISE,
     halfWidth: halfSize, halfDepth: halfSize,
     resourceKind: 'tree', resourceId: tile.i };
 }
@@ -198,9 +133,8 @@ export function mineralHitbox(tile) {
   const collisionY = tile.y - .5;
   const kind = gold > .05 ? 'gold' : stone > .7 ? 'stone' : null;
   if (!kind) return null;
-  const profile = resourceProfile(kind);
-  const halfSize = (kind === 'gold' ? .24 : stone >= 8 ? .3 : .23) * profile.sizeMultiplier;
-  return { shape: 'rectangle', x: tile.x + profile.offsetX, y: collisionY + profile.offsetY,
+  const halfSize = kind === 'gold' ? .24 : stone >= 8 ? .3 : .23;
+  return { shape: 'rectangle', x: tile.x, y: collisionY,
     halfWidth: halfSize, halfDepth: halfSize,
     resourceKind: kind, resourceId: tile.i };
 }

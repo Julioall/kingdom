@@ -5,7 +5,6 @@ export { dispatchCommand };
 export type WorldCommand =
   | { type: 'drought'; days: number; intensity: number }
   | { type: 'add-individuals'; count: number }
-  | { type: 'collision-profiles'; profiles: Record<string, { offsetX?: number; offsetY?: number; halfWidth?: number; halfDepth?: number; entryOffsetX?: number; entryOffsetY?: number; sizeMultiplier?: number; radiusMultiplier?: number; points?: Array<{ x: number; y: number }> }> }
   | { type: 'kingdom-structure'; kingdomId: number; building: 'torre' | 'centro_militar' }
   | { type: 'destroy-tower'; kingdomId: number; towerId: number }
   | { type: 'capture-tower'; kingdomId: number; towerId: number }
