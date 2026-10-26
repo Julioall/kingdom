@@ -39,6 +39,7 @@ import { advanceSocialIntention, maintainSocialIntentions } from '../society/soc
 
 const STARVATION_HEALTH_LOSS_PER_POINT = .035;
 const PERSONAL_FOOD_PRESSURE_THRESHOLD = 42;
+const CRITICAL_FOOD_RESERVE_THRESHOLD = 8;
 const FORAGE_TARGET_HYSTERESIS = .14;
 const MAX_FAILED_FOOD_TARGETS = 8;
 const RESOURCE_CONFLICT_TRUCE_DAYS = 14;
@@ -113,6 +114,8 @@ export function personalFoodHarvestLimit(person, requested, reserveCapacity, dir
 
 export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
     let best = null, bestScore = -Infinity;
+    let bestSurvivalTarget = null, bestSurvivalScore = -Infinity, continuingSurvivalTarget = null;
+    const criticalFoodPressure = person.foodReserve <= CRITICAL_FOOD_RESERVE_THRESHOLD;
     const resources = person.perception && person.perception.resources || [];
     const failedTargets = (person.failedFoodTargets || []).filter(target => Number.isInteger(target.x)
       && Number.isInteger(target.y) && Number.isInteger(target.untilDay) && target.untilDay >= w.day);
@@ -131,6 +134,7 @@ export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
       const expectedHarvestReserve = Math.min(food, harvestCapacity) * FOOD_RESERVE_PER_UNIT;
       const expectedTravelDays = Math.ceil(Math.max(0, resource.distance - HARVEST_REACH_DISTANCE) / Math.SQRT2);
       const travelCost = expectedTravelDays * DAILY_FOOD_NEED;
+      const canCoverSurvivalTrip = expectedHarvestReserve >= travelCost + DAILY_FOOD_NEED;
       const continuingProductiveTarget = person.foodReserve < PERSONAL_FOOD_PRESSURE_THRESHOLD
         && person.foodTarget && person.foodTarget.x === resource.x && person.foodTarget.y === resource.y
         && expectedHarvestReserve > travelCost;
@@ -138,10 +142,19 @@ export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
       const usePressurePenalty = tile?.cropFieldId == null ? resourceUsePressure(tile) * .34 : 0;
       const score = Math.min(food, harvestCapacity) * .018 - resource.distance * .065 - resource.slope * .09
         - warningPenalty - usePressurePenalty + continuityBonus;
-      if (score <= bestScore) continue;
+      const matchesCurrentTarget = person.foodTarget && person.foodTarget.x === resource.x && person.foodTarget.y === resource.y;
+      const improvesSelection = score > bestScore;
+      const improvesSurvivalSelection = criticalFoodPressure && canCoverSurvivalTrip && score > bestSurvivalScore;
+      if (!improvesSelection && !improvesSurvivalSelection && !(criticalFoodPressure && canCoverSurvivalTrip && matchesCurrentTarget)) continue;
       if (tile?.cropFieldId == null && !foodApproachTiles(w, person, tile).length) continue;
-      if (score > bestScore) { best = cellAt(w, resource.x, resource.y); bestScore = score; }
+      const candidate = cellAt(w, resource.x, resource.y);
+      if (improvesSelection) { best = candidate; bestScore = score; }
+      if (criticalFoodPressure && canCoverSurvivalTrip) {
+        if (matchesCurrentTarget) continuingSurvivalTarget = candidate;
+        if (score > bestSurvivalScore) { bestSurvivalTarget = candidate; bestSurvivalScore = score; }
+      }
     }
+    if (criticalFoodPressure) return continuingSurvivalTarget || bestSurvivalTarget || best;
     return best;
   }
 
