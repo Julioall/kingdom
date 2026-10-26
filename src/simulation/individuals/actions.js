@@ -118,7 +118,6 @@ export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
       const availableFood = resource.harvestableBiomass || resource.biomass;
       const food = HUMAN_FOOD.reduce((sum, id) => sum + (availableFood[id] || 0), 0);
       if (resource.terrain !== 'land' || resource.distance > radius || food < .8) continue;
-      if (tile?.cropFieldId == null && !foodApproachTiles(w, person, tile).length) continue;
       const warningPenalty = tile && canEnterForeignTerritory(w, person, tile) ? 0 : 3;
       const expectedHarvestReserve = Math.min(food, harvestCapacity) * FOOD_RESERVE_PER_UNIT;
       const expectedTravelDays = Math.ceil(Math.max(0, resource.distance - HARVEST_REACH_DISTANCE) / Math.SQRT2);
@@ -130,6 +129,8 @@ export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
       const usePressurePenalty = tile?.cropFieldId == null ? resourceUsePressure(tile) * .34 : 0;
       const score = Math.min(food, harvestCapacity) * .018 - resource.distance * .065 - resource.slope * .09
         - warningPenalty - usePressurePenalty + continuityBonus;
+      if (score <= bestScore) continue;
+      if (tile?.cropFieldId == null && !foodApproachTiles(w, person, tile).length) continue;
       if (score > bestScore) { best = cellAt(w, resource.x, resource.y); bestScore = score; }
     }
     return best;
