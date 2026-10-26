@@ -195,6 +195,36 @@ test('world fact retention is enforced as facts are recorded and removes oldest 
   assert.equal(Object.keys(world.socialEvidence.idempotency).length, SOCIAL_FACT_LIMIT);
 });
 
+test('a new world fact survives long enough to be remembered when all retained facts are referenced', () => {
+  const world = fixture();
+  world.people = Array.from({ length: SOCIAL_FACT_LIMIT + 1 }, (_, index) => ({ id: index + 1 }));
+  for (let index = 0; index < SOCIAL_FACT_LIMIT; index++) {
+    const personId = index + 1;
+    const fact = recordSocialFact(world, {
+      idempotencyKey: 'pinned-world-fact-' + index,
+      type: 'aid_transferred',
+      participantIds: [personId],
+      witnessIds: [personId]
+    });
+    rememberSocialFact(world, personId, fact.eventId);
+  }
+  assert.equal(world.socialEvidence.facts.length, SOCIAL_FACT_LIMIT);
+
+  const personId = SOCIAL_FACT_LIMIT + 1;
+  const latest = recordSocialFact(world, {
+    idempotencyKey: 'latest-pinned-world-fact',
+    type: 'aid_transferred',
+    participantIds: [personId],
+    witnessIds: [personId]
+  });
+  const memory = rememberSocialFact(world, personId, latest.eventId);
+
+  assert.equal(memory.rootEventId, latest.eventId);
+  assert.equal(world.socialEvidence.facts.length, SOCIAL_FACT_LIMIT + 1,
+    'the ledger can exceed its soft budget when every older fact is still referenced');
+  assert.ok(world.socialEvidence.facts.some(fact => fact.eventId === latest.eventId));
+});
+
 test('beliefs cite only local memories and directed relations do not mutate the other person or shared links', () => {
   const world = fixture();
   const fact = aidFact(world);

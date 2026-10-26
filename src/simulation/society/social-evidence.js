@@ -162,7 +162,7 @@ export function recordSocialFact(world, input = {}) {
   const fact = freezeRecursively({ ...factData, sequence, eventId });
   evidence.facts.push(fact);
   evidence.idempotency[idempotencyKey] = { eventId, fingerprint };
-  pruneSocialEvidence(world);
+  pruneSocialEvidence(world, world.day, [eventId]);
   return fact;
 }
 
@@ -507,9 +507,11 @@ export function defineSocialIntention(world, ownerId, input = {}) {
   return intention;
 }
 
-export function pruneSocialEvidence(world, currentDay = world.day) {
+export function pruneSocialEvidence(world, currentDay = world.day, preserveEventIds = []) {
   const evidence = ensureEvidence(world);
   if (!Number.isSafeInteger(currentDay) || currentDay < world.day) fail('currentDay não pode anteceder o mundo.');
+  if (!Array.isArray(preserveEventIds)) fail('preserveEventIds deve ser uma lista.');
+  const pendingEvents = new Set(preserveEventIds.map(value => String(value)));
   const cutoff = currentDay - SOCIAL_FACT_RETENTION_DAYS;
   const protectedEventsByPerson = new Map();
   const protect = (person, ids) => {
@@ -550,10 +552,12 @@ export function pruneSocialEvidence(world, currentDay = world.day) {
   }
   const referenced = new Set((world.people || []).flatMap(person =>
     (person.socialMemories || []).map(memory => memory.rootEventId)));
-  evidence.facts = evidence.facts.filter(fact => fact.day >= cutoff || referenced.has(fact.eventId));
+  evidence.facts = evidence.facts.filter(fact => fact.day >= cutoff || referenced.has(fact.eventId)
+    || pendingEvents.has(fact.eventId));
   evidence.facts.sort((a, b) => a.day - b.day || a.sequence - b.sequence);
   while (evidence.facts.length > SOCIAL_FACT_LIMIT) {
-    const expendableIndex = evidence.facts.findIndex(fact => !referenced.has(fact.eventId));
+    const expendableIndex = evidence.facts.findIndex(fact => !referenced.has(fact.eventId)
+      && !pendingEvents.has(fact.eventId));
     if (expendableIndex < 0) break;
     const [expired] = evidence.facts.splice(expendableIndex, 1);
     for (const person of world.people || []) {
