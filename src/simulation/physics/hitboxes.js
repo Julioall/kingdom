@@ -1,4 +1,4 @@
-import { PLANTS } from '../../config/ecosystem.js';
+import { PLANTS, SHEEP_ADULT_AGE_DAYS, SHEEP_JUVENILE_MIN_SCALE } from '../../config/ecosystem.js';
 import { isTreeAnchor } from '../ecology/plants.js';
 import { STRUCTURE_COLLISION_PROFILES } from './collision-profiles.js';
 
@@ -56,10 +56,14 @@ function actorHitbox(actor, x, y) {
   if (actor?.speciesId == null) return npcHitbox(actor, x, y);
   if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
   const custom = actor.hitbox && typeof actor.hitbox === 'object' ? actor.hitbox : null;
+  const sheepGrowth = actor.speciesId === 'sheep'
+    ? Math.max(0, Math.min(1, (actor.ageDays || 0) / SHEEP_ADULT_AGE_DAYS)) : 1;
+  const juvenileScale = actor.speciesId === 'sheep'
+    ? SHEEP_JUVENILE_MIN_SCALE + (1 - SHEEP_JUVENILE_MIN_SCALE) * sheepGrowth : 1;
   return {
     shape: 'circle', x: x + (Number(custom?.offsetX) || 0),
     y: y + (Number(custom?.offsetY) || 0),
-    radius: Math.max(0, Number.isFinite(custom?.radius) ? custom.radius : DEFAULT_ANIMAL_RADIUS),
+    radius: Math.max(0, Number.isFinite(custom?.radius) ? custom.radius : DEFAULT_ANIMAL_RADIUS * juvenileScale),
     entityId: actor.id ?? null
   };
 }
@@ -137,6 +141,19 @@ export function mineralHitbox(tile) {
   return { shape: 'rectangle', x: tile.x, y: collisionY,
     halfWidth: halfSize, halfDepth: halfSize,
     resourceKind: kind, resourceId: tile.i };
+}
+
+// Interaction-only reach mask for visible berry/browse shrubs. Keep this out
+// of resourceCollisionIndex so pawns can walk through the bush tile.
+export function bushHarvestHitbox(world, tile, plantId) {
+  const hiddenUntilField = plantId === 'browse' ? 'browseBushHiddenUntilDay' : 'berryBushHiddenUntilDay';
+  if (!world || !tile || tile.terrain === 'water' || tile.cropFieldId != null
+      || !['berry', 'browse'].includes(plantId)
+      || (tile[hiddenUntilField] ?? -1) >= world.day) return null;
+  const plantIndex = PLANTS.findIndex(plant => plant.id === plantId);
+  if (plantIndex < 0 || (tile.plants[plantIndex] || 0) < 18) return null;
+  return { shape: 'circle', x: tile.x, y: tile.y - NPC_COLLISION_RAISE, radius: .82,
+    resourceKind: 'bush-harvest', plantId, resourceId: tile.i };
 }
 
 function rectangleDimensions(hitbox) {

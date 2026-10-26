@@ -37,12 +37,15 @@
       <button id="toggle" aria-label="Pausar ou retomar">Ⅱ <span>Pausar</span></button>
       <button id="step" hidden aria-label="Avançar um dia">＋</button>
       <button id="speedCycle" class="speed-cycle" type="button" aria-label="Velocidade da simulação: 1×" title="Acelerar para 2×">1×</button>
-      <button id="settingsToggle" type="button" aria-controls="settingsTray" aria-expanded="false" title="Novo mundo e semente">⚙</button>
+      <button id="audioToggle" type="button" aria-pressed="false" aria-label="Silenciar todos os sons" title="Silenciar todos os sons">🔊</button>
+      <button id="settingsToggle" type="button" aria-controls="settingsTray" aria-expanded="false" title="Configurações do jogo">⚙</button>
     </nav>
   </header>
 
   <section class="world-stage" aria-label="Prévia do mundo natural">
     <canvas id="world" width="2048" height="2048" aria-label="Mapa com dois reinos, construções, lagos, vegetação, ovelhas e moradores"></canvas>
+    <canvas id="cloudAtmosphere" class="cloud-atmosphere" aria-hidden="true"></canvas>
+    <canvas id="cloudSprites" class="cloud-sprites" aria-hidden="true"></canvas>
 
     <aside class="mini-map-panel" id="miniMapPanel" hidden aria-label="Mini mapa do território">
       <div class="mini-map-heading"><span>Território</span><small>clique para focar</small></div>
@@ -58,20 +61,19 @@
     <div class="map-tags" id="mapTags" aria-live="polite">
       <span class="map-tag">AR <b id="temperature">18 °C</b></span>
       <span class="map-tag">CHUVA <b id="rainfall">0 mm</b></span>
-      <span class="map-tag">SOLO <b id="moisture">0%</b></span>
       <span class="map-tag pressure" id="foodPressureTag" title="Pessoas com reserva alimentar abaixo de 30%" hidden>RESERVAS BAIXAS <b id="foodRiskCount">0</b></span>
     </div>
 
         <div class="map-zoom" role="group" aria-label="Controles de zoom do mapa">
           <button id="mapZoomOut" type="button" aria-label="Afastar mapa" title="Afastar mapa">−</button>
-          <output id="mapZoomLevel" aria-label="Nível de zoom">100%</output>
+          <output id="mapZoomLevel" aria-label="Nível de zoom">50%</output>
           <button id="mapZoomIn" type="button" aria-label="Aproximar mapa" title="Aproximar mapa">+</button>
-          <button id="mapZoomReset" type="button" aria-label="Enquadrar mapa inteiro" title="Enquadrar mapa inteiro">⌖</button>
+          <button id="mapZoomReset" type="button" aria-label="Enquadrar mapa em 200%" title="Centralizar mapa em 200%">⌖</button>
         </div>
 
     <aside class="utility-drawer" id="settingsTray" aria-label="Navegação e ajustes do mapa" hidden>
       <div class="panel-heading utility-heading">
-        <div><small>CONFIGURAÇÃO</small><h2>Novo mundo</h2></div>
+        <div><small>CONFIGURAÇÃO</small><h2>Ajustes do jogo</h2></div>
         <button class="icon-button" id="settingsClose" aria-label="Fechar ajustes">×</button>
       </div>
       <div class="utility-content">
@@ -90,6 +92,14 @@
           <input id="seedInput" type="number" min="1" max="4294967295" placeholder="Aleatória" aria-label="Semente opcional do novo mundo">
           <button id="restart" title="Gerar outro mundo com esta semente">Criar mundo</button>
         </div>
+        <section class="block audio-block" aria-label="Controles de áudio">
+          <div class="block-title"><h3>Áudio</h3><span id="audioState">ligado</span></div>
+          <label for="musicVolume">Música <output id="musicVolumeValue" for="musicVolume">65%</output></label>
+          <input id="musicVolume" type="range" min="0" max="1" step="0.05" value="0.65" aria-label="Volume da música">
+          <label for="effectsVolume">Efeitos <output id="effectsVolumeValue" for="effectsVolume">65%</output></label>
+          <input id="effectsVolume" type="range" min="0" max="1" step="0.05" value="0.65" aria-label="Volume dos efeitos sonoros">
+          <p id="audioStatus" class="quiet" aria-live="polite">Clique na tela para ativar o áudio.</p>
+        </section>
         <section class="block local-ai-block" aria-label="Inteligência artificial estratégica local">
           <div class="block-title"><h3>Inteligência artificial</h3><span id="localAiState">desligada</span></div>
           <p class="quiet">A IA local propõe ordens para reis e generais. Inicie o Ollama e prepare os modelos com <code>npm run ai:prepare -- --check</code>. Os moradores continuam com suas redes individuais.</p>
@@ -135,7 +145,7 @@
         <p class="intro">Dois castelos ocupam o mapa. O domínio de cada reino começa ao redor do castelo e cresce com novas torres; as demais terras são comuns.</p>
         <div class="note-card"><b>Camadas do mundo</b><span>Atmosfera · Geosfera · Hidrosfera · Biosfera · Territórios</span></div>
         <div class="note-card"><b>Fronteiras</b><span>Moradores recebem avisos ao se aproximar de um reino estrangeiro. Uma invasão descoberta pode terminar em expulsão, morte ou guerra.</span></div>
-        <p class="quiet">Selecione um reino, célula, organismo ou construção para inspecionar seu estado.</p>
+        <p class="quiet">Selecione um reino, organismo ou construção para inspecionar seu estado.</p>
       </div>
     </aside>
 

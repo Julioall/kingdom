@@ -24,6 +24,9 @@ export const ANIMALS = [
 export const HUMAN_FOOD = ['berry', 'cultivated-root'];
 
 export const SHEEP_FORAGE = ['grass', 'browse'];
+export const SHEEP_ADULT_AGE_DAYS = 180;
+export const SHEEP_NEWBORN_MASS_RATIO = .24;
+export const SHEEP_JUVENILE_MIN_SCALE = .68;
 
 // A small daily ration sustains a domesticated sheep without making the flock
 // compete with people for the same edible plants.

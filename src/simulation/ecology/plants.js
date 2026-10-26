@@ -81,6 +81,30 @@ export function isTreeAnchor(w, tile) {
     return true;
   }
 
+export function isBushAnchor(w, tile, plantId) {
+    if (!w || !tile || tile.terrain === 'water' || tile.cropFieldId != null
+        || !['berry', 'browse'].includes(plantId)) return false;
+    const plant = PLANTS.findIndex(candidate => candidate.id === plantId);
+    if (plant < 0 || (tile.plants[plant] || 0) < 18) return false;
+    const hiddenUntilField = plantId === 'browse' ? 'browseBushHiddenUntilDay' : 'berryBushHiddenUntilDay';
+    if ((tile[hiddenUntilField] ?? -1) >= w.day) return false;
+
+    // Keep one visible, reachable shrub per local patch. The hash matches the
+    // renderer's previous tie-break so the chosen harvest tile is the sprite.
+    const salt = plantId === 'browse' ? 2503 : 1907;
+    const tieAt = candidate => ((candidate.x * 92821 + candidate.y * 68917 + (w.seed + salt) * 283) >>> 0) % 11;
+    const mass = tile.plants[plant], tie = tieAt(tile), index = tile.y * w.width + tile.x;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const neighbor = cellAt(w, tile.x + dx, tile.y + dy);
+      if (!neighbor || neighbor.terrain === 'water') continue;
+      if ((neighbor[hiddenUntilField] ?? -1) >= w.day) return false;
+      const otherMass = neighbor.plants[plant], otherIndex = neighbor.y * w.width + neighbor.x;
+      if (otherMass > mass || (otherMass === mass && (tieAt(neighbor) > tie || (tieAt(neighbor) === tie && otherIndex < index)))) return false;
+    }
+    return true;
+  }
+
 export function updatePlants(w, day) {
     if (day % RESOURCE_REGEN_INTERVAL_DAYS !== 0) return;
     invalidateNavigation(w);

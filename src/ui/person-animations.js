@@ -12,10 +12,10 @@ export function residentSpritePose(person, pose, day) {
   const action = person.brain?.lastAction;
   const activity = person.visualActivity?.day === day ? person.visualActivity : null;
   const cargo = carriedSprite(person);
-  const tool = activity?.kind === 'mine' || state.startsWith('extraindo ') || state === 'minerando rocha' ? 'pickaxe'
+  const tool = activity?.tool || (activity?.kind === 'mine' || state.startsWith('extraindo ') || state === 'minerando rocha' ? 'pickaxe'
     : activity?.kind === 'chop' || state === 'derrubando árvore' ? 'axe'
       : activity?.kind === 'build' || state.startsWith('construindo ') ? 'hammer'
-        : ['hunt', 'fish'].includes(activity?.kind) || ['caça sem captura', 'pesca sem captura', 'pescando'].includes(state) ? 'knife' : null;
+        : ['hunt', 'fish'].includes(activity?.kind) || ['caça sem captura', 'pesca sem captura', 'pescando'].includes(state) ? 'knife' : null);
   // A day's extraction can produce a load before its work animation is shown.
   // While stationary, show the actual work first; in motion, show its cargo.
   const interaction = !pose.moving && tool;
@@ -65,15 +65,16 @@ export function createActivityEffects() {
         if (event.day !== world.day || event.result?.kind === 'cancelled') continue;
         const actor = world.people.find(p => p.id === event.actorId);
         const palette = world.kingdoms?.find(k => k.id === actor?.kingdomId)?.palette || 'blue';
+        const contactElevation = event.result?.contactElevation ?? event.targetElevation;
         if (event.weapon === 'arqueiro') {
           const endpoint = event.result?.point || event.aim;
           add('unit.' + palette + '.archer.arrow', event.origin.x, event.origin.y - event.sourceElevation,
             now + event.windupMs, 48, { projectile: true, targetX: endpoint.x,
-              targetY: endpoint.y - event.targetElevation,
+              targetY: endpoint.y - contactElevation,
               duration: Math.max(1, event.result.atMs - event.windupMs) });
         }
         if (event.result?.point) add('effect.dust-02', event.result.point.x,
-          event.result.point.y - event.targetElevation, now + event.result.atMs, 64);
+          event.result.point.y - contactElevation, now + event.result.atMs, 64);
       }
       const living = new Set();
       for (const person of world.people) {

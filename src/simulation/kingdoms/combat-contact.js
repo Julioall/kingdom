@@ -50,6 +50,7 @@ export function createCombatAction(world, actor, target, day, options = {}) {
     ? Math.max(100, Math.min(850, Math.hypot(aim.x - origin.x, aim.y - origin.y) * 55)) : 0;
   const action = { id: world.combatSequence, day, actorId: actor.id, targetId: target.id,
     targetKind: options.structure ? 'structure' : 'person', weapon: actor.militaryClass,
+    comboIndex: Math.max(1, Math.min(3, Math.trunc(options.comboIndex || 1))),
     origin, aim, angle, sourceElevation: actor.towerMounted ? 3 : 0,
     targetElevation: target.towerMounted ? 3 : 0,
     windupMs: profile.windup, activeMs: profile.active, recoveryMs: profile.recovery, flightMs,
@@ -72,6 +73,58 @@ export function combatWeaponPoint(action, elapsed) {
   return { x: action.origin.x + Math.cos(angle) * reach, y: action.origin.y + Math.sin(angle) * reach };
 }
 
+// Earliest angle at which the whole finite blade touches a circle. Ordering by
+// distance along the blade would let a later, nearer body steal an earlier hit.
+function sweptBladeContact(action, fromMs, toMs, center, radius) {
+  const arc = COMBAT_PROFILES[action.weapon].arc;
+  const angleAt = ms => action.angle + (Math.max(0, Math.min(1,
+    (ms - action.windupMs) / action.activeMs)) - .5) * arc * 2;
+  const startAngle = angleAt(fromMs), endAngle = angleAt(toMs), span = endAngle - startAngle;
+  const dx = center.x - action.origin.x, dy = center.y - action.origin.y, d = Math.hypot(dx, dy);
+  if (d > action.reach + radius) return null;
+  if (d <= radius) return { fraction: 0, distanceFraction: 0, point: { ...action.origin } };
+  const half = d <= action.reach ? Math.asin(Math.min(1, radius / d))
+    : Math.acos(Math.max(-1, Math.min(1, (d * d + action.reach ** 2 - radius ** 2) / (2 * d * action.reach))));
+  const theta = Math.atan2(dy, dx);
+  const relativeCenter = startAngle + Math.atan2(Math.sin(theta - startAngle), Math.cos(theta - startAngle));
+  let first = null;
+  for (const turn of [-1, 0, 1]) {
+    const angle = relativeCenter + turn * Math.PI * 2;
+    const entry = Math.max(startAngle, angle - half);
+    if (entry > endAngle + 1e-10 || entry > angle + half + 1e-10) continue;
+    const tip = { x: action.origin.x + Math.cos(entry) * action.reach,
+      y: action.origin.y + Math.sin(entry) * action.reach };
+    const distanceFraction = segmentCircle(action.origin, tip, center, radius + 1e-10);
+    if (distanceFraction == null) continue;
+    const fraction = span > 1e-10 ? Math.max(0, Math.min(1, (entry - startAngle) / span)) : 0;
+    if (!first || fraction < first.fraction) first = { fraction, distanceFraction,
+      point: { x: action.origin.x + (tip.x - action.origin.x) * distanceFraction,
+        y: action.origin.y + (tip.y - action.origin.y) * distanceFraction } };
+  }
+  return first;
+}
+
+function projectileElevation(action, elapsed) {
+  const progress = Math.max(0, Math.min(1, (elapsed - action.windupMs) / action.flightMs));
+  return action.sourceElevation + (action.targetElevation - action.sourceElevation) * progress;
+}
+
+function sweptContact(from, to, center, radius, fromHeight, toHeight, targetHeight) {
+  if (targetHeight == null) return segmentCircle(from, to, center, radius);
+  let low = 0, high = 1;
+  const dz = toHeight - fromHeight;
+  if (Math.abs(dz) < 1e-10) {
+    if (Math.abs(fromHeight - targetHeight) > .65) return null;
+  } else {
+    const a = (targetHeight - .65 - fromHeight) / dz, b = (targetHeight + .65 - fromHeight) / dz;
+    low = Math.max(0, Math.min(a, b)); high = Math.min(1, Math.max(a, b));
+    if (low > high) return null;
+  }
+  const at = fraction => ({ x: from.x + (to.x - from.x) * fraction, y: from.y + (to.y - from.y) * fraction });
+  const fraction = segmentCircle(at(low), at(high), center, radius);
+  return fraction == null ? null : low + (high - low) * fraction;
+}
+
 // Resolve a tactical exchange at fixed substeps, preserving the synchronous campaign
 // accounting contract. Reactions can move during preparation through beforeStep.
 // The timeline is also consumed by presentation and, later, audio.
@@ -81,8 +134,11 @@ export function resolveCombatAction(world, actor, action, candidates, applyDamag
   let previous = combatWeaponPoint(action, action.windupMs);
   const end = action.windupMs + (action.flightMs || action.activeMs);
   const structure = action.targetKind === 'structure';
-  for (let start = 0; start < end; start += COMBAT_STEP_MS) {
-    const now = Math.min(end, start + COMBAT_STEP_MS);
+  for (let cursor = 0; cursor < end;) {
+    const start = cursor;
+    // Split exactly at release, rather than drifting across it in floating point.
+    const now = Math.min(end, start + COMBAT_STEP_MS, start < action.windupMs ? action.windupMs : Infinity);
+    cursor = now;
     options.beforeStep?.(now, action);
     if (!actor.alive && (action.weapon !== 'arqueiro' || start < action.windupMs)) { action.result = { kind: 'cancelled', atMs: start }; break; }
     if (now < action.windupMs) continue;
@@ -90,61 +146,63 @@ export function resolveCombatAction(world, actor, action, candidates, applyDamag
     const current = combatWeaponPoint(action, now);
     const hits = [];
     for (const target of candidates) {
-      if ((!structure && (!target.alive || target.restingStructureId != null))
+      if ((structure ? target.destroyedDay != null : !target.alive || target.restingStructureId != null)
         || target.kingdomId === actor.kingdomId || action.hitTargets.includes(target.id)) continue;
       if (!structure && action.weapon !== 'arqueiro' && !!target.towerMounted !== !!actor.towerMounted) continue;
       const radius = structure ? (options.targetRadius ?? .8) : BODY_RADIUS;
-      const height = action.weapon === 'arqueiro'
-        ? action.sourceElevation + (action.targetElevation - action.sourceElevation)
-          * Math.min(1, Math.max(0, (now - action.windupMs) / action.flightMs)) : action.sourceElevation;
-      if (!structure && Math.abs(height - (target.towerMounted ? 3 : 0)) > .65) continue;
+      const fromHeight = action.weapon === 'arqueiro' ? projectileElevation(action, Math.max(start, action.windupMs)) : action.sourceElevation;
+      const toHeight = action.weapon === 'arqueiro' ? projectileElevation(action, now) : action.sourceElevation;
+      const targetHeight = structure ? null : target.towerMounted ? 3 : 0;
       const fx = target.militaryFacingX ?? 1, fy = target.militaryFacingY ?? 0, length = Math.hypot(fx, fy) || 1;
       const guardCenter = { x: target.x + fx / length * .42, y: target.y + fy / length * .42 };
       const canGuard = !structure && options.guarding?.has(target.id) && frontGuard(target, action.origin)
         && (target.militaryClass === 'guerreiro' || target.militaryClass === 'lanceiro' && action.weapon !== 'arqueiro');
-      const guardFraction = canGuard ? segmentCircle(previous, current, guardCenter,
-        (target.militaryClass === 'guerreiro' ? .4 : .25) + profile.radius) : null;
-      let fraction = segmentCircle(previous, current, target, radius + profile.radius);
+      const guardFraction = canGuard ? sweptContact(previous, current, guardCenter,
+        (target.militaryClass === 'guerreiro' ? .4 : .25) + profile.radius, fromHeight, toHeight, targetHeight) : null;
+      let fraction = sweptContact(previous, current, target, radius + profile.radius, fromHeight, toHeight, targetHeight);
       let guarding = guardFraction != null && (fraction == null || guardFraction <= fraction);
       if (guarding) fraction = guardFraction;
       let point = fraction == null ? null : { x: previous.x + (current.x - previous.x) * fraction,
         y: previous.y + (current.y - previous.y) * fraction };
+      let distanceFraction = fraction;
       // The sword blade occupies its length, while a spear only hits with its tip.
       if (action.weapon === 'guerreiro') {
-        // Sweep the entire blade, including the inner arc between fixed samples.
-        const previousAngle = Math.atan2(previous.y - action.origin.y, previous.x - action.origin.x);
-        const currentAngle = Math.atan2(current.y - action.origin.y, current.x - action.origin.x);
-        const delta = Math.atan2(Math.sin(currentAngle - previousAngle), Math.cos(currentAngle - previousAngle));
-        for (let i = 0; i <= 16; i++) {
-          const angle = previousAngle + delta * i / 16;
-          const tip = { x: action.origin.x + Math.cos(angle) * action.reach,
-            y: action.origin.y + Math.sin(angle) * action.reach };
-          const blade = segmentCircle(action.origin, tip, target, radius + profile.radius);
-          const shield = canGuard ? segmentCircle(action.origin, tip, guardCenter,
-            (target.militaryClass === 'guerreiro' ? .4 : .25) + profile.radius) : null;
-          if (blade != null || shield != null) {
-            guarding = shield != null && (blade == null || shield <= blade);
-            fraction = guarding ? shield : blade;
-            point = { x: action.origin.x + (tip.x - action.origin.x) * fraction,
-              y: action.origin.y + (tip.y - action.origin.y) * fraction }; break;
-          }
-        }
+        const blade = sweptBladeContact(action, Math.max(start, action.windupMs), now, target, radius + profile.radius);
+        const shield = canGuard ? sweptBladeContact(action, Math.max(start, action.windupMs), now,
+          guardCenter, (target.militaryClass === 'guerreiro' ? .4 : .25) + profile.radius) : null;
+        guarding = !!shield && (!blade || shield.fraction < blade.fraction
+          || Math.abs(shield.fraction - blade.fraction) < 1e-9 && shield.distanceFraction <= blade.distanceFraction);
+        const contact = guarding ? shield : blade;
+        fraction = contact?.fraction ?? null;
+        distanceFraction = contact?.distanceFraction ?? null;
+        point = contact?.point ?? null;
       }
-      if (fraction != null) hits.push({ target, fraction, point, guarding });
+      if (fraction != null) hits.push({ target, fraction, distanceFraction, point, guarding });
     }
-    hits.sort((a, b) => a.fraction - b.fraction || a.target.id - b.target.id);
+    hits.sort((a, b) => a.fraction - b.fraction || a.distanceFraction - b.distanceFraction || a.target.id - b.target.id);
     if (hits.length) {
-      const { target, point, guarding } = hits[0];
+      const { target, point, guarding, fraction } = hits[0];
+      const atMs = Math.max(start, action.windupMs)
+        + (now - Math.max(start, action.windupMs)) * fraction;
+      const parryWindowMs = options.parryWindows?.get(target.id) || 0;
+      const parryAtMs = action.windupMs + action.activeMs * .5;
+      const parried = guarding && action.weapon !== 'arqueiro'
+        && options.parrying?.has(target.id) && Math.abs(atMs - parryAtMs) <= parryWindowMs;
       const normalLength = Math.hypot(point.x - target.x, point.y - target.y) || 1;
       action.hitTargets.push(target.id);
-      action.result = { kind: structure ? 'structure' : guarding
-        ? target.militaryClass === 'guerreiro' ? 'shield' : 'weapon-guard' : 'body',
-      targetId: target.id, atMs: now, point,
+      const blockKind = target.militaryClass === 'guerreiro' ? 'shield' : 'weapon-guard';
+      action.result = { kind: structure ? 'structure' : parried ? 'parry' : guarding
+        ? blockKind : 'body', blockKind: guarding ? blockKind : null,
+      targetId: target.id, atMs, point,
       normal: { x: (point.x - target.x) / normalLength, y: (point.y - target.y) / normalLength },
-      damageApplied: applyDamage(target, guarding), fatal: !structure && !target.alive };
+      damageApplied: parried ? 0 : applyDamage(target, guarding), fatal: !structure && !target.alive,
+      structureDestroyed: structure && target.destroyedDay != null };
+      action.result.contactElevation = action.weapon === 'arqueiro'
+        ? projectileElevation(action, action.result.atMs) : action.sourceElevation;
       if (guarding) {
         target.militaryAnimation = 'defend'; target.militaryAnimationDay = action.day;
-        target.combatDefense = { actionId: action.id, day: action.day, atMs: now, kind: action.result.kind };
+        target.combatDefense = { actionId: action.id, day: action.day, atMs: action.result.atMs,
+          kind: action.result.kind, blockKind };
       }
       break; // Single-target attacks; no cleave or friendly fire.
     }

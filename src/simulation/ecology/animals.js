@@ -1,4 +1,5 @@
-import { ANIMALS, ANIMAL_ACTIONS, DOMESTIC_SHEEP_DAILY_FEED, DOMESTIC_SHEEP_ENERGY_PER_FEED, PLANTS, SHEEP_FORAGE } from '../../config/ecosystem.js';
+import { ANIMALS, ANIMAL_ACTIONS, DOMESTIC_SHEEP_DAILY_FEED, DOMESTIC_SHEEP_ENERGY_PER_FEED,
+  PLANTS, SHEEP_ADULT_AGE_DAYS, SHEEP_FORAGE, SHEEP_NEWBORN_MASS_RATIO } from '../../config/ecosystem.js';
 import { randomHabitatCell } from '../world/generation.js';
 import { clamp, distance, hash01, species } from '../core/math.js';
 import { rand } from '../core/random.js';
@@ -22,11 +23,17 @@ export function seedAnimals(w, counts) {
 export function makeAnimal(w, speciesId, x, y, newborn) {
     const p = species( speciesId, ANIMALS );
     const id = w.nextId++;
+    const ageDays = newborn ? 0 : Math.floor(rand(w) * p.life * .62);
+    const energy = newborn ? 55 : 52 + rand(w) * 44;
+    const hydration = 45 + rand(w) * 50;
+    const adultMassKg = p.mass * (.6 + rand(w) * .8);
+    const reproductionCooldown = newborn ? 360 : Math.floor(rand(w) * 120);
     return {
       id, speciesId, x, y, alive: true, headingX: 0, headingY: 0,
-      ageDays: newborn ? 0 : Math.floor(rand(w) * p.life * .62),
-      energy: newborn ? 55 : 52 + rand(w) * 44, hydration: 45 + rand(w) * 50,
-      massKg: p.mass * (.6 + rand(w) * .8), reproductionCooldown: newborn ? 360 : Math.floor(rand(w) * 120),
+      ageDays, energy, hydration,
+      massKg: adultMassKg * (speciesId === 'sheep' && newborn ? SHEEP_NEWBORN_MASS_RATIO : 1),
+      ...(speciesId === 'sheep' ? { adultMassKg } : {}),
+      reproductionCooldown,
       habituation: 0, herdCommunityId: null, aiEnabled: true, lastFedDay: -999, lastFeedAmount: 0, feedingEvents: 0, beingLedBy: null,
       sensoryMemory: { actors: {}, water: [] }, perception: null,
       brain: createBrain(w, ANIMAL_ACTIONS, 6, id), lastReward: 0,
@@ -156,6 +163,11 @@ export function updateAnimals(w) {
       if (!a.alive) continue;
       const p = species(a.speciesId, ANIMALS);
       a.ageDays++; a.reproductionCooldown = Math.max(0, a.reproductionCooldown - 1);
+      if (a.speciesId === 'sheep') {
+        a.adultMassKg ??= a.massKg || p.mass;
+        const growth = clamp(a.ageDays / SHEEP_ADULT_AGE_DAYS, 0, 1);
+        a.massKg = a.adultMassKg * (SHEEP_NEWBORN_MASS_RATIO + (1 - SHEEP_NEWBORN_MASS_RATIO) * growth);
+      }
       if (a.beingLedBy) {
         const handler = w.people.find(person => person.id === a.beingLedBy && person.alive && person.leadingSheepId === a.id);
         if (!handler) { a.beingLedBy = null; a.state = 'solta'; }
@@ -331,6 +343,7 @@ export function reproduceAnimals(w) {
         a.reproductionCooldown = mate.reproductionCooldown = id === 'hare' ? 95 : 190;
         a.energy -= 14; mate.energy -= 12;
         const offspring = makeAnimal(w, id, a.x, a.y, true);
+        if (id === 'sheep') offspring.motherId = a.id;
         if (id === 'sheep' && a.herdCommunityId !== null && mate.herdCommunityId === a.herdCommunityId) {
           offspring.herdCommunityId = a.herdCommunityId;
           offspring.aiEnabled = false;

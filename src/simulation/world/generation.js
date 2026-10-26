@@ -7,10 +7,29 @@ import { addIndividuals } from '../individuals/lifecycle.js';
 import { refreshHarvestSuitability } from './queries.js';
 import { log } from '../core/events.js';
 import { rand } from '../core/random.js';
-import { initializeKingdoms, INITIAL_MILITARY_ROSTER, INITIAL_POPULATION_PER_KINGDOM, updateKingdomMarkets } from '../kingdoms/initialization.js';
+import { initializeKingdoms, INITIAL_MILITARY_ROSTER, INITIAL_POPULATION_PER_KINGDOM, INITIAL_SOLDIERS_PER_KINGDOM, updateKingdomMarkets } from '../kingdoms/initialization.js';
 import { recruitKingdomSoldier } from '../kingdoms/commands.js';
 import { updateMilitaryCommand } from '../kingdoms/military.js';
 import { generateIslandTerrain } from './island-terrain.js';
+
+const MIN_INITIAL_ADULT_WORKERS_PER_KINGDOM = 9;
+
+function ensureInitialMilitaryRecruitmentPool(world) {
+  // Reserve adult workers in addition to the ruler and the starting military roster.
+  const minimumAdultCount = INITIAL_SOLDIERS_PER_KINGDOM + 1 + MIN_INITIAL_ADULT_WORKERS_PER_KINGDOM;
+  for (const kingdom of world.kingdoms) {
+    const members = kingdom.memberIds.map(id => world.people.find(person => person.id === id && person.alive)).filter(Boolean);
+    const adultCount = members.filter(person => person.ageDays >= 15 * 365).length;
+    if (adultCount >= minimumAdultCount) continue;
+    const toPromote = members.filter(person => person.role === 'resident' && person.ageDays < 15 * 365)
+      .sort((a, b) => b.ageDays - a.ageDays || a.id - b.id)
+      .slice(0, minimumAdultCount - adultCount);
+    for (const person of toPromote) {
+      person.ageDays = 15 * 365 + hash01(world.seed + person.id * 97, person.id, kingdom.id) * 8 * 365;
+      person.guardianId = null;
+    }
+  }
+}
 
 export function createWorld(seed) {
     const cleanSeed = (Number(seed) >>> 0) || 1;
@@ -78,6 +97,7 @@ export function createWorld(seed) {
     seedAnimals(w, { sheep: 24 });
     initializeKingdoms(w);
     addIndividuals(w, INITIAL_POPULATION_PER_KINGDOM * w.kingdoms.length, true);
+    ensureInitialMilitaryRecruitmentPool(w);
     for (const kingdom of w.kingdoms) {
       for (const { militaryClass, count } of INITIAL_MILITARY_ROSTER) {
         for (let index = 0; index < count; index++) {
@@ -106,7 +126,13 @@ export function createWorld(seed) {
       humanFoodCultivationSeeded: w.ecologyFlows.humanFoodCultivationSeeded,
       cultivatedFoodHarvested: w.harvests.cultivatedFoodBiomass
     };
-    log(w, 'Cem habitantes começaram em dois reinos, cada um com 10 infantes, 5 lanceiros, 4 arqueiros e 2 clérigos. As tropas patrulham antes das campanhas de fronteira. As terras além desses domínios permanecem comuns.');
+    const initialPopulation = INITIAL_POPULATION_PER_KINGDOM * w.kingdoms.length;
+    const initialNonMilitaryPerKingdom = INITIAL_POPULATION_PER_KINGDOM - INITIAL_SOLDIERS_PER_KINGDOM;
+    const rosterDescription = INITIAL_MILITARY_ROSTER.map(({ count, militaryClass }) => count + ' ' + militaryClass + (count === 1 ? '' : 's')).join(', ');
+    log(w, initialPopulation + ' habitantes começaram em ' + w.kingdoms.length + ' reinos, com '
+      + initialNonMilitaryPerKingdom + ' habitantes não militares e ' + INITIAL_SOLDIERS_PER_KINGDOM
+      + ' militares por reino (' + rosterDescription + '). As tropas patrulham antes das campanhas de fronteira. '
+      + 'As terras além desses domínios permanecem comuns.');
     return w;
   }
 

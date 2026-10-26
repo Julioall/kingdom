@@ -7,11 +7,11 @@ import { log } from '../core/events.js';
 import { rand } from '../core/random.js';
 import { addFoodReserve, addHarvestedFood, addResource, carriedResources, communityFoodStock, communityMaterialStock, consumeEdibleCargo, consumeFoodReserve, moveCarriedResource, storeCommunityFruit, transferResource, withdrawCommunityFood } from '../economy/inventories.js';
 import { moveOne } from './movement.js';
-import { mineralHitbox } from '../physics/hitboxes.js';
+import { bushHarvestHitbox, hitboxesOverlap, mineralHitbox, npcHitbox } from '../physics/hitboxes.js';
 import { communityHerd, domesticatedSheep } from '../ecology/animals.js';
 import { communityRelation, completeCommunityTask, updateCommunityGovernance } from '../society/governance.js';
 import { canCommunityBuild, communityBuildUtility, communityBuildingNeed, communityStructures, nextCommunityStructure, workOnCommunityStructure } from '../settlements/construction.js';
-import { eatPlants, plantBiomass } from '../ecology/plants.js';
+import { eatPlants, isBushAnchor, plantBiomass } from '../ecology/plants.js';
 import { refreshHarvestSuitability } from '../world/queries.js';
 import { changePersonHealth, killPerson, reproducePeople, updateDependent } from './lifecycle.js';
 import Senses from './perception.js';
@@ -37,11 +37,28 @@ const STARVATION_HEALTH_LOSS_PER_POINT = .035;
 const PERSONAL_FOOD_PRESSURE_THRESHOLD = 42;
 const FORAGE_TARGET_HYSTERESIS = .14;
 const RESOURCE_CONFLICT_TRUCE_DAYS = 14;
+const HARVEST_REACH_DISTANCE = 1.05;
 
 function mineralCollisionClass(tile) {
     const hitbox = mineralHitbox(tile);
     return hitbox ? hitbox.resourceKind + ':' + hitbox.radius : '';
 }
+
+function touchesHarvestBush(w, person, tile, plantId) {
+    return isBushAnchor(w, tile, plantId)
+      && hitboxesOverlap(npcHitbox(person), bushHarvestHitbox(w, tile, plantId));
+  }
+
+function canHarvestFoodAt(w, person, tile) {
+    return tile?.cropFieldId != null
+      ? distance(person, tile) <= HARVEST_REACH_DISTANCE
+      : touchesHarvestBush(w, person, tile, 'berry');
+  }
+
+function hideCollectedBush(w, tile, plantId) {
+    const hiddenUntilField = plantId === 'browse' ? 'browseBushHiddenUntilDay' : 'berryBushHiddenUntilDay';
+    tile[hiddenUntilField] = w.day + 7;
+  }
 
 function findPersonById(w, id) {
     if (w.peopleById instanceof Map) {
@@ -88,12 +105,13 @@ export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
     for (const resource of resources) {
       const tile = cellAt(w, resource.x, resource.y);
       if (fieldId != null && tile?.cropFieldId !== fieldId) continue;
+      if (tile?.cropFieldId == null && !isBushAnchor(w, tile, 'berry')) continue;
       const availableFood = resource.harvestableBiomass || resource.biomass;
       const food = HUMAN_FOOD.reduce((sum, id) => sum + (availableFood[id] || 0), 0);
       if (resource.terrain !== 'land' || resource.distance > radius || food < .8) continue;
       const warningPenalty = tile && canEnterForeignTerritory(w, person, tile) ? 0 : 3;
       const expectedHarvestReserve = Math.min(food, harvestCapacity) * FOOD_RESERVE_PER_UNIT;
-      const expectedTravelDays = Math.ceil(Math.max(0, resource.distance - 1.6) / Math.SQRT2);
+      const expectedTravelDays = Math.ceil(Math.max(0, resource.distance - HARVEST_REACH_DISTANCE) / Math.SQRT2);
       const travelCost = expectedTravelDays * DAILY_FOOD_NEED;
       const continuingProductiveTarget = person.foodReserve < PERSONAL_FOOD_PRESSURE_THRESHOLD
         && person.foodTarget && person.foodTarget.x === resource.x && person.foodTarget.y === resource.y
@@ -108,11 +126,15 @@ export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
 
 export function collectFoodForCommunity(w, person, tile) {
     if (!person || !tile) return 0;
+    if (tile.cropFieldId == null && !touchesHarvestBush(w, person, tile, 'berry')) return 0;
     const capacity = Math.max(0, 24 - (person.carriedFood || 0));
     if (capacity <= .01) return 0;
     const harvest = harvestHumanFood(w, tile, Math.min(capacity, clamp(1.8 + person.skills.forage * 3.2, 1.8, 5)));
     const carried = addResource(person, 'carriedFood', harvest, 24);
     if (carried <= .01) return 0;
+    if (tile.cropFieldId == null) hideCollectedBush(w, tile, 'berry');
+    person.visualActivity = { kind: 'harvest', x: tile.x, y: tile.y, day: w.day + 1,
+      ...(tile.cropFieldId == null ? { tool: 'knife' } : {}) };
     consumePersonEnergy(person, .22);
     person.skills.forage = clamp(person.skills.forage + .004, 0, 1);
     person.state = 'levando alimento para o reino';
@@ -141,7 +163,8 @@ export function updateKingdomFoodSupplyPhase(assignment, foodReserve, carriedFoo
 
 export function bestSheepFeedCell(w, person, radius) {
     const resources = person.perception && person.perception.resources || [];
-    return resources.filter(resource => resource.terrain === 'land' && resource.distance <= radius && (resource.biomass.browse || 0) > .8)
+    return resources.filter(resource => resource.terrain === 'land' && resource.distance <= radius
+        && (resource.biomass.browse || 0) > .8 && isBushAnchor(w, cellAt(w, resource.x, resource.y), 'browse'))
       .sort((a, b) => ((Math.min(b.biomass.browse || 0, 100) + (b.biomass.browse >= 70 ? 25 : 0)) - b.distance * 5)
         - ((Math.min(a.biomass.browse || 0, 100) + (a.biomass.browse >= 70 ? 25 : 0)) - a.distance * 5))
       .map(resource => cellAt(w, resource.x, resource.y))[0] || null;
@@ -584,7 +607,7 @@ export function collectLooseLog(w, person, sighting) {
 
 export function collectSheepFeed(w, person, community, target) {
     if (!community || !target || !nearestPenFor(w, person)) return 0;
-    if (distance(person, target) > 1.45) {
+    if (!touchesHarvestBush(w, person, target, 'browse')) {
       moveOne(w, person, target, false); person.state = 'buscando brotos para o rebanho';
       person.lastLesson = 'Os arbustos de brotos alimentam ovelhas, não pessoas; trazê-los ao curral custa energia e tempo.';
       return 0;
@@ -601,9 +624,11 @@ export function collectSheepFeed(w, person, community, target) {
     const take = Math.min(capacity / sizeFactor, 5.5 + person.skills.care * 4.5, before);
     if (take <= .05) { person.state = 'arbusto sem brotos'; return 0; }
     target.plants[index] -= take;
+    hideCollectedBush(w, target, 'browse');
     target.detritusGPerM2 += take * .035;
     const storedFeed = take * sizeFactor;
     addResource(person, 'carriedFeed', storedFeed, 18);
+    person.visualActivity = { kind: 'harvest', x: target.x, y: target.y, day: w.day + 1, tool: 'knife' };
     consumePersonEnergy(person, .32);
     person.skills.care = clamp(person.skills.care + .004, 0, 1);
     person.state = before >= 70 ? 'recolhendo arbustos grandes' : 'recolhendo arbustos pequenos';
@@ -911,7 +936,7 @@ function updatePeopleCore(w) {
       const continueCommunalCollection = carryingGoods && delivery && distance(p, delivery.destination) > 1.5
         && assignment?.source === 'kingdom-strategy' && assignment.action === 'forage'
         && !assignmentConflict && (p.carriedFood || 0) > .01 && p.carriedFood < collectionLoad
-        && carriedResources(p) - p.carriedFood <= .01 && food && distance(p, food) <= 1.6;
+        && carriedResources(p) - p.carriedFood <= .01 && food && canHarvestFoodAt(w, p, food);
       const cargoAction = carryingGoods ? continueCommunalCollection ? 'forage' : delivery ? 'deliver' : 'migrate' : null;
       const foodDuty = assignedFoodField && assignment.action === 'forage' && !assignmentConflict && food ? 'forage' : null;
       const patrolDuty = !survivalAction && !campaignOrder && !carryingGoods && canPatrolToday(w, p, !!assignment);
@@ -992,7 +1017,7 @@ function updatePeopleCore(w) {
 
       if (action === 'forage') {
 
-        if (food && distance(p, food) <= 1.6) {
+        if (food && canHarvestFoodAt(w, p, food)) {
           const dispute = claimForagePatch(w, p, food);
           if (dispute && dispute.loser === p) {
             p.foodTarget = null;
@@ -1011,6 +1036,11 @@ function updatePeopleCore(w) {
             const harvest = harvestHumanFood(w, food, clamp(1.8 + p.skills.forage * 3.2, 1.8, 5));
             const use = Math.min(harvest, Math.max(0, (91 - p.foodReserve) / FOOD_RESERVE_PER_UNIT));
             addFoodReserve(p, use * FOOD_RESERVE_PER_UNIT, 'personal-harvest');
+            if (harvest > .1) {
+              if (food.cropFieldId == null) hideCollectedBush(w, food, 'berry');
+              p.visualActivity = { kind: 'harvest', x: food.x, y: food.y, day: w.day + 1,
+                ...(food.cropFieldId == null ? { tool: 'knife' } : {}) };
+            }
 
             p.energy = clamp(p.energy + use * .18, 0, 100);
             const surplus = Math.max(0, harvest - use);

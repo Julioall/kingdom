@@ -1,0 +1,2053 @@
+{
+  "package": "Kingdom — Efeitos sonoros completos (animais, combate, construção e coleta)",
+  "version": "2.4.0",
+  "language": "pt-BR",
+  "n_source_files": 47,
+  "n_processed_effects": 56,
+  "events": {
+    "magic_heal": [
+      "effect_magic_heal_01"
+    ],
+    "sword_slash": [
+      "effect_sword_slash_01",
+      "effect_sword_slash_02",
+      "effect_sword_slash_03",
+      "effect_sword_slash_04"
+    ],
+    "sword_armor_impact": [
+      "effect_sword_armor_impact_01"
+    ],
+    "sword_clash": [
+      "effect_sword_clash_02",
+      "effect_sword_clash_01"
+    ],
+    "axe_slash": [
+      "effect_axe_slash_01"
+    ],
+    "crossbow_fire": [
+      "effect_crossbow_fire_01"
+    ],
+    "war_horn": [
+      "effect_war_horn_01"
+    ],
+    "sword_unsheathe": [
+      "effect_sword_unsheathe_01"
+    ],
+    "wood_impact": [
+      "effect_wood_impact_01"
+    ],
+    "bow_draw": [
+      "effect_bow_draw_01"
+    ],
+    "bow_release": [
+      "effect_bow_release_01"
+    ],
+    "magic_cast": [
+      "effect_magic_cast_01"
+    ],
+    "shield_impact": [
+      "effect_shield_impact_01",
+      "effect_shield_impact_02",
+      "effect_shield_impact_03",
+      "effect_shield_impact_04",
+      "effect_shield_impact_05"
+    ],
+    "character_hurt": [
+      "effect_character_hurt_01",
+      "effect_character_hurt_02"
+    ],
+    "war_call": [
+      "effect_war_horn_call_01"
+    ],
+    "retreat_ordered": [
+      "effect_war_horn_retreat_01"
+    ],
+    "building_destroyed": [
+      "effect_building_destroy_01",
+      "effect_building_destroy_02",
+      "effect_building_destroy_03",
+      "effect_building_destroy_04"
+    ],
+    "arrow_release": [
+      "effect_arrow_release_01",
+      "effect_arrow_release_02"
+    ],
+    "arrow_sequence": [
+      "effect_arrow_action_sequence_01",
+      "effect_arrow_flight_impact_sequence_01"
+    ],
+    "arrow_wood_impact": [
+      "effect_arrow_wood_impact_01"
+    ],
+    "arrow_flight": [
+      "effect_arrow_flight_01"
+    ],
+    "arrow_impact": [
+      "effect_arrow_impact_01"
+    ],
+    "bow_string_twang": [
+      "effect_arrow_twang_01"
+    ],
+    "character_fall": [
+      "effect_character_fall_01"
+    ],
+    "body_thud": [
+      "effect_body_thud_01"
+    ],
+    "body_fall_fatal": [
+      "effect_body_fall_fatal_01"
+    ],
+    "spear_thrust": [
+      "effect_spear_thrust_01",
+      "effect_spear_thrust_02",
+      "effect_spear_thrust_03",
+      "effect_spear_thrust_04",
+      "effect_spear_thrust_05",
+      "effect_spear_thrust_06"
+    ],
+    "light_thud": [
+      "effect_light_thud_01"
+    ],
+    "character_body_impact": [
+      "effect_character_body_impact_01"
+    ],
+    "hammer_build": [
+      "effect_hammer_build_01",
+      "effect_hammer_build_02"
+    ],
+    "mining": [
+      "effect_mining_01"
+    ],
+    "harvesting": [
+      "effect_harvesting_01"
+    ],
+    "building_melee_impact": [
+      "effect_building_destroy_01"
+    ],
+    "sheep_bleat": [
+      "effect_sheep_bleat_01",
+      "effect_sheep_bleat_02"
+    ],
+    "lamb_call_mother": [
+      "effect_lamb_call_mother_01"
+    ],
+    "wind_ambience": [
+      "effect_wind_ambience_01"
+    ]
+  },
+  "sounds": [
+    {
+      "id": "effect_magic_heal_01",
+      "trigger": "magic_heal",
+      "category": "magic",
+      "subcategory": "healing",
+      "description": "Magia de cura",
+      "source": "coghezzi-holy-healing-spell-533279.mp3",
+      "start_seconds": 0.14,
+      "end_seconds": 2.12,
+      "duration_seconds": 1.98,
+      "source_duration_seconds": 2.534,
+      "files": {
+        "ogg": "audio/ogg/magic/healing/effect_magic_heal_01.ogg",
+        "mp3": "audio/mp3/magic/healing/effect_magic_heal_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -22.89,
+            "input_true_peak_dbtp": -9.35,
+            "gain_db": -1.11,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -23.36,
+            "input_true_peak_dbtp": -9.87,
+            "gain_db": -0.64,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_sword_slash_01",
+      "trigger": "sword_slash",
+      "category": "combat",
+      "subcategory": "sword",
+      "description": "Corte de espada",
+      "source": "cyberwave-orchestra-fantasy-game-sword-cut-sound-effect-get-more-on-my-patreon-339824.mp3",
+      "start_seconds": 0.025,
+      "end_seconds": 0.75,
+      "duration_seconds": 0.725,
+      "source_duration_seconds": 1.959,
+      "files": {
+        "ogg": "audio/ogg/combat/sword/effect_sword_slash_01.ogg",
+        "mp3": "audio/mp3/combat/sword/effect_sword_slash_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -16.39,
+            "input_true_peak_dbtp": 0.03,
+            "gain_db": -7.61,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -16.59,
+            "input_true_peak_dbtp": -0.48,
+            "gain_db": -7.41,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_sword_armor_impact_01",
+      "trigger": "sword_armor_impact",
+      "category": "combat",
+      "subcategory": "sword",
+      "description": "Espada atingindo armadura",
+      "source": "dragon-studio-armor-impact-from-sword-393843.mp3",
+      "start_seconds": 0.015,
+      "end_seconds": 1.08,
+      "duration_seconds": 1.065,
+      "source_duration_seconds": 1.698,
+      "files": {
+        "ogg": "audio/ogg/combat/sword/effect_sword_armor_impact_01.ogg",
+        "mp3": "audio/mp3/combat/sword/effect_sword_armor_impact_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -12.72,
+            "input_true_peak_dbtp": -1.25,
+            "gain_db": -11.28,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -12.87,
+            "input_true_peak_dbtp": -1.26,
+            "gain_db": -11.13,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_sword_clash_02",
+      "trigger": "sword_clash",
+      "category": "combat",
+      "subcategory": "sword",
+      "description": "Choque entre espadas",
+      "source": "dragon-studio-sword-clashhit-393837.mp3",
+      "start_seconds": 0.015,
+      "end_seconds": 0.83,
+      "duration_seconds": 0.815,
+      "source_duration_seconds": 1.097,
+      "files": {
+        "ogg": "audio/ogg/combat/sword/effect_sword_clash_02.ogg",
+        "mp3": "audio/mp3/combat/sword/effect_sword_clash_02.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -16.4,
+            "input_true_peak_dbtp": -0.8,
+            "gain_db": -7.6,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -16.73,
+            "input_true_peak_dbtp": -0.93,
+            "gain_db": -7.27,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_axe_slash_01",
+      "trigger": "axe_slash",
+      "category": "combat",
+      "subcategory": "axe",
+      "description": "Golpe de machado",
+      "source": "freesound_community-axe-slash-1-106748.mp3",
+      "start_seconds": 0.07,
+      "end_seconds": 0.73,
+      "duration_seconds": 0.66,
+      "source_duration_seconds": 0.768,
+      "files": {
+        "ogg": "audio/ogg/combat/axe/effect_axe_slash_01.ogg",
+        "mp3": "audio/mp3/combat/axe/effect_axe_slash_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -23.78,
+            "input_true_peak_dbtp": -0.73,
+            "gain_db": -1.27,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -24.18,
+            "input_true_peak_dbtp": -1.46,
+            "gain_db": -0.54,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_crossbow_fire_01",
+      "trigger": "crossbow_fire",
+      "category": "combat",
+      "subcategory": "ranged",
+      "description": "Som de impacto de flecha contra personagem militar com armadura, conforme o mapeamento do jogo.",
+      "source": "freesound_community-crossbow-firing-95020.mp3",
+      "start_seconds": 0.015,
+      "end_seconds": 0.8,
+      "duration_seconds": 0.785,
+      "source_duration_seconds": 1.44,
+      "files": {
+        "ogg": "audio/ogg/combat/ranged/effect_crossbow_fire_01.ogg",
+        "mp3": "audio/mp3/combat/ranged/effect_crossbow_fire_01.mp3"
+      },
+      "gameplay_role": "arrow_armored_impact",
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -11.16,
+            "input_true_peak_dbtp": 1.07,
+            "gain_db": -12.84,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -10.65,
+            "input_true_peak_dbtp": 0.47,
+            "gain_db": -13.35,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_war_horn_01",
+      "trigger": "war_horn",
+      "category": "signals",
+      "subcategory": "horn",
+      "description": "Toque de corneta / chamado",
+      "source": "freesound_community-horn002-106060.mp3",
+      "start_seconds": 0.97,
+      "end_seconds": 2.93,
+      "duration_seconds": 1.96,
+      "source_duration_seconds": 4.56,
+      "files": {
+        "ogg": "audio/ogg/signals/horn/effect_war_horn_01.ogg",
+        "mp3": "audio/mp3/signals/horn/effect_war_horn_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -15.44,
+            "input_true_peak_dbtp": -8.98,
+            "gain_db": -8.56,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -15.96,
+            "input_true_peak_dbtp": -9.39,
+            "gain_db": -8.04,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_sword_slash_02",
+      "trigger": "sword_slash",
+      "category": "combat",
+      "subcategory": "sword",
+      "description": "Movimento ou golpe de espada",
+      "source": "freesound_community-sword-35999.mp3",
+      "start_seconds": 0.53,
+      "end_seconds": 2.3,
+      "duration_seconds": 1.77,
+      "source_duration_seconds": 2.352,
+      "files": {
+        "ogg": "audio/ogg/combat/sword/effect_sword_slash_02.ogg",
+        "mp3": "audio/mp3/combat/sword/effect_sword_slash_02.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -8.88,
+            "input_true_peak_dbtp": -0.24,
+            "gain_db": -15.12,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -9.22,
+            "input_true_peak_dbtp": -0.54,
+            "gain_db": -14.78,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_sword_slash_03",
+      "trigger": "sword_slash",
+      "category": "combat",
+      "subcategory": "sword",
+      "description": "Corte rápido de espada",
+      "source": "freesound_community-sword-sound-2-36274.mp3",
+      "start_seconds": 0.11,
+      "end_seconds": 0.53,
+      "duration_seconds": 0.42,
+      "source_duration_seconds": 0.792,
+      "files": {
+        "ogg": "audio/ogg/combat/sword/effect_sword_slash_03.ogg",
+        "mp3": "audio/mp3/combat/sword/effect_sword_slash_03.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -25.15,
+            "input_true_peak_dbtp": -8.38,
+            "gain_db": 1.15,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -25.35,
+            "input_true_peak_dbtp": -8.66,
+            "gain_db": 1.35,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_sword_slash_04",
+      "trigger": "sword_slash",
+      "category": "combat",
+      "subcategory": "sword",
+      "description": "Movimento curto de espada",
+      "source": "musicholder-sword-sound-260274.mp3",
+      "start_seconds": 0.15,
+      "end_seconds": 0.54,
+      "duration_seconds": 0.39,
+      "source_duration_seconds": 0.84,
+      "files": {
+        "ogg": "audio/ogg/combat/sword/effect_sword_slash_04.ogg",
+        "mp3": "audio/mp3/combat/sword/effect_sword_slash_04.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -25.66,
+            "input_true_peak_dbtp": -8.56,
+            "gain_db": 1.66,
+            "measurement": "repeated_short_transient_lufs"
+          },
+          "mp3": {
+            "input_lufs": -25.69,
+            "input_true_peak_dbtp": -8.94,
+            "gain_db": 1.69,
+            "measurement": "repeated_short_transient_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_sword_unsheathe_01",
+      "trigger": "sword_unsheathe",
+      "category": "combat",
+      "subcategory": "sword",
+      "description": "Espada sendo desembainhada",
+      "source": "poorartistt-fantasy-sword-unsheath-sfx-type-02-566458.mp3",
+      "start_seconds": 0,
+      "end_seconds": 1.12,
+      "duration_seconds": 1.12,
+      "source_duration_seconds": 2.04,
+      "files": {
+        "ogg": "audio/ogg/combat/sword/effect_sword_unsheathe_01.ogg",
+        "mp3": "audio/mp3/combat/sword/effect_sword_unsheathe_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -9.06,
+            "input_true_peak_dbtp": 0.11,
+            "gain_db": -14.94,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -9.21,
+            "input_true_peak_dbtp": 1.19,
+            "gain_db": -14.79,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_wood_impact_01",
+      "trigger": "wood_impact",
+      "category": "combat",
+      "subcategory": "wood",
+      "description": "Impacto em madeira",
+      "source": "sumaga123-wood-hit-432148.mp3",
+      "start_seconds": 0.12,
+      "end_seconds": 1.33,
+      "duration_seconds": 1.21,
+      "source_duration_seconds": 1.332,
+      "files": {
+        "ogg": "audio/ogg/combat/wood/effect_wood_impact_01.ogg",
+        "mp3": "audio/mp3/combat/wood/effect_wood_impact_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -27.01,
+            "input_true_peak_dbtp": -2.94,
+            "gain_db": 0.94,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -27.34,
+            "input_true_peak_dbtp": -3.27,
+            "gain_db": 1.27,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_bow_draw_01",
+      "trigger": "bow_draw",
+      "category": "combat",
+      "subcategory": "ranged",
+      "description": "Preparação / tensão do arco",
+      "source": "u_2c8g87fmmx-bow-sound-596323.mp3",
+      "start_seconds": 0.03,
+      "end_seconds": 1.02,
+      "duration_seconds": 0.99,
+      "source_duration_seconds": 3.109,
+      "files": {
+        "ogg": "audio/ogg/combat/ranged/effect_bow_draw_01.ogg",
+        "mp3": "audio/mp3/combat/ranged/effect_bow_draw_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -20.58,
+            "input_true_peak_dbtp": -1.89,
+            "gain_db": -3.42,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -20.81,
+            "input_true_peak_dbtp": -2.69,
+            "gain_db": -3.19,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_bow_release_01",
+      "trigger": "bow_release",
+      "category": "combat",
+      "subcategory": "ranged",
+      "description": "Soltura da corda do arco",
+      "source": "u_2c8g87fmmx-bow-sound-596323.mp3",
+      "start_seconds": 1.51,
+      "end_seconds": 2.44,
+      "duration_seconds": 0.93,
+      "source_duration_seconds": 3.109,
+      "files": {
+        "ogg": "audio/ogg/combat/ranged/effect_bow_release_01.ogg",
+        "mp3": "audio/mp3/combat/ranged/effect_bow_release_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -14.28,
+            "input_true_peak_dbtp": -0.38,
+            "gain_db": -9.72,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -14.43,
+            "input_true_peak_dbtp": -0.1,
+            "gain_db": -9.57,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_sword_clash_01",
+      "trigger": "sword_clash",
+      "category": "combat",
+      "subcategory": "sword",
+      "description": "Choque entre espadas com ressonância",
+      "source": "u_fe12rqkbth-sword-clash-241729.mp3",
+      "start_seconds": 0,
+      "end_seconds": 1.72,
+      "duration_seconds": 1.72,
+      "source_duration_seconds": 1.724,
+      "files": {
+        "ogg": "audio/ogg/combat/sword/effect_sword_clash_01.ogg",
+        "mp3": "audio/mp3/combat/sword/effect_sword_clash_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -15.1,
+            "input_true_peak_dbtp": -4.4,
+            "gain_db": -8.9,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -15.5,
+            "input_true_peak_dbtp": -4.47,
+            "gain_db": -8.5,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_magic_cast_01",
+      "trigger": "magic_cast",
+      "category": "magic",
+      "subcategory": "casting",
+      "description": "Conjuração de magia",
+      "source": "universfield-spell-casting-229208.mp3",
+      "start_seconds": 0.065,
+      "end_seconds": 2.16,
+      "duration_seconds": 2.095,
+      "source_duration_seconds": 2.496,
+      "files": {
+        "ogg": "audio/ogg/magic/casting/effect_magic_cast_01.ogg",
+        "mp3": "audio/mp3/magic/casting/effect_magic_cast_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -15.99,
+            "input_true_peak_dbtp": -2.56,
+            "gain_db": -8.01,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -16.35,
+            "input_true_peak_dbtp": -3.34,
+            "gain_db": -7.65,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_shield_impact_01",
+      "trigger": "shield_impact",
+      "category": "combat",
+      "subcategory": "shield",
+      "description": "Impacto em escudo, variação 1",
+      "source": "yodguard-shield_impact-1-382410.mp3",
+      "start_seconds": 0,
+      "end_seconds": 0.79,
+      "duration_seconds": 0.79,
+      "source_duration_seconds": 8.04,
+      "files": {
+        "ogg": "audio/ogg/combat/shield/effect_shield_impact_01.ogg",
+        "mp3": "audio/mp3/combat/shield/effect_shield_impact_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -16.43,
+            "input_true_peak_dbtp": -0.59,
+            "gain_db": -7.57,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -16.73,
+            "input_true_peak_dbtp": -0.93,
+            "gain_db": -7.27,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_shield_impact_02",
+      "trigger": "shield_impact",
+      "category": "combat",
+      "subcategory": "shield",
+      "description": "Impacto em escudo, variação 2",
+      "source": "yodguard-shield_impact-2-382412.mp3",
+      "start_seconds": 0,
+      "end_seconds": 0.79,
+      "duration_seconds": 0.79,
+      "source_duration_seconds": 8.04,
+      "files": {
+        "ogg": "audio/ogg/combat/shield/effect_shield_impact_02.ogg",
+        "mp3": "audio/mp3/combat/shield/effect_shield_impact_02.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -16.38,
+            "input_true_peak_dbtp": -0.77,
+            "gain_db": -7.62,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -16.74,
+            "input_true_peak_dbtp": -1.38,
+            "gain_db": -7.26,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_shield_impact_03",
+      "trigger": "shield_impact",
+      "category": "combat",
+      "subcategory": "shield",
+      "description": "Impacto em escudo, variação 3",
+      "source": "yodguard-shield_impact-4-382413.mp3",
+      "start_seconds": 0,
+      "end_seconds": 0.79,
+      "duration_seconds": 0.79,
+      "source_duration_seconds": 8.04,
+      "files": {
+        "ogg": "audio/ogg/combat/shield/effect_shield_impact_03.ogg",
+        "mp3": "audio/mp3/combat/shield/effect_shield_impact_03.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -17.25,
+            "input_true_peak_dbtp": -1.27,
+            "gain_db": -6.75,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -17.55,
+            "input_true_peak_dbtp": -1.42,
+            "gain_db": -6.45,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_shield_impact_04",
+      "trigger": "shield_impact",
+      "category": "combat",
+      "subcategory": "shield",
+      "description": "Impacto em escudo, variação 4",
+      "source": "yodguard-shield_impact-5-382415.mp3",
+      "start_seconds": 0,
+      "end_seconds": 0.79,
+      "duration_seconds": 0.79,
+      "source_duration_seconds": 8.04,
+      "files": {
+        "ogg": "audio/ogg/combat/shield/effect_shield_impact_04.ogg",
+        "mp3": "audio/mp3/combat/shield/effect_shield_impact_04.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -16.26,
+            "input_true_peak_dbtp": -2.21,
+            "gain_db": -7.74,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -16.56,
+            "input_true_peak_dbtp": -2.43,
+            "gain_db": -7.44,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_shield_impact_05",
+      "trigger": "shield_impact",
+      "category": "combat",
+      "subcategory": "shield",
+      "description": "Impacto em escudo, variação 5",
+      "source": "yodguard-shield_impact-6-382409.mp3",
+      "start_seconds": 0,
+      "end_seconds": 0.79,
+      "duration_seconds": 0.79,
+      "source_duration_seconds": 8.04,
+      "files": {
+        "ogg": "audio/ogg/combat/shield/effect_shield_impact_05.ogg",
+        "mp3": "audio/mp3/combat/shield/effect_shield_impact_05.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -15.87,
+            "input_true_peak_dbtp": -0.64,
+            "gain_db": -8.13,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -16.2,
+            "input_true_peak_dbtp": -1.2,
+            "gain_db": -7.8,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_character_hurt_01",
+      "trigger": "character_hurt",
+      "category": "characters",
+      "subcategory": "hurt",
+      "source": "freesound_community-oof-97698.mp3",
+      "start_seconds": 0.44,
+      "end_seconds": 1.01,
+      "description": "Voz curta de personagem atingido (oof)",
+      "source_duration_seconds": 1.68,
+      "duration_seconds": 0.57,
+      "files": {
+        "ogg": "audio/ogg/characters/hurt/effect_character_hurt_01.ogg",
+        "mp3": "audio/mp3/characters/hurt/effect_character_hurt_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -18.05,
+            "input_true_peak_dbtp": -8.12,
+            "gain_db": -5.95,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -18.71,
+            "input_true_peak_dbtp": -8.87,
+            "gain_db": -5.29,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_character_hurt_02",
+      "trigger": "character_hurt",
+      "category": "characters",
+      "subcategory": "hurt",
+      "source": "cookiecheese-hurt-sound-531758.mp3",
+      "start_seconds": 0.18,
+      "end_seconds": 0.61,
+      "description": "Segunda variação de reação a dano",
+      "source_duration_seconds": 0.888,
+      "duration_seconds": 0.43,
+      "files": {
+        "ogg": "audio/ogg/characters/hurt/effect_character_hurt_02.ogg",
+        "mp3": "audio/mp3/characters/hurt/effect_character_hurt_02.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -8.65,
+            "input_true_peak_dbtp": 0.09,
+            "gain_db": -15.35,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -9.15,
+            "input_true_peak_dbtp": -0.43,
+            "gain_db": -14.85,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_war_horn_call_01",
+      "trigger": "war_call",
+      "category": "signals",
+      "subcategory": "horn",
+      "source": "freesound_community-hunting-horn-bass-90228.mp3",
+      "start_seconds": 0.2,
+      "end_seconds": 1.82,
+      "description": "Toque de corneta para convocação à guerra (primeira chamada)",
+      "source_duration_seconds": 4.752,
+      "duration_seconds": 1.62,
+      "files": {
+        "ogg": "audio/ogg/signals/horn/effect_war_horn_call_01.ogg",
+        "mp3": "audio/mp3/signals/horn/effect_war_horn_call_01.mp3"
+      },
+      "gameplay_role": "army_war_call",
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -11.91,
+            "input_true_peak_dbtp": -1.65,
+            "gain_db": -12.09,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -12.31,
+            "input_true_peak_dbtp": -2.34,
+            "gain_db": -11.69,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_war_horn_retreat_01",
+      "trigger": "retreat_ordered",
+      "category": "signals",
+      "subcategory": "horn",
+      "source": "freesound_community-hunting-horn-bass-90228.mp3",
+      "start_seconds": 2.08,
+      "end_seconds": 4.74,
+      "description": "Toque de corneta para ordem de recuar (segunda chamada)",
+      "source_duration_seconds": 4.752,
+      "duration_seconds": 2.66,
+      "files": {
+        "ogg": "audio/ogg/signals/horn/effect_war_horn_retreat_01.ogg",
+        "mp3": "audio/mp3/signals/horn/effect_war_horn_retreat_01.mp3"
+      },
+      "gameplay_role": "army_retreat_order",
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -12.8,
+            "input_true_peak_dbtp": -2.29,
+            "gain_db": -11.2,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -13.33,
+            "input_true_peak_dbtp": -2.96,
+            "gain_db": -10.67,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_building_destroy_01",
+      "trigger": "building_destroyed",
+      "category": "structures",
+      "subcategory": "destruction",
+      "source": "freesound_community-rock-smash-6304.mp3",
+      "start_seconds": 0.34,
+      "end_seconds": 1.56,
+      "description": "Destruição de construção — variação de desabamento 1",
+      "variation": 1,
+      "source_duration_seconds": 8.976,
+      "duration_seconds": 1.22,
+      "files": {
+        "ogg": "audio/ogg/structures/destruction/effect_building_destroy_01.ogg",
+        "mp3": "audio/mp3/structures/destruction/effect_building_destroy_01.mp3"
+      },
+      "gameplay_role": "construction_destroyed",
+      "also_triggers": [
+        "building_melee_impact"
+      ],
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -18.16,
+            "input_true_peak_dbtp": -0.1,
+            "gain_db": -5.84,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -17.76,
+            "input_true_peak_dbtp": -0.57,
+            "gain_db": -6.24,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_building_destroy_02",
+      "trigger": "building_destroyed",
+      "category": "structures",
+      "subcategory": "destruction",
+      "source": "freesound_community-rock-smash-6304.mp3",
+      "start_seconds": 2.52,
+      "end_seconds": 3.51,
+      "description": "Destruição de construção — variação de desabamento 2",
+      "variation": 2,
+      "source_duration_seconds": 8.976,
+      "duration_seconds": 0.99,
+      "files": {
+        "ogg": "audio/ogg/structures/destruction/effect_building_destroy_02.ogg",
+        "mp3": "audio/mp3/structures/destruction/effect_building_destroy_02.mp3"
+      },
+      "gameplay_role": "construction_destroyed",
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -17.72,
+            "input_true_peak_dbtp": 0.7,
+            "gain_db": -6.28,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -17.71,
+            "input_true_peak_dbtp": -0.26,
+            "gain_db": -6.29,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_building_destroy_03",
+      "trigger": "building_destroyed",
+      "category": "structures",
+      "subcategory": "destruction",
+      "source": "freesound_community-rock-smash-6304.mp3",
+      "start_seconds": 4.01,
+      "end_seconds": 5.69,
+      "description": "Destruição de construção — variação de desabamento 3",
+      "variation": 3,
+      "source_duration_seconds": 8.976,
+      "duration_seconds": 1.68,
+      "files": {
+        "ogg": "audio/ogg/structures/destruction/effect_building_destroy_03.ogg",
+        "mp3": "audio/mp3/structures/destruction/effect_building_destroy_03.mp3"
+      },
+      "gameplay_role": "construction_destroyed",
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -17.76,
+            "input_true_peak_dbtp": -0.94,
+            "gain_db": -6.24,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -17.57,
+            "input_true_peak_dbtp": -1.46,
+            "gain_db": -6.43,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_building_destroy_04",
+      "trigger": "building_destroyed",
+      "category": "structures",
+      "subcategory": "destruction",
+      "source": "freesound_community-rock-smash-6304.mp3",
+      "start_seconds": 6.34,
+      "end_seconds": 8.67,
+      "description": "Destruição de construção — variação de desabamento 4",
+      "variation": 4,
+      "source_duration_seconds": 8.976,
+      "duration_seconds": 2.33,
+      "files": {
+        "ogg": "audio/ogg/structures/destruction/effect_building_destroy_04.ogg",
+        "mp3": "audio/mp3/structures/destruction/effect_building_destroy_04.mp3"
+      },
+      "gameplay_role": "construction_destroyed",
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -17.41,
+            "input_true_peak_dbtp": 1.19,
+            "gain_db": -6.59,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -17.98,
+            "input_true_peak_dbtp": 0.45,
+            "gain_db": -6.02,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_arrow_release_01",
+      "trigger": "arrow_release",
+      "category": "combat",
+      "subcategory": "ranged",
+      "source": "dennish18-arrow-146420.mp3",
+      "start_seconds": 0.56,
+      "end_seconds": 1.58,
+      "description": "Trecho isolado 1 de ação/disparo de flecha",
+      "variation": 1,
+      "confidence": "event type inferred from source label",
+      "source_duration_seconds": 12.528,
+      "duration_seconds": 1.02,
+      "files": {
+        "ogg": "audio/ogg/combat/ranged/effect_arrow_release_01.ogg",
+        "mp3": "audio/mp3/combat/ranged/effect_arrow_release_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -11.21,
+            "input_true_peak_dbtp": 0.85,
+            "gain_db": -12.79,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -11.34,
+            "input_true_peak_dbtp": 0.35,
+            "gain_db": -12.66,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_arrow_release_02",
+      "trigger": "arrow_release",
+      "category": "combat",
+      "subcategory": "ranged",
+      "source": "dennish18-arrow-146420.mp3",
+      "start_seconds": 3.63,
+      "end_seconds": 4.69,
+      "description": "Trecho isolado 2 de ação/disparo de flecha",
+      "variation": 2,
+      "confidence": "event type inferred from source label",
+      "source_duration_seconds": 12.528,
+      "duration_seconds": 1.06,
+      "files": {
+        "ogg": "audio/ogg/combat/ranged/effect_arrow_release_02.ogg",
+        "mp3": "audio/mp3/combat/ranged/effect_arrow_release_02.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -10.93,
+            "input_true_peak_dbtp": 0.67,
+            "gain_db": -13.07,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -11.16,
+            "input_true_peak_dbtp": 0.38,
+            "gain_db": -12.84,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_arrow_action_sequence_01",
+      "trigger": "arrow_sequence",
+      "category": "combat",
+      "subcategory": "ranged",
+      "source": "dennish18-arrow-146420.mp3",
+      "start_seconds": 6.66,
+      "end_seconds": 9.48,
+      "description": "Terceira tomada mais longa: preservada como sequência por conter movimentos sonoros contínuos",
+      "is_composite": true,
+      "source_duration_seconds": 12.528,
+      "duration_seconds": 2.82,
+      "files": {
+        "ogg": "audio/ogg/combat/ranged/effect_arrow_action_sequence_01.ogg",
+        "mp3": "audio/mp3/combat/ranged/effect_arrow_action_sequence_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -9.76,
+            "input_true_peak_dbtp": 2.18,
+            "gain_db": -14.24,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -10.2,
+            "input_true_peak_dbtp": 0.84,
+            "gain_db": -13.8,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_arrow_wood_impact_01",
+      "trigger": "arrow_wood_impact",
+      "category": "combat",
+      "subcategory": "ranged",
+      "source": "dennish18-arrow-wood-impact-146418.mp3",
+      "start_seconds": 0.015,
+      "end_seconds": 0.66,
+      "description": "Impacto de flecha em madeira ou em personagem sem armadura conforme o mapeamento do jogo.",
+      "source_duration_seconds": 0.672,
+      "duration_seconds": 0.645,
+      "files": {
+        "ogg": "audio/ogg/combat/ranged/effect_arrow_wood_impact_01.ogg",
+        "mp3": "audio/mp3/combat/ranged/effect_arrow_wood_impact_01.mp3"
+      },
+      "gameplay_role": "arrow_unarmored_impact",
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -11.98,
+            "input_true_peak_dbtp": -0.52,
+            "gain_db": -12.02,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -12.12,
+            "input_true_peak_dbtp": -0.77,
+            "gain_db": -11.88,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_arrow_flight_01",
+      "trigger": "arrow_flight",
+      "category": "combat",
+      "subcategory": "ranged",
+      "source": "yodguard-a-clean-and-precise-game-style-arrow-impact-1-450238.mp3",
+      "start_seconds": 0,
+      "end_seconds": 0.7,
+      "description": "Primeira fase mais suave do efeito composto de flecha; utilizar como voo/aproximação",
+      "is_component": true,
+      "composite_id": "effect_arrow_flight_impact_sequence_01",
+      "phase": "flight_or_lead_in",
+      "confidence": "provisional",
+      "source_duration_seconds": 2.04,
+      "duration_seconds": 0.7,
+      "files": {
+        "ogg": "audio/ogg/combat/ranged/effect_arrow_flight_01.ogg",
+        "mp3": "audio/mp3/combat/ranged/effect_arrow_flight_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -13.82,
+            "input_true_peak_dbtp": 0.77,
+            "gain_db": -10.18,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -14.21,
+            "input_true_peak_dbtp": 0.74,
+            "gain_db": -9.79,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_arrow_impact_01",
+      "trigger": "arrow_impact",
+      "category": "combat",
+      "subcategory": "ranged",
+      "source": "yodguard-a-clean-and-precise-game-style-arrow-impact-1-450238.mp3",
+      "start_seconds": 0.78,
+      "end_seconds": 1.27,
+      "description": "Segunda fase com ataque/transiente distinto; usar no impacto da flecha",
+      "is_component": true,
+      "composite_id": "effect_arrow_flight_impact_sequence_01",
+      "phase": "impact",
+      "source_duration_seconds": 2.04,
+      "duration_seconds": 0.49,
+      "files": {
+        "ogg": "audio/ogg/combat/ranged/effect_arrow_impact_01.ogg",
+        "mp3": "audio/mp3/combat/ranged/effect_arrow_impact_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -13.45,
+            "input_true_peak_dbtp": 1.59,
+            "gain_db": -10.55,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -13.65,
+            "input_true_peak_dbtp": 0.7,
+            "gain_db": -10.35,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_arrow_flight_impact_sequence_01",
+      "trigger": "arrow_sequence",
+      "category": "combat",
+      "subcategory": "ranged",
+      "source": "yodguard-a-clean-and-precise-game-style-arrow-impact-1-450238.mp3",
+      "start_seconds": 0,
+      "end_seconds": 1.34,
+      "description": "Prévia com as duas fases unidas; não tocar juntamente com os componentes para evitar duplicação",
+      "is_composite": true,
+      "playback": "preview_only_when_using_components",
+      "source_duration_seconds": 2.04,
+      "duration_seconds": 1.34,
+      "files": {
+        "ogg": "audio/ogg/combat/ranged/effect_arrow_flight_impact_sequence_01.ogg",
+        "mp3": "audio/mp3/combat/ranged/effect_arrow_flight_impact_sequence_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -14.22,
+            "input_true_peak_dbtp": 1.04,
+            "gain_db": -9.78,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -13.91,
+            "input_true_peak_dbtp": 0.93,
+            "gain_db": -10.09,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_arrow_twang_01",
+      "trigger": "bow_string_twang",
+      "category": "combat",
+      "subcategory": "ranged",
+      "source": "djartmusic-arrow-twang_01-306041.mp3",
+      "start_seconds": 0.09,
+      "end_seconds": 0.83,
+      "description": "Vibração/estalo de corda de arco",
+      "source_duration_seconds": 1.437,
+      "duration_seconds": 0.74,
+      "files": {
+        "ogg": "audio/ogg/combat/ranged/effect_arrow_twang_01.ogg",
+        "mp3": "audio/mp3/combat/ranged/effect_arrow_twang_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -15.9,
+            "input_true_peak_dbtp": -0.06,
+            "gain_db": -8.1,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -15.71,
+            "input_true_peak_dbtp": -0.13,
+            "gain_db": -8.29,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_character_fall_01",
+      "trigger": "character_fall",
+      "category": "characters",
+      "subcategory": "fall",
+      "source": "universfield-character-fall-impact-352287.mp3",
+      "start_seconds": 0.24,
+      "end_seconds": 1.08,
+      "description": "Queda/impacto de personagem",
+      "source_duration_seconds": 1.848,
+      "duration_seconds": 0.84,
+      "files": {
+        "ogg": "audio/ogg/characters/fall/effect_character_fall_01.ogg",
+        "mp3": "audio/mp3/characters/fall/effect_character_fall_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -16.44,
+            "input_true_peak_dbtp": -0.74,
+            "gain_db": -7.56,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -16.4,
+            "input_true_peak_dbtp": -3.11,
+            "gain_db": -7.6,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_body_thud_01",
+      "trigger": "body_thud",
+      "category": "characters",
+      "subcategory": "fall",
+      "source": "universfield-impact-thud-291047.mp3",
+      "start_seconds": 0.08,
+      "end_seconds": 0.61,
+      "description": "Impacto seco de corpo/objeto",
+      "source_duration_seconds": 1.44,
+      "duration_seconds": 0.53,
+      "files": {
+        "ogg": "audio/ogg/characters/fall/effect_body_thud_01.ogg",
+        "mp3": "audio/mp3/characters/fall/effect_body_thud_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -20.56,
+            "input_true_peak_dbtp": -2.31,
+            "gain_db": -3.44,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -20.38,
+            "input_true_peak_dbtp": -2.8,
+            "gain_db": -3.62,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_body_fall_fatal_01",
+      "trigger": "body_fall_fatal",
+      "category": "characters",
+      "subcategory": "fall",
+      "source": "universfield-fatal-body-fall-thud-352716.mp3",
+      "start_seconds": 0.12,
+      "end_seconds": 1.35,
+      "description": "Queda corporal pesada (fatal)",
+      "source_duration_seconds": 1.944,
+      "duration_seconds": 1.23,
+      "files": {
+        "ogg": "audio/ogg/characters/fall/effect_body_fall_fatal_01.ogg",
+        "mp3": "audio/mp3/characters/fall/effect_body_fall_fatal_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -17.37,
+            "input_true_peak_dbtp": -3.38,
+            "gain_db": -6.63,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -17.19,
+            "input_true_peak_dbtp": -4.58,
+            "gain_db": -6.81,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_spear_thrust_01",
+      "trigger": "spear_thrust",
+      "category": "combat",
+      "subcategory": "spear",
+      "source": "yodguard-spear_thrust-1-382402.mp3",
+      "start_seconds": 0.045,
+      "end_seconds": 0.81,
+      "description": "Investida de lança, variação 1 (cauda de 8 s removida)",
+      "variation": 1,
+      "source_duration_seconds": 8.04,
+      "duration_seconds": 0.765,
+      "files": {
+        "ogg": "audio/ogg/combat/spear/effect_spear_thrust_01.ogg",
+        "mp3": "audio/mp3/combat/spear/effect_spear_thrust_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -15.05,
+            "input_true_peak_dbtp": 0.72,
+            "gain_db": -8.95,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -14.93,
+            "input_true_peak_dbtp": -0.75,
+            "gain_db": -9.07,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_spear_thrust_02",
+      "trigger": "spear_thrust",
+      "category": "combat",
+      "subcategory": "spear",
+      "source": "yodguard-spear_thrust-2-382404.mp3",
+      "start_seconds": 0.07,
+      "end_seconds": 0.79,
+      "description": "Investida de lança, variação 2 (cauda de 8 s removida)",
+      "variation": 2,
+      "source_duration_seconds": 8.04,
+      "duration_seconds": 0.72,
+      "files": {
+        "ogg": "audio/ogg/combat/spear/effect_spear_thrust_02.ogg",
+        "mp3": "audio/mp3/combat/spear/effect_spear_thrust_02.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -15.33,
+            "input_true_peak_dbtp": -1.65,
+            "gain_db": -8.67,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -15.31,
+            "input_true_peak_dbtp": -1.32,
+            "gain_db": -8.69,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_spear_thrust_03",
+      "trigger": "spear_thrust",
+      "category": "combat",
+      "subcategory": "spear",
+      "source": "yodguard-spear_thrust-3-382407.mp3",
+      "start_seconds": 0.1,
+      "end_seconds": 0.83,
+      "description": "Investida de lança, variação 3 (cauda de 8 s removida)",
+      "variation": 3,
+      "source_duration_seconds": 8.04,
+      "duration_seconds": 0.73,
+      "files": {
+        "ogg": "audio/ogg/combat/spear/effect_spear_thrust_03.ogg",
+        "mp3": "audio/mp3/combat/spear/effect_spear_thrust_03.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -16.54,
+            "input_true_peak_dbtp": -2.4,
+            "gain_db": -7.46,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -16.42,
+            "input_true_peak_dbtp": -2.72,
+            "gain_db": -7.58,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_spear_thrust_04",
+      "trigger": "spear_thrust",
+      "category": "combat",
+      "subcategory": "spear",
+      "source": "yodguard-spear_thrust-4-382401.mp3",
+      "start_seconds": 0.03,
+      "end_seconds": 0.7,
+      "description": "Investida de lança, variação 4 (cauda de 8 s removida)",
+      "variation": 4,
+      "source_duration_seconds": 8.04,
+      "duration_seconds": 0.67,
+      "files": {
+        "ogg": "audio/ogg/combat/spear/effect_spear_thrust_04.ogg",
+        "mp3": "audio/mp3/combat/spear/effect_spear_thrust_04.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -15.75,
+            "input_true_peak_dbtp": 0.11,
+            "gain_db": -8.25,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -15.81,
+            "input_true_peak_dbtp": -0.51,
+            "gain_db": -8.19,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_spear_thrust_05",
+      "trigger": "spear_thrust",
+      "category": "combat",
+      "subcategory": "spear",
+      "source": "yodguard-spear_thrust-5-382405.mp3",
+      "start_seconds": 0.03,
+      "end_seconds": 1.12,
+      "description": "Investida de lança, variação 5 (cauda de 8 s removida)",
+      "variation": 5,
+      "source_duration_seconds": 8.04,
+      "duration_seconds": 1.09,
+      "files": {
+        "ogg": "audio/ogg/combat/spear/effect_spear_thrust_05.ogg",
+        "mp3": "audio/mp3/combat/spear/effect_spear_thrust_05.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -14.86,
+            "input_true_peak_dbtp": 0.19,
+            "gain_db": -9.14,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -15.08,
+            "input_true_peak_dbtp": -0.11,
+            "gain_db": -8.92,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_spear_thrust_06",
+      "trigger": "spear_thrust",
+      "category": "combat",
+      "subcategory": "spear",
+      "source": "yodguard-spear_thrust-6-382403.mp3",
+      "start_seconds": 0.11,
+      "end_seconds": 0.57,
+      "description": "Investida de lança, variação 6 (cauda de 8 s removida)",
+      "variation": 6,
+      "source_duration_seconds": 8.04,
+      "duration_seconds": 0.46,
+      "files": {
+        "ogg": "audio/ogg/combat/spear/effect_spear_thrust_06.ogg",
+        "mp3": "audio/mp3/combat/spear/effect_spear_thrust_06.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -15.65,
+            "input_true_peak_dbtp": -0.28,
+            "gain_db": -8.35,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -15.85,
+            "input_true_peak_dbtp": -0.53,
+            "gain_db": -8.15,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_light_thud_01",
+      "trigger": "light_thud",
+      "category": "combat",
+      "subcategory": "impacts",
+      "source": "freesound_community-stick-hitting-a-dreadlock-small-thud-83297.mp3",
+      "start_seconds": 0.07,
+      "end_seconds": 0.48,
+      "description": "Impacto leve e curto",
+      "source_duration_seconds": 0.72,
+      "duration_seconds": 0.41,
+      "files": {
+        "ogg": "audio/ogg/combat/impacts/effect_light_thud_01.ogg",
+        "mp3": "audio/mp3/combat/impacts/effect_light_thud_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -25.45,
+            "input_true_peak_dbtp": -1.59,
+            "gain_db": -0.41,
+            "measurement": "repeated_short_transient_lufs"
+          },
+          "mp3": {
+            "input_lufs": -25.75,
+            "input_true_peak_dbtp": -1.93,
+            "gain_db": -0.07,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_character_body_impact_01",
+      "trigger": "character_body_impact",
+      "category": "characters",
+      "subcategory": "impacts",
+      "description": "Impacto físico ao atingir o corpo de um pawn sem armadura.",
+      "source": "sfx-body-impact.mp3",
+      "files": {
+        "ogg": "audio/ogg/characters/impacts/effect_character_body_impact_01.ogg",
+        "mp3": "audio/mp3/characters/impacts/effect_character_body_impact_01.mp3"
+      },
+      "gameplay_role": "pawn_body_hit",
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -20.84,
+            "input_true_peak_dbtp": 0.62,
+            "gain_db": -3.16,
+            "measurement": "repeated_short_transient_lufs"
+          },
+          "mp3": {
+            "input_lufs": -20.21,
+            "input_true_peak_dbtp": 1.15,
+            "gain_db": -3.79,
+            "measurement": "repeated_short_transient_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_hammer_build_01",
+      "trigger": "hammer_build",
+      "category": "structures",
+      "subcategory": "construction",
+      "description": "Martelada de construção, variação 1.",
+      "source": "wood-table-hit.mp3",
+      "files": {
+        "ogg": "audio/ogg/structures/construction/effect_hammer_build_01.ogg",
+        "mp3": "audio/mp3/structures/construction/effect_hammer_build_01.mp3"
+      },
+      "gameplay_role": "pawn_hammer_build",
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -26.78,
+            "input_true_peak_dbtp": -1.53,
+            "gain_db": -0.47,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -26.53,
+            "input_true_peak_dbtp": -0.78,
+            "gain_db": -1.22,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_hammer_build_02",
+      "trigger": "hammer_build",
+      "category": "structures",
+      "subcategory": "construction",
+      "description": "Martelada de construção, variação 2.",
+      "source": "wood-table-hit-01.mp3",
+      "files": {
+        "ogg": "audio/ogg/structures/construction/effect_hammer_build_02.ogg",
+        "mp3": "audio/mp3/structures/construction/effect_hammer_build_02.mp3"
+      },
+      "gameplay_role": "pawn_hammer_build",
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -32.85,
+            "input_true_peak_dbtp": -7.46,
+            "gain_db": 5.46,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -32.69,
+            "input_true_peak_dbtp": -7.24,
+            "gain_db": 5.24,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_mining_01",
+      "trigger": "mining",
+      "category": "resources",
+      "subcategory": "mining",
+      "description": "Extração bem-sucedida de pedra ou minério.",
+      "source": "ffx-mining.mp3",
+      "files": {
+        "ogg": "audio/ogg/resources/mining/effect_mining_01.ogg",
+        "mp3": "audio/mp3/resources/mining/effect_mining_01.mp3"
+      },
+      "gameplay_role": "resource_mining",
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -17.35,
+            "input_true_peak_dbtp": 1.32,
+            "gain_db": -6.65,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -17.25,
+            "input_true_peak_dbtp": 0.42,
+            "gain_db": -6.75,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_harvesting_01",
+      "trigger": "harvesting",
+      "category": "resources",
+      "subcategory": "harvesting",
+      "description": "Coleta bem-sucedida de alimento vegetal ou brotos para ração.",
+      "source": "ffx-harvesting.mp3",
+      "files": {
+        "ogg": "audio/ogg/resources/harvesting/effect_harvesting_01.ogg",
+        "mp3": "audio/mp3/resources/harvesting/effect_harvesting_01.mp3"
+      },
+      "gameplay_role": "resource_harvesting",
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "ogg": {
+            "input_lufs": -21.27,
+            "input_true_peak_dbtp": -6.42,
+            "gain_db": -2.73,
+            "measurement": "integrated_lufs"
+          },
+          "mp3": {
+            "input_lufs": -22.33,
+            "input_true_peak_dbtp": -6.75,
+            "gain_db": -1.67,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_sheep_bleat_01",
+      "trigger": "sheep_bleat",
+      "category": "animals",
+      "subcategory": "sheep",
+      "description": "Balido adulto de ovelha, variação A.",
+      "source": "sfx-taoglas-sheep-bleating.mp3",
+      "files": {
+        "mp3": "audio/mp3/animals/sheep/effect_sheep_bleat_01.mp3"
+      },
+      "gameplay_role": "adult_sheep_bleat",
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "mp3": {
+            "input_lufs": -24.25,
+            "input_true_peak_dbtp": -12.07,
+            "gain_db": 0.25,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_sheep_bleat_02",
+      "trigger": "sheep_bleat",
+      "category": "animals",
+      "subcategory": "sheep",
+      "description": "Balido adulto de ovelha, variação B.",
+      "source": "sfx-taoglas-sheep-bleating-1.mp3",
+      "files": {
+        "mp3": "audio/mp3/animals/sheep/effect_sheep_bleat_02.mp3"
+      },
+      "gameplay_role": "adult_sheep_bleat",
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "mp3": {
+            "input_lufs": -37.14,
+            "input_true_peak_dbtp": -22.27,
+            "gain_db": 13.14,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_lamb_call_mother_01",
+      "trigger": "lamb_call_mother",
+      "category": "animals",
+      "subcategory": "sheep",
+      "description": "Chamado de filhote de ovelha procurando a mãe.",
+      "source": "sfx-baby-calling-his-mother.mp3",
+      "files": {
+        "mp3": "audio/mp3/animals/sheep/effect_lamb_call_mother_01.mp3"
+      },
+      "gameplay_role": "lamb_separation_call",
+      "normalization": {
+        "target_lufs": -20.0,
+        "formats": {
+          "mp3": {
+            "input_lufs": -19.09,
+            "input_true_peak_dbtp": -3.04,
+            "gain_db": -4.91,
+            "measurement": "integrated_lufs"
+          }
+        }
+      }
+    },
+    {
+      "id": "effect_wind_ambience_01",
+      "trigger": "wind_ambience",
+      "category": "ambience",
+      "subcategory": "wind",
+      "description": "Vento contínuo: até 70% na altitude máxima e 10% na aproximação máxima, antes do volume geral.",
+      "source": "soundreality-wind-blowing-457954.mp3",
+      "loop_start_seconds": 2,
+      "files": {
+        "ogg": "audio/ogg/ambience/wind/effect_wind_ambience_01.ogg",
+        "mp3": "audio/mp3/ambience/wind/effect_wind_ambience_01.mp3"
+      },
+      "playback": "loop",
+      "gameplay_role": "camera_altitude_wind"
+    }
+  ],
+  "new_batch_composites": [
+    {
+      "source": "yodguard-a-clean-and-precise-game-style-arrow-impact-1-450238.mp3",
+      "components": [
+        "effect_arrow_flight_01",
+        "effect_arrow_impact_01"
+      ],
+      "full_preview": "effect_arrow_flight_impact_sequence_01",
+      "usage": "Ativar voo durante trajeto; impacto somente no contato. Não sobrepor prévia e componentes."
+    },
+    {
+      "source": "dennish18-arrow-146420.mp3",
+      "components": [
+        "effect_arrow_release_01",
+        "effect_arrow_release_02",
+        "effect_arrow_action_sequence_01"
+      ],
+      "usage": "Três tomadas separadas: duas mais curtas e uma longa; evitar executar toda a gravação original com silêncios."
+    }
+  ],
+  "notes": "Versão consolidada: lote anterior (21 efeitos) + lote 02 (26 efeitos). O manifesto mantém origens e cortes. Não reproduza sequências completas junto dos componentes. Verifique as licenças individuais dos áudios. Atualização 2.1: os quatro efeitos de pedra são variações do evento de destruição de construção; a primeira chamada de corneta grave indica convocação à guerra e a segunda, retirada. Essa associação de corneta é uma decisão de design (não uma semântica intrínseca ao áudio). O toque anterior effect_war_horn_01 continua disponível como som genérico independente. Atualização 2.2: impactos corporais, marteladas de construção, mineração e colheita foram adicionados; building_destroy_01 também é o impacto de espada/lança em estrutura. Atualização 2.3: balidos adultos alternados, chamado de filhote separado da mãe e crescimento gradual de cordeiros até os 180 dias.",
+  "gameplay_mappings": {
+    "building_destroyed": {
+      "trigger_condition": "Construção passa do estado intacto/danificado para destruída (apenas uma vez por construção).",
+      "variation_selection": "Escolher aleatoriamente UMA das quatro variações em cada destruição.",
+      "recommended_timing": "Sincronizar com início da animação do colapso e partículas de entulho.",
+      "concurrency": "Evitar disparos repetidos do mesmo prédio ou eventos em excesso no mesmo frame."
+    },
+    "war_call": {
+      "trigger_condition": "Comando explícito de convocação para a guerra / início da mobilização militar.",
+      "variation_selection": "Toque único dedicado, não randomizar com a corneta de retirada.",
+      "recommended_timing": "Início da convocação ou ordem de ataque, conforme a mecânica do Kingdom."
+    },
+    "retreat_ordered": {
+      "trigger_condition": "Comando explícito de recuo das tropas.",
+      "variation_selection": "Toque único dedicado, não randomizar com a corneta de convocação.",
+      "recommended_timing": "Quando a ordem de recuo for confirmada, antes da movimentação de retirada."
+    },
+    "building_melee_impact": {
+      "trigger_condition": "Ataque de espada ou lança aplica dano positivo a uma estrutura.",
+      "variation_selection": "Efeito fixo effect_building_destroy_01; no golpe que destrói a estrutura, tocar também building_destroyed.",
+      "recommended_timing": "No instante de contato do ataque."
+    },
+    "character_body_impact": {
+      "trigger_condition": "Ataque corpo a corpo acerta um pawn sem classe militar/armadura.",
+      "variation_selection": "Efeito fixo effect_character_body_impact_01.",
+      "recommended_timing": "No instante de contato; ataques de flecha usam os eventos de impacto de flecha."
+    },
+    "arrow_body_impact": {
+      "trigger_condition": "Flecha acerta um pawn sem armadura ou personagem militar equipado.",
+      "variation_selection": "Sem armadura: arrow_wood_impact. Militar/armadura: crossbow_fire conforme solicitado.",
+      "recommended_timing": "No contato do projétil."
+    },
+    "hammer_build": {
+      "trigger_condition": "Pawn executa trabalho de construção registrado como visualActivity.kind=build.",
+      "variation_selection": "Escolher uma das duas marteladas por evento.",
+      "recommended_timing": "Durante a batida do martelo."
+    },
+    "mining": {
+      "trigger_condition": "A extração de pedra ou minério transfere uma quantidade positiva de recurso.",
+      "variation_selection": "Efeito fixo effect_mining_01.",
+      "recommended_timing": "Após o golpe de mineração."
+    },
+    "harvesting": {
+      "trigger_condition": "Coleta de alimento vegetal ou brotos transfere uma quantidade positiva.",
+      "variation_selection": "Efeito fixo effect_harvesting_01.",
+      "recommended_timing": "No momento de coletar."
+    },
+    "arrow_sequence": {
+      "trigger_condition": "Rajada de quatro flechas disparadas em arco para cair numa área.",
+      "integration_status": "O efeito já está no manifesto, mas o jogo ainda não tem essa ação de combate; não disparar em tiros individuais.",
+      "variation_selection": "effect_arrow_action_sequence_01 para a rajada completa; não usar a prévia combinada junto dos componentes."
+    },
+    "sheep_bleat": {
+      "trigger_condition": "Uma ovelha viva com 180 dias ou mais emite uma vocalização ambiente audível.",
+      "variation_selection": "Alternar estritamente effect_sheep_bleat_01 e effect_sheep_bleat_02 entre chamadas adultas.",
+      "recommended_timing": "Chamadas espaçadas e limitadas por rebanho; atenuar pelo ganho de distância do áudio."
+    },
+    "lamb_call_mother": {
+      "trigger_condition": "Uma ovelha viva com menos de 180 dias está separada da mãe registrada no nascimento.",
+      "variation_selection": "Efeito fixo effect_lamb_call_mother_01.",
+      "recommended_timing": "Chamada ambiente ocasional; não tocar enquanto o filhote estiver próximo da mãe."
+    }
+  },
+  "loudness_normalization": {
+    "target_lufs": -24.0,
+    "true_peak_ceiling_dbtp": -2.0,
+    "max_boost_db": 14.0,
+    "excluded_events": [
+      "wind_ambience"
+    ],
+    "method": "offline_per_format_gain; original audio files preserved"
+  }
+}
