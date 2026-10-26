@@ -6,7 +6,11 @@ export const SOCIAL_FACT_RETENTION_DAYS = 365;
 export const SOCIAL_MEMORY_PER_PERSON_LIMIT = 32;
 export const SOCIAL_RELATIONSHIP_PER_PERSON_LIMIT = 16;
 export const SOCIAL_ACTIVE_INTENTION_PER_PERSON_LIMIT = 3;
+export const SOCIAL_OPEN_COMMITMENT_PER_PERSON_LIMIT = 8;
 export const SOCIAL_FACT_LIMIT = 512;
+const TERMINAL_COMMITMENT_STATUSES = new Set(['fulfilled', 'breached', 'rejected', 'cancelled', 'expired']);
+const TERMINAL_INTENTION_STATUSES = new Set(['completed', 'abandoned']);
+const PHYSICAL_INTENTION_BLOCKERS = new Set(['critical_hunger', 'critical_thirst', 'critical_health', 'critical_energy', 'recent_attack']);
 const REFERENCE_COLLECTIONS = Object.freeze({
   person: ['people'], animal: ['animals'], community: ['communities'], kingdom: ['kingdoms'],
   structure: ['structures'], settlement: ['settlements']
@@ -409,9 +413,11 @@ export function proposeSocialCommitment(world, input = {}) {
   const evidence = ensureEvidence(world);
   const parties = uniqueKnownIds(world, input.parties || [], 'parties');
   if (parties.length < 2 || parties.some(id => !personById(world, id))) fail('um compromisso requer ao menos duas pessoas.');
+  const proposedBy = idKey(input.proposedBy ?? parties[0], 'proposedBy');
+  if (!parties.includes(proposedBy)) fail('proposedBy precisa ser uma das partes do compromisso.');
   const object = typeof input.object === 'string' ? input.object.trim() : '';
   if (!object) fail('object deve descrever o que foi prometido.');
-  if (typeof input.quantity !== 'number' || !Number.isFinite(input.quantity) || input.quantity < 0) fail('quantity deve ser finita e não negativa.');
+  if (typeof input.quantity !== 'number' || !Number.isFinite(input.quantity) || input.quantity <= 0) fail('quantity deve ser finita e positiva.');
   if (!Number.isSafeInteger(input.dueDay) || input.dueDay < world.day) fail('dueDay não pode anteceder a proposta.');
   if (input.resourceReferences !== undefined && !Array.isArray(input.resourceReferences)) fail('resourceReferences deve ser uma lista.');
   const resourceReferences = (input.resourceReferences || []).map(reference => {
@@ -439,11 +445,12 @@ export function proposeSocialCommitment(world, input = {}) {
     worldSeed: world.seed,
     worldEpoch: evidence.worldEpoch,
     day: world.day,
+    proposedBy,
     parties,
     object,
     quantity: input.quantity,
     dueDay: input.dueDay,
-    status: 'proposed',
+    status: 'proposed', deliveredQuantity: 0, deliveryEventIds: [], transitionEventIds: [],
     resourceReferences,
     evidenceEventIds
   };
@@ -453,10 +460,143 @@ export function proposeSocialCommitment(world, input = {}) {
     if (JSON.stringify(existing.fingerprint) !== JSON.stringify(fingerprint)) fail('a chave do compromisso foi reutilizada com outro conteúdo.');
     return existing.record;
   }
+  const openByParty = evidence.commitments.filter(item => !TERMINAL_COMMITMENT_STATUSES.has(item.record?.status)
+    && item.record?.parties?.includes(proposedBy)).length;
+  if (openByParty >= SOCIAL_OPEN_COMMITMENT_PER_PERSON_LIMIT) fail('a pessoa atingiu o limite de compromissos abertos.');
   const record = freezeRecursively({ ...data, commitmentId: String(world.seed) + ':epoch:' + evidence.worldEpoch
     + ':commitment:' + evidence.nextCommitmentNumber++ });
   evidence.commitments.push({ idempotencyKey, fingerprint, record });
   return record;
+}
+
+function commitmentEntry(world, commitmentId) {
+  const evidence = ensureEvidence(world);
+  const id = idKey(commitmentId, 'commitmentId');
+  return evidence.commitments.find(item => item.record?.commitmentId === id) || null;
+}
+
+export function getSocialCommitment(world, commitmentId) {
+  if (commitmentId == null || !world?.socialEvidence) return null;
+  return commitmentEntry(world, commitmentId)?.record || null;
+}
+
+function commitmentTransition(world, entry, { status, type, outcome, details = {} }) {
+  const current = entry.record;
+  const witnessIds = current.parties.filter(partyId => personById(world, partyId)?.alive);
+  const fact = recordSocialFact(world, {
+    idempotencyKey: 'social-commitment:' + current.commitmentId + ':' + type + ':' + world.day + ':' + JSON.stringify(outcome),
+    type,
+    participantIds: current.parties,
+    witnessIds,
+    outcome: { commitmentId: current.commitmentId, object: current.object,
+      quantity: current.quantity, result: status, ...outcome }
+  });
+  for (const partyId of witnessIds) rememberSocialFact(world, partyId, fact.eventId, { source: 'direct' });
+  entry.record = freezeRecursively({ ...current, ...details, status, updatedDay: world.day,
+    transitionEventIds: [...new Set([...(current.transitionEventIds || []), fact.eventId])],
+    lastTransitionEventId: fact.eventId });
+  return entry.record;
+}
+
+export function acceptSocialCommitment(world, accepterId, commitmentId) {
+  const entry = commitmentEntry(world, commitmentId);
+  if (!entry) fail('o compromisso não existe.');
+  const record = entry.record;
+  const accepter = idKey(accepterId, 'accepterId');
+  if (record.status === 'accepted' && record.acceptedBy === accepter) return record;
+  if (record.status !== 'proposed') fail('somente uma proposta aberta pode ser aceita.');
+  if (!record.parties.includes(accepter) || accepter === (record.proposedBy || record.parties[0])) {
+    fail('a aceitação precisa vir de outra parte da proposta.');
+  }
+  if (world.day > record.dueDay) fail('a proposta venceu antes da aceitação.');
+  return commitmentTransition(world, entry, { status: 'accepted', type: 'social_commitment_accepted',
+    outcome: { acceptedBy: accepter }, details: { acceptedBy: accepter, acceptedDay: world.day } });
+}
+
+export function rejectSocialCommitment(world, actorId, commitmentId) {
+  const entry = commitmentEntry(world, commitmentId);
+  if (!entry) fail('o compromisso não existe.');
+  const record = entry.record, actor = idKey(actorId, 'actorId');
+  if (record.status !== 'proposed') fail('somente uma proposta aberta pode ser recusada.');
+  if (!record.parties.includes(actor) || actor === (record.proposedBy || record.parties[0])) {
+    fail('a recusa precisa vir de outra parte da proposta.');
+  }
+  return commitmentTransition(world, entry, { status: 'rejected', type: 'social_commitment_rejected',
+    outcome: { rejectedBy: actor }, details: { resolvedDay: world.day, resolvedBy: actor } });
+}
+
+export function cancelSocialCommitment(world, actorId, commitmentId) {
+  const entry = commitmentEntry(world, commitmentId);
+  if (!entry) fail('o compromisso não existe.');
+  const record = entry.record, actor = idKey(actorId, 'actorId');
+  if (!['proposed', 'accepted'].includes(record.status)) fail('o compromisso já foi resolvido.');
+  if (!record.parties.includes(actor)) fail('somente uma parte pode cancelar o compromisso.');
+  return commitmentTransition(world, entry, { status: 'cancelled', type: 'social_commitment_cancelled',
+    outcome: { cancelledBy: actor, deliveredQuantity: record.deliveredQuantity || 0 },
+    details: { resolvedDay: world.day, resolvedBy: actor } });
+}
+
+export function fulfillSocialCommitment(world, commitmentId, evidenceEventId) {
+  const entry = commitmentEntry(world, commitmentId);
+  if (!entry) fail('o compromisso não existe.');
+  const record = entry.record, sourceEventId = idKey(evidenceEventId, 'evidenceEventId');
+  if (record.deliveryEventIds?.includes(sourceEventId)) return record;
+  if (record.status !== 'accepted') fail('uma entrega só pode cumprir um compromisso aceito.');
+  if (world.day > record.dueDay) fail('a entrega ocorreu depois do prazo.');
+  const evidence = ensureEvidence(world);
+  const source = evidence.facts.find(fact => fact.eventId === sourceEventId);
+  if (!source || record.parties.some(partyId => !source.participantIds.includes(partyId))) {
+    fail('a entrega precisa de um fato conhecido que envolva todas as partes.');
+  }
+  if (record.parties.some(partyId => !(personById(world, partyId)?.socialMemories || [])
+      .some(memory => memory.rootEventId === sourceEventId))) {
+    fail('todas as partes precisam conhecer a evidência da entrega.');
+  }
+  const result = source.outcome?.result;
+  const amount = source.outcome?.amount;
+  if (record.object === 'food') {
+    if (source.type !== 'food_aid_request_resolved' || source.outcome?.commitmentId !== record.commitmentId
+        || source.outcome?.resource !== 'food'
+        || result !== 'accepted' || !Number.isFinite(amount) || amount <= 0) {
+      fail('alimento só pode ser entregue por uma transferência real registrada.');
+    }
+  } else if (source.outcome?.commitmentId !== record.commitmentId
+      || !['completed', 'delivered', 'fulfilled'].includes(result)
+      || record.quantity > 0 && (!Number.isFinite(amount) || amount <= 0)) {
+    fail('a evidência de entrega não corresponde ao objeto e ao compromisso.');
+  }
+  const deliveredAmount = Number.isFinite(amount) ? amount : 0;
+  if (record.quantity > 0 && deliveredAmount <= 0) fail('a entrega precisa registrar quantidade positiva.');
+  const deliveredQuantity = Number(((record.deliveredQuantity || 0) + deliveredAmount).toFixed(4));
+  const deliveryEventIds = [...(record.deliveryEventIds || []), sourceEventId];
+  const complete = deliveredQuantity + 1e-9 >= record.quantity;
+  return commitmentTransition(world, entry, { status: complete ? 'fulfilled' : 'accepted',
+    type: complete ? 'social_commitment_fulfilled' : 'social_commitment_delivery',
+    outcome: { evidenceEventId: sourceEventId, deliveredAmount, deliveredQuantity },
+    details: { deliveredQuantity, deliveryEventIds,
+      ...(complete ? { resolvedDay: world.day, resolutionEventId: sourceEventId } : {}) } });
+}
+
+export function advanceSocialCommitmentDeadlines(world) {
+  if (!world?.socialEvidence?.commitments?.length) return 0;
+  const evidence = ensureEvidence(world);
+  let resolved = 0;
+  for (const entry of evidence.commitments.slice()) {
+    const record = entry.record;
+    if (!record || world.day <= record.dueDay) continue;
+    if (record.status === 'proposed') {
+      commitmentTransition(world, entry, { status: 'expired', type: 'social_commitment_expired',
+        outcome: { deliveredQuantity: 0 }, details: { resolvedDay: world.day } });
+      resolved++;
+    } else if (record.status === 'accepted') {
+      commitmentTransition(world, entry, { status: 'breached', type: 'social_commitment_breached',
+        outcome: { deliveredQuantity: record.deliveredQuantity || 0,
+          remainingQuantity: Math.max(0, record.quantity - (record.deliveredQuantity || 0)) },
+        details: { resolvedDay: world.day } });
+      resolved++;
+    }
+  }
+  return resolved;
 }
 
 export function defineSocialIntention(world, ownerId, input = {}) {
@@ -468,6 +608,13 @@ export function defineSocialIntention(world, ownerId, input = {}) {
   const priority = unitInterval(input.priority ?? 0, 'priority');
   const targetId = input.targetId == null ? null : idKey(input.targetId, 'targetId');
   if (targetId !== null && !entityExists(world, targetId)) fail('targetId da intenção não existe.');
+  const commitmentId = input.commitmentId == null ? null : idKey(input.commitmentId, 'commitmentId');
+  const linkedCommitment = commitmentId == null ? null : getSocialCommitment(world, commitmentId);
+  if (commitmentId != null && (!linkedCommitment || !linkedCommitment.parties.includes(String(person.id)))) {
+    fail('commitmentId precisa apontar para um compromisso de que a pessoa seja parte.');
+  }
+  const dueDay = input.dueDay ?? world.day + 30;
+  if (!Number.isSafeInteger(dueDay) || dueDay < world.day) fail('dueDay da intenção não pode anteceder a criação.');
   if (!Array.isArray(input.steps) || input.steps.some(step => !step || typeof step.action !== 'string' || !step.action.trim())) {
     fail('steps deve listar ações não vazias.');
   }
@@ -479,32 +626,189 @@ export function defineSocialIntention(world, ownerId, input = {}) {
   const progress = input.progress ?? 0;
   if (!Number.isSafeInteger(progress) || progress < 0 || progress > steps.length) fail('progress deve apontar para um passo válido.');
   const blockers = input.blockers ?? [];
-  if (!Array.isArray(blockers) || blockers.some(item => typeof item !== 'string')) fail('blockers deve conter apenas textos.');
+  if (!Array.isArray(blockers) || blockers.some(item => typeof item !== 'string' || !item.trim())) {
+    fail('blockers deve conter apenas textos não vazios.');
+  }
   const evidenceIds = localEvidenceIds(person, input.evidenceIds || []);
   const endsWhen = typeof input.endsWhen === 'string' ? input.endsWhen.trim() : '';
   if (!endsWhen) fail('endsWhen deve explicar a condição de encerramento.');
   person.socialIntentions ||= [];
-  if (person.socialIntentions.filter(item => item.status === 'active').length >= SOCIAL_ACTIVE_INTENTION_PER_PERSON_LIMIT) {
+  if (person.socialIntentions.filter(item => !TERMINAL_INTENTION_STATUSES.has(item.status)).length >= SOCIAL_ACTIVE_INTENTION_PER_PERSON_LIMIT) {
     fail('a pessoa atingiu o limite de intenções ativas.');
   }
   const intention = freezeRecursively({
     schemaVersion: SOCIAL_RECORD_SCHEMA_VERSIONS.intention,
     worldSeed: world.seed,
     worldEpoch: evidence.worldEpoch,
+    dueDay,
+    createdDay: world.day,
+    updatedDay: world.day,
     intentionId: String(world.seed) + ':epoch:' + evidence.worldEpoch + ':intention:' + evidence.nextIntentionNumber++,
     ownerId: String(person.id),
     type,
     priority,
     targetId,
+    commitmentId,
     steps,
     progress,
-    blockers: blockers.slice(),
+    blockers: blockers.map(item => item.trim()),
     evidenceIds,
     endsWhen,
-    status: 'active'
+    status: blockers.length ? 'suspended' : 'active', transitionEventIds: []
   });
   person.socialIntentions.push(intention);
   return intention;
+}
+
+export function advanceSocialIntention(world, ownerId, intentionId, update = {}) {
+  const evidence = ensureEvidence(world);
+  const person = personById(world, ownerId);
+  if (!person) fail('a pessoa dona da intenção não existe.');
+  const index = (person.socialIntentions || []).findIndex(item => item.intentionId === String(intentionId));
+  if (index < 0) fail('a intenção não pertence à pessoa informada.');
+  const current = person.socialIntentions[index];
+  if (TERMINAL_INTENTION_STATUSES.has(current.status)) fail('uma intenção encerrada não pode avançar.');
+  const progress = update.progress ?? current.progress;
+  if (!Number.isSafeInteger(progress) || progress < current.progress || progress > current.steps.length) {
+    fail('progress deve avançar monotonicamente até o último passo.');
+  }
+  let blockers = update.blockers === undefined ? current.blockers.slice() : update.blockers;
+  if (!Array.isArray(blockers) || blockers.some(item => typeof item !== 'string' || !item.trim())) {
+    fail('blockers deve conter textos não vazios.');
+  }
+  blockers = blockers.map(item => item.trim());
+  const status = update.status ?? current.status;
+  if (!['active', 'suspended', 'completed', 'abandoned'].includes(status)) fail('status da intenção inválido.');
+  if (status === 'active' && update.status === 'active' && update.blockers === undefined) blockers = [];
+  if (status === 'suspended' && !blockers.length) fail('uma intenção suspensa precisa registrar o impedimento.');
+  if (status === 'active' && blockers.length) fail('uma intenção ativa não pode manter impedimentos não resolvidos.');
+  if (status === 'completed' && progress !== current.steps.length) fail('a intenção só termina após o último passo.');
+  const commitmentId = update.commitmentId === undefined ? current.commitmentId : update.commitmentId == null
+    ? null : idKey(update.commitmentId, 'commitmentId');
+  if (commitmentId !== null) {
+    const linkedCommitment = getSocialCommitment(world, commitmentId);
+    if (!linkedCommitment || !linkedCommitment.parties.includes(String(person.id))) {
+      fail('commitmentId precisa apontar para um compromisso de que a pessoa seja parte.');
+    }
+  }
+  if (['completed', 'abandoned'].includes(status) && !(update.terminationReason ?? current.terminationReason)) {
+    fail('uma intenção encerrada precisa registrar sua condição de término.');
+  }
+  const newEvidence = localEvidenceIds(person, update.evidenceIds || []);
+  const evidenceIds = [...new Set([...(current.evidenceIds || []), ...newEvidence])];
+  const terminationReason = update.terminationReason == null ? current.terminationReason : String(update.terminationReason).trim();
+  const changed = progress !== current.progress || status !== current.status
+    || JSON.stringify(blockers) !== JSON.stringify(current.blockers)
+    || JSON.stringify(evidenceIds) !== JSON.stringify(current.evidenceIds || [])
+    || terminationReason !== current.terminationReason;
+  if (!changed) return current;
+  const type = ['completed', 'abandoned'].includes(status) ? 'social_intention_resolved' : 'social_intention_progressed';
+  const keyState = JSON.stringify({ progress, status, blockers, evidenceIds, terminationReason });
+  const fact = recordSocialFact(world, {
+    idempotencyKey: 'social-intention:' + current.intentionId + ':' + world.day + ':' + keyState,
+    type, participantIds: [person.id], witnessIds: person.alive ? [person.id] : [],
+    outcome: { intentionId: current.intentionId, type: current.type, progress, status, blockers,
+      terminationReason: terminationReason ?? null }
+  });
+  if (person.alive) rememberSocialFact(world, person.id, fact.eventId, { source: 'direct' });
+  const next = freezeRecursively({ ...current, schemaVersion: SOCIAL_RECORD_SCHEMA_VERSIONS.intention,
+    progress, blockers, evidenceIds, status, updatedDay: world.day, terminationReason,
+    commitmentId,
+    transitionEventIds: [...new Set([...(current.transitionEventIds || []), fact.eventId])] });
+  person.socialIntentions[index] = next;
+  return next;
+}
+
+function physicalIntentionBlockers(person, currentDay) {
+  const blockers = [];
+  if (Number.isFinite(person?.foodReserve) && person.foodReserve <= 8) blockers.push('critical_hunger');
+  if (Number.isFinite(person?.hydration) && person.hydration <= 9) blockers.push('critical_thirst');
+  if (Number.isFinite(person?.health) && person.health <= 18) blockers.push('critical_health');
+  if (Number.isFinite(person?.energy) && person.energy <= 8) blockers.push('critical_energy');
+  if (Number.isFinite(person?.lastAttackedDay) && currentDay - person.lastAttackedDay <= 1) blockers.push('recent_attack');
+  return blockers;
+}
+
+export function maintainSocialIntentions(world, person) {
+  if (!person || !Array.isArray(person.socialIntentions)) return 0;
+  let changes = 0;
+  for (const current of person.socialIntentions.slice()) {
+    if (TERMINAL_INTENTION_STATUSES.has(current.status)) continue;
+    const dueDay = Number.isSafeInteger(current.dueDay) ? current.dueDay : world.day + 30;
+    if (world.day > dueDay) {
+      advanceSocialIntention(world, person.id, current.intentionId, { status: 'abandoned',
+        blockers: ['deadline_expired'], terminationReason: 'deadline_expired' });
+      changes++;
+      continue;
+    }
+    if (!person.alive) {
+      advanceSocialIntention(world, person.id, current.intentionId, { status: 'abandoned',
+        blockers: ['owner_dead'], terminationReason: 'owner_dead' });
+      changes++;
+      continue;
+    }
+    if (current.type === 'seek_food_aid' && current.targetId != null) {
+      const target = personById(world, current.targetId);
+      if (!target?.alive) {
+        advanceSocialIntention(world, person.id, current.intentionId, { status: 'abandoned',
+          blockers: ['target_unavailable'], terminationReason: 'target_unavailable' });
+        changes++;
+        continue;
+      }
+      const sighting = (person.perception?.people || []).find(item => String(item.id) === String(target.id) && item.visible);
+      const canHelp = sighting?.visibleSignals?.foodSurplus === true;
+      if (!sighting || !canHelp) {
+        const blocker = sighting ? 'helper_without_visible_surplus' : 'target_not_visible';
+        if (current.status !== 'suspended' || !current.blockers.includes(blocker)) {
+          const physical = physicalIntentionBlockers(person, world.day);
+          advanceSocialIntention(world, person.id, current.intentionId, { status: 'suspended',
+            blockers: [...new Set([...(current.blockers || []).filter(value => !['target_not_visible', 'helper_without_visible_surplus', 'aid_temporarily_unavailable'].includes(value)), blocker, ...physical])] });
+          changes++;
+        }
+        continue;
+      }
+      if (current.status === 'suspended' && (current.blockers.includes('target_not_visible')
+          || current.blockers.includes('helper_without_visible_surplus')
+          || current.blockers.includes('aid_temporarily_unavailable'))) {
+        const blockers = current.blockers.filter(value => !['target_not_visible', 'helper_without_visible_surplus', 'aid_temporarily_unavailable'].includes(value));
+        const emergency = physicalIntentionBlockers(person, world.day);
+        if (emergency.length) {
+          advanceSocialIntention(world, person.id, current.intentionId, { status: 'suspended', blockers: [...new Set([...blockers, ...emergency])] });
+        } else if (!blockers.length) advanceSocialIntention(world, person.id, current.intentionId, { status: 'active', blockers: [] });
+        else advanceSocialIntention(world, person.id, current.intentionId, { status: 'suspended', blockers });
+        changes++;
+        continue;
+      }
+    }
+    const emergency = physicalIntentionBlockers(person, world.day);
+    if (emergency.length && current.status === 'active') {
+      advanceSocialIntention(world, person.id, current.intentionId, { status: 'suspended',
+        blockers: [...new Set([...(current.blockers || []), ...emergency])] });
+      changes++;
+    } else if (!emergency.length && current.status === 'suspended') {
+      const remaining = (current.blockers || []).filter(blocker => !PHYSICAL_INTENTION_BLOCKERS.has(blocker));
+      if (!remaining.length) {
+        advanceSocialIntention(world, person.id, current.intentionId, { status: 'active', blockers: [] });
+        changes++;
+      } else if (remaining.length !== current.blockers.length) {
+        advanceSocialIntention(world, person.id, current.intentionId, { status: 'suspended', blockers: remaining });
+        changes++;
+      }
+    }
+  }
+  return changes;
+}
+
+export function abandonSocialIntentionsForPerson(world, person, reason = 'owner_dead') {
+  if (!person || !Array.isArray(person.socialIntentions)) return 0;
+  let abandoned = 0;
+  for (const current of person.socialIntentions.slice()) {
+    if (TERMINAL_INTENTION_STATUSES.has(current.status)) continue;
+    advanceSocialIntention(world, person.id, current.intentionId, { status: 'abandoned',
+      blockers: [reason], terminationReason: reason });
+    abandoned++;
+  }
+  return abandoned;
 }
 
 export function pruneSocialEvidence(world, currentDay = world.day, preserveEventIds = []) {
@@ -526,12 +830,12 @@ export function pruneSocialEvidence(world, currentDay = world.day, preserveEvent
     }
     for (const relation of person.socialRelations || []) protect(person, relation.evidenceIds || []);
     for (const intention of person.socialIntentions || []) {
-      if (intention.status === 'active') protect(person, intention.evidenceIds || []);
+      if (!TERMINAL_INTENTION_STATUSES.has(intention.status)) protect(person, intention.evidenceIds || []);
     }
   }
   for (const item of evidence.commitments || []) {
     const commitment = item.record;
-    if (!commitment || ['fulfilled', 'rejected', 'cancelled'].includes(commitment.status)) continue;
+    if (!commitment || TERMINAL_COMMITMENT_STATUSES.has(commitment.status)) continue;
     for (const partyId of commitment.parties || []) {
       const party = personById(world, partyId);
       protect(party, commitment.evidenceEventIds || []);

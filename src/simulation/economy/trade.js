@@ -10,7 +10,13 @@ import { log } from '../core/events.js';
 import { moveOne } from '../individuals/movement.js';
 import { recordTrade } from './trade-ledger.js';
 import { consumePersonEnergy } from '../individuals/energy.js';
-import { recordSocialBeliefEvidence, recordSocialFact, rememberSocialFact, updateDirectedSocialRelationship } from '../society/social-evidence.js';
+import {
+  SOCIAL_ACTIVE_INTENTION_PER_PERSON_LIMIT, SOCIAL_OPEN_COMMITMENT_PER_PERSON_LIMIT,
+  acceptSocialCommitment, advanceSocialIntention,
+  cancelSocialCommitment, defineSocialIntention, fulfillSocialCommitment, getSocialCommitment,
+  proposeSocialCommitment, recordSocialBeliefEvidence, recordSocialFact, rejectSocialCommitment,
+  rememberSocialFact, updateDirectedSocialRelationship
+} from '../society/social-evidence.js';
 
 const RESOURCE_LABELS = Object.freeze({
   food: ['unidade de alimento', 'unidades de alimento'],
@@ -162,6 +168,55 @@ export function performShare(w, person, community, target) {
   return false;
 }
 
+export function ensureFoodAidPlan(w, requester, helper, options = {}) {
+  if (!requester?.alive || !helper?.alive || requester.id === helper.id) return null;
+  requester.socialIntentions ||= [];
+  const parties = [String(requester.id), String(helper.id)];
+  const openEntry = (w.socialEvidence?.commitments || []).find(item => {
+    const record = item.record;
+    return record?.object === 'food' && record.proposedBy === String(requester.id)
+      && ['proposed', 'accepted'].includes(record.status) && record.dueDay >= w.day
+      && record.parties.length === 2 && parties.every(id => record.parties.includes(id));
+  });
+  let commitment = openEntry?.record || null;
+  if (!commitment) {
+    const openCount = (w.socialEvidence?.commitments || []).filter(item => {
+      const record = item.record;
+      return !['fulfilled', 'breached', 'rejected', 'cancelled', 'expired'].includes(record?.status)
+        && record?.parties?.includes(String(requester.id));
+    }).length;
+    if (openCount >= SOCIAL_OPEN_COMMITMENT_PER_PERSON_LIMIT) return null;
+    commitment = proposeSocialCommitment(w, {
+      idempotencyKey: 'food-aid-commitment:' + w.seed + ':' + (w.simulationEpoch ?? 0) + ':'
+        + requester.id + ':' + helper.id + ':' + w.day,
+      proposedBy: requester.id,
+      parties,
+      object: 'food',
+      quantity: 2.5,
+      dueDay: w.day + 3,
+      evidenceEventIds: options.evidenceEventId ? [options.evidenceEventId] : []
+    });
+  }
+  const existingAidPlan = requester.socialIntentions.find(item => item.type === 'seek_food_aid'
+    && ['active', 'suspended'].includes(item.status));
+  let intention = existingAidPlan?.commitmentId === commitment.commitmentId
+    && String(existingAidPlan.targetId) === String(helper.id) ? existingAidPlan : null;
+  if (!existingAidPlan && requester.socialIntentions.filter(item => ['active', 'suspended'].includes(item.status)).length
+      < SOCIAL_ACTIVE_INTENTION_PER_PERSON_LIMIT) {
+    intention = defineSocialIntention(w, requester.id, {
+      type: 'seek_food_aid', priority: .7, targetId: helper.id, commitmentId: commitment.commitmentId,
+      dueDay: commitment.dueDay,
+      steps: [
+        { action: 'approach_helper', targetId: helper.id },
+        { action: 'request_food', targetId: helper.id },
+        { action: 'receive_food', targetId: helper.id }
+      ],
+      endsWhen: 'aid_delivered_or_deadline'
+    });
+  }
+  return { commitment, intention };
+}
+
 export function resolveFoodAidRequest(w, requester, helper, participantsToday = new Set()) {
   if (!requester?.alive || !helper?.alive || requester.id === helper.id) return { requested: false, reason: 'invalid-participants' };
   if (requester.foodReserve >= 40) return { requested: false, reason: 'requester-not-hungry' };
@@ -191,20 +246,36 @@ export function resolveFoodAidRequest(w, requester, helper, participantsToday = 
   participantsToday.add(requester.id);
   participantsToday.add(helper.id);
 
+  const plan = ensureFoodAidPlan(w, requester, helper, { evidenceEventId: request.eventId });
+  const commitment = plan?.commitment || null;
+  let intention = plan?.intention || null;
+
   const community = (w.communities || []).find(item => !item.dissolved && item.id === helper.communityId
     && requester.communityId === item.id && item.memberIds.includes(requester.id) && item.memberIds.includes(helper.id));
+  const canUseCommunityFood = !!(community && distance(helper, community) <= 7 && distance(requester, community) <= 7
+    && communityFoodStock(community) > 1);
+  const canUsePersonalFood = helper.foodReserve > 82 && requester.foodReserve < 40;
+  if (commitment?.status === 'proposed') {
+    if (canUseCommunityFood || canUsePersonalFood) acceptSocialCommitment(w, helper.id, commitment.commitmentId);
+    else rejectSocialCommitment(w, helper.id, commitment.commitmentId);
+  }
   let method = null;
   let moved = 0;
-  if (community && distance(helper, community) <= 7 && distance(requester, community) <= 7 && communityFoodStock(community) > 1) {
+  if ((canUseCommunityFood || canUsePersonalFood)
+      && (!commitment || getSocialCommitment(w, commitment.commitmentId)?.status === 'accepted') && canUseCommunityFood) {
     const before = requester.foodReserve;
     const units = transferCommunityFood(w, community, requester, 4.2);
     moved = requester.foodReserve - before;
     if (units > .02 && moved > .01) method = 'community';
   }
-  if (!method && helper.foodReserve > 82 && requester.foodReserve < 40) {
+  if (!method && canUsePersonalFood
+      && (!commitment || getSocialCommitment(w, commitment.commitmentId)?.status === 'accepted')) {
     const amount = Math.min(5, (helper.foodReserve - 70) / 2, 76 - requester.foodReserve);
     const transferred = amount > .5 ? transferFoodReserve(helper, requester, amount * .5, 'requested-help') : 0;
     if (transferred > .01) { method = 'voluntary'; moved = transferred; }
+  }
+  if (!method && commitment && getSocialCommitment(w, commitment.commitmentId)?.status === 'accepted') {
+    cancelSocialCommitment(w, helper.id, commitment.commitmentId);
   }
   if (method) {
     recordFoodAidExperience(w, helper, requester, moved, method);
@@ -214,8 +285,8 @@ export function resolveFoodAidRequest(w, requester, helper, participantsToday = 
     idempotencyKey: 'food-aid-response:' + w.day + ':' + requester.id + ':' + helper.id,
     type: 'food_aid_request_resolved', participantIds: [requester.id, helper.id], witnessIds: [requester.id, helper.id],
     targetId: requester.id, location: { x: requester.x, y: requester.y },
-    outcome: method ? { resource: 'food', result: 'accepted', amount: moved, method }
-      : { resource: 'food', result: 'refused', reason: 'no-transferable-surplus' }
+    outcome: method ? { resource: 'food', result: 'accepted', amount: moved, method, commitmentId: commitment?.commitmentId ?? null }
+      : { resource: 'food', result: 'refused', reason: 'no-transferable-surplus', commitmentId: commitment?.commitmentId ?? null }
   });
   rememberSocialFact(w, requester.id, response.eventId, { source: 'direct', deferPrune: !method });
   rememberSocialFact(w, helper.id, response.eventId, { source: 'direct' });
@@ -223,11 +294,38 @@ export function resolveFoodAidRequest(w, requester, helper, participantsToday = 
     updateDirectedSocialRelationship(w, requester.id, helper.id, { eventId: response.eventId, trustDelta: -.03 });
     recordSocialBeliefEvidence(w, requester.id, { topic: 'food_aid_reliability', aboutId: helper.id, eventId: response.eventId, polarity: -1 });
   }
+  if (method && commitment && getSocialCommitment(w, commitment.commitmentId)?.status === 'accepted') {
+    fulfillSocialCommitment(w, commitment.commitmentId, response.eventId);
+  }
+  if (intention) {
+    const resolvedCommitment = commitment ? getSocialCommitment(w, commitment.commitmentId) : null;
+    if (method && resolvedCommitment?.status === 'fulfilled') {
+      intention = advanceSocialIntention(w, requester.id, intention.intentionId, {
+        progress: intention.steps.length, status: 'completed', blockers: [], terminationReason: 'aid_delivered',
+        evidenceIds: [response.eventId]
+      });
+    } else if (method) {
+      intention = advanceSocialIntention(w, requester.id, intention.intentionId, {
+        progress: Math.min(2, intention.steps.length), status: 'active', blockers: [], evidenceIds: [response.eventId]
+      });
+    } else if (resolvedCommitment?.status === 'rejected' || resolvedCommitment?.status === 'cancelled') {
+      intention = advanceSocialIntention(w, requester.id, intention.intentionId, {
+        progress: Math.min(2, intention.steps.length), status: 'abandoned', blockers: ['aid_refused'],
+        terminationReason: 'aid_refused', evidenceIds: [response.eventId]
+      });
+    } else {
+      intention = advanceSocialIntention(w, requester.id, intention.intentionId, {
+        progress: Math.min(2, intention.steps.length), status: 'suspended',
+        blockers: ['aid_temporarily_unavailable'], evidenceIds: [response.eventId]
+      });
+    }
+  }
   requester.state = method ? 'pedido de alimento aceito' : 'pedido de alimento recusado';
   requester.lastLesson = method
     ? 'O pedido foi aceito e a transferência real aumentou sua reserva alimentar.'
     : 'O pedido foi recusado; não houve débito nem crédito de alimento.';
-  return { requested: true, accepted: !!method, amount: moved, method, request, response };
+  return { requested: true, accepted: !!method, amount: moved, method, request, response,
+    commitment: commitment ? getSocialCommitment(w, commitment.commitmentId) : null, intention };
 }
 
 export function performTrade(w, person, community, partner) {

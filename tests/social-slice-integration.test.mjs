@@ -94,7 +94,8 @@ test('a deterministic production replay carries social outcomes into the live in
   assert.match(inspectorText(people[7], world), /resposta ao pedido de ajuda.*pedido recusado.*pedido de alimento/);
 
   assert.deepEqual(world.socialEvidence.facts.map(fact => fact.type), [
-    'social_meeting', 'water_source_indicated', 'food_aid_requested', 'food_aid_transferred',
-    'food_aid_request_resolved', 'food_aid_requested', 'food_aid_request_resolved'
+    'social_meeting', 'water_source_indicated', 'food_aid_requested', 'social_commitment_accepted',
+    'food_aid_transferred', 'food_aid_request_resolved', 'social_commitment_fulfilled', 'social_intention_resolved',
+    'food_aid_requested', 'social_commitment_rejected', 'food_aid_request_resolved', 'social_intention_resolved'
   ]);
 });

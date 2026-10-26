@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { performShare, resolveFoodAidRequest } from '../src/simulation/economy/trade.js';
+import { ensureFoodAidPlan, performShare, resolveFoodAidRequest } from '../src/simulation/economy/trade.js';
 import perception from '../src/simulation/individuals/perception.js';
 import { updateCommunityStages } from '../src/simulation/society/communities.js';
+import { proposeSocialCommitment } from '../src/simulation/society/social-evidence.js';
 
 function person(id, foodReserve, x = 10) {
   return { id, name: 'Pessoa ' + id, alive: true, communityId: 1, x, y: 10,
@@ -133,8 +134,13 @@ test('a local food request is accepted once and records the amount actually tran
   assert.equal(helper.foodReserve, 87.5);
   assert.equal(requester.foodReserve, 22.5);
   assert.deepEqual(world.socialEvidence.facts.map(fact => fact.type), [
-    'food_aid_requested', 'food_aid_transferred', 'food_aid_request_resolved'
+    'food_aid_requested', 'social_commitment_accepted', 'food_aid_transferred',
+    'food_aid_request_resolved', 'social_commitment_fulfilled', 'social_intention_resolved'
   ]);
+  assert.equal(result.commitment.status, 'fulfilled');
+  assert.equal(result.commitment.deliveredQuantity, 2.5);
+  assert.equal(result.intention.status, 'completed');
+  assert.equal(result.intention.progress, 3);
   assert.equal(result.response.outcome.result, 'accepted');
   assert.equal(result.response.outcome.amount, 2.5);
   assert.equal(requester.socialRelations[0].trust, 0.12);
@@ -147,7 +153,47 @@ test('a local food request is accepted once and records the amount actually tran
   const repeated = resolveFoodAidRequest(world, requester, helper, new Set());
   assert.equal(repeated.reason, 'already-requested');
   assert.equal(requester.foodReserve, 22.5);
-  assert.equal(world.socialEvidence.facts.length, 3);
+  assert.equal(world.socialEvidence.facts.length, 6);
+});
+
+test('food-aid plan is persistent and idempotent before movement or transfer', () => {
+  const requester = person(21, 20, 11);
+  const helper = person(22, 90);
+  requester.perception = { people: [{ id: helper.id, visible: true, visibleSignals: { foodSurplus: true } }] };
+  const community = { id: 5, stores: { food: 4 }, memberIds: [requester.id, helper.id] };
+  requester.communityId = helper.communityId = community.id;
+  const world = { seed: 76, day: 12, people: [requester, helper], communities: [community], socialEvidence: undefined };
+  const plan = ensureFoodAidPlan(world, requester, helper);
+  const repeated = ensureFoodAidPlan(world, requester, helper);
+  assert.equal(plan.commitment.status, 'proposed');
+  assert.equal(plan.intention.status, 'active');
+  assert.equal(plan.intention.progress, 0);
+  assert.equal(plan.intention.steps[0].action, 'approach_helper');
+  assert.equal(repeated.commitment.commitmentId, plan.commitment.commitmentId);
+  assert.equal(repeated.intention.intentionId, plan.intention.intentionId);
+  assert.equal(community.stores.food, 4);
+
+  requester.role = 'soldier';
+  assert.equal(requester.socialIntentions[0].commitmentId, plan.commitment.commitmentId);
+  assert.equal(community.stores.food, 4);
+});
+
+test('commitment history cap does not block an otherwise valid food transfer', () => {
+  const helper = person(31, 90);
+  const requester = person(32, 20, 11);
+  requester.perception = { people: [{ id: helper.id, visible: true, visibleSignals: { foodSurplus: true } }] };
+  const world = { seed: 77, day: 12, people: [helper, requester], communities: [], structures: [], animals: [], kingdoms: [] };
+  for (let index = 0; index < 8; index++) proposeSocialCommitment(world, {
+    idempotencyKey: 'unrelated-open-' + index, proposedBy: requester.id,
+    parties: [requester.id, helper.id], object: 'service_' + index, quantity: 1, dueDay: 15
+  });
+
+  const result = resolveFoodAidRequest(world, requester, helper, new Set());
+
+  assert.equal(result.accepted, true);
+  assert.equal(result.commitment, null);
+  assert.equal(helper.foodReserve, 87.5);
+  assert.equal(requester.foodReserve, 22.5);
 });
 
 test('a requested transfer can be refused after the helper loses the visible surplus', () => {
@@ -168,7 +214,11 @@ test('a requested transfer can be refused after the helper loses the visible sur
   assert.equal(result.accepted, false);
   assert.equal(result.response.outcome.result, 'refused');
   assert.deepEqual([helper.foodReserve, requester.foodReserve], initialReserves);
-  assert.deepEqual(world.socialEvidence.facts.map(fact => fact.type), ['food_aid_requested', 'food_aid_request_resolved']);
+  assert.deepEqual(world.socialEvidence.facts.map(fact => fact.type), [
+    'food_aid_requested', 'social_commitment_rejected', 'food_aid_request_resolved', 'social_intention_resolved'
+  ]);
+  assert.equal(result.commitment.status, 'rejected');
+  assert.equal(result.intention.status, 'abandoned');
   assert.equal(requester.socialRelations[0].trust, 0.27);
   assert.equal(requester.socialRelations[0].familiarity, 0.2);
   assert.deepEqual(world.socialLinks['11:12'], sharedLink);

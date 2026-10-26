@@ -10,6 +10,7 @@ import { addFoodReserve, communityFoodStock, consumeFoodReserve, transferFoodRes
 import { assignHome } from '../kingdoms/initialization.js';
 import { moveOne } from './movement.js';
 import { consumePersonEnergy } from './energy.js';
+import { abandonSocialIntentionsForPerson } from '../society/social-evidence.js';
 
 function availablePersonSpawn(w, x, y) {
   const origin = cellAt(w, Math.round(x), Math.round(y));
@@ -120,6 +121,7 @@ export function killPerson(w, person, cause) {
     person.deathKingdomId = person.kingdomId;
     person.deathDay = w.day + 1;
     person.deathCause = cause;
+    abandonSocialIntentionsForPerson(w, person, 'owner_dead');
     const recentHealth = summarizeRecentHealth(person, person.deathDay);
     person.deathDetails = {
       day: person.deathDay,
