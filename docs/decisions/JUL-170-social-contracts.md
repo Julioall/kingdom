@@ -3,7 +3,7 @@
 Data: 26/10/2026
 Issue: [JUL-170](https://linear.app/julio-alves/issue/JUL-170)
 Baseline pré-contrato: `22253bfcda0f278c2bd16d87827a270c63e56ff1`
-Implementação S0: pendente do commit desta fatia
+Implementação S0: contrato local em revisão nesta branch
 
 ## Pergunta e diagnóstico
 
@@ -24,7 +24,7 @@ Como separar o que aconteceu no mundo do que cada morador viu ou ouviu sem trans
 | Guardar fatos e opiniões no vínculo simétrico | Pouco estado novo | Confunde familiaridade, confiança, crença e experiência de cada pessoa | Rejeitada |
 | Fatos estruturados do mundo e memórias explícitas por pessoa | Procedência verificável, transmissão local e deduplicação | Ainda não altera ações; S1 deverá acrescentar crenças/revisão | Escolhida para S0 |
 
-O contrato está em `src/simulation/society/social-evidence.js`. Os fatos ficam no estado do mundo; uma pessoa recebe memória somente ao ser listada como testemunha, ou quando uma fonte que já sabe o fato transmite o relato. IDs incluem seed e sequência determinística. Versões de esquema são explícitas. `idempotencyKey` torna repetição do mesmo registro inócua e rejeita a reutilização conflitante da chave. Os registros aceitam apenas referências conhecidas e dados JSON finitos.
+Os contratos versionados estão em `src/simulation/society/social-evidence.js`: fato social, memória, crença, relação dirigida, compromisso e intenção. Os fatos ficam no registro do mundo; uma pessoa recebe memória somente ao ser listada como testemunha, ou quando uma fonte que já sabe o fato transmite o relato. Crenças e relações só citam evidências presentes na memória do observador. Relações mantêm direção e campos distintos para familiaridade, confiança, afinidade e receio. IDs incluem seed, `simulationEpoch` do Worker e sequência determinística (época 0 em fixtures fora do Worker). Uma chave de idempotência é obrigatória para fato e proposta de compromisso; repetição igual retorna o mesmo registro e reutilização conflitante falha. Os registros aceitam apenas referências conhecidas e dados JSON finitos; fatos e memórias retornados não podem ser alterados pelo chamador.
 
 Retenção inicial, como limite operacional para a primeira versão: até 365 dias de fatos, até 64 memórias por pessoa e até 512 fatos no mundo. Ao podar, remover primeiro memórias fora da janela/limite, preservar fatos ainda referenciados e expirar memória referida quando o limite global exigir. A crônica visual permanece separada. A escrita de fatos não altera estoque, atributo, confiança ou ação.
 
@@ -45,4 +45,6 @@ Os tempos e heap são medições de processo e variam com GC e carga do host; us
 
 ## Validação desta fatia
 
-`node --test tests/social-evidence.test.mjs`: 5/5. Cobertura: isolamento fato/memória, registro direto por testemunha, transmissão somente a partir de fonte que conhece o fato, referência inexistente, deduplicação/idempotência, conflito de chave e limites de retenção. `scripts/audit-social-baseline.mjs` salva métricas, configuração, runtime, snapshots, hashes e repetição. S1 ainda precisa conectar os registros a eventos reais e demonstrar leitura/atualização de crenças sem vazamento global.
+`node --test tests/social-evidence.test.mjs`: 9/9. Cobertura: isolamento fato/memória, testemunha e fonte de relato, referências e idempotency key obrigatória, IDs isolados por época, deduplicação, imutabilidade, retenção, crenças baseadas em evidência local, relação dirigida sem mutar o outro lado, proposta de compromisso sem débito antecipado e intenção com passos/condição explícitos.
+
+O baseline foi repetido após a implementação com o mesmo comando e salvo em `docs/verification/JUL-170-social-contracts-30d-20261026.json`. Estado e crônica foram idênticos nas quatro seeds; população, vínculos e encontros também coincidiram exatamente. A repetição da seed 42 continuou determinística. Throughput observado: 4,35/3,89/5,11/5,06 dias/s, contra 4,22/3,86/5,10/5,25; p95: 465,69/483,75/433,95/385,48 ms, contra 472,55/489,09/451,71/374,31. A variação de medição é ruído do host; não houve custo de simulação observável. Esse teste confirma o contrato isolado e a ausência de regressão, não o uso dos registros em decisões. S1 ainda deverá conectar os registros a eventos reais e demonstrar leitura/atualização de crenças sem vazamento global.

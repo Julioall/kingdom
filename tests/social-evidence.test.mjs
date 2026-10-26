@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  pruneSocialEvidence, recordSocialFact, rememberSocialFact,
-  SOCIAL_FACT_LIMIT, SOCIAL_MEMORY_PER_PERSON_LIMIT
+  defineDirectedSocialRelationship, defineSocialBelief, defineSocialIntention,
+  pruneSocialEvidence, proposeSocialCommitment, recordSocialFact, rememberSocialFact,
+  SOCIAL_FACT_LIMIT, SOCIAL_MEMORY_PER_PERSON_LIMIT, SOCIAL_RECORD_SCHEMA_VERSIONS
 } from '../src/simulation/society/social-evidence.js';
 
 function fixture() {
@@ -34,6 +35,7 @@ test('world facts stay separate from participant memories until each witness obs
 
   assert.equal(fact.schemaVersion, 1);
   assert.equal(fact.worldSeed, 42);
+  assert.equal(fact.worldEpoch, 0);
   assert.equal(Object.isFrozen(fact), true);
   assert.equal(Object.isFrozen(fact.outcome), true);
   assert.equal(world.people[0].socialMemories, undefined);
@@ -77,10 +79,26 @@ test('fact writes and memories are idempotent; conflicting reuse of a key is rej
 
 test('unknown references and unobserved direct memories are rejected', () => {
   const world = fixture();
+  assert.throws(() => recordSocialFact(world, { type: 'aid_transferred' }), /idempotencyKey é obrigatório/);
   assert.throws(() => recordSocialFact(world, { type: 'aid_transferred', participantIds: [999] }), /ID inexistente/);
-  const fact = recordSocialFact(world, { type: 'aid_transferred', participantIds: [1], witnessIds: [1] });
+  const fact = recordSocialFact(world, { idempotencyKey: 'witnessed-aid', type: 'aid_transferred', participantIds: [1], witnessIds: [1] });
   assert.throws(() => rememberSocialFact(world, 2, fact.eventId), /não consta entre as testemunhas/);
   assert.throws(() => rememberSocialFact(world, 3, fact.eventId, { source: 'reported', sourcePersonId: 1 }), /ainda não conhece/);
+});
+
+test('social fact identities include the simulation epoch and cannot cross reset epochs', () => {
+  const firstWorld = fixture();
+  firstWorld.simulationEpoch = 3;
+  const first = aidFact(firstWorld, 'epoch-3');
+  const secondWorld = fixture();
+  secondWorld.simulationEpoch = 4;
+  const second = aidFact(secondWorld, 'epoch-4');
+
+  assert.equal(first.worldEpoch, 3);
+  assert.equal(second.worldEpoch, 4);
+  assert.notEqual(first.eventId, second.eventId);
+  firstWorld.simulationEpoch = 4;
+  assert.throws(() => recordSocialFact(firstWorld, { type: 'aid_transferred' }), /seed\/época do estado social não corresponde/);
 });
 
 test('retention bounds memories and facts while preserving references inside the window', () => {
@@ -105,4 +123,61 @@ test('retention bounds memories and facts while preserving references inside the
   const expired = pruneSocialEvidence(world);
   assert.equal(expired.retainedFacts, 0);
   assert.equal(expired.retainedMemories, 0);
+});
+
+test('beliefs cite only local memories and directed relations do not mutate the other person or shared links', () => {
+  const world = fixture();
+  const fact = aidFact(world);
+  rememberSocialFact(world, 1, fact.eventId, { source: 'direct' });
+  const belief = defineSocialBelief(world, 1, {
+    topic: 'kingdom_reliability', evaluation: -.4, certainty: .75,
+    supportingEventIds: [fact.eventId]
+  });
+  const relation = defineDirectedSocialRelationship(world, 1, 2, {
+    familiarity: .9, trust: .2, affinity: .5, fear: .1, evidenceIds: [fact.eventId]
+  });
+
+  assert.equal(belief.schemaVersion, SOCIAL_RECORD_SCHEMA_VERSIONS.belief);
+  assert.equal(relation.schemaVersion, SOCIAL_RECORD_SCHEMA_VERSIONS.relationship);
+  assert.equal(relation.observerId, '1');
+  assert.equal(relation.targetId, '2');
+  assert.equal(world.people[1].socialRelations, undefined);
+  assert.equal(world.socialLinks, undefined);
+  assert.throws(() => defineSocialBelief(world, 2, {
+    topic: 'kingdom_reliability', evaluation: .2, certainty: .4, supportingEventIds: [fact.eventId]
+  }), /não possui memória da evidência/);
+});
+
+test('commitment proposal is idempotent and reserves no resource before acceptance', () => {
+  const world = fixture();
+  world.communities[0].stores = { food: 3 };
+  const initialFood = world.communities[0].stores.food;
+  const input = {
+    idempotencyKey: 'ravi-aid-day-10', parties: [1, 2], object: 'food', quantity: 2, dueDay: 12,
+    resourceReferences: [{ kind: 'community', id: 4 }]
+  };
+  const first = proposeSocialCommitment(world, input);
+  const duplicate = proposeSocialCommitment(world, input);
+
+  assert.equal(first, duplicate);
+  assert.equal(first.schemaVersion, SOCIAL_RECORD_SCHEMA_VERSIONS.commitment);
+  assert.equal(first.status, 'proposed');
+  assert.equal(world.communities[0].stores.food, initialFood);
+  assert.throws(() => proposeSocialCommitment(world, { ...input, quantity: 5 }), /chave do compromisso foi reutilizada/);
+});
+
+test('individual intention stores explicit steps, target and termination condition with valid references', () => {
+  const world = fixture();
+  const intention = defineSocialIntention(world, 1, {
+    type: 'seek_food_aid', priority: .9, targetId: 2,
+    steps: [{ action: 'approach', targetId: 2 }, { action: 'ask_for_help' }],
+    progress: 1, blockers: ['food_low'], endsWhen: 'aid_received_or_deadline'
+  });
+
+  assert.equal(intention.schemaVersion, SOCIAL_RECORD_SCHEMA_VERSIONS.intention);
+  assert.equal(intention.status, 'active');
+  assert.equal(intention.steps.length, 2);
+  assert.throws(() => defineSocialIntention(world, 1, {
+    type: 'seek_food_aid', steps: [{ action: 'approach', targetId: 999 }], endsWhen: 'done'
+  }), /targetId de um passo não existe/);
 });
