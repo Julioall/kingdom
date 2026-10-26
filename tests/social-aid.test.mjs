@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { performShare } from '../src/simulation/economy/trade.js';
+import { performShare, resolveFoodAidRequest } from '../src/simulation/economy/trade.js';
 import perception from '../src/simulation/individuals/perception.js';
+import { updateCommunityStages } from '../src/simulation/society/communities.js';
 
 function person(id, foodReserve, x = 10) {
   return { id, name: 'Pessoa ' + id, alive: true, communityId: 1, x, y: 10,
@@ -35,6 +36,9 @@ test('community food sharing records one direct fact and a recipient belief only
   assert.equal(recipient.socialBeliefs[0].topic, 'food_aid_reliability');
   assert.equal(recipient.socialBeliefs[0].aboutId, '1');
   assert.equal(recipient.socialBeliefs[0].supportingEventIds.length, 1);
+  assert.equal(recipient.socialRelations[0].targetId, '1');
+  assert.equal(recipient.socialRelations[0].trust, 0.08);
+  assert.equal(recipient.socialRelations[0].familiarity, 0);
   assert.ok(community.stores.food < initialFood);
 
   const failedWorld = { ...world, day: 16, socialEvidence: undefined };
@@ -65,6 +69,8 @@ test('voluntary aid records the actual moved reserve amount in the social fact a
   assert.equal(world.socialEvidence.facts[0].outcome.amount, 2.5);
   assert.equal(world.socialLinks['1:2'].sharedFood, 2.5);
   assert.equal(recipient.foodReserve, 22.5);
+  assert.equal(recipient.socialRelations[0].trust, 0.12);
+  assert.equal(recipient.socialRelations[0].familiarity, 0);
 });
 
 test('food aid cannot target a hungrier member outside the giver’s current perception', () => {
@@ -87,7 +93,7 @@ test('food aid cannot target a hungrier member outside the giver’s current per
 
 test('food distress is a qualitative signal while a person is visible and is not kept in stale memory', () => {
   const observer = { id: 1, alive: true, x: 2, y: 2, headingX: 1, headingY: 0, foodReserve: 80 };
-  const target = { id: 2, alive: true, x: 4, y: 2, foodReserve: 20 };
+  const target = { id: 2, alive: true, x: 4, y: 2, foodReserve: 20, hydration: 54 };
   const world = {
     width: 24, height: 8, day: 1,
     tiles: Array.from({ length: 24 * 8 }, () => ({ regionId: 0, plants: [] })),
@@ -96,16 +102,77 @@ test('food distress is a qualitative signal while a person is visible and is not
 
   let seen = perception.observe(world, observer, 'person', []).people.find(item => item.id === target.id);
   assert.equal(seen.visible, true);
-  assert.deepEqual(seen.visibleSignals, { foodDistress: true });
+  assert.deepEqual(seen.visibleSignals, { foodDistress: true, foodSurplus: false, waterDistress: true, physicalEmergency: false });
 
   target.foodReserve = 80;
+  target.hydration = 70;
   world.day++;
   seen = perception.observe(world, observer, 'person', []).people.find(item => item.id === target.id);
-  assert.deepEqual(seen.visibleSignals, { foodDistress: false });
+  assert.deepEqual(seen.visibleSignals, { foodDistress: false, foodSurplus: false, waterDistress: false, physicalEmergency: false });
 
   target.x = 20;
   world.day++;
   seen = perception.observe(world, observer, 'person', []).people.find(item => item.id === target.id);
   assert.equal(seen.visible, false);
   assert.equal(seen.visibleSignals, undefined);
+});
+
+test('a local food request is accepted once and records the amount actually transferred', () => {
+  const helper = person(1, 90);
+  const requester = person(2, 20, 11);
+  requester.perception = { people: [{ id: helper.id, visible: true, visibleSignals: { foodSurplus: true } }] };
+  const sharedLink = { a: 1, b: 2, meetings: 4, trust: 0.4, sharedFood: 0 };
+  const community = { id: 1, name: 'Grupo', memberIds: [1, 2], x: 10, y: 10, stage: 'vínculo', history: [], splitCooldown: 0, stores: { food: 0, meat: 0 } };
+  const world = { seed: 44, day: 8, people: [helper, requester], communities: [community], socialLinks: { '1:2': sharedLink }, structures: [], animals: [], kingdoms: [] };
+  const participants = new Set();
+
+  const result = resolveFoodAidRequest(world, requester, helper, participants);
+
+  assert.equal(result.accepted, true);
+  assert.equal(result.amount, 2.5);
+  assert.equal(helper.foodReserve, 87.5);
+  assert.equal(requester.foodReserve, 22.5);
+  assert.deepEqual(world.socialEvidence.facts.map(fact => fact.type), [
+    'food_aid_requested', 'food_aid_transferred', 'food_aid_request_resolved'
+  ]);
+  assert.equal(result.response.outcome.result, 'accepted');
+  assert.equal(result.response.outcome.amount, 2.5);
+  assert.equal(requester.socialRelations[0].trust, 0.12);
+  assert.equal(requester.socialRelations[0].familiarity, 0);
+  assert.deepEqual(world.socialLinks['1:2'], sharedLink);
+  updateCommunityStages(world);
+  assert.equal(community.cohesion, 0.4);
+  assert.deepEqual([...participants], [requester.id, helper.id]);
+
+  const repeated = resolveFoodAidRequest(world, requester, helper, new Set());
+  assert.equal(repeated.reason, 'already-requested');
+  assert.equal(requester.foodReserve, 22.5);
+  assert.equal(world.socialEvidence.facts.length, 3);
+});
+
+test('a requested transfer can be refused after the helper loses the visible surplus', () => {
+  const helper = person(11, 90);
+  const requester = person(12, 20, 11);
+  requester.perception = { people: [{ id: helper.id, visible: true, visibleSignals: { foodSurplus: true } }] };
+  requester.socialRelations = [{ schemaVersion: 1, worldSeed: 45, worldEpoch: 0, observerId: '12', targetId: '11',
+    familiarity: 0.2, trust: 0.3, affinity: 0, fear: 0, evidenceIds: [], lastReviewedDay: 3 }];
+  helper.foodReserve = 70;
+  const sharedLink = { a: 11, b: 12, meetings: 4, trust: 0.4, sharedFood: 1 };
+  const community = { id: 1, name: 'Grupo', memberIds: [11, 12], x: 10, y: 10, stage: 'vínculo', history: [], splitCooldown: 0, stores: { food: 0, meat: 0 } };
+  helper.communityId = 1; requester.communityId = 1;
+  const world = { seed: 45, day: 4, people: [helper, requester], communities: [community], socialLinks: { '11:12': sharedLink }, structures: [], animals: [], kingdoms: [] };
+  const initialReserves = [helper.foodReserve, requester.foodReserve];
+
+  const result = resolveFoodAidRequest(world, requester, helper, new Set());
+
+  assert.equal(result.accepted, false);
+  assert.equal(result.response.outcome.result, 'refused');
+  assert.deepEqual([helper.foodReserve, requester.foodReserve], initialReserves);
+  assert.deepEqual(world.socialEvidence.facts.map(fact => fact.type), ['food_aid_requested', 'food_aid_request_resolved']);
+  assert.equal(requester.socialRelations[0].trust, 0.27);
+  assert.equal(requester.socialRelations[0].familiarity, 0.2);
+  assert.deepEqual(world.socialLinks['11:12'], sharedLink);
+  updateCommunityStages(world);
+  assert.equal(community.cohesion, 0.4);
+  assert.equal(requester.socialBeliefs[0].evaluation, -1);
 });

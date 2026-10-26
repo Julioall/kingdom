@@ -362,6 +362,47 @@ export function defineDirectedSocialRelationship(world, observerId, targetId, in
   return relationship;
 }
 
+/** Apply a once-per-event directional relationship change using evidence both people know. */
+export function updateDirectedSocialRelationship(world, observerId, targetId, input = {}) {
+  const evidence = ensureEvidence(world);
+  const observer = personById(world, observerId);
+  const target = personById(world, targetId);
+  if (!observer || !target || observer === target) fail('a relação dirigida requer duas pessoas distintas e existentes.');
+  const eventId = idKey(input.eventId, 'eventId');
+  const fact = evidence.facts.find(item => item.eventId === eventId);
+  if (!fact || !fact.participantIds.includes(String(observer.id)) || !fact.participantIds.includes(String(target.id))) {
+    fail('a evidência da relação precisa envolver as duas pessoas.');
+  }
+  if (!(observer.socialMemories || []).some(memory => memory.rootEventId === eventId)) {
+    fail('a pessoa ainda não conhece a evidência da relação.');
+  }
+  const relations = observer.socialRelations || (observer.socialRelations = []);
+  const index = relations.findIndex(item => item.targetId === String(target.id));
+  const previous = index >= 0 ? relations[index] : null;
+  if (previous?.evidenceIds.includes(eventId)) return previous;
+  if (!previous && relations.length >= SOCIAL_RELATIONSHIP_PER_PERSON_LIMIT) return null;
+  if (input.familiarityDelta !== undefined && (!Number.isFinite(input.familiarityDelta) || input.familiarityDelta < 0)) {
+    fail('familiarityDelta deve ser finito e não negativo.');
+  }
+  if (input.trustDelta !== undefined && !Number.isFinite(input.trustDelta)) fail('trustDelta deve ser finito.');
+  const relationship = freezeRecursively({
+    schemaVersion: SOCIAL_RECORD_SCHEMA_VERSIONS.relationship,
+    worldSeed: world.seed,
+    worldEpoch: evidence.worldEpoch,
+    observerId: String(observer.id),
+    targetId: String(target.id),
+    familiarity: unitInterval(Math.min(1, (previous?.familiarity || 0) + (input.familiarityDelta || 0)), 'familiarity'),
+    trust: unitInterval(Math.max(0, Math.min(1, (previous?.trust || 0) + (input.trustDelta || 0))), 'trust'),
+    affinity: previous?.affinity || 0,
+    fear: previous?.fear || 0,
+    evidenceIds: [...(previous?.evidenceIds || []), eventId],
+    lastReviewedDay: world.day
+  });
+  if (index < 0) relations.push(relationship);
+  else relations[index] = relationship;
+  return relationship;
+}
+
 export function proposeSocialCommitment(world, input = {}) {
   const evidence = ensureEvidence(world);
   const parties = uniqueKnownIds(world, input.parties || [], 'parties');

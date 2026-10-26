@@ -96,6 +96,12 @@ function summarize(world, seed) {
       lastActionByLivingPerson: Object.fromEntries(Object.entries(actionCounts).sort(([a], [b]) => a.localeCompare(b))),
       socialLinks: socialLinks.length,
       totalMeetings: socialLinks.reduce((sum, link) => sum + (link.meetings || 0), 0),
+      recordedSocialMeetings: (world.socialEvidence?.facts || []).filter(fact => fact.type === 'social_meeting').length,
+      recordedWaterIndications: (world.socialEvidence?.facts || []).filter(fact => fact.type === 'water_source_indicated').length,
+      recordedFoodAidTransfers: (world.socialEvidence?.facts || []).filter(fact => fact.type === 'food_aid_transferred').length,
+      recordedFoodAidRequests: (world.socialEvidence?.facts || []).filter(fact => fact.type === 'food_aid_requested').length,
+      acceptedFoodAidRequests: (world.socialEvidence?.facts || []).filter(fact => fact.type === 'food_aid_request_resolved' && fact.outcome.result === 'accepted').length,
+      refusedFoodAidRequests: (world.socialEvidence?.facts || []).filter(fact => fact.type === 'food_aid_request_resolved' && fact.outcome.result === 'refused').length,
       meanTrust: Number((socialLinks.length ? socialLinks.reduce((sum, link) => sum + (link.trust || 0), 0) / socialLinks.length : 0).toFixed(4))
     },
     production: {

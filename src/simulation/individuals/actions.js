@@ -16,7 +16,7 @@ import { eatPlants, isBushAnchor, plantBiomass } from '../ecology/plants.js';
 import { refreshHarvestSuitability } from '../world/queries.js';
 import { changePersonHealth, killPerson, reproducePeople, updateDependent } from './lifecycle.js';
 import Senses from './perception.js';
-import { findTradePartner, performShare, performTrade } from '../economy/trade.js';
+import { findTradePartner, performShare, performTrade, resolveFoodAidRequest } from '../economy/trade.js';
 import { choosePeopleAction, updateBrain } from '../../controllers/individual/neural.js';
 import { drinkWater } from '../ecology/hydrology.js';
 import { recordPersonalMemory } from './strategy.js';
@@ -31,6 +31,8 @@ import { createPersonSpatialIndex, peopleNear } from './spatial-index.js';
 import { invalidateNavigation } from './navigation-cache.js';
 import { clearMilitaryCommand } from '../kingdoms/military-identity.js';
 import { updateResidencyAbsence } from '../society/residency.js';
+import { resolveSocialMeeting } from '../society/social-meetings.js';
+import { indicateKnownWaterReference } from '../society/water-indication.js';
 import { consumePersonEnergy } from './energy.js';
 import { chooseMilitaryAction, learnMilitaryOutcome, militaryTrainingPairs, trainMilitaryPair } from '../kingdoms/military-learning.js';
 
@@ -812,6 +814,7 @@ export function resolveResourceConflict(w, a, b, tile, resourceKind, patchValue)
 function updatePeopleCore(w) {
     refreshHarvestSuitability(w);
     const living = w.people.filter(p => p.alive).sort((a, b) => a.id - b.id);
+    const socialMeetingParticipants = new Set();
     const trainingPairs = militaryTrainingPairs(w);
     const communityCounts = new Map();
     w.resourceClaims = new Map(); w.contestedResources = new Set();
@@ -904,12 +907,19 @@ function updatePeopleCore(w) {
       const borderRisk = territoryAwareness && territoryAwareness.inForeignTerritory ? .8
         : territoryAwareness && territoryAwareness.nearestForeignTerritory && territoryAwareness.nearestForeignTerritory.distance <= 2 ? .35 : 0;
       const risk = clamp(predatorRisk + p.conflictRisk + borderRisk, 0, 1);
-      const socialTarget = nearestPerson(w, p, 14);
+      const socialTarget = socialMeetingParticipants.has(p.id) ? null : nearestPerson(w, p, 14, socialMeetingParticipants);
       const foodAidTarget = (p.perception && p.perception.people || [])
-        .filter(sighting => sighting.visible && sighting.distance <= 14 && sighting.visibleSignals?.foodDistress === true)
+        .filter(sighting => sighting.visible && sighting.distance <= 14 && sighting.visibleSignals?.foodDistress === true
+          && !socialMeetingParticipants.has(sighting.id))
         .map(sighting => findPersonById(w, sighting.id))
         .filter(target => target && target.alive)
         .sort((a, b) => distance(p, a) - distance(p, b) || a.id - b.id)[0] || null;
+      const foodRequestTarget = p.foodReserve < 40
+        ? (p.perception?.people || []).filter(sighting => sighting.visible && sighting.distance <= 1.6
+          && sighting.visibleSignals?.foodSurplus === true && !socialMeetingParticipants.has(sighting.id))
+          .map(sighting => findPersonById(w, sighting.id)).filter(Boolean)
+          .sort((a, b) => distance(p, a) - distance(p, b))[0] || null
+        : null;
       const groupFood = communityFoodStock(community);
       const groupMaterial = community ? communityMaterialStock(community) : 0;
       const browseFood = bestSheepFeedCell(w, p, 8);
@@ -1233,10 +1243,28 @@ function updatePeopleCore(w) {
         else if (waterTarget) { moveOne(w, p, waterTarget, false); p.state = 'buscando água'; p.lastLesson = 'A aproximação da água custa energia e tempo.'; }
         else { p.state = 'sem água conhecida'; p.lastLesson = 'A água não foi localizada; continuar aqui mantém a desidratação.'; }
       } else if (action === 'socialize') {
-        if (socialTarget && distance(p, socialTarget) <= 2.1) {
-          p.socialNeed = Math.max(0, p.socialNeed - 17); consumePersonEnergy(p, .1);
-          p.state = 'conversando'; p.lastLesson = 'O encontro reduziu a necessidade social e pode fortalecer um vínculo.';
-        } else if (socialTarget) { moveOne(w, p, cellAt(w, socialTarget.x, socialTarget.y), false); p.state = 'procurando companhia'; }
+        const aidRequest = foodRequestTarget
+          ? resolveFoodAidRequest(w, p, foodRequestTarget, socialMeetingParticipants) : null;
+        const meeting = aidRequest?.requested ? null : socialTarget && distance(p, socialTarget) > 2.1
+          ? null : socialTarget && resolveSocialMeeting(w, p, socialTarget, socialMeetingParticipants);
+        if (aidRequest?.requested) {
+          // The request and its response are resolved atomically before another encounter can use either person.
+        } else if (meeting?.completed) {
+          const indication = indicateKnownWaterReference(w, p, socialTarget);
+          if (indication.transferred) {
+            p.state = 'indicando água conhecida';
+            p.lastLesson = 'A referência veio de uma fonte que você já conhecia; o relato conserva quem transmitiu e o lugar observado.';
+          }
+        } else if (socialTarget && !meeting && distance(p, socialTarget) > 2.1) {
+          moveOne(w, p, cellAt(w, socialTarget.x, socialTarget.y), false); p.state = 'procurando companhia';
+        } else {
+          p.state = 'encontro adiado';
+          p.lastLesson = meeting?.reason === 'physical-emergency'
+            ? 'A conversa foi suspensa porque uma pessoa precisa atender uma emergência física.'
+            : meeting?.reason === 'participant-busy'
+              ? 'A pessoa já participou de outro encontro neste dia.'
+              : 'O encontro exige uma pessoa viva e visível dentro do alcance.';
+        }
       } else if (action === 'rest') {
         const indoors = restPersonInHouse(w, p);
         const resting = indoors || p.militaryRestTargetId == null && p.homeRestTargetId == null;
@@ -1411,9 +1439,9 @@ export function updatePeople(w) {
       }
     }
   }
-export function nearestPerson(w, p, radius) {
+export function nearestPerson(w, p, radius, excludedIds = null) {
     const sightings = p.perception && p.perception.people || [];
-    return sightings.filter(s => s.visible && s.distance <= radius)
+    return sightings.filter(s => s.visible && s.distance <= radius && !excludedIds?.has(s.id))
       .map(s => findPersonById(w, s.id))
       .filter(Boolean).sort((a, b) => distance(p, a) - distance(p, b))[0] || null;
   }

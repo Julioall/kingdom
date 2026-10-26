@@ -1,5 +1,9 @@
 const SOCIAL_EVENT_LABELS = Object.freeze({
+  social_meeting: 'conversa presencial',
+  water_source_indicated: 'indicação de água',
   food_aid_transferred: 'partilha de alimento',
+  food_aid_requested: 'pedido de alimento',
+  food_aid_request_resolved: 'resposta ao pedido de ajuda',
   military_pay_delayed: 'soldo atrasado',
   military_pay_recovered: 'soldo em atraso pago'
 });
@@ -31,6 +35,15 @@ export function renderSocialInspectorSections(person, world) {
       ? ' · ' + formatNumber(fact.outcome.amount, 1) + ' pontos de alimento'
       : fact?.outcome?.resource === 'gold' && Number.isFinite(fact.outcome.amount)
         ? ' · ' + formatNumber(fact.outcome.amount, 1) + ' ouro' : '';
+    const meetingResult = fact?.type === 'social_meeting' && fact.outcome?.result === 'conversation_completed'
+      ? ' · resultado confirmado' : '';
+    const waterResult = fact?.type === 'water_source_indicated' && fact.outcome?.result === 'reference_received'
+      ? ' · referência de água recebida' : '';
+    const aidRequestResult = fact?.type === 'food_aid_request_resolved' && fact.outcome?.result === 'accepted'
+      ? ' · pedido aceito' : fact?.type === 'food_aid_request_resolved' && fact.outcome?.result === 'refused'
+        ? ' · pedido recusado' : '';
+    const meetingLocation = ['social_meeting', 'water_source_indicated'].includes(fact?.type) && fact.location
+      ? ' · posição (' + formatNumber(fact.location.x, 1) + ', ' + formatNumber(fact.location.y, 1) + ')' : '';
     const eventDay = Number.isSafeInteger(fact?.outcome?.paymentDay)
       ? fact.outcome.paymentDay : fact?.day ?? memory.eventDay;
     const dueDay = Number.isSafeInteger(fact?.outcome?.dueDay)
@@ -38,7 +51,7 @@ export function renderSocialInspectorSections(person, world) {
     const receivedDay = memory.source === 'reported' && memory.acquiredDay !== memory.eventDay
       ? ' · recebido no dia ' + memory.acquiredDay : '';
     return '<div class="note-card"><b>' + escapeHtml(provenance) + '</b><span>Dia ' + eventDay + ': '
-      + escapeHtml(eventLabel) + outcome + dueDay + receivedDay + '</span></div>';
+      + escapeHtml(eventLabel) + outcome + dueDay + receivedDay + meetingResult + waterResult + aidRequestResult + meetingLocation + '</span></div>';
   }).join('');
 
   const beliefRows = beliefs.map(belief => {
