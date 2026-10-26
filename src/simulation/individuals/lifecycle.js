@@ -12,6 +12,8 @@ import { moveOne } from './movement.js';
 import { consumePersonEnergy } from './energy.js';
 import { abandonSocialIntentionsForPerson } from '../society/social-evidence.js';
 
+const DEPENDENT_STARVATION_HEALTH_LOSS_PER_POINT = .035;
+
 function availablePersonSpawn(w, x, y) {
   const origin = cellAt(w, Math.round(x), Math.round(y));
   if (!origin || !Array.isArray(w.people)) return { x, y };
@@ -263,12 +265,14 @@ export function updateDependent(w, child) {
     if (caregiver) child.guardianId = caregiver.id;
     const community = activeCommunity(w, child);
     const careFoodNeed = caregiver && distance(caregiver, child) <= 6 ? .42 : .32;
-    consumeFoodReserve(child, careFoodNeed, 'dependent-consumption');
+    const consumedFood = consumeFoodReserve(child, careFoodNeed, 'dependent-consumption');
+    let foodProvided = consumedFood;
     const sharedFood = community ? Math.min(careFoodNeed, communityFoodStock(community) * FOOD_RESERVE_PER_UNIT,
       Math.max(0, 100 - child.foodReserve)) : 0;
     if (sharedFood > .001) {
       withdrawCommunityFood(w, community, sharedFood / FOOD_RESERVE_PER_UNIT, 'dependent-food-issue');
       addFoodReserve(child, sharedFood, 'dependent-community-meal');
+      foodProvided += sharedFood;
       child.sharedMeals = (child.sharedMeals || 0) + sharedFood / FOOD_RESERVE_PER_UNIT;
     }
     const unmetNeed = Math.max(0, careFoodNeed - sharedFood);
@@ -277,6 +281,7 @@ export function updateDependent(w, child) {
       consumePersonEnergy(caregiver, .1);
       const caregiverOffer = Math.min(unmetNeed, Math.max(0, 100 - child.foodReserve));
       const caregiverContribution = transferFoodReserve(caregiver, child, caregiverOffer, 'dependent-care-transfer');
+      foodProvided += caregiverContribution;
       caregiver.skills.care = clamp(caregiver.skills.care + .0003, 0, 1);
       if (caregiverContribution > .001 && !familyIds.has(caregiver.id)) {
         const amount = caregiverContribution.toFixed(2);
@@ -292,7 +297,10 @@ export function updateDependent(w, child) {
       changePersonHealth(w, child, -.14, 'care');
       child.state = 'sem cuidador próximo';
     }
-    if (child.health <= 0 || child.foodReserve <= .1 || child.hydration <= .1) {
+    const unmetFood = Math.max(0, careFoodNeed - foodProvided);
+    if (unmetFood > .001) changePersonHealth(w, child,
+      -(unmetFood / careFoodNeed) * 10 * DEPENDENT_STARVATION_HEALTH_LOSS_PER_POINT, 'starvation');
+    if (child.health <= .1 || child.hydration <= .1) {
       killPerson(w, child, child.hydration <= .1 ? 'dehydration' : 'starvation');
     }
   }

@@ -16,7 +16,8 @@ function careFixture(caregiverFood) {
     parents: [caregiver.id], guardianId: caregiver.id, foodReserve: 12, hydration: 80,
     health: 100, injury: 0
   };
-  const world = { day: 10, events: [], people: [caregiver, child], communities: [], structures: [] };
+  const world = { day: 10, events: [], deathsByCause: {}, people: [caregiver, child],
+    kingdoms: [], communities: [], structures: [], tiles: [null] };
   return { world, caregiver, child };
 }
 
@@ -46,6 +47,27 @@ test('a dead caregiver and empty shared store cannot supply a dependent meal', (
   assert.equal(caregiver.foodReserve, 20, 'a dead caregiver is not a source account');
   assert.ok(Math.abs(child.foodReserve - 11.68) < 1e-9, 'the orphan pays only its reduced daily need');
   assert.equal(child.alive, true);
+});
+
+test('a dependent with one small meal does not die before actual starvation lowers health', () => {
+  const { world, caregiver, child } = careFixture(20);
+  caregiver.alive = false;
+  child.foodReserve = 0.42;
+
+  updateDependent(world, child);
+
+  assert.equal(child.alive, true, 'a missed caregiver day cannot kill a healthy dependent at 0.1 reserve');
+  assert.ok(Math.abs(child.foodReserve - 0.1) < 1e-9, 'only the dependent\'s existing reserve was consumed');
+
+  for (let day = 0; day < 210 && child.alive; day++) {
+    world.day++;
+    updateDependent(world, child);
+  }
+
+  assert.equal(child.alive, false, 'continued unmet food eventually causes a real starvation death');
+  assert.equal(child.deathCause, 'starvation');
+  assert.ok(child.deathDetails.health <= 0.1);
+  assert.ok(child.deathDetails.recentHealth.losses.starvation > 0, 'the lethal health loss came from an uncovered food need');
 });
 
 test('market barter rejects insufficient stock atomically and settles an affordable exchange exactly', () => {
@@ -154,3 +176,4 @@ test('campaign ration debits only available field food and respects personal res
   assert.equal(drawCampaignRation(world, person, 12), 0, 'a full personal reserve cannot consume another field ration');
   assert.equal(side.supply.stock.food, 1);
 });
+
