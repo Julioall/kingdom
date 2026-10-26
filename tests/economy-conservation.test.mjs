@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PLANTS } from '../src/config/ecosystem.js';
+import { FOOD_RESERVE_PER_UNIT, PLANTS } from '../src/config/ecosystem.js';
 import { updateDependent } from '../src/simulation/individuals/lifecycle.js';
 import { collectFoodForCommunity, personalFoodHarvestLimit } from '../src/simulation/individuals/actions.js';
 import { exchangeResources, transferFoodReserve } from '../src/simulation/economy/inventories.js';
+import { drawCampaignRation } from '../src/simulation/kingdoms/campaigns.js';
 
 function careFixture(caregiverFood) {
   const caregiver = {
@@ -35,6 +36,18 @@ test('partial dependent-care transfer is atomic and conserves food after daily c
   assert.ok(Math.abs((caregiver.foodReserve + child.foodReserve) - (before - 0.42)) < 1e-9);
 });
 
+test('a dead caregiver and empty shared store cannot supply a dependent meal', () => {
+  const { world, caregiver, child } = careFixture(20);
+  caregiver.alive = false;
+  child.foodReserve = 12;
+
+  updateDependent(world, child);
+
+  assert.equal(caregiver.foodReserve, 20, 'a dead caregiver is not a source account');
+  assert.ok(Math.abs(child.foodReserve - 11.68) < 1e-9, 'the orphan pays only its reduced daily need');
+  assert.equal(child.alive, true);
+});
+
 test('market barter rejects insufficient stock atomically and settles an affordable exchange exactly', () => {
   const community = { gold: 4, food: 0 };
   const market = { gold: 0, food: 9 };
@@ -47,6 +60,29 @@ test('market barter rejects insufficient stock atomically and settles an afforda
   assert.equal(exchangeResources(community, { gold: 4 }, market, { food: 10 }), true);
   assert.deepEqual(community, { gold: 0, food: 10 });
   assert.deepEqual(market, { gold: 4, food: 0 });
+});
+
+test('food barter never overdrafts any market balance from zero through twelve units', () => {
+  for (let stock = 0; stock <= 12; stock++) {
+    const buyer = { gold: 4, food: 0 };
+    const market = { gold: 0, food: stock };
+    const beforeBuyer = structuredClone(buyer), beforeMarket = structuredClone(market);
+
+    const settled = exchangeResources(buyer, { gold: 4 }, market, { food: 10 });
+
+    assert.equal(settled, stock >= 10, '10 units are required for this exchange at market balance ' + stock);
+    for (const value of Object.values(buyer)) assert.ok(value >= 0);
+    for (const value of Object.values(market)) assert.ok(value >= 0);
+    if (!settled) {
+      assert.deepEqual(buyer, beforeBuyer);
+      assert.deepEqual(market, beforeMarket);
+    } else {
+      assert.equal(buyer.food, 10);
+      assert.equal(buyer.gold, 0);
+      assert.equal(market.gold, 4);
+      assert.equal(market.food, stock - 10);
+    }
+  }
 });
 
 test('personal harvest leaves room for the reserve refill and caps surplus before removing biomass', () => {
@@ -90,6 +126,33 @@ test('food reserve transfer is limited by the source and destination capacity', 
   assert.ok(Math.abs(transferFoodReserve(source, destination, 5) - 0.1) < 1e-9);
   assert.ok(Math.abs(source.foodReserve - 0.1) < 1e-9);
   assert.ok(Math.abs(destination.foodReserve - 100) < 1e-9);
+});
+
+test('campaign ration debits only available field food and respects personal reserve capacity', () => {
+  const person = { id: 10, alive: true, role: 'soldier', kingdomId: 1, campaignId: 20, foodReserve: 96 };
+  const side = {
+    campaignId: 20, kingdomId: 1, role: 'attacker', troopIds: [person.id],
+    supply: { stock: { food: 0.2 } }, rationsConsumed: 0,
+    supplyLedger: { rationConsumptionFood: 0, personalReserveRationPoints: 0 }
+  };
+  const campaign = { id: 20, status: 'marching', attacker: side,
+    defender: { campaignId: 20, kingdomId: 2, role: 'defender', troopIds: [], supply: { stock: { food: 0 } } } };
+  const world = { people: [person], campaigns: [campaign] };
+  const initialFoodPoints = person.foodReserve + side.supply.stock.food * FOOD_RESERVE_PER_UNIT;
+
+  const rationPoints = drawCampaignRation(world, person, 12);
+  assert.ok(Math.abs(rationPoints - 0.2 * FOOD_RESERVE_PER_UNIT) < 1e-9);
+  assert.equal(side.supply.stock.food, 0);
+  assert.equal(person.foodReserve, 96, 'ration drawing reports nutrition for the caller to credit exactly once');
+  assert.equal(side.rationsConsumed, 0.2);
+  assert.equal(side.supplyLedger.rationConsumptionFood, 0.2);
+  assert.ok(Math.abs(person.foodReserve + side.supply.stock.food * FOOD_RESERVE_PER_UNIT + rationPoints - initialFoodPoints) < 1e-9,
+    'field food is reported as reserve points at the configured conversion rate');
+
+  person.foodReserve = 100;
+  side.supply.stock.food = 1;
+  assert.equal(drawCampaignRation(world, person, 12), 0, 'a full personal reserve cannot consume another field ration');
+  assert.equal(side.supply.stock.food, 1);
 });
 
 
