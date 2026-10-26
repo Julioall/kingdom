@@ -99,6 +99,14 @@ function harvestHumanFood(w, tile, capacity) {
     return harvest;
   }
 
+export function personalFoodHarvestLimit(person, requested, reserveCapacity, directStorage = false) {
+    if (!person || !Number.isFinite(requested) || requested <= 0
+        || !Number.isFinite(reserveCapacity) || reserveCapacity < 0) return 0;
+    const alreadyCarried = Number.isFinite(person.carriedFruit) ? Math.max(0, person.carriedFruit) : 0;
+    const carryCapacity = directStorage ? requested : Math.max(0, 24 - alreadyCarried);
+    return Math.min(requested, reserveCapacity + carryCapacity);
+  }
+
 export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
     let best = null, bestScore = -Infinity;
     const resources = person.perception && person.perception.resources || [];
@@ -1040,8 +1048,14 @@ function updatePeopleCore(w) {
                 p.lastLesson = 'A carga de alimento já está cheia; levá-la ao abrigo libera espaço para outra coleta.';
               }
             } else {
-            const harvest = harvestHumanFood(w, food, clamp(1.8 + p.skills.forage * 3.2, 1.8, 5));
-            const use = Math.min(harvest, Math.max(0, (91 - p.foodReserve) / FOOD_RESERVE_PER_UNIT));
+            const reserveCapacity = Math.max(0, (91 - p.foodReserve) / FOOD_RESERVE_PER_UNIT);
+            const desiredHarvest = clamp(1.8 + p.skills.forage * 3.2, 1.8, 5);
+            const fruitShelter = nearestShelterFor(w, p);
+            const directStorage = community && ((fruitShelter && distance(p, fruitShelter) <= 1.5)
+              || (!fruitShelter && distance(p, community) <= 5));
+            const harvestLimit = personalFoodHarvestLimit(p, desiredHarvest, reserveCapacity, !!directStorage);
+            const harvest = harvestHumanFood(w, food, harvestLimit);
+            const use = Math.min(harvest, reserveCapacity);
             addFoodReserve(p, use * FOOD_RESERVE_PER_UNIT, 'personal-harvest');
             if (harvest > .1) {
               if (food.cropFieldId == null) hideCollectedBush(w, food, 'berry');
@@ -1051,7 +1065,6 @@ function updatePeopleCore(w) {
 
             p.energy = clamp(p.energy + use * .18, 0, 100);
             const surplus = Math.max(0, harvest - use);
-            const fruitShelter = nearestShelterFor(w, p);
             if (community && fruitShelter && distance(p, fruitShelter) <= 1.5) storeCommunityFruit(w, community, fruitShelter, surplus);
             else if (community && !fruitShelter && distance(p, community) <= 5) storeCommunityFruit(w, community, null, surplus);
             else addResource(p, 'carriedFruit', surplus, 24);

@@ -40,5 +40,8 @@ jobs:
       - name: Run published test suite
         run: npm test
 
+      - name: Run deterministic food replay smoke
+        run: npm run audit:food -- --days 30 --seeds 42 --repeat-seed 42
+
       - name: Build production bundle
         run: npm run build
