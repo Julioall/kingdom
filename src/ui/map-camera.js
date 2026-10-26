@@ -14,8 +14,8 @@ export function alignedTileRect(x, y, size, transform) {
 export function mapCamera(width, height, zoom = 1, panX = 0, panY = 0, dpr = 1, logicalSize = 1024) {
   width = Math.max(1, width); height = Math.max(1, height);
   const scale = Math.min(width, height) / logicalSize * zoom;
-  const offsetX = width / 2 + panX - logicalSize * scale / 2;
-  const offsetY = height / 2 + panY - logicalSize * scale / 2;
+  const offsetX = Math.round((width / 2 + panX - logicalSize * scale / 2) * dpr) / dpr;
+  const offsetY = Math.round((height / 2 + panY - logicalSize * scale / 2) * dpr) / dpr;
   const x = Math.max(0, Math.min(logicalSize, -offsetX / scale));
   const y = Math.max(0, Math.min(logicalSize, -offsetY / scale));
   const right = Math.max(x, Math.min(logicalSize, (width - offsetX) / scale));
