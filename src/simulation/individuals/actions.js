@@ -23,7 +23,7 @@ import { recordPersonalMemory } from './strategy.js';
 import { canPatrolToday, patrolSoldier } from '../kingdoms/patrols.js';
 import {
   buyMilitaryMeal, clearCivilianDuties, drawGarrisonRation, GARRISON_RATION_TARGET,
-  GARRISON_RECOVERY, militaryDutyCenterFor, PEACETIME_SOLDIER_FOOD_NEED, restPersonInHouse
+  GARRISON_RECOVERY, militaryDutyCenterFor, PEACETIME_SOLDIER_FOOD_NEED, resolveMilitaryServiceEvaluation, restPersonInHouse
 } from '../kingdoms/service.js';
 import { campaignOrderFor, drawCampaignRation, performCampaignOrder, recordCampaignPersonalRation } from '../kingdoms/campaigns.js';
 import { canEnterForeignTerritory, kingdomRelation } from '../kingdoms/territories.js';
@@ -835,6 +835,7 @@ function updatePeopleCore(w) {
       let emergencyCarriedRationToday = 0;
       p.perception = Senses.observe(w, p, 'person', PLANTS);
       maintainSocialIntentions(w, p);
+      if (p.role === 'soldier') resolveMilitaryServiceEvaluation(w, p);
 
       const community = activeCommunity(w, p);
       if (p.role === 'soldier') clearCivilianDuties(w, p, false);

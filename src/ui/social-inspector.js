@@ -14,7 +14,8 @@ const SOCIAL_EVENT_LABELS = Object.freeze({
   social_intention_progressed: 'plano atualizado',
   social_intention_resolved: 'plano encerrado',
   military_pay_delayed: 'soldo atrasado',
-  military_pay_recovered: 'soldo em atraso pago'
+  military_pay_recovered: 'soldo em atraso pago',
+  military_service_evaluated: 'avaliação do serviço militar'
 });
 
 function escapeHtml(value) {
@@ -60,6 +61,10 @@ export function renderSocialInspectorSections(person, world) {
       ? fact.outcome?.status === 'completed' ? ' · concluído'
         : fact.outcome?.terminationReason ? ' · motivo: ' + String(fact.outcome.terminationReason).replaceAll('_', ' ') : ' · abandonado'
       : '';
+    const serviceResult = fact?.type === 'military_service_evaluated'
+      ? Number(fact.outcome?.outstandingArrears) > .001
+        ? ' · soldo pendente ' + formatNumber(fact.outcome.outstandingArrears, 1) + ' ouro'
+        : ' · soldo em dia' : '';
     const meetingLocation = ['social_meeting', 'water_source_indicated'].includes(fact?.type) && fact.location
       ? ' · posição (' + formatNumber(fact.location.x, 1) + ', ' + formatNumber(fact.location.y, 1) + ')' : '';
     const eventDay = Number.isSafeInteger(fact?.outcome?.paymentDay)
@@ -70,7 +75,7 @@ export function renderSocialInspectorSections(person, world) {
       ? ' · recebido no dia ' + memory.acquiredDay : '';
     return '<div class="note-card"><b>' + escapeHtml(provenance) + '</b><span>Dia ' + eventDay + ': '
       + escapeHtml(eventLabel) + outcome + dueDay + receivedDay + meetingResult + waterResult + aidRequestResult
-      + commitmentResult + intentionResult + meetingLocation + '</span></div>';
+      + commitmentResult + intentionResult + serviceResult + meetingLocation + '</span></div>';
   }).join('');
 
   const beliefRows = beliefs.map(belief => {
