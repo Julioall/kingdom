@@ -378,6 +378,17 @@ export function proposeSocialCommitment(world, input = {}) {
       (world[collection] || []).some(entity => String(entity.id) === id))) fail('resourceReferences aponta para entidade inexistente.');
     return { kind: reference.kind, id };
   });
+  if (input.evidenceEventIds !== undefined && !Array.isArray(input.evidenceEventIds)) fail('evidenceEventIds deve ser uma lista.');
+  const evidenceEventIds = [...new Set((input.evidenceEventIds || []).map(value => idKey(value, 'evidenceEventIds')))];
+  for (const eventId of evidenceEventIds) {
+    if (!evidence.facts.some(fact => fact.eventId === eventId)) fail('evidenceEventIds referencia um fato inexistente.');
+    for (const partyId of parties) {
+      const party = personById(world, partyId);
+      if (!(party.socialMemories || []).some(memory => memory.rootEventId === eventId)) {
+        fail('cada parte precisa conhecer a evidência do compromisso.');
+      }
+    }
+  }
   if (input.idempotencyKey == null) fail('idempotencyKey é obrigatório para propor um compromisso.');
   const idempotencyKey = idKey(input.idempotencyKey, 'idempotencyKey');
   const data = {
@@ -390,7 +401,8 @@ export function proposeSocialCommitment(world, input = {}) {
     quantity: input.quantity,
     dueDay: input.dueDay,
     status: 'proposed',
-    resourceReferences
+    resourceReferences,
+    evidenceEventIds
   };
   const fingerprint = cloneJson(data, 'commitment');
   const existing = evidence.commitments.find(item => item.idempotencyKey === idempotencyKey);
@@ -425,6 +437,7 @@ export function defineSocialIntention(world, ownerId, input = {}) {
   if (!Number.isSafeInteger(progress) || progress < 0 || progress > steps.length) fail('progress deve apontar para um passo válido.');
   const blockers = input.blockers ?? [];
   if (!Array.isArray(blockers) || blockers.some(item => typeof item !== 'string')) fail('blockers deve conter apenas textos.');
+  const evidenceIds = localEvidenceIds(person, input.evidenceIds || []);
   const endsWhen = typeof input.endsWhen === 'string' ? input.endsWhen.trim() : '';
   if (!endsWhen) fail('endsWhen deve explicar a condição de encerramento.');
   person.socialIntentions ||= [];
@@ -443,6 +456,7 @@ export function defineSocialIntention(world, ownerId, input = {}) {
     steps,
     progress,
     blockers: blockers.slice(),
+    evidenceIds,
     endsWhen,
     status: 'active'
   });
@@ -454,19 +468,51 @@ export function pruneSocialEvidence(world, currentDay = world.day) {
   const evidence = ensureEvidence(world);
   if (!Number.isSafeInteger(currentDay) || currentDay < world.day) fail('currentDay não pode anteceder o mundo.');
   const cutoff = currentDay - SOCIAL_FACT_RETENTION_DAYS;
+  const protectedEventsByPerson = new Map();
+  const protect = (person, ids) => {
+    if (!person || !Array.isArray(ids)) return;
+    const protectedIds = protectedEventsByPerson.get(String(person.id)) || new Set();
+    for (const id of ids) protectedIds.add(id);
+    protectedEventsByPerson.set(String(person.id), protectedIds);
+  };
+  for (const person of world.people || []) {
+    for (const belief of person.socialBeliefs || []) {
+      protect(person, [...(belief.supportingEventIds || []), ...(belief.opposingEventIds || [])]);
+    }
+    for (const relation of person.socialRelations || []) protect(person, relation.evidenceIds || []);
+    for (const intention of person.socialIntentions || []) {
+      if (intention.status === 'active') protect(person, intention.evidenceIds || []);
+    }
+  }
+  for (const item of evidence.commitments || []) {
+    const commitment = item.record;
+    if (!commitment || ['fulfilled', 'rejected', 'cancelled'].includes(commitment.status)) continue;
+    for (const partyId of commitment.parties || []) {
+      const party = personById(world, partyId);
+      protect(party, commitment.evidenceEventIds || []);
+    }
+  }
   for (const person of world.people || []) {
     if (!Array.isArray(person.socialMemories)) continue;
-    person.socialMemories = person.socialMemories
-      .filter(memory => memory.acquiredDay >= cutoff)
-      .sort((a, b) => a.acquiredDay - b.acquiredDay || a.sequence - b.sequence || a.memoryId.localeCompare(b.memoryId))
-      .slice(-SOCIAL_MEMORY_PER_PERSON_LIMIT);
+    const protectedIds = protectedEventsByPerson.get(String(person.id)) || new Set();
+    const protectedMemories = person.socialMemories.filter(memory => protectedIds.has(memory.rootEventId));
+    const recentMemories = person.socialMemories
+      .filter(memory => !protectedIds.has(memory.rootEventId) && memory.acquiredDay >= cutoff)
+      .sort((a, b) => b.acquiredDay - a.acquiredDay || b.sequence - a.sequence || b.memoryId.localeCompare(a.memoryId));
+    // The 32-record budget applies to consolidatable episodes. Evidence still
+    // cited by a belief, active intention, relationship or open commitment is pinned.
+    const unpinnedCapacity = Math.max(0, SOCIAL_MEMORY_PER_PERSON_LIMIT - protectedMemories.length);
+    person.socialMemories = [...protectedMemories, ...recentMemories.slice(0, unpinnedCapacity)]
+      .sort((a, b) => a.acquiredDay - b.acquiredDay || a.sequence - b.sequence || a.memoryId.localeCompare(b.memoryId));
   }
   const referenced = new Set((world.people || []).flatMap(person =>
     (person.socialMemories || []).map(memory => memory.rootEventId)));
   evidence.facts = evidence.facts.filter(fact => fact.day >= cutoff || referenced.has(fact.eventId));
   evidence.facts.sort((a, b) => a.day - b.day || a.sequence - b.sequence);
   while (evidence.facts.length > SOCIAL_FACT_LIMIT) {
-    const expired = evidence.facts.shift();
+    const expendableIndex = evidence.facts.findIndex(fact => !referenced.has(fact.eventId));
+    if (expendableIndex < 0) break;
+    const [expired] = evidence.facts.splice(expendableIndex, 1);
     for (const person of world.people || []) {
       if (Array.isArray(person.socialMemories)) {
         person.socialMemories = person.socialMemories.filter(memory => memory.rootEventId !== expired.eventId);

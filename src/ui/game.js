@@ -2515,7 +2515,11 @@ export function mountGame() {
       const socialFacts = new Map((world.socialEvidence?.facts || []).map(fact => [fact.eventId, fact]));
       const socialMemories = (p.socialMemories || []).slice(-3).reverse();
       const socialBeliefs = (p.socialBeliefs || []).slice().reverse();
-      const socialEventLabels = { food_aid_transferred: 'partilha de alimento' };
+      const socialEventLabels = {
+        food_aid_transferred: 'partilha de alimento',
+        military_pay_delayed: 'soldo atrasado',
+        military_pay_recovered: 'soldo em atraso pago'
+      };
       const socialMemoryRows = socialMemories.map(memory => {
         const fact = socialFacts.get(memory.rootEventId);
         const eventLabel = socialEventLabels[memory.eventType] || String(memory.eventType || 'acontecimento').replaceAll('_', ' ');
@@ -2523,13 +2527,24 @@ export function mountGame() {
           ? 'Relato recebido de ' + esc(world.people.find(person => String(person.id) === memory.sourcePersonId)?.name || 'pessoa ' + memory.sourcePersonId)
           : 'Observado diretamente';
         const outcome = fact?.outcome?.resource === 'food' && Number.isFinite(fact.outcome.amount)
-          ? ' · ' + fmt(fact.outcome.amount, 1) + ' pontos de alimento' : '';
-        return '<div class="note-card"><b>' + esc(provenance) + '</b><span>Dia ' + (fact?.day ?? memory.eventDay) + ': ' + esc(eventLabel) + outcome
+          ? ' · ' + fmt(fact.outcome.amount, 1) + ' pontos de alimento'
+          : fact?.outcome?.resource === 'gold' && Number.isFinite(fact.outcome.amount)
+            ? ' · ' + fmt(fact.outcome.amount, 1) + ' ouro' : '';
+        const eventDay = Number.isSafeInteger(fact?.outcome?.paymentDay) ? fact.outcome.paymentDay : fact?.day ?? memory.eventDay;
+        const dueDay = Number.isSafeInteger(fact?.outcome?.dueDay) ? ' · vencimento no dia ' + fact.outcome.dueDay : '';
+        return '<div class="note-card"><b>' + esc(provenance) + '</b><span>Dia ' + eventDay + ': ' + esc(eventLabel) + outcome + dueDay
           + (memory.source === 'reported' && memory.acquiredDay !== memory.eventDay ? ' · recebido no dia ' + memory.acquiredDay : '') + '</span></div>';
       }).join('');
       const socialBeliefRows = socialBeliefs.map(belief => {
-        const target = belief.aboutId == null ? '' : ' sobre ' + esc(world.people.find(person => String(person.id) === belief.aboutId)?.name || 'pessoa ' + belief.aboutId);
-        const label = belief.topic === 'food_aid_reliability' ? 'Confiabilidade na ajuda alimentar' : String(belief.topic).replaceAll('_', ' ');
+        const targetId = belief.aboutId == null ? null : String(belief.aboutId);
+        const targetName = targetId == null ? ''
+          : world.people.find(person => String(person.id) === targetId)?.name
+            || world.kingdoms.find(item => String(item.id) === targetId)?.name
+            || 'entidade ' + targetId;
+        const target = targetName ? ' sobre ' + esc(targetName) : '';
+        const label = belief.topic === 'food_aid_reliability' ? 'Confiabilidade na ajuda alimentar'
+          : belief.topic === 'military_pay_reliability' ? 'Regularidade do soldo'
+            : String(belief.topic).replaceAll('_', ' ');
         const evaluation = Math.round((belief.evaluation + 1) * 50);
         return '<div class="data-row"><span>' + esc(label) + target + '</span><b>Avaliação ' + evaluation + '% · certeza ' + Math.round(belief.certainty * 100)
           + '% · evidências favoráveis ' + belief.supportingEventIds.length + ' / contrárias ' + belief.opposingEventIds.length + '</b></div>';

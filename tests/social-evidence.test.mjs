@@ -89,6 +89,14 @@ test('unknown references and unobserved direct memories are rejected', () => {
   const fact = recordSocialFact(world, { idempotencyKey: 'witnessed-aid', type: 'aid_transferred', participantIds: [1], witnessIds: [1] });
   assert.throws(() => rememberSocialFact(world, 2, fact.eventId), /não consta entre as testemunhas/);
   assert.throws(() => rememberSocialFact(world, 3, fact.eventId, { source: 'reported', sourcePersonId: 1 }), /ainda não conhece/);
+
+  const depletedResource = recordSocialFact(world, {
+    idempotencyKey: 'unobserved-depletion', type: 'resource_depleted', targetId: 4,
+    outcome: { resource: 'food', remaining: 0 }, witnessIds: []
+  });
+  assert.equal((world.people[0].socialMemories || []).some(memory => memory.rootEventId === depletedResource.eventId), false,
+    'world state can record depletion without granting it to an unobserving person');
+  assert.throws(() => rememberSocialFact(world, 1, depletedResource.eventId), /não consta entre as testemunhas/);
 });
 
 test('social fact identities include the simulation epoch and cannot cross reset epochs', () => {
@@ -128,6 +136,46 @@ test('retention bounds memories and facts while preserving references inside the
   const expired = pruneSocialEvidence(world);
   assert.equal(expired.retainedFacts, 0);
   assert.equal(expired.retainedMemories, 0);
+});
+
+test('retention pins evidence needed by beliefs, active plans and open commitments', () => {
+  const world = fixture();
+  const original = aidFact(world, 'pinned-evidence', 1);
+  rememberSocialFact(world, 1, original.eventId, { source: 'direct', acquiredDay: 1 });
+  rememberSocialFact(world, 2, original.eventId, { source: 'direct', acquiredDay: 1 });
+  defineSocialIntention(world, 1, {
+    type: 'repay_food_aid', evidenceIds: [original.eventId],
+    steps: [{ action: 'deliver_food', targetId: 2 }], endsWhen: 'commitment_fulfilled'
+  });
+  recordSocialBeliefEvidence(world, 2, {
+    topic: 'food_aid_reliability', aboutId: 1, eventId: original.eventId, polarity: 1
+  });
+  const commitment = proposeSocialCommitment(world, {
+    idempotencyKey: 'open-repayment', parties: [1, 2], object: 'food', quantity: 2,
+    dueDay: 20, evidenceEventIds: [original.eventId]
+  });
+
+  for (let index = 0; index < SOCIAL_MEMORY_PER_PERSON_LIMIT + 1; index++) {
+    const fact = recordSocialFact(world, {
+      idempotencyKey: 'unpinned-' + index, day: 10, type: 'aid_transferred',
+      participantIds: [1], witnessIds: [1]
+    });
+    rememberSocialFact(world, 1, fact.eventId);
+  }
+  assert.equal(world.people[0].socialMemories.length, SOCIAL_MEMORY_PER_PERSON_LIMIT,
+    'the 32-item cap includes the pinned intention and open commitment evidence');
+
+  world.day = 500;
+  const result = pruneSocialEvidence(world);
+  for (const person of world.people.slice(0, 2)) {
+    assert.deepEqual(person.socialMemories.map(memory => memory.rootEventId), [original.eventId]);
+  }
+  assert.deepEqual(world.socialEvidence.facts.map(fact => fact.eventId), [original.eventId]);
+  assert.equal(world.people[1].socialBeliefs[0].supportingEventIds[0], original.eventId);
+  assert.equal(world.people[0].socialIntentions[0].evidenceIds[0], original.eventId);
+  assert.equal(world.socialEvidence.commitments[0].record, commitment);
+  assert.equal(commitment.status, 'proposed', 'an open commitment survives evidence consolidation');
+  assert.equal(result.retainedMemories, 2);
 });
 
 test('world fact retention is enforced as facts are recorded and removes oldest unreferenced records', () => {
