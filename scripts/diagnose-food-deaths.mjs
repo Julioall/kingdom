@@ -39,7 +39,7 @@ for (let day = 1; day <= days; day++) {
       communityId: person.communityId, kingdomId, homeId: person.homeId,
       guardianId: person.guardianId, assignment: person.assignment,
       communityFood: community?.stores?.food ?? 0,
-      nearestAdults, nearestFood
+      nearestAdults, nearestFood: nearbyFood
     });
     if (deaths.length >= limit) break;
   }
