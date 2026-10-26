@@ -399,6 +399,8 @@ export function feedCommunalHerds(w) {
         animal.habituation = clamp((animal.habituation || 0) + .002, 0, 1);
         animal.lastFedDay = w.day; animal.feedingEvents = (animal.feedingEvents || 0) + 1;
       }
+      w.ecologyFlows ||= {};
+      w.ecologyFlows.livestockFeedConsumed = (w.ecologyFlows.livestockFeedConsumed || 0) + total;
       consumed += total;
     }
     return consumed;

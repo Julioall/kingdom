@@ -47,7 +47,8 @@ export function createWorld(seed) {
       ecologyFlows: {
         humanFoodRegrowth: 0, humanFoodNaturalLoss: 0,
         humanFoodSettlementLoss: 0, humanFoodEcologicalLoss: 0,
-        humanFoodCultivatedRegrowth: 0, humanFoodCultivationSeeded: 0
+        humanFoodCultivatedRegrowth: 0, humanFoodCultivationSeeded: 0,
+        livestockFeedConsumed: 0
       },
       lastWeatherEvent: -999
     };

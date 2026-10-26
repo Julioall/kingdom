@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { attemptHumanHunt, huntForFood, nearestEmergencyHerdSheep } from '../src/simulation/individuals/actions.js';
+import { feedCommunalHerds } from '../src/simulation/ecology/animals.js';
+import { DOMESTIC_SHEEP_DAILY_FEED } from '../src/config/ecosystem.js';
 
 function herdFixture(adultCount = 3) {
   const community = { id: 1, name: 'Valedouro', stores: { food: 0, meat: 0 }, memberIds: [1], history: [] };
@@ -74,4 +76,18 @@ test('a hungry resident cannot harvest a herd animal outside local perception', 
   assert.equal(nearestEmergencyHerdSheep(world, person, community), null);
   assert.equal(attemptHumanHunt(world, person, sheep[0], community), false);
   assert.equal(sheep.every(animal => animal.alive), true);
+});
+
+test('communal herd feed is debited from stores and recorded as a livestock input', () => {
+  const { world, community, sheep } = herdFixture();
+  world.ecologyFlows = { livestockFeedConsumed: 0 };
+  community.stores.feed = sheep.length * DOMESTIC_SHEEP_DAILY_FEED;
+
+  const before = community.stores.feed;
+  const consumed = feedCommunalHerds(world);
+
+  assert.ok(Math.abs(consumed - before) < 1e-9);
+  assert.ok(Math.abs(community.stores.feed) < 1e-9);
+  assert.ok(Math.abs(world.ecologyFlows.livestockFeedConsumed - consumed) < 1e-9);
+  assert.ok(sheep.every(animal => Math.abs(animal.lastFeedAmount - DOMESTIC_SHEEP_DAILY_FEED) < 1e-9));
 });
