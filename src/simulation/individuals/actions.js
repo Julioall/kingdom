@@ -1015,12 +1015,11 @@ function updatePeopleCore(w) {
       const urgentWaterNeed = p.hydration <= 9 || healthRelatedWaterRisk;
       const survivalAction = urgentWaterNeed
         ? (waterTarget ? 'drink' : (waterCue || bestHabitatCell(w, p) ? 'migrate' : null))
-        : peacetimeSoldier ? null
         : p.foodReserve <= 8
           ? (canDeliverEdibleCargo ? 'deliver'
             : droppedLoot && distance(p, droppedLoot) <= 1.6 && ((droppedLoot.resources.food || 0) + (droppedLoot.resources.meat || 0)) > 0 ? 'collect_loot'
               : food ? 'forage' : (shelter && (preyNearby || herdPrey || huntGround) ? 'hunt' : (bestHabitatCell(w, p) ? 'migrate' : null)))
-            : null;
+          : null;
       if (assignment && !survivalAction && !assignmentConflict) {
         const assignedIndex = PEOPLE_ACTIONS.indexOf(p.assignment.action);
         const leader = findPersonById(w, assignment.assignedBy);
