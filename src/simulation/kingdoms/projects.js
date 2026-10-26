@@ -39,15 +39,21 @@ export function advanceKingdomProjects(world, day) {
     structure.builtDay = day;
     structure.constructionStatus = 'obra concluída';
     structure.completedWorkerIds = (structure.workerIds || []).slice();
-    for (const id of [...(structure.workerIds || []), ...(structure.escortIds || [])]) {
+    const assignedIds = new Set([...(structure.workerIds || []), ...(structure.escortIds || []),
+      ...world.people.filter(p => p.constructionProjectId === structure.id).map(p => p.id)]);
+    for (const id of assignedIds) {
       const person = world.people.find(p => p.id === id && p.alive);
       if (!person) continue;
       if (person.state === 'escoltando trabalhadores da torre') person.state = 'escolta concluída; retomando serviço';
-      else if (person.state === 'construindo ' + structure.type) person.state = 'obra concluída; retomando atividades';
+      else if (person.state === 'construindo ' + structure.type || person.constructionProjectId === structure.id)
+        person.state = 'obra concluída; retomando atividades';
       person.constructionProjectId = null; person.constructionStallDays = 0;
       person.constructionWorkPosition = null;
+      person.constructionThreatState = null;
+      person.constructionRiskPending = null;
     }
     structure.workerIds = []; structure.escortIds = [];
+    structure.constructionWorkerIds = []; structure.constructionWorkerLastSeen = {};
     const kingdom = world.kingdoms.find(item => item.id === structure.kingdomId);
     log(world, 'O reino ' + (kingdom && kingdom.name || 'desconhecido') + ' concluiu '
       + (structure.frontierOutpost ? 'um posto de fronteira' : structure.type === 'casa' ? 'uma casa' : structure.type === 'torre' ? 'uma torre' : structure.type === 'monasterio' ? 'um monastério' : structure.type === 'arquearia' ? 'uma arquearia' : 'um centro militar')

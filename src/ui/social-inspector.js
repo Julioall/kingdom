@@ -4,8 +4,18 @@ const SOCIAL_EVENT_LABELS = Object.freeze({
   food_aid_transferred: 'partilha de alimento',
   food_aid_requested: 'pedido de alimento',
   food_aid_request_resolved: 'resposta ao pedido de ajuda',
+  social_commitment_accepted: 'compromisso aceito',
+  social_commitment_delivery: 'entrega parcial do compromisso',
+  social_commitment_fulfilled: 'compromisso cumprido',
+  social_commitment_breached: 'compromisso quebrado',
+  social_commitment_rejected: 'compromisso recusado',
+  social_commitment_cancelled: 'compromisso cancelado',
+  social_commitment_expired: 'proposta vencida',
+  social_intention_progressed: 'plano atualizado',
+  social_intention_resolved: 'plano encerrado',
   military_pay_delayed: 'soldo atrasado',
-  military_pay_recovered: 'soldo em atraso pago'
+  military_pay_recovered: 'soldo em atraso pago',
+  military_service_evaluated: 'avaliação do serviço militar'
 });
 
 function escapeHtml(value) {
@@ -20,7 +30,7 @@ function formatNumber(value, digits = 0) {
 
 export function renderSocialInspectorSections(person, world) {
   const facts = new Map((world.socialEvidence?.facts || []).map(fact => [fact.eventId, fact]));
-  const memories = (person.socialMemories || []).slice(-3).reverse();
+  const memories = (person.socialMemories || []).slice(-6).reverse();
   const beliefs = (person.socialBeliefs || []).slice().reverse();
 
   const memoryRows = memories.map(memory => {
@@ -42,6 +52,19 @@ export function renderSocialInspectorSections(person, world) {
     const aidRequestResult = fact?.type === 'food_aid_request_resolved' && fact.outcome?.result === 'accepted'
       ? ' · pedido aceito' : fact?.type === 'food_aid_request_resolved' && fact.outcome?.result === 'refused'
         ? ' · pedido recusado' : '';
+    const commitmentResult = fact?.type === 'social_commitment_accepted'
+      ? ' · aceito por ' + ((world.people || []).find(candidate => String(candidate.id) === String(fact.outcome?.acceptedBy))?.name || 'outra parte')
+      : fact?.type === 'social_commitment_fulfilled' ? ' · quantidade entregue ' + formatNumber(fact.outcome?.deliveredQuantity, 1)
+        : fact?.type === 'social_commitment_breached' ? ' · faltou ' + formatNumber(fact.outcome?.remainingQuantity, 1)
+          : '';
+    const intentionResult = fact?.type === 'social_intention_resolved'
+      ? fact.outcome?.status === 'completed' ? ' · concluído'
+        : fact.outcome?.terminationReason ? ' · motivo: ' + String(fact.outcome.terminationReason).replaceAll('_', ' ') : ' · abandonado'
+      : '';
+    const serviceResult = fact?.type === 'military_service_evaluated'
+      ? Number(fact.outcome?.outstandingArrears) > .001
+        ? ' · soldo pendente ' + formatNumber(fact.outcome.outstandingArrears, 1) + ' ouro'
+        : ' · soldo em dia' : '';
     const meetingLocation = ['social_meeting', 'water_source_indicated'].includes(fact?.type) && fact.location
       ? ' · posição (' + formatNumber(fact.location.x, 1) + ', ' + formatNumber(fact.location.y, 1) + ')' : '';
     const eventDay = Number.isSafeInteger(fact?.outcome?.paymentDay)
@@ -51,7 +74,8 @@ export function renderSocialInspectorSections(person, world) {
     const receivedDay = memory.source === 'reported' && memory.acquiredDay !== memory.eventDay
       ? ' · recebido no dia ' + memory.acquiredDay : '';
     return '<div class="note-card"><b>' + escapeHtml(provenance) + '</b><span>Dia ' + eventDay + ': '
-      + escapeHtml(eventLabel) + outcome + dueDay + receivedDay + meetingResult + waterResult + aidRequestResult + meetingLocation + '</span></div>';
+      + escapeHtml(eventLabel) + outcome + dueDay + receivedDay + meetingResult + waterResult + aidRequestResult
+      + commitmentResult + intentionResult + serviceResult + meetingLocation + '</span></div>';
   }).join('');
 
   const beliefRows = beliefs.map(belief => {

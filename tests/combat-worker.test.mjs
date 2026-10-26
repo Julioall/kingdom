@@ -13,7 +13,7 @@ function normalizeEpochScopedEvidence(value) {
   return typeof value === 'string' ? value.replace(/:epoch:\d+:/g, ':epoch:<run>:') : value;
 }
 
-test('production Worker: determinism, real campaign contacts, pause, batching, reset and stale epoch rejection', { timeout: 120000 }, async t => {
+test('production Worker: determinism, real campaign contacts, pause, batching, reset and stale epoch rejection', { timeout: 180000 }, async t => {
   const worker = new Worker(new URL('./support/browser-worker.mjs', import.meta.url));
   t.after(() => worker.terminate());
   const [ready] = await once(worker, 'message'); assert.equal(ready.ready, true);

@@ -376,7 +376,8 @@ test('individual intention stores explicit steps, target and termination conditi
   });
 
   assert.equal(intention.schemaVersion, SOCIAL_RECORD_SCHEMA_VERSIONS.intention);
-  assert.equal(intention.status, 'active');
+  assert.equal(intention.status, 'suspended');
+  assert.deepEqual(intention.blockers, ['food_low']);
   assert.equal(intention.steps.length, 2);
   assert.throws(() => defineSocialIntention(world, 1, {
     type: 'seek_food_aid', steps: [{ action: 'approach', targetId: 999 }], endsWhen: 'done'

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
 import engine from '../src/simulation/engine.js';
+import { summarizeCampaignFoodLogistics, summarizeFoodDeaths } from './food-audit-metrics.mjs';
 
 const args = new Map();
 for (let index = 2; index < process.argv.length; index++) {
@@ -14,6 +15,7 @@ const days = Number(args.get('--days') ?? 730);
 const seeds = (args.get('--seeds') ?? '1,42,987,2026').split(',').map(Number);
 const repeatSeed = args.has('--repeat-seed') ? Number(args.get('--repeat-seed')) : null;
 const outputPath = args.get('--output');
+const sourceRevision = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 if (!Number.isInteger(days) || days < 1 || days > 10000) throw new Error('--days deve estar entre 1 e 10000');
 if (!seeds.length || seeds.some(seed => !Number.isInteger(seed) || seed < 0 || seed > 0xffffffff)) {
   throw new Error('--seeds deve conter inteiros uint32 separados por vírgulas');
@@ -118,6 +120,8 @@ function run(seed) {
     livingPeople: (world.people || []).filter(person => person.alive).length,
     adultDaysFoodReserveBelow20,
     deathsByCause: { ...(world.deathsByCause || {}) },
+    deathsByActor: summarizeFoodDeaths(world),
+    campaignLogistics: summarizeCampaignFoodLogistics(world),
     births: world.births || 0, deaths: world.deaths || 0,
     harvests: { ...(world.harvests || {}) },
     ecologyFlows: { ...(world.ecologyFlows || {}) },
@@ -148,7 +152,7 @@ if (repeatSeed !== null) {
   if (first) first.determinismVerified = verified;
   process.stderr.write('Replay repetido da seed ' + repeatSeed + ': ' + (verified ? 'determinístico' : 'divergente') + '.\n');
 }
-const report = { runtime: process.version, sourceRevision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+const report = { runtime: process.version, sourceRevision,
   base: 'engine.createWorld + production stepDay', days, seeds, repeatSeed, results };
 const output = JSON.stringify(report, null, 2) + '\n';
 if (outputPath) {
@@ -156,10 +160,10 @@ if (outputPath) {
   const summary = { sourceRevision: report.sourceRevision, days, seeds, repeatSeed,
     results: results.map(({ seed, elapsedSeconds, stateSha256, chronicleSha256, determinismVerified,
       determinismDiff, livingPeople, adultDaysFoodReserveBelow20, deathsByCause, births, deaths,
-      foodBiomass, activeCampaigns, campaignBattles, marketTransactions, stocks }) => ({ seed, elapsedSeconds,
+      deathsByActor, campaignLogistics, foodBiomass, activeCampaigns, campaignBattles, marketTransactions, stocks }) => ({ seed, elapsedSeconds,
       stateSha256, chronicleSha256, determinismVerified, determinismDiff, livingPeople,
       adultDaysFoodReserveBelow20, deathsByCause, births, deaths, foodBiomass,
-      activeCampaigns, campaignBattles, marketTransactions, stocks })) };
+      deathsByActor, campaignLogistics, activeCampaigns, campaignBattles, marketTransactions, stocks })) };
   process.stdout.write(JSON.stringify(summary, null, 2) + '\n');
 } else process.stdout.write(output);
 if (repeatSeed !== null && !results.at(-1).determinismVerified) process.exitCode = 1;

@@ -210,6 +210,95 @@ function segmentsIntersect(a, b, c, d) {
   return (abC < 0) !== (abD < 0) && (cdA < 0) !== (cdB < 0);
 }
 
+function segmentIntersectionFraction(from, to, edgeStart, edgeEnd) {
+  const rx = to.x - from.x, ry = to.y - from.y;
+  const sx = edgeEnd.x - edgeStart.x, sy = edgeEnd.y - edgeStart.y;
+  const denominator = rx * sy - ry * sx;
+  const qx = edgeStart.x - from.x, qy = edgeStart.y - from.y;
+  if (Math.abs(denominator) < 1e-10) {
+    if (Math.abs(qx * ry - qy * rx) >= 1e-9) return null;
+    const lengthSquared = rx * rx + ry * ry;
+    if (!lengthSquared) return null;
+    const first = (qx * rx + qy * ry) / lengthSquared;
+    const second = ((edgeEnd.x - from.x) * rx + (edgeEnd.y - from.y) * ry) / lengthSquared;
+    const fraction = Math.max(0, Math.min(first, second));
+    return fraction <= Math.min(1, Math.max(first, second)) ? fraction : null;
+  }
+  const fraction = (qx * sy - qy * sx) / denominator;
+  const edgeFraction = (qx * ry - qy * rx) / denominator;
+  return fraction >= 0 && fraction <= 1 && edgeFraction >= 0 && edgeFraction <= 1 ? fraction : null;
+}
+
+function segmentHitboxFraction(from, to, hitbox) {
+  if (hitbox.shape === 'circle') {
+    const dx = to.x - from.x, dy = to.y - from.y;
+    const lengthSquared = dx * dx + dy * dy;
+    const ox = from.x - hitbox.x, oy = from.y - hitbox.y;
+    const c = ox * ox + oy * oy - hitbox.radius * hitbox.radius;
+    if (c <= 0) return 0;
+    if (!lengthSquared) return null;
+    const b = 2 * (ox * dx + oy * dy), discriminant = b * b - 4 * lengthSquared * c;
+    if (discriminant < 0) return null;
+    const fraction = (-b - Math.sqrt(discriminant)) / (2 * lengthSquared);
+    return fraction >= 0 && fraction <= 1 ? fraction : null;
+  }
+  const points = polygonPoints(hitbox);
+  if (!points.length) return null;
+  if (pointInPolygon(from, points)) return 0;
+  let first = null;
+  for (let index = 0; index < points.length; index++) {
+    const fraction = segmentIntersectionFraction(from, to, points[index], points[(index + 1) % points.length]);
+    if (fraction != null && (first == null || fraction < first)) first = fraction;
+  }
+  return first;
+}
+
+// Combat reuses ground-plane collision masks, but terrain and physical height
+// still decide whether a low swing or projectile has a clear path. Sampling the
+// spatial indexes keeps this bounded to the cells crossed by the weapon.
+export function combatPathObstruction(world, from, to, {
+  sourceElevation = 0, targetElevation = sourceElevation, ignoreStructureId = null
+} = {}) {
+  if (!world || !from || !to || !Number.isFinite(from.x) || !Number.isFinite(from.y)
+      || !Number.isFinite(to.x) || !Number.isFinite(to.y)) return null;
+  const length = Math.hypot(to.x - from.x, to.y - from.y);
+  if (length < 1e-8) return null;
+  const steps = Math.max(2, Math.ceil(length * 4));
+  const index = worldCollisionIndex(world);
+  const candidates = new Set();
+  let first = null;
+  for (let step = 1; step < steps; step++) {
+    const fraction = step / steps;
+    const x = from.x + (to.x - from.x) * fraction;
+    const y = from.y + (to.y - from.y) * fraction;
+    const height = sourceElevation + (targetElevation - sourceElevation) * fraction;
+    const tileX = Math.round(x), tileY = Math.round(y);
+    const tile = world.tiles?.[tileY * world.width + tileX];
+    const terrainHeight = tile?.terrain === 'rock' ? Math.max(.65, (tile.elevationLevel || 0) * 1) : 0;
+    if (tile && (tile.terrain === 'water' || tile.terrain === 'rock') && height <= terrainHeight) {
+      first = { fraction, kind: 'terrain', terrain: tile.terrain, tileId: tile.i ?? tileY * world.width + tileX,
+        point: { x, y } };
+      break;
+    }
+    const key = tileY * world.width + tileX;
+    for (const collisionIndex of [index.structures, index.resources]) {
+      for (const hitbox of collisionIndex?.byTile.get(key) || []) candidates.add(hitbox);
+    }
+  }
+  for (const hitbox of candidates) {
+    if (ignoreStructureId != null && hitbox.structureId === ignoreStructureId) continue;
+    const fraction = segmentHitboxFraction(from, to, hitbox);
+    if (fraction == null || fraction <= .01 || fraction >= .99) continue;
+    const height = sourceElevation + (targetElevation - sourceElevation) * fraction;
+    if (height > .65 || first && fraction >= first.fraction) continue;
+    first = { fraction, kind: hitbox.structureId != null ? 'structure' : 'resource',
+      structureId: hitbox.structureId ?? null, resourceKind: hitbox.resourceKind ?? null,
+      resourceId: hitbox.resourceId ?? null, point: { x: from.x + (to.x - from.x) * fraction,
+        y: from.y + (to.y - from.y) * fraction } };
+  }
+  return first;
+}
+
 function polygonsOverlap(a, b) {
   if (!a.length || !b.length) return false;
   if (a.some(point => pointInPolygon(point, b)) || b.some(point => pointInPolygon(point, a))) return true;

@@ -1,0 +1,219 @@
+{
+  "sourceRevision": "9da250a3cbfc4ab0e09d8d7e3bfd6b5f2c593c78",
+  "createdAt": "2026-10-26T17:45:17.712Z",
+  "runtime": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "arch": "x64"
+  },
+  "configuration": {
+    "days": 30,
+    "seeds": [
+      42
+    ],
+    "repeatSeed": 42,
+    "map": {
+      "width": 128,
+      "height": 128
+    },
+    "controls": "createWorld(seed) e stepDay(includeSnapshot:false), sem intervenção humana ou alteração de estado; snapshot final salvo por seed"
+  },
+  "repeat": {
+    "seed": 42,
+    "stateSha256": "29416dc9f1ec49265682e5d7683947060981c7382a2dcdbb94a26b903446f4a8",
+    "chronicleSha256": "c6a551b98b806f28f377b7d4db8544dc6a712dd79314280266873cbcf1cb7086",
+    "stateAndChronicleMatch": true
+  },
+  "results": [
+    {
+      "seed": 42,
+      "days": 30,
+      "stateSha256": "29416dc9f1ec49265682e5d7683947060981c7382a2dcdbb94a26b903446f4a8",
+      "chronicleSha256": "c6a551b98b806f28f377b7d4db8544dc6a712dd79314280266873cbcf1cb7086",
+      "elapsedMs": 9224.39,
+      "throughputDaysPerSecond": 3.25,
+      "perDayStepMs": {
+        "median": 229.08,
+        "p95": 692.24,
+        "max": 851.71
+      },
+      "memory": {
+        "peakObservedHeapBytes": 235679136,
+        "finalHeapBytes": 137246296,
+        "finalRssBytes": 502935552,
+        "measurement": "maximum heapUsed observado após cada dia; amostra dependente do GC/runtime"
+      },
+      "survival": {
+        "livingPeople": 96,
+        "births": 0,
+        "deaths": 0,
+        "deathsByCause": {
+          "starvation": 0,
+          "dehydration": 0,
+          "age": 0,
+          "injury": 0,
+          "combat": 0,
+          "predation": 0,
+          "harvest": 0,
+          "invasion": 0
+        },
+        "meanFoodReserve": 65.15,
+        "meanSocialNeed": 74.51
+      },
+      "decisions": {
+        "lastActionByLivingPerson": {
+          "build": 7,
+          "campaign": 10,
+          "capture_sheep": 1,
+          "deliver": 2,
+          "drink": 1,
+          "explore": 21,
+          "forage": 5,
+          "gather": 1,
+          "guard": 9,
+          "patrol": 18,
+          "rest": 9,
+          "share": 2,
+          "socialize": 1,
+          "trade": 1,
+          "train": 8
+        },
+        "socialLinks": 563,
+        "totalMeetings": 3025,
+        "recordedSocialMeetings": 3,
+        "recordedWaterIndications": 0,
+        "recordedFoodAidTransfers": 11,
+        "recordedFoodAidRequests": 0,
+        "acceptedFoodAidRequests": 0,
+        "refusedFoodAidRequests": 0,
+        "meanTrust": 0.2113
+      },
+      "production": {
+        "harvests": {
+          "hunting": 0,
+          "fishing": 0,
+          "livestock": 0,
+          "livestockMeat": 0,
+          "plantFoodBiomass": 25.881270953035354,
+          "cultivatedFoodBiomass": 0
+        },
+        "marketTransactions": 0,
+        "communityTasksCompleted": 15,
+        "cultivatedFieldCount": 0
+      },
+      "snapshot": {
+        "day": 30,
+        "year": 1,
+        "season": 0,
+        "dayOfYear": 30,
+        "dayOfSeason": 30,
+        "daysInSeason": 91,
+        "daysUntilNextSeason": 62,
+        "nextSeason": 1,
+        "animalCount": 24,
+        "animalCounts": {
+          "sheep": 24
+        },
+        "wildSheep": 24,
+        "communitySheep": 0,
+        "meatCarried": 0,
+        "meatStored": 0,
+        "fruitCarried": 0,
+        "fruitStored": 0,
+        "looseWood": 23.569759765625,
+        "carriedWood": 11.730963867187501,
+        "storedWood": 106.71104235839843,
+        "storedStone": 7.719673230268993,
+        "storedFeed": 0,
+        "storedGold": 2.278004466864746,
+        "peopleCount": 96,
+        "soldierCount": 54,
+        "kingdomCount": 2,
+        "borderIncidents": 0,
+        "activeWars": 0,
+        "activeCampaigns": 0,
+        "campaignBattles": 0,
+        "territorialClaims": 0,
+        "treaties": 0,
+        "independentPeople": 0,
+        "communityCount": 2,
+        "communityStages": {
+          "group": 0,
+          "tribe": 0,
+          "reino": 2
+        },
+        "communityProperties": 0,
+        "communityTasksCompleted": 15,
+        "meanCommunitySatisfaction": 0.642970424145608,
+        "structureCount": 38,
+        "cultivatedFieldCount": 0,
+        "cultivatedFoodBiomass": 0,
+        "corralCount": 2,
+        "boundaryCount": 8,
+        "structuresUnderConstruction": 2,
+        "births": 0,
+        "deaths": 0,
+        "birthsByKind": {
+          "people": 0,
+          "animals": 0
+        },
+        "deathsByCause": {
+          "starvation": 0,
+          "dehydration": 0,
+          "age": 0,
+          "injury": 0,
+          "combat": 0,
+          "predation": 0,
+          "harvest": 0,
+          "invasion": 0
+        },
+        "conflicts": 0,
+        "trades": 0,
+        "splits": 0,
+        "raidAttempts": 0,
+        "successfulRaids": 0,
+        "harvests": {
+          "hunting": 0,
+          "fishing": 0,
+          "livestock": 0,
+          "livestockMeat": 0,
+          "plantFoodBiomass": 25.881270953035354,
+          "cultivatedFoodBiomass": 0
+        },
+        "goodHuntingCells": 158,
+        "goodFishingCells": 0,
+        "ecologyFlows": {
+          "humanFoodRegrowth": 2550.537593205447,
+          "humanFoodNaturalLoss": 0,
+          "humanFoodSettlementLoss": 0,
+          "humanFoodEcologicalLoss": 0,
+          "humanFoodCultivatedRegrowth": 0,
+          "humanFoodCultivationSeeded": 0,
+          "livestockFeedConsumed": 0
+        },
+        "plantBiomass": 1232826.7127511501,
+        "edibleBiomass": 211420.07960104942,
+        "humanFoodBiomass": 89742.2318725586,
+        "plantCover": 0.75567626953125,
+        "plantCounts": {
+          "grass": 1927,
+          "berry": 1544,
+          "cultivated-root": 0,
+          "browse": 1540,
+          "broadleaf": 341,
+          "conifer": 275,
+          "reed": 382,
+          "algae": 8627
+        },
+        "meanFoodReserve": 65.14505418598345,
+        "foodRiskPeople": 0,
+        "criticalFoodPeople": 0,
+        "soilMoisture": 0.7668551642761491,
+        "rainfallMm": 2.347356763579864,
+        "dryRegions": 30,
+        "speciesPlants": 7,
+        "speciesAnimals": 1
+      }
+    }
+  ]
+}

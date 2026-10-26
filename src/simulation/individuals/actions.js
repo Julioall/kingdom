@@ -16,14 +16,14 @@ import { eatPlants, isBushAnchor, plantBiomass } from '../ecology/plants.js';
 import { refreshHarvestSuitability } from '../world/queries.js';
 import { changePersonHealth, killPerson, reproducePeople, updateDependent } from './lifecycle.js';
 import Senses from './perception.js';
-import { findTradePartner, performShare, performTrade, resolveFoodAidRequest } from '../economy/trade.js';
+import { ensureFoodAidPlan, findTradePartner, performShare, performTrade, resolveFoodAidRequest } from '../economy/trade.js';
 import { choosePeopleAction, updateBrain } from '../../controllers/individual/neural.js';
 import { drinkWater } from '../ecology/hydrology.js';
 import { recordPersonalMemory } from './strategy.js';
 import { canPatrolToday, patrolSoldier } from '../kingdoms/patrols.js';
 import {
   buyMilitaryMeal, clearCivilianDuties, drawGarrisonRation, GARRISON_RATION_TARGET,
-  GARRISON_RECOVERY, militaryDutyCenterFor, PEACETIME_SOLDIER_FOOD_NEED, restPersonInHouse
+  GARRISON_RECOVERY, militaryDutyCenterFor, PEACETIME_SOLDIER_FOOD_NEED, resolveMilitaryServiceEvaluation, restPersonInHouse
 } from '../kingdoms/service.js';
 import { campaignOrderFor, drawCampaignRation, performCampaignOrder, recordCampaignPersonalRation } from '../kingdoms/campaigns.js';
 import { canEnterForeignTerritory, kingdomRelation } from '../kingdoms/territories.js';
@@ -35,6 +35,7 @@ import { resolveSocialMeeting } from '../society/social-meetings.js';
 import { indicateKnownWaterReference } from '../society/water-indication.js';
 import { consumePersonEnergy } from './energy.js';
 import { chooseMilitaryAction, learnMilitaryOutcome, militaryTrainingPairs, trainMilitaryPair } from '../kingdoms/military-learning.js';
+import { advanceSocialIntention, maintainSocialIntentions } from '../society/social-evidence.js';
 
 const STARVATION_HEALTH_LOSS_PER_POINT = .035;
 const PERSONAL_FOOD_PRESSURE_THRESHOLD = 42;
@@ -833,6 +834,8 @@ function updatePeopleCore(w) {
       }
       let emergencyCarriedRationToday = 0;
       p.perception = Senses.observe(w, p, 'person', PLANTS);
+      maintainSocialIntentions(w, p);
+      if (p.role === 'soldier') resolveMilitaryServiceEvaluation(w, p);
 
       const community = activeCommunity(w, p);
       if (p.role === 'soldier') clearCivilianDuties(w, p, false);
@@ -920,6 +923,19 @@ function updatePeopleCore(w) {
           .map(sighting => findPersonById(w, sighting.id)).filter(Boolean)
           .sort((a, b) => distance(p, a) - distance(p, b))[0] || null
         : null;
+      const currentFoodAidPlan = (p.socialIntentions || []).find(item => item.type === 'seek_food_aid'
+        && ['active', 'suspended'].includes(item.status));
+      const perceivedFoodHelper = p.foodReserve < 40
+        ? (p.perception?.people || []).filter(sighting => sighting.visible && sighting.distance <= 14
+          && sighting.visibleSignals?.foodSurplus === true && !socialMeetingParticipants.has(sighting.id))
+          .map(sighting => findPersonById(w, sighting.id)).filter(Boolean)
+          .sort((a, b) => distance(p, a) - distance(p, b) || a.id - b.id)[0] || null
+        : null;
+      const aidPlan = currentFoodAidPlan
+        ? { intention: currentFoodAidPlan }
+        : perceivedFoodHelper ? ensureFoodAidPlan(w, p, perceivedFoodHelper) : null;
+      const aidPlanIntention = aidPlan?.intention || currentFoodAidPlan;
+      const aidPlanTarget = aidPlanIntention ? findPersonById(w, aidPlanIntention.targetId) : null;
       const groupFood = communityFoodStock(community);
       const groupMaterial = community ? communityMaterialStock(community) : 0;
       const browseFood = bestSheepFeedCell(w, p, 8);
@@ -1242,12 +1258,43 @@ function updatePeopleCore(w) {
         else if (waterTarget) { moveOne(w, p, waterTarget, false); p.state = 'buscando água'; p.lastLesson = 'A aproximação da água custa energia e tempo.'; }
         else { p.state = 'sem água conhecida'; p.lastLesson = 'A água não foi localizada; continuar aqui mantém a desidratação.'; }
       } else if (action === 'socialize') {
-        const aidRequest = foodRequestTarget
-          ? resolveFoodAidRequest(w, p, foodRequestTarget, socialMeetingParticipants) : null;
-        const meeting = aidRequest?.requested ? null : socialTarget && distance(p, socialTarget) > 2.1
+        const visibleAidPlanTarget = aidPlanTarget && (p.perception?.people || []).some(item =>
+          String(item.id) === String(aidPlanTarget.id) && item.visible && item.visibleSignals?.foodSurplus === true);
+        const routeRetry = aidPlanIntention?.status === 'suspended'
+          && aidPlanIntention.blockers.length > 0 && aidPlanIntention.blockers.every(blocker => blocker === 'route_infeasible');
+        let aidPlanMovement = false;
+        let aidRequest = null;
+        if (visibleAidPlanTarget && (aidPlanIntention.status === 'active' || routeRetry)) {
+          if (distance(p, aidPlanTarget) <= 1.6) {
+            aidRequest = resolveFoodAidRequest(w, p, aidPlanTarget, socialMeetingParticipants);
+          } else {
+            const from = { x: p.x, y: p.y };
+            const moved = moveOne(w, p, cellAt(w, aidPlanTarget.x, aidPlanTarget.y), false);
+            aidPlanMovement = true;
+            if (moved && distance(p, aidPlanTarget) < distance(from, aidPlanTarget) - .001) {
+              advanceSocialIntention(w, p.id, aidPlanIntention.intentionId, {
+                progress: Math.max(1, aidPlanIntention.progress), status: 'active', blockers: []
+              });
+              p.state = 'indo pedir ajuda alimentar';
+              p.lastLesson = 'O plano social manteve o ajudante visível como destino; aproximar-se consome energia e deixa a transferência para o encontro.';
+            } else {
+              advanceSocialIntention(w, p.id, aidPlanIntention.intentionId, {
+                progress: aidPlanIntention.progress, status: 'suspended', blockers: ['route_infeasible']
+              });
+              p.state = 'rota de ajuda inviável';
+              p.lastLesson = 'A rota até o ajudante não avançou; o plano fica suspenso e será reavaliado sem criar tarefa de movimento permanente.';
+            }
+          }
+        } else {
+          aidRequest = !aidPlanIntention && foodRequestTarget
+            ? resolveFoodAidRequest(w, p, foodRequestTarget, socialMeetingParticipants) : null;
+        }
+        const meeting = aidRequest?.requested || aidPlanMovement ? null : socialTarget && distance(p, socialTarget) > 2.1
           ? null : socialTarget && resolveSocialMeeting(w, p, socialTarget, socialMeetingParticipants);
         if (aidRequest?.requested) {
           // The request and its response are resolved atomically before another encounter can use either person.
+        } else if (aidPlanMovement) {
+          // The social intention records route progress or a route blocker without changing neural inputs.
         } else if (meeting?.completed) {
           const indication = indicateKnownWaterReference(w, p, socialTarget);
           if (indication.transferred) {

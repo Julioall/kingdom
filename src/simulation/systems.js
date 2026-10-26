@@ -18,6 +18,7 @@ import { payMilitarySalaries } from './kingdoms/service.js';
 import { observeMilitaryFrontiers } from './kingdoms/frontier-intelligence.js';
 import { recordRoyalSitingOutcomes } from './kingdoms/royal-siting.js';
 import { recordKingdomFrontierOutcomes, updateKingdomFrontierExpansion } from './kingdoms/frontier.js';
+import { advanceSocialCommitmentDeadlines } from './society/social-evidence.js';
 
 const DAYS_PER_MARKET_CYCLE = 30;
 const DAYS_PER_WORLD_REPORT = 30;
@@ -147,6 +148,7 @@ export function stepDay(world, options = null) {
 
   // 6. Border incidents use the new date and territory after today's actions.
   advanceCalendar(world, nextDay);
+  advanceSocialCommitmentDeadlines(world);
   advanceKingdomProjects(world, nextDay);
   resolveEndOfDayConsequences(world, nextDay);
 

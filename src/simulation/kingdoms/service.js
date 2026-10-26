@@ -8,7 +8,10 @@ import { MILITARY_CLASSES } from './military.js';
 import { moveOne } from '../individuals/movement.js';
 import { structureInteractionPoint } from '../physics/hitboxes.js';
 import { recordTrade } from '../economy/trade-ledger.js';
-import { recordSocialBeliefEvidence, recordSocialFact, rememberSocialFact } from '../society/social-evidence.js';
+import {
+  advanceSocialIntention, defineSocialIntention, recordSocialBeliefEvidence, recordSocialFact,
+  rememberSocialFact, SOCIAL_ACTIVE_INTENTION_PER_PERSON_LIMIT
+} from '../society/social-evidence.js';
 
 export const MILITARY_PAY = Object.freeze({ gold: 15, days: 30 });
 export const PEACETIME_SOLDIER_FOOD_NEED = DAILY_FOOD_NEED * .45;
@@ -178,6 +181,62 @@ function recordMilitaryPayExperience(world, soldier, kingdom, type, amount, paym
     topic: 'military_pay_reliability', aboutId: kingdom.id, eventId: fact.eventId,
     polarity: type === 'military_pay_delayed' ? -1 : 1
   });
+  ensureMilitaryServiceEvaluationPlan(world, soldier, kingdom, fact);
+}
+
+function ensureMilitaryServiceEvaluationPlan(world, soldier, kingdom, payFact) {
+  soldier.socialIntentions ||= [];
+  const current = soldier.socialIntentions.find(item => item.type === 'evaluate_service'
+    && String(item.targetId) === String(kingdom.id) && !['completed', 'abandoned'].includes(item.status));
+  if (current) return current;
+  const activeCount = soldier.socialIntentions.filter(item => !['completed', 'abandoned'].includes(item.status)).length;
+  if (activeCount >= SOCIAL_ACTIVE_INTENTION_PER_PERSON_LIMIT) return null;
+  return defineSocialIntention(world, soldier.id, {
+    type: 'evaluate_service', priority: .45, targetId: kingdom.id,
+    dueDay: world.day + 3, evidenceIds: [payFact.eventId],
+    steps: [
+      { action: 'review_pay_history', targetId: kingdom.id },
+      { action: 'evaluate_outstanding_compensation', targetId: kingdom.id }
+    ],
+    endsWhen: 'verified_pay_review_or_deadline'
+  });
+}
+
+export function resolveMilitaryServiceEvaluation(world, soldier) {
+  if (!world || !soldier || soldier.role !== 'soldier') return null;
+  const plan = (soldier.socialIntentions || []).find(item => item.type === 'evaluate_service'
+    && item.status === 'active' && item.progress < item.steps.length);
+  if (!plan) return null;
+  const kingdom = world.kingdoms.find(item => String(item.id) === String(plan.targetId));
+  if (!kingdom) return null;
+  if (plan.progress === 0) {
+    const progressed = advanceSocialIntention(world, soldier.id, plan.intentionId, { progress: 1 });
+    return { plan: progressed, evaluation: null };
+  }
+
+  const relatedPayEvents = (world.socialEvidence?.facts || []).filter(fact =>
+    ['military_pay_delayed', 'military_pay_recovered'].includes(fact.type)
+    && fact.participantIds.includes(String(soldier.id)) && String(fact.targetId) === String(kingdom.id)
+    && ((plan.evidenceIds || []).includes(fact.eventId) || fact.day >= plan.createdDay));
+  const outstandingArrears = Math.max(0, Number(soldier.militaryPayArrears) || 0);
+  const evaluation = recordSocialFact(world, {
+    idempotencyKey: 'military-service-evaluation:' + plan.intentionId,
+    type: 'military_service_evaluated', participantIds: [soldier.id], witnessIds: [soldier.id],
+    targetId: kingdom.id,
+    location: Number.isFinite(soldier.x) && Number.isFinite(soldier.y) ? { x: soldier.x, y: soldier.y } : null,
+    outcome: {
+      status: outstandingArrears > .001 ? 'arrears_outstanding' : 'paid_to_date',
+      outstandingArrears,
+      walletGold: Math.max(0, Number(soldier.militaryWallet?.stock?.gold) || 0),
+      reviewedPaymentEventIds: relatedPayEvents.map(fact => fact.eventId)
+    }
+  });
+  rememberSocialFact(world, soldier.id, evaluation.eventId, { source: 'direct' });
+  const completed = advanceSocialIntention(world, soldier.id, plan.intentionId, {
+    progress: plan.steps.length, status: 'completed', blockers: [], evidenceIds: [evaluation.eventId],
+    terminationReason: 'remuneration_evaluated'
+  });
+  return { plan: completed, evaluation };
 }
 
 export function payMilitarySalaries(world, day) {
