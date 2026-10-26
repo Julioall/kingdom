@@ -10,10 +10,15 @@ import { log } from '../core/events.js';
 import { moveOne, reachableAreaAround } from '../individuals/movement.js';
 import { hitboxesOverlap, structureHitbox, worldCollisionIndex } from '../physics/hitboxes.js';
 import { consumePersonEnergy } from '../individuals/energy.js';
-import { claimConstructionWorkstation, constructionContactPoint, constructionWorkPositions } from './construction-workstations.js';
+import { claimConstructionWorkstation, clearConstructionWorkpointResources, constructionContactPoint, constructionWorkpointReachable, constructionWorkPositions } from './construction-workstations.js';
 
 const COMMUNITY_BUILDING_TYPES = new Set(['abrigo', 'roça', 'curral', 'posto de coleta', 'acampamento']);
 const KINGDOM_REPAIR_COST = Object.freeze({ wood: 3, stone: 2 });
+const CONSTRUCTION_OBSTACLE_NAMES = Object.freeze({ tree: 'árvore', stone: 'pedra', gold: 'minério de ouro' });
+
+function constructionObstacleDescription(kinds) {
+  return kinds.map(kind => CONSTRUCTION_OBSTACLE_NAMES[kind] || 'recurso').join(' e ');
+}
 
 export function damagedKingdomStructures(w, kingdomId) {
     return (w.structures || []).filter(structure => structure.kingdomId === kingdomId && structure.complete
@@ -48,6 +53,13 @@ function workOnKingdomStructureRepair(w, person, community) {
     if (!workstation) {
       person.state = 'aguardando um ponto livre para reparar';
       person.buildCooldown = 2;
+      return false;
+    }
+    const cleared = clearConstructionWorkpointResources(w, person, workstation.position);
+    if (cleared.cleared) {
+      person.state = 'limpando ' + constructionObstacleDescription(cleared.kinds) + ' do ponto de reparo';
+      person.lastLesson = 'O morador removeu somente o recurso que ocupava o ponto de trabalho.';
+      person.buildCooldown = 1;
       return false;
     }
     if (!workstation.arrived) {
@@ -149,6 +161,7 @@ export function chooseBuildSite(w, community, structures, builder = null) {
       ? new Set(reachableAreaAround(w, builder, builder, Math.hypot(w.width, w.height)).map(tile => tile.i)) : null;
     let best = null, bestScore = -Infinity;
     for (const t of w.tiles) {
+      if (t.x < 2 || t.y < 2 || t.x >= w.width - 2 || t.y >= w.height - 2) continue;
       if (t.terrain !== 'land' || t.slope > .8 || t.waterDist < 3 || t.kingdomId !== community.kingdomId) continue;
       if (nextType === 'curral') {
         const kingdom = w.kingdoms.find(k => k.id === community.kingdomId);
@@ -187,7 +200,8 @@ export function chooseBuildSite(w, community, structures, builder = null) {
       const siteHitbox = structureHitbox({ ...sitePreview, complete: true });
       if (overlapsSiteResources(w, siteHitbox, resourceIndex)) continue;
       const workPositions = builder ? constructionWorkPositions(w, sitePreview, builder) : null;
-      if (builder && (!workPositions || workPositions.some(point => !reachableWorkTiles.has(point.y * w.width + point.x)))) continue;
+      if (builder && (!workPositions || workPositions.some(point =>
+        !constructionWorkpointReachable(w, builder, point, reachableWorkTiles)))) continue;
       const score = Math.log1p(localBiomass) * .24 + waterAccess * .12 - t.slope * 1.4 - spacing * .045 - centerDistance * .012
         + (ownedProperty ? .42 : 0) + (nextType === 'curral' ? Math.log1p(nearbyBrowse) * .19 - flockDistance * .045 : 0)
         + (fieldTiles ? Math.min(1, fieldTiles.length / 25) * .61 + Math.min(1, fieldSeedBiomass / plan.seedMass) * .18 : 0) + noise;
@@ -258,6 +272,13 @@ export function workOnCommunityStructure(w, person, community, size) {
     if (!workstation) {
       person.state = 'aguardando uma vaga na construção';
       person.buildCooldown = 2;
+      return;
+    }
+    const cleared = clearConstructionWorkpointResources(w, person, workstation.position);
+    if (cleared.cleared) {
+      person.state = 'limpando ' + constructionObstacleDescription(cleared.kinds) + ' do ponto de construção';
+      person.lastLesson = 'O morador removeu somente o recurso que ocupava o ponto de trabalho.';
+      person.buildCooldown = 1;
       return;
     }
     if (!workstation.arrived) {

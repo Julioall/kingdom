@@ -236,47 +236,24 @@ function recordProjectWorkStatus(w, project, status, reason, details = {}) {
   };
 }
 
-function assignSafeOngoingBuilder(w, community, leader, members, foodFirst) {
+function assignSafeOngoingBuilder(w, community, leader, members) {
   const project = w.structures.find(structure => structure.communityId === community.id && !structure.complete && !structure.kingdomProject
     && structure.destroyedDay == null && structure.integrity !== 0);
   const projectAssignments = members.filter(person => person.assignment && person.assignment.source === 'community-project'
     && person.assignment.communityId === community.id);
-  if (!foodFirst || !project) {
+  if (!project) {
     for (const person of projectAssignments) {
       const record = (community.assignments || []).slice().reverse().find(item => item.personId === person.id && item.status === 'delegada');
       if (record) record.status = 'cancelada';
       person.assignment = null;
     }
-    if (project) {
-      const strategicBuilder = members.find(person => person.assignment && person.assignment.source === 'kingdom-strategy'
-        && person.assignment.action === 'build' && person.assignment.expiresDay >= w.day);
-      if (strategicBuilder) {
-        const workerDistance = distance(strategicBuilder, project);
-        const workerAction = strategicBuilder.brain && strategicBuilder.brain.lastAction || null;
-        const pauseReason = strategicBuilder.assignment.pauseReason || null;
-        const status = pauseReason ? 'worker-paused' : workerDistance > 14 ? 'worker-out-of-range'
-          : workerDistance > 3.5 ? 'worker-approaching'
-            : workerAction === 'build' || String(strategicBuilder.state || '').startsWith('construindo')
-              ? 'worker-working' : 'delegated';
-        const reason = pauseReason ? 'A atribuição estratégica está pausada por ' + pauseReason + '.'
-          : workerDistance > 14 ? 'A pessoa designada pela estratégia está a ' + workerDistance.toFixed(1) + ' células, fora do raio de trabalho de 14.'
-            : workerDistance > 3.5 ? 'A pessoa designada pela estratégia ainda está se deslocando para o canteiro (' + workerDistance.toFixed(1) + ' células).'
-              : 'A estratégia do reino mantém a obra delegada; a decisão individual do trabalhador continua ativa.';
-        recordProjectWorkStatus(w, project, status, reason, {
-          workerId: strategicBuilder.id, workerAction, workerState: strategicBuilder.state || null,
-          distance: Number(workerDistance.toFixed(1))
-        });
-      } else {
-        recordProjectWorkStatus(w, project, 'not-delegated',
-          'A estratégia atual do reino não reservou um trabalhador para esta obra.');
-      }
-    }
     return false;
   }
 
   const activeBuilder = projectAssignments.find(person => person.assignment.structureId === project.id
-    && person.assignment.expiresDay >= w.day && person.foodReserve >= 40
-    && person.hydration >= 24 && person.energy >= 14 && person.health >= 28);
+    && person.assignment.expiresDay >= w.day && person.foodReserve >= 24
+    && person.hydration >= 22 && person.energy > 27 && person.health >= 28
+    && !person.constructionRetreating && person.homeRestTargetId == null && !person.restingOutdoors);
   if (activeBuilder) {
     activeBuilder.assignment.expiresDay = w.day + 15;
     const workerDistance = distance(activeBuilder, project);
@@ -310,8 +287,12 @@ function assignSafeOngoingBuilder(w, community, leader, members, foodFirst) {
   const adultWorkers = workers.filter(person => person.ageDays >= 12 * 365);
   const availableWorkers = adultWorkers.filter(person => !(person.assignment && person.assignment.expiresDay >= w.day));
   const nearbyWorkers = availableWorkers.filter(person => distance(person, project) <= 14);
-  const safeWorkers = nearbyWorkers.filter(person => person.foodReserve >= 50 && person.hydration >= 28
-    && person.energy > 27 && person.health >= 45 && person.buildCooldown <= 2);
+  // Keep one worker on an existing project while the rest of the community
+  // gathers food. Requiring a full food reserve here deadlocks the first
+  // shelter and farm precisely when the kingdom needs cultivated food most.
+  const safeWorkers = nearbyWorkers.filter(person => person.foodReserve >= 24 && person.hydration >= 22
+    && person.energy > 27 && person.health >= 28 && !person.constructionRetreating
+    && person.homeRestTargetId == null && !person.restingOutdoors && person.buildCooldown <= 2);
   const candidate = safeWorkers
     .sort((a, b) => distance(a, project) - distance(b, project)
       || b.foodReserve - a.foodReserve || a.id - b.id)[0];
@@ -402,8 +383,7 @@ export function updateCommunityGovernance(w, kingdomPlanner) {
           assignCommunityTasks(w, community, leader, members, kingdom && kingdom.strategy && kingdom.strategy.order, false);
           community.lastGovernanceDay = w.day;
         }
-        assignSafeOngoingBuilder(w, community, leader, members,
-          kingdom && kingdom.strategy && kingdom.strategy.order && kingdom.strategy.order.action === 'forage');
+        assignSafeOngoingBuilder(w, community, leader, members);
         continue;
       }
       const leader = selectCommunityLeader(w, community, members);

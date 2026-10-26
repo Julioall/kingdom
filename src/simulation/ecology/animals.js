@@ -6,6 +6,7 @@ import { rand } from '../core/random.js';
 import { chooseAnimalAction, createBrain, updateBrain } from '../../controllers/individual/neural.js';
 import { eatPlants, plantBiomass } from './plants.js';
 import { cellAt, cellsWithin, nearby } from '../world/spatial.js';
+import { resourceUsePressure } from '../world/roads.js';
 import Senses from '../individuals/perception.js';
 import { bestPerceivedWaterCue, nearestWater } from '../individuals/actions.js';
 import { drinkWater } from './hydrology.js';
@@ -51,7 +52,8 @@ export function feedSheep(w, tile, amount) {
 export function findFoodCell(w, agent, diet, radius) {
     const perceived = agent.perception && agent.perception.resources || [];
     const local = perceived.filter(resource => resource.distance <= radius && diet.some(id => (resource.biomass[id] || 0) > .8))
-      .sort((a, b) => a.distance - b.distance);
+      .sort((a, b) => a.distance + resourceUsePressure(cellAt(w, a.x, a.y)) * 3
+        - b.distance - resourceUsePressure(cellAt(w, b.x, b.y)) * 3);
     if (local.length) return cellAt(w, local[0].x, local[0].y);
     return nearby(w, agent.x, agent.y, radius, t => t.terrain !== 'water' && diet.some(id => {
       const i = PLANTS.findIndex(p => p.id === id); return i >= 0 && t.plants[i] > .8;
@@ -77,8 +79,11 @@ export function animalFoodCell(w, animal, profile) {
     const candidate = resources.filter(resource => (profile.aquatic ? resource.terrain === 'water' : resource.terrain !== 'water')
       && profile.diet.some(id => (resource.biomass[id] || 0) > .5))
       .sort((a, b) => {
-        const valueA = profile.diet.reduce((sum, id) => sum + (a.biomass[id] || 0), 0) - a.distance * 4;
-        const valueB = profile.diet.reduce((sum, id) => sum + (b.biomass[id] || 0), 0) - b.distance * 4;
+        const tileA = cellAt(w, a.x, a.y), tileB = cellAt(w, b.x, b.y);
+        const valueA = profile.diet.reduce((sum, id) => sum + (a.biomass[id] || 0), 0) - a.distance * 4
+          - resourceUsePressure(tileA) * 28;
+        const valueB = profile.diet.reduce((sum, id) => sum + (b.biomass[id] || 0), 0) - b.distance * 4
+          - resourceUsePressure(tileB) * 28;
         return valueB - valueA;
       })[0];
     return candidate ? cellAt(w, candidate.x, candidate.y) : null;
@@ -128,7 +133,8 @@ function wildSheepForageCell(w, flock) {
       .map(tile => ({
         tile,
         score: plantBiomass(tile, SHEEP_FORAGE) - distance(center, tile) * 2
-          - (occupied.get(tile.x + ',' + tile.y) || 0) * 5 + hash01(w.seed + flock[0].id * 101, tile.x, tile.y) * 3
+          - (occupied.get(tile.x + ',' + tile.y) || 0) * 5 - resourceUsePressure(tile) * 28
+          + hash01(w.seed + flock[0].id * 101, tile.x, tile.y) * 3
       }))
       .sort((left, right) => right.score - left.score)[0]?.tile || null;
   }

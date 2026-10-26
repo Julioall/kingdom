@@ -4,10 +4,12 @@ import { cellAt } from '../world/spatial.js';
 import { spendResource } from '../economy/inventories.js';
 import { seasonIndex } from './climate.js';
 import { invalidateNavigation } from '../individuals/navigation-cache.js';
+import { isRoadTile, resourceUsePressure } from '../world/roads.js';
 
 const RESOURCE_REGEN_INTERVAL_DAYS = 7;
 const RESOURCE_REGEN_FACTOR = .3;
 const FOREST_PATCH_SIZE = 18;
+const DISPERSING_PLANTS = new Set(['berry', 'browse', 'broadleaf', 'conifer']);
 
 export function plantSuitability(profile, tile, temperatureC, moisture) {
     if (profile.habitat === 'water' && tile.terrain !== 'water') return 0;
@@ -105,6 +107,44 @@ export function isBushAnchor(w, tile, plantId) {
     return true;
   }
 
+function spreadWildPlants(w, day) {
+    const seedlings = [];
+    for (const tile of w.tiles) {
+      if (tile.cropFieldId != null || tile.terrain !== 'land') continue;
+      const pressure = resourceUsePressure(tile);
+      if (pressure > .28 || isRoadTile(tile)) continue;
+      const moisture = clamp(tile.soilWaterMm / Math.max(1, tile.soilCapacityMm), 0, 1);
+      for (let i = 0; i < PLANTS.length; i++) {
+        const profile = PLANTS[i], bit = 1 << i;
+        if (!DISPERSING_PLANTS.has(profile.id) || profile.cultivatedOnly || (tile.plantResourceMask & bit)) continue;
+        const suitability = plantSuitability(profile, tile, tile.temperatureC, moisture);
+        if (suitability < .18) continue;
+        const radius = profile.id === 'broadleaf' || profile.id === 'conifer' ? 3 : 2;
+        const sourceFloor = radius === 3 ? 240 : Math.max(24, profile.max * .14);
+        let hasNearbySource = false;
+        for (let dy = -radius; dy <= radius && !hasNearbySource; dy++) for (let dx = -radius; dx <= radius; dx++) {
+          if (!dx && !dy || Math.hypot(dx, dy) > radius) continue;
+          const x = tile.x + dx, y = tile.y + dy;
+          if (x < 0 || y < 0 || x >= w.width || y >= w.height) continue;
+          const source = w.tiles[y * w.width + x];
+          if (source && (source.plants[i] || 0) >= sourceFloor) { hasNearbySource = true; break; }
+        }
+        if (!hasNearbySource) continue;
+        const seedChance = profile.id === 'broadleaf' || profile.id === 'conifer' ? .012 : .055;
+        const roll = hash01(w.seed + day * 101 + i * 137, tile.x, tile.y);
+        if (roll >= seedChance * suitability * (1 - pressure)) continue;
+        const amount = radius === 3
+          ? 90 + hash01(w.seed + day * 211 + i * 31, tile.x, tile.y) * 30
+          : 16 + hash01(w.seed + day * 211 + i * 31, tile.x, tile.y) * 20;
+        seedlings.push({ tile, i, amount });
+      }
+    }
+    for (const { tile, i, amount } of seedlings) {
+      tile.plants[i] = amount;
+      tile.plantResourceMask |= 1 << i;
+    }
+  }
+
 export function updatePlants(w, day) {
     if (day % RESOURCE_REGEN_INTERVAL_DAYS !== 0) return;
     invalidateNavigation(w);
@@ -128,12 +168,13 @@ export function updatePlants(w, day) {
           const blockedByStructure = b < 150 && (w.structures || []).some(structure =>
             Math.abs(t.x - structure.x) <= (structure.radius || 1.5)
             && Math.abs(t.y - structure.y) <= (structure.radius || 1.5));
-          if (b < 150 && ((t.roadWear || 0) > .01 || blockedByStructure)) continue;
+          if (b < 150 && (isRoadTile(t) || blockedByStructure)) continue;
         }
         const capacity = p.max;
+        const recoveryInLowUseAreas = p.cultivatedOnly ? 1 : 1 + (1 - resourceUsePressure(t)) * .45;
         const actual = Math.min(Math.max(0, capacity - b), p.growth * RESOURCE_REGEN_FACTOR
           * RESOURCE_REGEN_INTERVAL_DAYS * (p.seasonalGrowth?.[season] ?? 1)
-          * Math.max(0, 1 - b / capacity));
+          * Math.max(0, 1 - b / capacity) * recoveryInLowUseAreas);
         if (actual <= 0) continue;
         if (p.foodFor === 'people') {
           w.ecologyFlows.humanFoodRegrowth += actual;
@@ -142,6 +183,7 @@ export function updatePlants(w, day) {
         t.plants[i] = b + actual;
       }
     }
+    spreadWildPlants(w, day);
   }
 
 export function eatPlants(w, tile, diet, amount) {

@@ -2,8 +2,8 @@ import { clamp } from '../core/math.js';
 
 export const ROAD_RULES = Object.freeze({
   footstepWear: .25,
-  dailyRecovery: .998,
-  consolidatedDailyRecovery: .9997,
+  dailyRecovery: .985,
+  consolidatedDailyRecovery: .994,
   maxWear: 32,
   visibleAt: 2.5,
   fastAt: 7
@@ -23,6 +23,14 @@ const SETTLEMENT_ZONES = Object.freeze({
 
 export function isRoadTile(tile, fast = false) {
   return !!tile && (tile.roadWear || 0) >= (fast ? ROAD_RULES.fastAt : ROAD_RULES.visibleAt);
+}
+
+export function resourceUsePressure(tile) {
+  if (!tile) return 0;
+  const settlement = clamp(tile.civilizationPressure || 0, 0, 1);
+  const footTraffic = clamp((tile.peoplePresence || 0) * 2.2, 0, 1);
+  const roadTraffic = clamp((tile.roadWear || 0) / 18 * .78, 0, 1);
+  return Math.max(settlement, footTraffic, roadTraffic);
 }
 
 export function recordFootstep(tile, agent, day = null) {
@@ -53,8 +61,25 @@ export function updateRoadWear(world) {
     }
   }
   for (const structure of world.structures || []) {
+    if (structure.destroyedDay != null || structure.integrity === 0) continue;
+    if (!structure.complete) {
+      const centerX = Math.round(structure.x), centerY = Math.round(structure.y);
+      const radius = Math.max(4, (structure.radius || 2.5) + 2);
+      const extent = Math.ceil(radius);
+      for (let dy = -extent; dy <= extent; dy++) for (let dx = -extent; dx <= extent; dx++) {
+        const distance = Math.hypot(dx, dy);
+        if (distance >= radius) continue;
+        const x = centerX + dx, y = centerY + dy;
+        if (x < 0 || y < 0 || x >= world.width || y >= world.height) continue;
+        const tile = world.tiles[y * world.width + x];
+        if (!tile || tile.terrain !== 'land') continue;
+        const pressure = .58 * Math.pow(1 - distance / radius, 1.4);
+        tile.civilizationPressure = Math.max(tile.civilizationPressure, pressure);
+      }
+      continue;
+    }
     const zone = SETTLEMENT_ZONES[structure.type];
-    if (!zone || !structure.complete) continue;
+    if (!zone) continue;
     const centerX = Math.round(structure.x), centerY = Math.round(structure.y);
     for (let dy = -zone.radius; dy <= zone.radius; dy++) for (let dx = -zone.radius; dx <= zone.radius; dx++) {
       const distance = Math.hypot(dx, dy);
@@ -68,9 +93,7 @@ export function updateRoadWear(world) {
     }
   }
   for (const tile of world.tiles) {
-    const footTraffic = clamp((tile.peoplePresence || 0) * 2.2, 0, 1);
-    const roadTraffic = clamp((tile.roadWear || 0) / 18 * .78, 0, 1);
-    tile.civilizationPressure = Math.max(tile.civilizationPressure, footTraffic, roadTraffic);
+    tile.civilizationPressure = Math.max(tile.civilizationPressure, resourceUsePressure(tile));
   }
 }
 

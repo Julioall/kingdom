@@ -1,6 +1,8 @@
 import { distance } from '../core/math.js';
-import { collidesWithWorldAt, hitboxesOverlap, npcHitbox, structureHitbox, worldCollisionIndex } from '../physics/hitboxes.js';
+import { PLANTS } from '../../config/ecosystem.js';
+import { collidesWithStructureAt, hitboxesOverlap, mineralHitbox, npcHitbox, resourceCollisionIndex, structureHitbox, treeHitbox, worldCollisionIndex } from '../physics/hitboxes.js';
 import { cellAt } from '../world/spatial.js';
+import { invalidateNavigation } from '../individuals/navigation-cache.js';
 
 export const MAX_CONSTRUCTION_WORKERS = 2;
 
@@ -10,12 +12,51 @@ const PREFERRED_WORK_PAIRS = [
   [[2, -1], [2, 1]], [[-2, -1], [-2, 1]], [[1, -2], [1, 2]], [[-1, -2], [-1, 2]]
 ];
 
+function resourceBlockersAt(world, person, point) {
+  const body = npcHitbox(person, point.x, point.y);
+  const index = resourceCollisionIndex(world);
+  const tileIndex = point.y * world.width + point.x;
+  return (index.byTile.get(tileIndex) || []).filter(resource => hitboxesOverlap(body, resource));
+}
+
+export function constructionWorkpointHasResources(world, person, point) {
+  return resourceBlockersAt(world, person, point).length > 0;
+}
+
+export function clearConstructionWorkpointResources(world, person, point) {
+  const blockers = resourceBlockersAt(world, person, point);
+  if (!blockers.length) return { cleared: false, kinds: [] };
+  const kinds = new Set();
+  for (const blocker of blockers) {
+    const tile = world.tiles[blocker.resourceId];
+    if (!tile) continue;
+    if (blocker.resourceKind === 'tree') {
+      const broadleaf = PLANTS.findIndex(plant => plant.id === 'broadleaf');
+      const conifer = PLANTS.findIndex(plant => plant.id === 'conifer');
+      const biomass = Math.max(tile.plants[broadleaf] || 0, tile.plants[conifer] || 0);
+      if (biomass < 150 || !hitboxesOverlap(npcHitbox(person, point.x, point.y), treeHitbox(world, tile))) continue;
+      const type = tile.plants[broadleaf] >= tile.plants[conifer] ? 'broadleaf' : 'conifer';
+      tile.plants[broadleaf] = Math.min(tile.plants[broadleaf], Math.max(18, tile.plants[broadleaf] * .075));
+      tile.plants[conifer] = Math.min(tile.plants[conifer], Math.max(18, tile.plants[conifer] * .075));
+      tile.stump = { type, untilDay: world.day + 95 };
+      kinds.add('tree');
+    } else {
+      const mineral = mineralHitbox(tile);
+      if (!mineral || !hitboxesOverlap(npcHitbox(person, point.x, point.y), mineral)) continue;
+      if (tile.stoneDeposit > .7) { tile.stoneDeposit = 0; kinds.add('stone'); }
+      if (tile.goldOre > .05) { tile.goldOre = 0; kinds.add('gold'); }
+    }
+  }
+  if (kinds.size) invalidateNavigation(world);
+  return { cleared: kinds.size > 0, kinds: [...kinds] };
+}
+
 function validWorkPosition(world, person, point, collisionIndex, worksiteHitbox) {
   const tile = cellAt(world, point.x, point.y);
   if (!tile || tile.terrain !== 'land' || tile.slope > .8) return false;
   const workerBody = npcHitbox(person, point.x, point.y);
   return !hitboxesOverlap(workerBody, worksiteHitbox)
-    && !collidesWithWorldAt(world, person, point.x, point.y, collisionIndex);
+    && !collidesWithStructureAt(world, person, point.x, point.y, collisionIndex.structures);
 }
 
 function findWorkPositions(world, structure, person) {
@@ -24,7 +65,9 @@ function findWorkPositions(world, structure, person) {
   // construction point, when the normal collision index still omits it.
   const worksiteHitbox = structureHitbox({ ...structure, complete: true });
   const corralRadius = structure.type === 'curral' ? Math.max(2, Math.round(structure.radius || 3.5)) : 0;
-  const preferredPairs = corralRadius ? [
+  const preferredPairs = structure.type === 'torre' ? [
+    [[0, 1], [2, 1]], [[0, 1], [-2, 1]], ...PREFERRED_WORK_PAIRS
+  ] : corralRadius ? [
     [[-1, corralRadius + 1], [1, corralRadius + 1]],
     [[-2, corralRadius + 1], [2, corralRadius + 1]],
     [[-1, -corralRadius - 1], [1, -corralRadius - 1]],
@@ -74,6 +117,18 @@ export function constructionWorkPositions(world, structure, person) {
   const positions = findWorkPositions(world, structure, person);
   if (positions) structure.workPositions = positions;
   return positions;
+}
+
+export function constructionWorkpointReachable(world, person, point, reachableTileIndices) {
+  const index = point.y * world.width + point.x;
+  if (reachableTileIndices.has(index)) return true;
+  if (!constructionWorkpointHasResources(world, person, point)) return false;
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    if (!dx && !dy) continue;
+    const tile = cellAt(world, point.x + dx, point.y + dy);
+    if (tile && reachableTileIndices.has(tile.i)) return true;
+  }
+  return false;
 }
 
 export function claimConstructionWorkstation(world, structure, person) {

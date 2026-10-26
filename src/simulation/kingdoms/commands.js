@@ -23,10 +23,13 @@ export const KINGDOM_PROJECT_TIMING = Object.freeze({ torre: 12, frontierOutpost
 
 function canPlace(world, tile, kingdom, type) {
   if (!tile || tile.terrain !== 'land' || (tile.kingdomId != null && tile.kingdomId !== kingdom.id)) return false;
+  if (tile.waterDist < 2.1) return false;
+  if (tile.x < 2 || tile.y < 2 || tile.x >= world.width - 2 || tile.y >= world.height - 2) return false;
   if (isTreeAnchor(world, tile)) return false;
+  if (type === 'torre' && ((tile.stoneDeposit || 0) > .7 || (tile.goldOre || 0) > .05)) return false;
   if (type === 'torre') {
     const entrance = cellAt(world, tile.x, tile.y + 1);
-    if (!entrance || entrance.terrain !== 'land' || isTreeAnchor(world, entrance)) return false;
+    if (!entrance || entrance.terrain !== 'land' || entrance.waterDist < 2.1) return false;
   }
   const radius = type === 'torre' ? 2.1 : 2.7;
   return !world.structures.some(structure => {

@@ -4,10 +4,11 @@ import { moveOne } from '../individuals/movement.js';
 import { log } from '../core/events.js';
 import { consumeFoodReserve } from '../economy/inventories.js';
 import { consumePersonEnergy } from '../individuals/energy.js';
-import { claimConstructionWorkstation, constructionContactPoint, MAX_CONSTRUCTION_WORKERS } from '../settlements/construction-workstations.js';
+import { claimConstructionWorkstation, clearConstructionWorkpointResources, constructionContactPoint, MAX_CONSTRUCTION_WORKERS } from '../settlements/construction-workstations.js';
 
 export const INITIAL_PEACE_DAYS = 45;
 export const FRONTIER_RECOVERY_DAYS = 45;
+const CONSTRUCTION_OBSTACLE_NAMES = Object.freeze({ tree: 'árvore', stone: 'pedra', gold: 'minério de ouro' });
 
 export function updateTowerTension(world, day) {
   const towers = world.structures.filter(s => s.type === 'torre' && s.complete && s.integrity > 0
@@ -118,6 +119,15 @@ export function performFrontierWork(world, person, order) {
   if (person.role === 'resident' && !workstation) {
     person.state = 'aguardando ponto de trabalho na obra';
     return false;
+  }
+  if (person.role === 'resident') {
+    const cleared = clearConstructionWorkpointResources(world, person, workstation.position);
+    if (cleared.cleared) {
+      person.state = 'limpando ' + cleared.kinds.map(kind => CONSTRUCTION_OBSTACLE_NAMES[kind] || 'recurso').join(' e ')
+        + ' do ponto de construção';
+      person.constructionStallDays = 0;
+      return true;
+    }
   }
   let moved = false;
   if (person.role === 'resident' && !workstation.arrived) {

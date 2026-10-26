@@ -2,6 +2,7 @@ import { nearestLoot, collectLoot } from '../economy/loot.js';
 import { ANIMALS, DAILY_FOOD_NEED, FOOD_RESERVE_PER_UNIT, HUMAN_FOOD, PEOPLE_ACTIONS, PLANTS } from '../../config/ecosystem.js';
 import { clamp, distance, species } from '../core/math.js';
 import { cellAt, cellsWithin, nearby } from '../world/spatial.js';
+import { resourceUsePressure } from '../world/roads.js';
 import { activeCommunity, localNameFeature, recordCommunityUse, splitCommunities, updateCommunityStages, updateSocialLinks } from '../society/communities.js';
 import { log } from '../core/events.js';
 import { rand } from '../core/random.js';
@@ -117,8 +118,9 @@ export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
         && person.foodTarget && person.foodTarget.x === resource.x && person.foodTarget.y === resource.y
         && expectedHarvestReserve > travelCost;
       const continuityBonus = continuingProductiveTarget ? FORAGE_TARGET_HYSTERESIS : 0;
+      const usePressurePenalty = tile?.cropFieldId == null ? resourceUsePressure(tile) * .34 : 0;
       const score = Math.min(food, harvestCapacity) * .018 - resource.distance * .065 - resource.slope * .09
-        - warningPenalty + continuityBonus;
+        - warningPenalty - usePressurePenalty + continuityBonus;
       if (score > bestScore) { best = cellAt(w, resource.x, resource.y); bestScore = score; }
     }
     return best;
@@ -165,8 +167,10 @@ export function bestSheepFeedCell(w, person, radius) {
     const resources = person.perception && person.perception.resources || [];
     return resources.filter(resource => resource.terrain === 'land' && resource.distance <= radius
         && (resource.biomass.browse || 0) > .8 && isBushAnchor(w, cellAt(w, resource.x, resource.y), 'browse'))
-      .sort((a, b) => ((Math.min(b.biomass.browse || 0, 100) + (b.biomass.browse >= 70 ? 25 : 0)) - b.distance * 5)
-        - ((Math.min(a.biomass.browse || 0, 100) + (a.biomass.browse >= 70 ? 25 : 0)) - a.distance * 5))
+      .sort((a, b) => ((Math.min(b.biomass.browse || 0, 100) + (b.biomass.browse >= 70 ? 25 : 0)) - b.distance * 5
+          - resourceUsePressure(cellAt(w, b.x, b.y)) * 28)
+        - ((Math.min(a.biomass.browse || 0, 100) + (a.biomass.browse >= 70 ? 25 : 0)) - a.distance * 5
+          - resourceUsePressure(cellAt(w, a.x, a.y)) * 28))
       .map(resource => cellAt(w, resource.x, resource.y))[0] || null;
   }
 
@@ -953,6 +957,8 @@ function updatePeopleCore(w) {
           || p.energy < GARRISON_RECOVERY.restEnergy || p.health < GARRISON_RECOVERY.restHealth
           || p.injury >= GARRISON_RECOVERY.restInjury));
       const homeRest = soldierHomeRest || residentHomeRest;
+      const assignedBuildDuty = assignment && assignment.action === 'build' && !assignmentConflict && !survivalAction
+        && !homeRest && !carryingGoods && !p.leadingSheepId;
       // Food and water require resupply or drinking, never an endless sleep.
       const returnToGarrison = peacetimeSoldier && p.foodReserve < GARRISON_RECOVERY.food
         && !soldierHomeRest
@@ -968,6 +974,7 @@ function updatePeopleCore(w) {
         : survivalAction || carrierMaintenanceAction || (homeRest ? 'rest' : peacetimeSoldier ? peacetimeSoldierAction : (droppedLoot && !assignment && !carryingGoods && p.energy >= 9
           && (!campaignOrder || !campaignOrder.withdrawing && distance(p, droppedLoot) <= 1.6) ? 'collect_loot'
           : campaignOrder ? militaryAction || 'campaign' : cargoAction || foodDuty || (p.leadingSheepId ? 'lead_sheep'
+          : assignedBuildDuty ? 'build'
           : patrolDuty ? 'patrol' : p.role === 'soldier'
             ? p.hydration < 40 && waterTarget ? 'drink' : p.energy < 30 || p.health < 42 || p.injury >= 5 ? 'rest' : 'guard'
             : choosePeopleAction(w, p, inputs, utility))));
@@ -978,7 +985,7 @@ function updatePeopleCore(w) {
         p.brain.lastAction = action;
         if (militaryAction !== action) p.lastDecision = { action, scores: null, inputs: inputs.slice(), day: w.day };
       }
-      if (survivalAction || homeRest || carryingGoods || foodDuty) {
+      if (survivalAction || homeRest || carryingGoods || foodDuty || assignedBuildDuty) {
         // Forced survival and recovery actions bypass the neural policy; discard
         // interrupted samples so rewards cannot train the wrong action.
         p.brain.pending = null;

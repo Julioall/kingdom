@@ -4,7 +4,14 @@ import { moveOne } from '../individuals/movement.js';
 import { isTreeAnchor } from '../ecology/plants.js';
 import { fightTacticalRound } from './military.js';
 import { towerVitality } from './fortifications.js';
-import { structureInteractionPoint } from '../physics/hitboxes.js';
+import { hitboxesOverlap, npcHitbox, resourceCollisionIndex, structureInteractionPoint } from '../physics/hitboxes.js';
+
+function hasResourceBlockingEntry(world, tile) {
+  if (!tile) return true;
+  const body = npcHitbox({}, tile.x, tile.y);
+  const resources = resourceCollisionIndex(world).byTile.get(tile.i) || [];
+  return resources.some(resource => hitboxesOverlap(body, resource));
+}
 
 function eligible(person, tower) {
   return person.alive && person.role === 'soldier' && person.militaryClass === 'arqueiro'
@@ -24,14 +31,14 @@ function availableForTower(world, person, tower) {
 function towerEntryTile(world, tower) {
   const entry = structureInteractionPoint(tower) || { x: tower.x, y: tower.y + 1 };
   const tile = cellAt(world, entry.x, entry.y);
-  if (tile?.terrain === 'land' && !isTreeAnchor(world, tile)) {
+  if (tile?.terrain === 'land' && !isTreeAnchor(world, tile) && !hasResourceBlockingEntry(world, tile)) {
     return { x: tile.x, y: tile.y };
   }
   const candidates = [];
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
     if (!dx && !dy) continue;
     const candidate = cellAt(world, Math.round(tower.x) + dx, Math.round(tower.y) + dy);
-    if (candidate?.terrain === 'land' && !isTreeAnchor(world, candidate))
+    if (candidate?.terrain === 'land' && !isTreeAnchor(world, candidate) && !hasResourceBlockingEntry(world, candidate))
       candidates.push(candidate);
   }
   candidates.sort((a, b) => distance(a, entry) - distance(b, entry)
