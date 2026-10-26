@@ -4,7 +4,7 @@ Data: 26/10/2026
 
 Branch: `codex/jul195-integration`
 
-Commit de implementação: `5c55c6ec145a810cee2decafa5ca4a87da83cda0`
+Commits de implementação: `5c55c6ec145a810cee2decafa5ca4a87da83cda0` e `6a0aac72ee0acac88870357238f2afa61b53e921`
 
 Evidência reproduzível: `docs/verification/JUL-178-livestock-shock-20261026.json`
 
@@ -12,13 +12,13 @@ Evidência reproduzível: `docs/verification/JUL-178-livestock-shock-20261026.js
 
 `feedCommunalHerds` já debitava ração finita dos estoques da comunidade e devolvia o total consumido ao chamador, mas o mundo não retinha esse total em um ledger cumulativo. Agora, após um débito bem-sucedido, acumula `ecologyFlows.livestockFeedConsumed`. Isso torna visível a entrada do rebanho no snapshot e no replay sem alterar a regra de alimentação. `harvests.livestockMeat` continua registrando a saída da conversão de uma ovelha em carne, enquanto a carga pessoal mostra a localização imediata do produto.
 
-Foi adicionado `npm run audit:livestock` para exercitar, em quatro seeds, a sequência de ração comunitária e abate emergencial nas funções de produção. A repetição da seed 42 compara os resultados observáveis. O replay não afirma que o mundo padrão alcança essa decisão sozinho: sua configuração inicial atribui três ovelhas adultas geradas a uma comunidade, cria um abrigo utilizável, reduz o alimento comum a zero, deixa uma pessoa com reserva 8 e torna as três ovelhas visíveis. A chamada de captura usa o gerador determinístico com estado fixo.
+Foi adicionado `npm run audit:livestock` para exercitar, em quatro seeds, a sequência de ração comunitária, abate emergencial e entrega ao abrigo. A repetição da seed 42 compara os resultados observáveis. O replay não afirma que o mundo padrão alcança essa decisão sozinho: sua configuração inicial atribui três ovelhas adultas geradas a uma comunidade, cria um abrigo utilizável, reduz os estoques alimentares comuns e de governo a zero, deixa uma pessoa com reserva 8 e torna as três ovelhas visíveis. A chamada de captura usa o gerador determinístico com estado fixo. O harness mantém apenas essa pessoa ativa no update de ações para isolar a custódia do produto.
 
 ## Resultado observado
 
-Em cada seed (`1`, `42`, `987`, `2026`): 0 alimento comunitário inicial; 3 ovelhas adultas; 0,36 de ração disponível; 0,36 debitada e lançada no ledger; 1 abate; 23,04 unidades de carne produzidas e carregadas; 2 adultas restantes. A repetição da seed 42 produziu os mesmos campos observáveis (`determinismVerified: true`). O fator nutricional representa 57,6 pontos de necessidade para os 23,04 de carne; não é uma segunda criação de alimento.
+Em cada seed (`1`, `42`, `987`, `2026`): 0 alimento comunitário inicial; 3 ovelhas adultas; 0,36 de ração disponível; 0,36 debitada e lançada no ledger; 1 abate; 23,04 unidades de carne produzidas; 2 adultas restantes; carga pessoal zerada após entrega; 23,04 registrados no estoque comunitário e no campo físico do abrigo. Os estoques de alimento e ração da comunidade permaneceram em zero após a ação. A repetição da seed 42 produziu os mesmos campos observáveis (`determinismVerified: true`). O fator nutricional representa 57,6 pontos de necessidade para os 23,04 de carne; não é uma segunda criação de alimento. O saldo comunitário e o campo do abrigo representam o mesmo estoque espelhado, não duas cópias consumíveis.
 
-O replay usual do mundo não comprovou a emergência do rebanho: as execuções de 253 e 730 dias já documentadas reportaram `harvests.livestock=0`. Portanto, este resultado demonstra conservação e conversão sob um choque alcançável, não o benefício da política em condições naturais nem a sobrevivência ao longo do tempo. A JUL-178 permanece aberta para os demais critérios, incluindo entrega/consumo posterior, custo de sementes, campanha e cenários de mercado.
+O replay usual do mundo não comprovou a emergência do rebanho: as execuções de 253 e 730 dias já documentadas reportaram `harvests.livestock=0`. Um smoke adicional de `stepDay` reproduziu a permanência da carga e o desvio para forragear sob reserva baixa; esse é o motivo da correção de prioridade abaixo. O teste e o harness agora passam por `updatePeople` e confirmam a entrega ao abrigo sob estado controlado. Isso demonstra conservação e entrega sob choque, não que o mundo padrão alcance a política sozinho nem que o alimento seja consumido/sustentado ao longo do tempo. A JUL-178 permanece aberta para os demais critérios, incluindo crianças, custo de sementes, campanha e cenários de mercado.
 
 ## Alternativas consideradas
 
@@ -26,6 +26,8 @@ O replay usual do mundo não comprovou a emergência do rebanho: as execuções 
 | --- | --- | --- |
 | Manter apenas o retorno transitório de `feedCommunalHerds` | Rejeitada | Replays e snapshots posteriores não poderiam reconciliar o débito cumulativo da comunidade com a entrada consumida pelo rebanho. |
 | Criar leite, carne periódica ou produção automática | Rejeitada | Criaria uma cadeia nova de produto e mais regras ecológicas sem evidência; o escopo exige custos e saídas finitos. |
+| Contar o saldo comunitário de carne e a carne espelhada no abrigo como estoques separados | Rejeitada | A entrega grava o mesmo saldo em ambos os campos; somá-los de novo adiava um abate que a disponibilidade real não sustentava. A regra agora soma apenas carne física que ainda não está representada no saldo comunitário. |
+| Forragear antes de entregar carne já carregada quando a reserva está baixa | Rejeitada | O executor desviava do abrigo apesar de já transportar alimento destinado ao estoque comum; agora prioriza a entrega quando existe destino válido. A necessidade diária crítica ainda consome a carga antes da escolha de ação. |
 | Adicionar um contador no ledger e um choque de teste controlado | Escolhida | Expõe o débito já existente, testa a conversão existente e preserva o limite de duas adultas sem simular biomas ou estações. |
 | Usar apenas seeds/horizontes normais | Insuficiente | O rebanho de emergência não foi acionado nos replays anteriores, então isso não evidencia seu fluxo. O cenário controlado complementa os replays normais, sem substituí-los. |
 
@@ -39,12 +41,13 @@ O replay usual do mundo não comprovou a emergência do rebanho: as execuções 
 
 ## Validação nesta etapa
 
-- `node --test tests/livestock-food.test.mjs`: 6/6.
-- `npm run audit:livestock -- --output docs/verification/JUL-178-livestock-shock-20261026.json`: quatro seeds e repetição da seed 42; replays passaram e foram determinísticos.
+- `node --test tests/livestock-food.test.mjs`: 7/7, incluindo saída da reserva duplicada e entrega de carne sob pressão alimentar.
+- `npm run audit:livestock -- --output docs/verification/JUL-178-livestock-shock-20261026.json`: quatro seeds e repetição da seed 42; replays passaram, entregaram a carne ao abrigo e foram determinísticos no SHA `6a0aac72ee0acac88870357238f2afa61b53e921`.
+- `npm run audit:food -- --days 30 --seeds 42 --repeat-seed 42`: estado e crônica repetidos iguais, sem estoques negativos, zero mortes por fome e `determinismDiff=[]` no SHA `6a0aac72ee0acac88870357238f2afa61b53e921`; hash de estado `21b51efe89f05dfa278cdde8e4913f404092c915956e73cb0c9b562c29f8d868`.
 - `npm run build`: passou (99 módulos); permanece o aviso conhecido de chunk acima de 500 kB.
 - `git diff --check`: passou.
-- `npm test`: 94/94 passou em 70,5 s; inclui Worker determinístico, economia, campanha, rebanho, navegação alimentar e memória social.
+- `npm test`: 95/95 passou em 69,6 s; inclui Worker determinístico, economia, campanha, rebanho, navegação alimentar e memória social.
 
 ## Limite da decisão
 
-O cenário controlado chama diretamente as funções de produção `feedCommunalHerds` e `attemptHumanHunt`. Não demonstra que `stepDay` ou a política autônoma produzam a configuração, nem que a carne seja entregue e consumida depois. Essa diferença está explícita para evitar marcar como concluído um aceite maior do que a prova disponível. A etapa não altera biomas nem regras sazonais; estações continuam representadas apenas pela troca visual de tiles.
+O cenário controlado chama `feedCommunalHerds`, `attemptHumanHunt` e o update de ação de uma pessoa isolada. Não demonstra que `stepDay` ou a política autônoma produzam a configuração, nem que a carne armazenada sustente o grupo por vários dias; o replay padrão ainda tem abate zero. Essa diferença está explícita para evitar marcar como concluído um aceite maior do que a prova disponível. A etapa não altera biomas nem regras sazonais; estações continuam representadas apenas pela troca visual de tiles.
