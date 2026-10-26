@@ -42,6 +42,7 @@ const PERSONAL_FOOD_PRESSURE_THRESHOLD = 42;
 const CRITICAL_FOOD_RESERVE_THRESHOLD = 8;
 const FORAGE_TARGET_HYSTERESIS = .14;
 const MAX_FAILED_FOOD_TARGETS = 8;
+const FAILED_FOOD_TARGET_COOLDOWN_DAYS = 2;
 const RESOURCE_CONFLICT_TRUCE_DAYS = 14;
 const HARVEST_REACH_DISTANCE = 1.05;
 
@@ -118,7 +119,10 @@ export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
     const criticalFoodPressure = person.foodReserve <= CRITICAL_FOOD_RESERVE_THRESHOLD;
     const resources = person.perception && person.perception.resources || [];
     const failedTargets = (person.failedFoodTargets || []).filter(target => Number.isInteger(target.x)
-      && Number.isInteger(target.y) && Number.isInteger(target.untilDay) && target.untilDay >= w.day);
+      && Number.isInteger(target.y) && Number.isInteger(target.untilDay) && target.untilDay >= w.day
+      && (target.navigationRevision == null || target.navigationRevision === w.navigationRevision)
+      && (target.failedFromX == null || target.failedFromX === Math.round(person.x))
+      && (target.failedFromY == null || target.failedFromY === Math.round(person.y)));
     if (failedTargets.length !== (person.failedFoodTargets || []).length) person.failedFoodTargets = failedTargets;
     const failedTargetKeys = new Set(failedTargets.map(target => target.x + ',' + target.y));
     const harvestCapacity = clamp(1.8 + person.skills.forage * 3.2, 1.8, 5);
@@ -146,7 +150,7 @@ export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
       const improvesSelection = score > bestScore;
       const improvesSurvivalSelection = criticalFoodPressure && canCoverSurvivalTrip && score > bestSurvivalScore;
       if (!improvesSelection && !improvesSurvivalSelection && !(criticalFoodPressure && canCoverSurvivalTrip && matchesCurrentTarget)) continue;
-      if (tile?.cropFieldId == null && !foodApproachTiles(w, person, tile).length) continue;
+      if (!foodApproachTiles(w, person, tile).length) continue;
       const candidate = cellAt(w, resource.x, resource.y);
       if (improvesSelection) { best = candidate; bestScore = score; }
       if (criticalFoodPressure && canCoverSurvivalTrip) {
@@ -159,17 +163,20 @@ export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
   }
 
 function foodApproachTiles(w, person, foodTile) {
-  if (!w || !person || !foodTile || foodTile.cropFieldId != null
-      || !isBushAnchor(w, foodTile, 'berry')) return [];
-  const harvestHitbox = bushHarvestHitbox(w, foodTile, 'berry');
-  if (!harvestHitbox) return [];
+  if (!w || !person || !foodTile) return [];
+  const cropField = foodTile.cropFieldId != null;
+  if (!cropField && !isBushAnchor(w, foodTile, 'berry')) return [];
+  const harvestHitbox = cropField ? null : bushHarvestHitbox(w, foodTile, 'berry');
+  if (!cropField && !harvestHitbox) return [];
   const collisionIndex = worldCollisionIndex(w);
   const candidates = [];
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
     const tile = cellAt(w, foodTile.x + dx, foodTile.y + dy);
     if (!tile || tile.terrain !== 'land' || collidesWithWorldAt(w, person, tile.x, tile.y, collisionIndex)
-        || !canEnterForeignTerritory(w, person, tile)
-        || !hitboxesOverlap(npcHitbox(person, tile.x, tile.y), harvestHitbox)) continue;
+        || !canEnterForeignTerritory(w, person, tile)) continue;
+    const reachesFood = cropField ? distance(tile, foodTile) <= HARVEST_REACH_DISTANCE
+      : hitboxesOverlap(npcHitbox(person, tile.x, tile.y), harvestHitbox);
+    if (!reachesFood) continue;
     candidates.push(tile);
   }
   return candidates.sort((a, b) => distance(person, a) - distance(person, b)
@@ -177,7 +184,6 @@ function foodApproachTiles(w, person, foodTile) {
 }
 
 export function moveTowardFood(w, person, foodTile) {
-  if (foodTile?.cropFieldId != null) return moveOne(w, person, foodTile, false);
   for (const approach of foodApproachTiles(w, person, foodTile)) {
     if (moveOne(w, person, approach, false)) {
       person.failedFoodTargets = (person.failedFoodTargets || []).filter(target =>
@@ -186,8 +192,12 @@ export function moveTowardFood(w, person, foodTile) {
     }
   }
   const failedTargets = (person.failedFoodTargets || []).filter(target => target.untilDay >= w.day
+    && (target.navigationRevision == null || target.navigationRevision === w.navigationRevision)
+    && (target.failedFromX == null || target.failedFromX === Math.round(person.x))
+    && (target.failedFromY == null || target.failedFromY === Math.round(person.y))
     && (target.x !== foodTile.x || target.y !== foodTile.y));
-  failedTargets.push({ x: foodTile.x, y: foodTile.y, untilDay: w.day });
+  failedTargets.push({ x: foodTile.x, y: foodTile.y, untilDay: w.day + FAILED_FOOD_TARGET_COOLDOWN_DAYS,
+    failedFromX: Math.round(person.x), failedFromY: Math.round(person.y), navigationRevision: w.navigationRevision });
   person.failedFoodTargets = failedTargets.slice(-MAX_FAILED_FOOD_TARGETS);
   return false;
 }
@@ -1047,8 +1057,12 @@ function updatePeopleCore(w) {
         : null;
       const healthRelatedWaterRisk = p.health <= 5 && p.hydration <= 14 && !!(waterTarget || waterCue);
       const urgentWaterNeed = p.hydration <= 9 || healthRelatedWaterRisk;
+      const emergencyFoodOpportunity = p.foodReserve <= DAILY_FOOD_NEED && food
+        && (!waterHere || distance(p, waterHere) > 1.5)
+        && (canHarvestFoodAt(w, p, food) || distance(p, food) <= 2.5);
       const survivalAction = urgentWaterNeed
-        ? (waterTarget ? 'drink' : (waterCue || bestHabitatCell(w, p) ? 'migrate' : null))
+        ? emergencyFoodOpportunity ? 'forage'
+          : waterTarget ? 'drink' : (waterCue || bestHabitatCell(w, p) ? 'migrate' : null)
         : p.foodReserve <= 8
           ? (canDeliverEdibleCargo ? 'deliver'
             : droppedLoot && distance(p, droppedLoot) <= 1.6 && ((droppedLoot.resources.food || 0) + (droppedLoot.resources.meat || 0)) > 0 ? 'collect_loot'

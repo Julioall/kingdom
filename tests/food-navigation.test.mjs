@@ -69,8 +69,93 @@ test('forager approaches the interaction edge of a berry anchor blocked by its t
   person.y = target.y;
   const cropStartDistance = Math.hypot(person.x - target.x, person.y - target.y);
   assert.equal(moveTowardFood(world, person, target), true,
-    'crop fields keep their direct destination routing');
+    'crop fields can be approached through a walkable interaction tile');
   assert.ok(Math.hypot(person.x - target.x, person.y - target.y) < cropStartDistance);
+});
+
+test('a blocked crop tile uses a reachable edge for harvest', () => {
+  const world = createWorld(42);
+  world.day = 450;
+  const target = cellAt(world, 64, 64);
+  const cropIndex = PLANTS.findIndex(plant => plant.id === 'cultivated-root');
+  for (let y = 61; y <= 69; y++) for (let x = 61; x <= 69; x++) {
+    const tile = cellAt(world, x, y);
+    tile.terrain = 'land'; tile.slope = 0; tile.elevationLevel = 0; tile.cropFieldId = null;
+    tile.goldOre = 0; tile.stoneDeposit = 0; tile.plants.fill(0);
+  }
+  target.cropFieldId = 77;
+  target.plants[cropIndex] = 100;
+  const person = {
+    id: 900003, alive: true, name: 'Lina K', role: 'resident', ageDays: 25 * 365,
+    x: 63, y: 63, kingdomId: null, communityId: null, foodReserve: 0,
+    hydration: 80, energy: 50, health: 100, injury: 0, skills: { forage: .3 },
+    perception: { resources: [{ x: target.x, y: target.y, distance: Math.SQRT2, terrain: 'land', slope: 0,
+      biomass: { 'cultivated-root': 100 }, harvestableBiomass: { 'cultivated-root': 100 } }] }
+  };
+  world.people = [person];
+  world.structures = [{ id: 99001, type: 'casa', x: target.x, y: target.y, complete: true, progress: 1, integrity: 100 }];
+  world.animals = [];
+  world.peopleSpatialIndex = createPersonSpatialIndex(world.people);
+  world.navigationRevision++;
+
+  assert.equal(collidesWithWorldAt(world, person, target.x, target.y, worldCollisionIndex(world)), true,
+    'an obstruction covers the crop tile');
+  assert.deepEqual(bestPeopleFoodCell(world, person, 8), target,
+    'the crop remains selectable because an interaction edge is reachable');
+  assert.equal(moveTowardFood(world, person, target), true);
+  assert.ok(Math.hypot(person.x - target.x, person.y - target.y) <= 1.05);
+  assert.notDeepEqual({ x: person.x, y: person.y }, { x: target.x, y: target.y });
+});
+
+test('failed crop navigation is cooled down so local perception can select another patch', () => {
+  const world = createWorld(42);
+  world.day = 450;
+  const target = cellAt(world, 64, 64);
+  const alternate = cellAt(world, 68, 64);
+  const cropIndex = PLANTS.findIndex(plant => plant.id === 'cultivated-root');
+  const berryIndex = PLANTS.findIndex(plant => plant.id === 'berry');
+  const treeIndex = PLANTS.findIndex(plant => plant.id === 'broadleaf');
+  for (let y = 61; y <= 69; y++) for (let x = 61; x <= 69; x++) {
+    const tile = cellAt(world, x, y);
+    tile.terrain = 'land'; tile.slope = 0; tile.elevationLevel = 0; tile.cropFieldId = null;
+    tile.goldOre = 0; tile.stoneDeposit = 0; tile.plants.fill(0);
+  }
+  target.cropFieldId = 77;
+  target.plants[cropIndex] = 100;
+  for (const [x, y] of [[64, 63], [65, 64], [64, 65], [63, 64]]) cellAt(world, x, y).terrain = 'water';
+  alternate.plants[berryIndex] = 100;
+  alternate.plants[treeIndex] = 500;
+  const person = {
+    id: 900004, alive: true, name: 'Lina M', role: 'resident', ageDays: 25 * 365,
+    x: 63, y: 63, kingdomId: null, communityId: null, foodReserve: 0,
+    hydration: 80, energy: 50, health: 100, injury: 0, skills: { forage: .3 }, failedFoodTargets: [],
+    perception: { resources: [
+      { x: target.x, y: target.y, distance: Math.SQRT2, terrain: 'land', slope: 0,
+        biomass: { 'cultivated-root': 100 }, harvestableBiomass: { 'cultivated-root': 100 } },
+      { x: alternate.x, y: alternate.y, distance: 5, terrain: 'land', slope: 0,
+        biomass: { berry: 100 }, harvestableBiomass: { berry: 100 } }
+    ] }
+  };
+  world.people = [person];
+  world.structures = [{ id: 99002, type: 'casa', x: target.x, y: target.y, complete: true, progress: 1, integrity: 100 }];
+  world.animals = [];
+  world.peopleSpatialIndex = createPersonSpatialIndex(world.people);
+  world.navigationRevision++;
+
+  assert.equal(moveTowardFood(world, person, target), false,
+    'no current walkable interaction point reaches the obstructed crop');
+  assert.ok(person.failedFoodTargets.some(item => item.x === target.x && item.y === target.y
+    && item.untilDay === world.day + 2), 'the failed crop is held out while the blocked route is unchanged');
+  assert.deepEqual(bestPeopleFoodCell(world, person, 8), alternate,
+    'same-day replanning selects the alternate locally perceived berry patch');
+  world.day += 1;
+  assert.deepEqual(bestPeopleFoodCell(world, person, 8), alternate,
+    'the unchanged failed route is not retried on the next day');
+  world.day += 2;
+  assert.deepEqual(bestPeopleFoodCell(world, person, 8), alternate,
+    'an interaction edge still blocked by water is never treated as a valid route');
+  assert.ok(!person.failedFoodTargets.some(item => item.x === target.x && item.y === target.y && item.untilDay >= world.day),
+    'the short retry memory expires so later perception can reconsider the patch');
 });
 
 test('a critically hungry forager commits to a patch that covers travel and its next ration', () => {

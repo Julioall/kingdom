@@ -4,6 +4,7 @@ import engine from '../src/simulation/engine.js';
 import { bestPeopleFoodCell } from '../src/simulation/individuals/actions.js';
 import { distance } from '../src/simulation/core/math.js';
 import { PLANTS } from '../src/config/ecosystem.js';
+import { cellAt } from '../src/simulation/world/spatial.js';
 import Senses from '../src/simulation/individuals/perception.js';
 
 function starvingPeacetimeSoldierFixture(garrisonFood = 0) {
@@ -62,4 +63,35 @@ test('a hungry peacetime soldier returns to a stocked garrison before foraging',
 
   assert.equal(soldier.lastDecision.action, 'return_garrison');
   assert.ok(distance(soldier, center) < before, 'the soldier moves toward the actual ration source');
+});
+
+test('an adult with critical hunger harvests nearby food while critical water remains out of reach', () => {
+  const { world, soldier } = starvingPeacetimeSoldierFixture();
+  soldier.role = 'resident';
+  soldier.militaryCenterId = null;
+  soldier.militaryDutyCenterId = null;
+  const cropIndex = PLANTS.findIndex(plant => plant.id === 'cultivated-root');
+  const crop = cellAt(world, Math.round(soldier.x), Math.round(soldier.y));
+  crop.terrain = 'land';
+  crop.cropFieldId = 99001;
+  crop.plants[cropIndex] = 100;
+  soldier.perception.resources = [{ x: crop.x, y: crop.y, distance: 0, terrain: 'land', slope: 0,
+    biomass: { 'cultivated-root': 100 }, harvestableBiomass: { 'cultivated-root': 100 } }];
+  const water = cellAt(world, crop.x + 3, crop.y);
+  water.terrain = 'water';
+  water.waterKind = 'lake';
+  water.surfaceWaterMm = 20;
+  soldier.perception.knownWater = [{ x: water.x, y: water.y, distance: 3, confidence: 1 }];
+  soldier.foodReserve = 1.1;
+  soldier.hydration = 8;
+  soldier.health = 50;
+  const biomassBefore = crop.plants[cropIndex];
+
+  engine.modules.SocietyExperiment.updatePeople(world);
+
+  assert.equal(soldier.lastDecision.action, 'forage',
+    'a food deficit that cannot cover the next ration is handled before walking farther for water');
+  assert.ok(crop.plants[cropIndex] < biomassBefore, 'the finite crop paid for the meal');
+  assert.ok(soldier.foodReserve > 0, 'the action restored food from the harvested crop');
+  assert.ok(soldier.hydration < 8, 'the decision does not invent water while food is harvested');
 });
