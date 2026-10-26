@@ -1,0 +1,94 @@
+{
+  "runtime": "v24.19.0",
+  "sourceRevision": "dae979502b8d02b3e5b9cd97570cb1682c29f210",
+  "base": "engine.createWorld + production stepDay",
+  "days": 730,
+  "seeds": [
+    2026
+  ],
+  "repeatSeed": null,
+  "results": [
+    {
+      "seed": 2026,
+      "days": 730,
+      "elapsedSeconds": 145.58,
+      "stateSha256": "4557a1b9a7cd59afc2034ade697102c2c8bc69918c1c6d45dc3900a114b97fc1",
+      "stateParts": {
+        "day": "61182f39851829ca78c919a83ecbfa045fc0686bff16d0cfa3e643988d9dfecd",
+        "year": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+        "season": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+        "seed": "158a323a7ba44870f23d96f1516dd70aa48e9a72db4ebb026b0a89e212a208ab",
+        "rngState": "e53ce54ad20102e2f205b1ae3ef0972eb9f33332c2002a861d7d0bf59e432844",
+        "nextId": "d6e5a20b30f87216b2c758f5e7a23c437dbc3dfa1ccb177c474de152bb0ef731",
+        "tiles": "f2da458201b26807ac5bf75bff36d344745b9a6521934dbd03dec0dac9a41b34",
+        "regions": "0e869b73a0dbefc67f4333e9c842f41c0954cca8f317c85246ed45f7b4d905af",
+        "animals": "467c626c17dc0d23d816e64af25203fbe70d509ed1dad0d7c85eed60b8a368c2",
+        "people": "1626cdd6573bff67e32405e1016c875e5c95339da64e3322683369c777d0a261",
+        "communities": "6e6233bdd4d833717090b441677c254f780288a70d52bb2afca4db73681ca51c",
+        "kingdoms": "1afc7397622cb9eaa16a6899ada1980a549d0eee30db3936f48cf2acaec134c8",
+        "settlements": "63e75e219a0b74fbc4fdce743a0bd9bfa533a2743062c11b515f42a60760236a",
+        "structures": "d814d42357c053e740d6dc6e019cd21f51ee123bd961ac718bab029649a7e54a",
+        "wars": "ca30372a74cad2ff34226cc98e3d920c7a8d200d62948b757984bcb01410b2a2",
+        "campaigns": "fb6356b89465fe9c64f0532e16e001bc002307db113cfc5c844d46bd49783bc4",
+        "conflicts": "a46e37632fa6ca51a13fe39a567b3c23b28c2f47d8af6be9bd63e030e214ba38",
+        "territoryClaims": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "treaties": "8a4d56564d58ceb2d587d600b22239d1ed00c6c95d287f5748aa0edd3f09e4e4",
+        "socialLinks": "920551de36d1e16bebef64cd4073769604a2e7b985a6b83cad532e8441158cfd",
+        "events": "dc672ab93852388469354d2ce744c76f869344f8b0b7ac08daebfdbc6912292d",
+        "chronicle": "f0cc5a411780311280d2f6e74e069858ff4dbf3e697e1dd229d7f8a87b6d4b01",
+        "harvests": "ca822a850ff77a6af90351d392417a8bae284d8c396167472ca94dc91e9bc0f0",
+        "ecologyFlows": "776db2f566aa2031675219b14432f975e79aa62d65b01f20333cea458f1021c5",
+        "deathsByCause": "ce5ddd97c8af70f9b2631de8d7236ce1d952944e8c19cb2452fee290fb2aad8e",
+        "tradeRecords": "e413dea4a04fa5c684c115da78ad0fd1440b86667dae96ba962eaea3410fc2d6"
+      },
+      "chronicleSha256": "f0cc5a411780311280d2f6e74e069858ff4dbf3e697e1dd229d7f8a87b6d4b01",
+      "determinismVerified": false,
+      "livingPeople": 96,
+      "adultDaysFoodReserveBelow20": 33418,
+      "deathsByCause": {
+        "starvation": 2,
+        "dehydration": 0,
+        "age": 0,
+        "injury": 0,
+        "combat": 1,
+        "predation": 0,
+        "harvest": 1,
+        "invasion": 3
+      },
+      "births": 33,
+      "deaths": 7,
+      "harvests": {
+        "hunting": 0,
+        "fishing": 0,
+        "livestock": 1,
+        "livestockMeat": 16.52,
+        "plantFoodBiomass": 42144.97650873206,
+        "cultivatedFoodBiomass": 13420.839668631554
+      },
+      "ecologyFlows": {
+        "humanFoodRegrowth": 86236.58768912319,
+        "humanFoodNaturalLoss": 0,
+        "humanFoodSettlementLoss": 0,
+        "humanFoodEcologicalLoss": 0,
+        "humanFoodCultivatedRegrowth": 16584.47909215966,
+        "humanFoodCultivationSeeded": 16,
+        "livestockFeedConsumed": 336.00000000000335
+      },
+      "foodBiomass": 127794.59,
+      "activeCampaigns": 0,
+      "campaignBattles": 82,
+      "marketTransactions": 78,
+      "stocks": {
+        "communityFood": 1.58,
+        "communityMeat": 0,
+        "treasuryFood": 0,
+        "marketFood": 0,
+        "personalFoodReserve": 1560.19,
+        "carriedFood": 5,
+        "carriedFruit": 0,
+        "carriedMeat": 0,
+        "campaignFieldFood": 0
+      }
+    }
+  ]
+}

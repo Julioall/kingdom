@@ -1,0 +1,1892 @@
+{
+  "sourceRevision": "8d6071a5339e7a1c915ecf94c096af1b4bcdf9f2",
+  "seed": 42,
+  "requestedDays": 730,
+  "observedThroughDay": 479,
+  "starvationDeaths": 9,
+  "deathsCaptured": 8,
+  "firstDeaths": [
+    {
+      "day": 273,
+      "id": 196,
+      "name": "Nilo Júnior",
+      "role": "resident",
+      "ageDays": 183,
+      "deathDetails": {
+        "day": 273,
+        "cause": "starvation",
+        "ageDays": 183,
+        "health": 74.7549999999996,
+        "foodReserve": 0,
+        "hydration": 82.98968195423524,
+        "injury": 0,
+        "carriedFood": 0,
+        "recentHealth": {
+          "days": 30,
+          "losses": {
+            "care": 1.54
+          },
+          "recovery": {
+            "care": 0.66
+          }
+        }
+      },
+      "state": "sem cuidador próximo",
+      "lastLesson": "Recebeu 0.42 pontos de alimento de Jaci H para o cuidado diário.",
+      "x": 38,
+      "y": 51,
+      "communityId": 27,
+      "kingdomId": 25,
+      "homeId": 37,
+      "guardianId": 75,
+      "assignment": null,
+      "preDeathState": {
+        "day": 272,
+        "health": 74.8949999999996,
+        "foodReserve": 0.15999999999999404,
+        "hydration": 83.22968195423523,
+        "state": "sem cuidador próximo",
+        "lastLesson": "Recebeu 0.42 pontos de alimento de Jaci H para o cuidado diário.",
+        "lastDecision": null,
+        "foodTarget": null,
+        "selectedFoodTarget": null,
+        "perceptionResourceCount": 0,
+        "nearFood": [
+          {
+            "x": 37,
+            "y": 49,
+            "distance": 1.4142135623730951,
+            "edibleBiomass": 71.54093170166016,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 38,
+            "y": 48,
+            "distance": 2,
+            "edibleBiomass": 66.12815856933594,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 37,
+            "y": 48,
+            "distance": 2.23606797749979,
+            "edibleBiomass": 73.84967803955078,
+            "berryAnchor": true,
+            "cropFieldId": null
+          },
+          {
+            "x": 40,
+            "y": 49,
+            "distance": 2.23606797749979,
+            "edibleBiomass": 31.091476440429688,
+            "berryAnchor": true,
+            "cropFieldId": null
+          },
+          {
+            "x": 36,
+            "y": 48,
+            "distance": 2.8284271247461903,
+            "edibleBiomass": 73.52295684814453,
+            "berryAnchor": false,
+            "cropFieldId": null
+          }
+        ]
+      },
+      "foodTarget": null,
+      "selectedFoodTarget": null,
+      "lastDecision": null,
+      "communityFood": 0,
+      "nearestAdults": [
+        {
+          "id": 94,
+          "name": "Luma N",
+          "distance": 8.06225774829855,
+          "foodReserve": 0.8435215103073124,
+          "state": "procurando alimento",
+          "communityId": 27
+        },
+        {
+          "id": 75,
+          "name": "Jaci H",
+          "distance": 11.704699910719626,
+          "foodReserve": 1.2884713702011112,
+          "state": "procurando alimento",
+          "communityId": 27
+        },
+        {
+          "id": 70,
+          "name": "Zuri N",
+          "distance": 15.231546211727817,
+          "foodReserve": 2.8759925455642303,
+          "state": "procurando alimento",
+          "communityId": 27
+        }
+      ],
+      "nearestFood": [
+        {
+          "x": 37,
+          "y": 53,
+          "distance": 2.23606797749979,
+          "edibleBiomass": 73.66730499267578,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": null
+        },
+        {
+          "x": 37,
+          "y": 49,
+          "distance": 2.23606797749979,
+          "edibleBiomass": 71.91509246826172,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": null
+        },
+        {
+          "x": 39,
+          "y": 53,
+          "distance": 2.23606797749979,
+          "edibleBiomass": 43.650367736816406,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": null
+        },
+        {
+          "x": 36,
+          "y": 53,
+          "distance": 2.8284271247461903,
+          "edibleBiomass": 37.33831024169922,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": null
+        },
+        {
+          "x": 40,
+          "y": 49,
+          "distance": 2.8284271247461903,
+          "edibleBiomass": 31.6124324798584,
+          "berryAnchor": true,
+          "cropFieldId": null,
+          "perceived": null
+        }
+      ]
+    },
+    {
+      "day": 316,
+      "id": 198,
+      "name": "Ayo Filho",
+      "role": "resident",
+      "ageDays": 196,
+      "deathDetails": {
+        "day": 316,
+        "cause": "starvation",
+        "ageDays": 196,
+        "health": 36.902162909185876,
+        "foodReserve": 0.09999999999999998,
+        "hydration": 99.76,
+        "injury": 0,
+        "carriedFood": 0,
+        "recentHealth": {
+          "days": 30,
+          "losses": {
+            "care": 0.42
+          },
+          "recovery": {
+            "care": 0.94
+          }
+        }
+      },
+      "state": "sem cuidador próximo",
+      "lastLesson": "Recebeu 0.42 pontos de alimento de Nilo P para o cuidado diário.",
+      "x": 93,
+      "y": 73,
+      "communityId": 28,
+      "kingdomId": 26,
+      "homeId": 57,
+      "guardianId": 160,
+      "assignment": null,
+      "preDeathState": {
+        "day": 315,
+        "health": 37.042162909185876,
+        "foodReserve": 0.42,
+        "hydration": 100,
+        "state": "recebendo cuidado",
+        "lastLesson": "Recebeu 0.42 pontos de alimento de Nilo P para o cuidado diário.",
+        "lastDecision": null,
+        "foodTarget": null,
+        "selectedFoodTarget": null,
+        "perceptionResourceCount": 0,
+        "nearFood": [
+          {
+            "x": 93,
+            "y": 71,
+            "distance": 1.4142135623730951,
+            "edibleBiomass": 76.83688354492188,
+            "berryAnchor": true,
+            "cropFieldId": null
+          },
+          {
+            "x": 93,
+            "y": 73,
+            "distance": 1.4142135623730951,
+            "edibleBiomass": 51.49211120605469,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 94,
+            "y": 70,
+            "distance": 2,
+            "edibleBiomass": 74.69617462158203,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 92,
+            "y": 72,
+            "distance": 2,
+            "edibleBiomass": 73.62472534179688,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 96,
+            "y": 72,
+            "distance": 2,
+            "edibleBiomass": 60.87843322753906,
+            "berryAnchor": false,
+            "cropFieldId": null
+          }
+        ]
+      },
+      "foodTarget": null,
+      "selectedFoodTarget": null,
+      "lastDecision": null,
+      "communityFood": 0,
+      "nearestAdults": [
+        {
+          "id": 158,
+          "name": "Cora I",
+          "distance": 7.0710678118654755,
+          "foodReserve": 84.1517422658207,
+          "state": "recebendo cuidado",
+          "communityId": 28
+        },
+        {
+          "id": 163,
+          "name": "Lina N",
+          "distance": 10.295630140987,
+          "foodReserve": 2.350393548877716,
+          "state": "coletando alimento",
+          "communityId": 28
+        },
+        {
+          "id": 145,
+          "name": "Oru T",
+          "distance": 16.1245154965971,
+          "foodReserve": 2.0846949623222355,
+          "state": "coletando alimento",
+          "communityId": 28
+        }
+      ],
+      "nearestFood": [
+        {
+          "x": 93,
+          "y": 73,
+          "distance": 0,
+          "edibleBiomass": 51.49211120605469,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": null
+        },
+        {
+          "x": 92,
+          "y": 73,
+          "distance": 1,
+          "edibleBiomass": 47.04403305053711,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": null
+        },
+        {
+          "x": 92,
+          "y": 72,
+          "distance": 1.4142135623730951,
+          "edibleBiomass": 73.62472534179688,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": null
+        },
+        {
+          "x": 94,
+          "y": 74,
+          "distance": 1.4142135623730951,
+          "edibleBiomass": 56.709693908691406,
+          "berryAnchor": true,
+          "cropFieldId": null,
+          "perceived": null
+        },
+        {
+          "x": 93,
+          "y": 71,
+          "distance": 2,
+          "edibleBiomass": 76.83688354492188,
+          "berryAnchor": true,
+          "cropFieldId": null,
+          "perceived": null
+        }
+      ]
+    },
+    {
+      "day": 418,
+      "id": 81,
+      "name": "Tainá G",
+      "role": "soldier",
+      "ageDays": 7516.49604004994,
+      "deathDetails": {
+        "day": 418,
+        "cause": "starvation",
+        "ageDays": 7516.49604004994,
+        "health": 0,
+        "foodReserve": 0,
+        "hydration": 32.29518653675947,
+        "injury": 0,
+        "carriedFood": 0,
+        "recentHealth": {
+          "days": 30,
+          "losses": {
+            "dehydration": 4.34,
+            "starvation": 10.34
+          },
+          "recovery": {}
+        }
+      },
+      "state": "indo descansar na casa",
+      "lastLesson": "A pessoa segue para sua casa; o descanso começa ao entrar.",
+      "x": 54,
+      "y": 26,
+      "communityId": 27,
+      "kingdomId": 25,
+      "homeId": 34,
+      "guardianId": null,
+      "assignment": null,
+      "preDeathState": {
+        "day": 417,
+        "health": 0.19235487391764622,
+        "foodReserve": 0,
+        "hydration": 32.59518653675947,
+        "state": "indo descansar na casa",
+        "lastLesson": "A pessoa segue para sua casa; o descanso começa ao entrar.",
+        "lastDecision": {
+          "action": "rest",
+          "scores": null,
+          "inputs": [
+            1,
+            0.5343544780462933,
+            0.5508295047473215,
+            1,
+            0.552786404500042,
+            0.96875,
+            0,
+            0.3454474555241885,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.6328736199273004,
+            0,
+            0.32126021155409396,
+            0,
+            0
+          ],
+          "day": 416
+        },
+        "foodTarget": null,
+        "selectedFoodTarget": {
+          "x": 55,
+          "y": 28
+        },
+        "perceptionResourceCount": 115,
+        "nearFood": [
+          {
+            "x": 54,
+            "y": 26,
+            "distance": 0,
+            "edibleBiomass": 67.8811264038086,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 55,
+            "y": 25,
+            "distance": 1.4142135623730951,
+            "edibleBiomass": 72.31900787353516,
+            "berryAnchor": true,
+            "cropFieldId": null
+          },
+          {
+            "x": 53,
+            "y": 27,
+            "distance": 1.4142135623730951,
+            "edibleBiomass": 67.63030242919922,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 56,
+            "y": 26,
+            "distance": 2,
+            "edibleBiomass": 70.58306884765625,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 54,
+            "y": 28,
+            "distance": 2,
+            "edibleBiomass": 67.25637817382812,
+            "berryAnchor": false,
+            "cropFieldId": null
+          }
+        ]
+      },
+      "foodTarget": null,
+      "selectedFoodTarget": {
+        "x": 55,
+        "y": 28
+      },
+      "lastDecision": {
+        "action": "rest",
+        "scores": null,
+        "inputs": [
+          1,
+          0.5386401923320076,
+          0.5522437904616071,
+          1,
+          0.552786404500042,
+          1,
+          0.0052791129218207325,
+          0.3454474555241885,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0.6328736199273004,
+          0,
+          0.32126021155409396,
+          0,
+          0
+        ],
+        "day": 417
+      },
+      "communityFood": 3.2132576857248956,
+      "nearestAdults": [
+        {
+          "id": 88,
+          "name": "Uira T",
+          "distance": 1,
+          "foodReserve": 56.48949992127734,
+          "state": "recebendo cuidado",
+          "communityId": 27
+        },
+        {
+          "id": 69,
+          "name": "Yara U",
+          "distance": 1.4142135623730951,
+          "foodReserve": 32.23696912199561,
+          "state": "indo descansar na casa",
+          "communityId": 27
+        },
+        {
+          "id": 78,
+          "name": "Mira A",
+          "distance": 2,
+          "foodReserve": 40.8066251954436,
+          "state": "recebendo cuidado",
+          "communityId": 27
+        }
+      ],
+      "nearestFood": [
+        {
+          "x": 54,
+          "y": 26,
+          "distance": 0,
+          "edibleBiomass": 67.8811264038086,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 0,
+            "biomass": {
+              "grass": 45.477745056152344,
+              "berry": 67.8811264038086
+            },
+            "harvestableBiomass": {
+              "grass": 45.477745056152344,
+              "berry": 67.8811264038086
+            }
+          }
+        },
+        {
+          "x": 55,
+          "y": 25,
+          "distance": 1.4142135623730951,
+          "edibleBiomass": 72.31900787353516,
+          "berryAnchor": true,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 1.4142135623730951,
+            "biomass": {
+              "grass": 38.85791778564453,
+              "berry": 72.31900787353516,
+              "conifer": 297.2047119140625
+            },
+            "harvestableBiomass": {
+              "grass": 38.85791778564453,
+              "berry": 72.31900787353516,
+              "conifer": 297.2047119140625
+            }
+          }
+        },
+        {
+          "x": 53,
+          "y": 27,
+          "distance": 1.4142135623730951,
+          "edibleBiomass": 67.63030242919922,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": null
+        },
+        {
+          "x": 56,
+          "y": 26,
+          "distance": 2,
+          "edibleBiomass": 70.58306884765625,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 2,
+            "biomass": {
+              "grass": 40.6306037902832,
+              "berry": 70.58306884765625,
+              "browse": 49.46930694580078,
+              "conifer": 373.2798767089844
+            },
+            "harvestableBiomass": {
+              "grass": 40.6306037902832,
+              "berry": 70.58306884765625,
+              "browse": 49.46930694580078,
+              "conifer": 373.2798767089844
+            }
+          }
+        },
+        {
+          "x": 54,
+          "y": 28,
+          "distance": 2,
+          "edibleBiomass": 67.25637817382812,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 2,
+            "biomass": {
+              "grass": 37.77770233154297,
+              "berry": 67.25637817382812,
+              "broadleaf": 443.3231506347656
+            },
+            "harvestableBiomass": {
+              "grass": 37.77770233154297,
+              "berry": 67.25637817382812,
+              "broadleaf": 443.3231506347656
+            }
+          }
+        }
+      ]
+    },
+    {
+      "day": 437,
+      "id": 90,
+      "name": "Uira T",
+      "role": "soldier",
+      "ageDays": 11798.46375183016,
+      "deathDetails": {
+        "day": 437,
+        "cause": "starvation",
+        "ageDays": 11798.46375183016,
+        "health": 0,
+        "foodReserve": 0,
+        "hydration": 28.620432617236297,
+        "injury": 0,
+        "carriedFood": 0,
+        "recentHealth": {
+          "days": 30,
+          "losses": {
+            "dehydration": 1.86,
+            "starvation": 10.38
+          },
+          "recovery": {}
+        }
+      },
+      "state": "indo descansar na casa",
+      "lastLesson": "A pessoa segue para sua casa; o descanso começa ao entrar.",
+      "x": 62,
+      "y": 24,
+      "communityId": 27,
+      "kingdomId": 25,
+      "homeId": 35,
+      "guardianId": null,
+      "assignment": null,
+      "preDeathState": {
+        "day": 436,
+        "health": 0.2262309796759277,
+        "foodReserve": 0,
+        "hydration": 28.920432617236298,
+        "state": "indo descansar na casa",
+        "lastLesson": "A pessoa segue para sua casa; o descanso começa ao entrar.",
+        "lastDecision": {
+          "action": "rest",
+          "scores": null,
+          "inputs": [
+            1,
+            0.58685096261091,
+            0.9075610647991963,
+            1,
+            0.8,
+            1,
+            0.09814814814814815,
+            0.3359719573850985,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.6143193986680773,
+            0,
+            0.32126021155409396,
+            0,
+            0
+          ],
+          "day": 435
+        },
+        "foodTarget": {
+          "x": 60,
+          "y": 14
+        },
+        "selectedFoodTarget": {
+          "x": 61,
+          "y": 24
+        },
+        "perceptionResourceCount": 115,
+        "nearFood": [
+          {
+            "x": 61,
+            "y": 24,
+            "distance": 1,
+            "edibleBiomass": 84.13935852050781,
+            "berryAnchor": true,
+            "cropFieldId": null
+          },
+          {
+            "x": 61,
+            "y": 23,
+            "distance": 1.4142135623730951,
+            "edibleBiomass": 83.8516845703125,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 63,
+            "y": 23,
+            "distance": 1.4142135623730951,
+            "edibleBiomass": 73.63142395019531,
+            "berryAnchor": true,
+            "cropFieldId": null
+          },
+          {
+            "x": 60,
+            "y": 24,
+            "distance": 2,
+            "edibleBiomass": 73.96288299560547,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 60,
+            "y": 23,
+            "distance": 2.23606797749979,
+            "edibleBiomass": 82.29511260986328,
+            "berryAnchor": false,
+            "cropFieldId": null
+          }
+        ]
+      },
+      "foodTarget": {
+        "x": 60,
+        "y": 14
+      },
+      "selectedFoodTarget": {
+        "x": 61,
+        "y": 24
+      },
+      "lastDecision": {
+        "action": "rest",
+        "scores": null,
+        "inputs": [
+          1,
+          0.5911366768966243,
+          0.9089753505134821,
+          1,
+          0.8,
+          1,
+          0.09814814814814815,
+          0.3359719573850985,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0.6143193986680773,
+          0,
+          0.32126021155409396,
+          0,
+          0
+        ],
+        "day": 436
+      },
+      "communityFood": 0,
+      "nearestAdults": [
+        {
+          "id": 104,
+          "name": "Jaci S",
+          "distance": 2.23606797749979,
+          "foodReserve": 81.94321128072883,
+          "state": "recebendo cuidado",
+          "communityId": 27
+        },
+        {
+          "id": 92,
+          "name": "Nilo H",
+          "distance": 6.4031242374328485,
+          "foodReserve": 9.755388144813548,
+          "state": "coletando alimento",
+          "communityId": 27
+        },
+        {
+          "id": 115,
+          "name": "Mira K",
+          "distance": 6.708203932499369,
+          "foodReserve": 35.572458320583415,
+          "state": "coletando alimento",
+          "communityId": 27
+        }
+      ],
+      "nearestFood": [
+        {
+          "x": 61,
+          "y": 24,
+          "distance": 1,
+          "edibleBiomass": 84.13935852050781,
+          "berryAnchor": true,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 1,
+            "biomass": {
+              "grass": 53.9200325012207,
+              "berry": 84.13935852050781
+            },
+            "harvestableBiomass": {
+              "grass": 53.9200325012207,
+              "berry": 84.13935852050781
+            }
+          }
+        },
+        {
+          "x": 61,
+          "y": 23,
+          "distance": 1.4142135623730951,
+          "edibleBiomass": 83.8516845703125,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": null
+        },
+        {
+          "x": 63,
+          "y": 23,
+          "distance": 1.4142135623730951,
+          "edibleBiomass": 73.63142395019531,
+          "berryAnchor": true,
+          "cropFieldId": null,
+          "perceived": null
+        },
+        {
+          "x": 60,
+          "y": 24,
+          "distance": 2,
+          "edibleBiomass": 73.96288299560547,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 2,
+            "biomass": {
+              "grass": 40.02168273925781,
+              "berry": 73.96288299560547
+            },
+            "harvestableBiomass": {
+              "grass": 40.02168273925781,
+              "berry": 73.96288299560547
+            }
+          }
+        },
+        {
+          "x": 60,
+          "y": 23,
+          "distance": 2.23606797749979,
+          "edibleBiomass": 82.29511260986328,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": null
+        }
+      ]
+    },
+    {
+      "day": 452,
+      "id": 91,
+      "name": "Ravi T",
+      "role": "soldier",
+      "ageDays": 8319.324556177482,
+      "deathDetails": {
+        "day": 452,
+        "cause": "starvation",
+        "ageDays": 8319.324556177482,
+        "health": 0,
+        "foodReserve": 0,
+        "hydration": 17.886305323662796,
+        "injury": 0,
+        "carriedFood": 0,
+        "recentHealth": {
+          "days": 30,
+          "losses": {
+            "starvation": 10.43
+          },
+          "recovery": {}
+        }
+      },
+      "state": "indo descansar na casa",
+      "lastLesson": "A pessoa segue para sua casa; o descanso começa ao entrar.",
+      "x": 60,
+      "y": 24,
+      "communityId": 27,
+      "kingdomId": 25,
+      "homeId": 35,
+      "guardianId": null,
+      "assignment": null,
+      "preDeathState": {
+        "day": 451,
+        "health": 0.28040129620516346,
+        "foodReserve": 0,
+        "hydration": 18.186305323662797,
+        "state": "indo descansar na casa",
+        "lastLesson": "A pessoa segue para sua casa; o descanso começa ao entrar.",
+        "lastDecision": {
+          "action": "rest",
+          "scores": null,
+          "inputs": [
+            1,
+            0.7401956382333886,
+            0.5515321477738989,
+            1,
+            0,
+            1,
+            0.09814814814814815,
+            0.32720712160644033,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.6239811367458767,
+            0,
+            0.32126021155409396,
+            0,
+            0
+          ],
+          "day": 450
+        },
+        "foodTarget": null,
+        "selectedFoodTarget": {
+          "x": 57,
+          "y": 28
+        },
+        "perceptionResourceCount": 115,
+        "nearFood": [
+          {
+            "x": 60,
+            "y": 24,
+            "distance": 0,
+            "edibleBiomass": 74.50650787353516,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 61,
+            "y": 24,
+            "distance": 1,
+            "edibleBiomass": 84.63080596923828,
+            "berryAnchor": true,
+            "cropFieldId": null
+          },
+          {
+            "x": 60,
+            "y": 23,
+            "distance": 1,
+            "edibleBiomass": 82.7960205078125,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 59,
+            "y": 24,
+            "distance": 1,
+            "edibleBiomass": 78.60813903808594,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 60,
+            "y": 25,
+            "distance": 1,
+            "edibleBiomass": 70.4370346069336,
+            "berryAnchor": false,
+            "cropFieldId": null
+          }
+        ]
+      },
+      "foodTarget": null,
+      "selectedFoodTarget": {
+        "x": 57,
+        "y": 28
+      },
+      "lastDecision": {
+        "action": "rest",
+        "scores": null,
+        "inputs": [
+          1,
+          0.7444813525191029,
+          0.5529464334881847,
+          1,
+          0,
+          1,
+          0,
+          0.32720712160644033,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0.6239811367458767,
+          0,
+          0.32126021155409396,
+          0,
+          0
+        ],
+        "day": 451
+      },
+      "communityFood": 3.6484576857248956,
+      "nearestAdults": [
+        {
+          "id": 104,
+          "name": "Jaci S",
+          "distance": 1,
+          "foodReserve": 81.94321128072883,
+          "state": "recebendo cuidado",
+          "communityId": 27
+        },
+        {
+          "id": 92,
+          "name": "Nilo H",
+          "distance": 3.6055512754639896,
+          "foodReserve": 1.3553881448135476,
+          "state": "alimento inacessível",
+          "communityId": 27
+        },
+        {
+          "id": 70,
+          "name": "Zuri N",
+          "distance": 5,
+          "foodReserve": 38.64684278263089,
+          "state": "colhendo para a reserva da roça",
+          "communityId": 27
+        }
+      ],
+      "nearestFood": [
+        {
+          "x": 60,
+          "y": 24,
+          "distance": 0,
+          "edibleBiomass": 74.50650787353516,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 0,
+            "biomass": {
+              "grass": 40.740230560302734,
+              "berry": 74.50650787353516
+            },
+            "harvestableBiomass": {
+              "grass": 40.740230560302734,
+              "berry": 74.50650787353516
+            }
+          }
+        },
+        {
+          "x": 61,
+          "y": 24,
+          "distance": 1,
+          "edibleBiomass": 84.63080596923828,
+          "berryAnchor": true,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 1,
+            "biomass": {
+              "grass": 54.538692474365234,
+              "berry": 84.63080596923828
+            },
+            "harvestableBiomass": {
+              "grass": 54.538692474365234,
+              "berry": 84.63080596923828
+            }
+          }
+        },
+        {
+          "x": 60,
+          "y": 23,
+          "distance": 1,
+          "edibleBiomass": 82.7960205078125,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": null
+        },
+        {
+          "x": 59,
+          "y": 24,
+          "distance": 1,
+          "edibleBiomass": 78.60813903808594,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 1,
+            "biomass": {
+              "grass": 56.16706085205078,
+              "berry": 78.60813903808594,
+              "broadleaf": 340.4472351074219
+            },
+            "harvestableBiomass": {
+              "grass": 56.16706085205078,
+              "berry": 78.60813903808594,
+              "broadleaf": 340.4472351074219
+            }
+          }
+        },
+        {
+          "x": 60,
+          "y": 25,
+          "distance": 1,
+          "edibleBiomass": 70.4370346069336,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 1,
+            "biomass": {
+              "grass": 44.9399299621582,
+              "berry": 70.4370346069336,
+              "broadleaf": 355.65045166015625
+            },
+            "harvestableBiomass": {
+              "grass": 44.9399299621582,
+              "berry": 70.4370346069336,
+              "broadleaf": 355.65045166015625
+            }
+          }
+        }
+      ]
+    },
+    {
+      "day": 458,
+      "id": 86,
+      "name": "Bela X",
+      "role": "soldier",
+      "ageDays": 9643.850482154638,
+      "deathDetails": {
+        "day": 458,
+        "cause": "starvation",
+        "ageDays": 9643.850482154638,
+        "health": 0,
+        "foodReserve": 0,
+        "hydration": 39.47200230057405,
+        "injury": 0,
+        "carriedFood": 0,
+        "recentHealth": {
+          "days": 30,
+          "losses": {
+            "starvation": 10.37
+          },
+          "recovery": {}
+        }
+      },
+      "state": "indo descansar na casa",
+      "lastLesson": "A pessoa segue para sua casa; o descanso começa ao entrar.",
+      "x": 62,
+      "y": 26,
+      "communityId": 27,
+      "kingdomId": 25,
+      "homeId": 35,
+      "guardianId": null,
+      "assignment": null,
+      "preDeathState": {
+        "day": 457,
+        "health": 0.22033793213278813,
+        "foodReserve": 0,
+        "hydration": 39.772002300574044,
+        "state": "indo descansar na casa",
+        "lastLesson": "A pessoa segue para sua casa; o descanso começa ao entrar.",
+        "lastDecision": {
+          "action": "rest",
+          "scores": null,
+          "inputs": [
+            1,
+            0.43182853856322795,
+            0.8803072657818934,
+            1,
+            0,
+            0.96875,
+            0,
+            0.32720712160644033,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.6417771233452692,
+            0,
+            0.32126021155409396,
+            0,
+            0
+          ],
+          "day": 456
+        },
+        "foodTarget": null,
+        "selectedFoodTarget": {
+          "x": 59,
+          "y": 30
+        },
+        "perceptionResourceCount": 116,
+        "nearFood": [
+          {
+            "x": 60,
+            "y": 26,
+            "distance": 2,
+            "edibleBiomass": 70.26175689697266,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 61,
+            "y": 24,
+            "distance": 2.23606797749979,
+            "edibleBiomass": 84.8755874633789,
+            "berryAnchor": true,
+            "cropFieldId": null
+          },
+          {
+            "x": 60,
+            "y": 25,
+            "distance": 2.23606797749979,
+            "edibleBiomass": 70.71824645996094,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 61,
+            "y": 28,
+            "distance": 2.23606797749979,
+            "edibleBiomass": 68.82593536376953,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 60,
+            "y": 24,
+            "distance": 2.8284271247461903,
+            "edibleBiomass": 74.77727508544922,
+            "berryAnchor": false,
+            "cropFieldId": null
+          }
+        ]
+      },
+      "foodTarget": null,
+      "selectedFoodTarget": {
+        "x": 59,
+        "y": 30
+      },
+      "lastDecision": {
+        "action": "rest",
+        "scores": null,
+        "inputs": [
+          1,
+          0.4361142528489422,
+          0.8817215514961791,
+          1,
+          0,
+          0.96875,
+          0.1111111111111111,
+          0.32720712160644033,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0.6417771233452692,
+          0,
+          0.32126021155409396,
+          0,
+          0
+        ],
+        "day": 457
+      },
+      "communityFood": 0.44704314867655426,
+      "nearestAdults": [
+        {
+          "id": 104,
+          "name": "Jaci S",
+          "distance": 3.6055512754639896,
+          "foodReserve": 81.94321128072883,
+          "state": "recebendo cuidado",
+          "communityId": 27
+        },
+        {
+          "id": 92,
+          "name": "Nilo H",
+          "distance": 4.123105625617661,
+          "foodReserve": 0,
+          "state": "bebendo água",
+          "communityId": 27
+        },
+        {
+          "id": 115,
+          "name": "Mira K",
+          "distance": 5,
+          "foodReserve": 39.403395522914934,
+          "state": "colhendo para a reserva da roça",
+          "communityId": 27
+        }
+      ],
+      "nearestFood": [
+        {
+          "x": 60,
+          "y": 26,
+          "distance": 2,
+          "edibleBiomass": 70.26175689697266,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 2,
+            "biomass": {
+              "grass": 53.708499908447266,
+              "berry": 70.26175689697266
+            },
+            "harvestableBiomass": {
+              "grass": 53.708499908447266,
+              "berry": 70.26175689697266
+            }
+          }
+        },
+        {
+          "x": 61,
+          "y": 24,
+          "distance": 2.23606797749979,
+          "edibleBiomass": 84.8755874633789,
+          "berryAnchor": true,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 2.23606797749979,
+            "biomass": {
+              "grass": 54.846351623535156,
+              "berry": 84.8755874633789
+            },
+            "harvestableBiomass": {
+              "grass": 54.846351623535156,
+              "berry": 84.8755874633789
+            }
+          }
+        },
+        {
+          "x": 60,
+          "y": 25,
+          "distance": 2.23606797749979,
+          "edibleBiomass": 70.71824645996094,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 2.23606797749979,
+            "biomass": {
+              "grass": 45.28214645385742,
+              "berry": 70.71824645996094,
+              "broadleaf": 356.27105712890625
+            },
+            "harvestableBiomass": {
+              "grass": 45.28214645385742,
+              "berry": 70.71824645996094,
+              "broadleaf": 356.27105712890625
+            }
+          }
+        },
+        {
+          "x": 61,
+          "y": 28,
+          "distance": 2.23606797749979,
+          "edibleBiomass": 68.82593536376953,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": null
+        },
+        {
+          "x": 60,
+          "y": 24,
+          "distance": 2.8284271247461903,
+          "edibleBiomass": 74.77727508544922,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 2.8284271247461903,
+            "biomass": {
+              "grass": 41.097564697265625,
+              "berry": 74.77727508544922
+            },
+            "harvestableBiomass": {
+              "grass": 41.097564697265625,
+              "berry": 74.77727508544922
+            }
+          }
+        }
+      ]
+    },
+    {
+      "day": 472,
+      "id": 139,
+      "name": "Kai V",
+      "role": "soldier",
+      "ageDays": 12736.185264427215,
+      "deathDetails": {
+        "day": 472,
+        "cause": "starvation",
+        "ageDays": 12736.185264427215,
+        "health": 0,
+        "foodReserve": 0,
+        "hydration": 34.754260081193124,
+        "injury": 0,
+        "carriedFood": 0,
+        "recentHealth": {
+          "days": 30,
+          "losses": {
+            "starvation": 10.38
+          },
+          "recovery": {}
+        }
+      },
+      "state": "indo descansar na casa",
+      "lastLesson": "A pessoa segue para sua casa; o descanso começa ao entrar.",
+      "x": 62,
+      "y": 84,
+      "communityId": 28,
+      "kingdomId": 26,
+      "homeId": 55,
+      "guardianId": null,
+      "assignment": null,
+      "preDeathState": {
+        "day": 471,
+        "health": 0.23428824635071394,
+        "foodReserve": 0,
+        "hydration": 35.05426008119312,
+        "state": "indo descansar na casa",
+        "lastLesson": "A pessoa segue para sua casa; o descanso começa ao entrar.",
+        "lastDecision": {
+          "action": "rest",
+          "scores": null,
+          "inputs": [
+            1,
+            0.4992248559829554,
+            0.4621472091083025,
+            1,
+            0.17537887487646786,
+            1,
+            0,
+            0.22439019671531313,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.6705341339111328,
+            0,
+            0.375,
+            0,
+            0.04141826303390447
+          ],
+          "day": 470
+        },
+        "foodTarget": null,
+        "selectedFoodTarget": {
+          "x": 61,
+          "y": 88
+        },
+        "perceptionResourceCount": 116,
+        "nearFood": [
+          {
+            "x": 63,
+            "y": 84,
+            "distance": 1,
+            "edibleBiomass": 69.23875427246094,
+            "berryAnchor": true,
+            "cropFieldId": null
+          },
+          {
+            "x": 61,
+            "y": 85,
+            "distance": 1.4142135623730951,
+            "edibleBiomass": 71.6436996459961,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 61,
+            "y": 86,
+            "distance": 2.23606797749979,
+            "edibleBiomass": 84.16046142578125,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 60,
+            "y": 86,
+            "distance": 2.8284271247461903,
+            "edibleBiomass": 84.73176574707031,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 62,
+            "y": 81,
+            "distance": 3,
+            "edibleBiomass": 69.74288177490234,
+            "berryAnchor": false,
+            "cropFieldId": null
+          }
+        ]
+      },
+      "foodTarget": null,
+      "selectedFoodTarget": {
+        "x": 61,
+        "y": 88
+      },
+      "lastDecision": {
+        "action": "rest",
+        "scores": null,
+        "inputs": [
+          1,
+          0.5035105702686696,
+          0.4635614948225882,
+          1,
+          0.17537887487646786,
+          1,
+          0,
+          0.22439019671531313,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0.6705341339111328,
+          0,
+          0.375,
+          0,
+          0.04141826303390447
+        ],
+        "day": 471
+      },
+      "communityFood": 0,
+      "nearestAdults": [
+        {
+          "id": 143,
+          "name": "Eni Y",
+          "distance": 6.324555320336759,
+          "foodReserve": 52.851419518963134,
+          "state": "recebendo cuidado",
+          "communityId": 28
+        },
+        {
+          "id": 128,
+          "name": "Aru T",
+          "distance": 8,
+          "foodReserve": 7.929956222167986,
+          "state": "indo descansar na casa",
+          "communityId": 28
+        },
+        {
+          "id": 136,
+          "name": "Cora E",
+          "distance": 8.602325267042627,
+          "foodReserve": 20.32380410581839,
+          "state": "recebendo cuidado",
+          "communityId": 28
+        }
+      ],
+      "nearestFood": [
+        {
+          "x": 63,
+          "y": 84,
+          "distance": 1,
+          "edibleBiomass": 69.23875427246094,
+          "berryAnchor": true,
+          "cropFieldId": null,
+          "perceived": null
+        },
+        {
+          "x": 61,
+          "y": 85,
+          "distance": 1.4142135623730951,
+          "edibleBiomass": 71.6436996459961,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 1.4142135623730951,
+            "biomass": {
+              "grass": 47.0838737487793,
+              "berry": 71.6436996459961
+            },
+            "harvestableBiomass": {
+              "grass": 47.0838737487793,
+              "berry": 71.6436996459961
+            }
+          }
+        },
+        {
+          "x": 61,
+          "y": 86,
+          "distance": 2.23606797749979,
+          "edibleBiomass": 84.16046142578125,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 2.23606797749979,
+            "biomass": {
+              "grass": 49.238224029541016,
+              "berry": 84.16046142578125
+            },
+            "harvestableBiomass": {
+              "grass": 49.238224029541016,
+              "berry": 84.16046142578125
+            }
+          }
+        },
+        {
+          "x": 60,
+          "y": 86,
+          "distance": 2.8284271247461903,
+          "edibleBiomass": 84.73176574707031,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 2.8284271247461903,
+            "biomass": {
+              "grass": 46.54021072387695,
+              "berry": 84.73176574707031
+            },
+            "harvestableBiomass": {
+              "grass": 46.54021072387695,
+              "berry": 84.73176574707031
+            }
+          }
+        },
+        {
+          "x": 62,
+          "y": 81,
+          "distance": 3,
+          "edibleBiomass": 69.74288177490234,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": null
+        }
+      ]
+    },
+    {
+      "day": 479,
+      "id": 142,
+      "name": "Dara T",
+      "role": "soldier",
+      "ageDays": 12483.32110922411,
+      "deathDetails": {
+        "day": 479,
+        "cause": "starvation",
+        "ageDays": 12483.32110922411,
+        "health": 0.09229444385564112,
+        "foodReserve": 0,
+        "hydration": 38.9307698248426,
+        "injury": 0,
+        "carriedFood": 0,
+        "recentHealth": {
+          "days": 30,
+          "losses": {
+            "starvation": 10.5
+          },
+          "recovery": {}
+        }
+      },
+      "state": "indo descansar na casa",
+      "lastLesson": "A pessoa segue para sua casa; o descanso começa ao entrar.",
+      "x": 60,
+      "y": 84,
+      "communityId": 28,
+      "kingdomId": 26,
+      "homeId": 55,
+      "guardianId": null,
+      "assignment": null,
+      "preDeathState": {
+        "day": 478,
+        "health": 0.44229444385564115,
+        "foodReserve": 0,
+        "hydration": 39.2307698248426,
+        "state": "indo descansar na casa",
+        "lastLesson": "A pessoa segue para sua casa; o descanso começa ao entrar.",
+        "lastDecision": {
+          "action": "rest",
+          "scores": null,
+          "inputs": [
+            1,
+            0.4395604310736772,
+            0.5236253695153187,
+            1,
+            0.434314575050762,
+            1,
+            0,
+            0.22439019671531313,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.6711653815375433,
+            0,
+            0.375,
+            0,
+            0.04141826303390447
+          ],
+          "day": 477
+        },
+        "foodTarget": null,
+        "selectedFoodTarget": {
+          "x": 58,
+          "y": 86
+        },
+        "perceptionResourceCount": 115,
+        "nearFood": [
+          {
+            "x": 61,
+            "y": 85,
+            "distance": 1.4142135623730951,
+            "edibleBiomass": 71.95185089111328,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 60,
+            "y": 86,
+            "distance": 2,
+            "edibleBiomass": 85.0338134765625,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 61,
+            "y": 86,
+            "distance": 2.23606797749979,
+            "edibleBiomass": 84.4555892944336,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 59,
+            "y": 86,
+            "distance": 2.23606797749979,
+            "edibleBiomass": 81.04054260253906,
+            "berryAnchor": false,
+            "cropFieldId": null
+          },
+          {
+            "x": 58,
+            "y": 85,
+            "distance": 2.23606797749979,
+            "edibleBiomass": 73.50669860839844,
+            "berryAnchor": false,
+            "cropFieldId": null
+          }
+        ]
+      },
+      "foodTarget": null,
+      "selectedFoodTarget": {
+        "x": 61,
+        "y": 88
+      },
+      "lastDecision": {
+        "action": "rest",
+        "scores": null,
+        "inputs": [
+          1,
+          0.44384614535939143,
+          0.5250396552296044,
+          1,
+          0.17537887487646786,
+          1,
+          0,
+          0.22439019671531313,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0.6711653815375433,
+          0,
+          0.375,
+          0,
+          0.04141826303390447
+        ],
+        "day": 478
+      },
+      "communityFood": 0,
+      "nearestAdults": [
+        {
+          "id": 143,
+          "name": "Eni Y",
+          "distance": 5.385164807134505,
+          "foodReserve": 52.21141951896313,
+          "state": "sem cuidador próximo",
+          "communityId": 28
+        },
+        {
+          "id": 128,
+          "name": "Aru T",
+          "distance": 6,
+          "foodReserve": 8.594921907348654,
+          "state": "indo descansar na casa",
+          "communityId": 28
+        },
+        {
+          "id": 121,
+          "name": "Noa G",
+          "distance": 6.4031242374328485,
+          "foodReserve": 27.37417120598284,
+          "state": "recebendo cuidado",
+          "communityId": 28
+        }
+      ],
+      "nearestFood": [
+        {
+          "x": 61,
+          "y": 85,
+          "distance": 1.4142135623730951,
+          "edibleBiomass": 71.95185089111328,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 1.4142135623730951,
+            "biomass": {
+              "grass": 47.454498291015625,
+              "berry": 71.95185089111328
+            },
+            "harvestableBiomass": {
+              "grass": 47.454498291015625,
+              "berry": 71.95185089111328
+            }
+          }
+        },
+        {
+          "x": 60,
+          "y": 86,
+          "distance": 2,
+          "edibleBiomass": 85.0338134765625,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 2,
+            "biomass": {
+              "grass": 46.95582580566406,
+              "berry": 85.0338134765625
+            },
+            "harvestableBiomass": {
+              "grass": 46.95582580566406,
+              "berry": 85.0338134765625
+            }
+          }
+        },
+        {
+          "x": 61,
+          "y": 86,
+          "distance": 2.23606797749979,
+          "edibleBiomass": 84.4555892944336,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 2.23606797749979,
+            "biomass": {
+              "grass": 49.6302375793457,
+              "berry": 84.4555892944336
+            },
+            "harvestableBiomass": {
+              "grass": 49.6302375793457,
+              "berry": 84.4555892944336
+            }
+          }
+        },
+        {
+          "x": 59,
+          "y": 86,
+          "distance": 2.23606797749979,
+          "edibleBiomass": 81.04054260253906,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 2.23606797749979,
+            "biomass": {
+              "grass": 56.869476318359375,
+              "berry": 81.04054260253906
+            },
+            "harvestableBiomass": {
+              "grass": 56.869476318359375,
+              "berry": 81.04054260253906
+            }
+          }
+        },
+        {
+          "x": 58,
+          "y": 85,
+          "distance": 2.23606797749979,
+          "edibleBiomass": 73.50669860839844,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 2.23606797749979,
+            "biomass": {
+              "grass": 39.29734420776367,
+              "berry": 73.50669860839844
+            },
+            "harvestableBiomass": {
+              "grass": 39.29734420776367,
+              "berry": 73.50669860839844
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
