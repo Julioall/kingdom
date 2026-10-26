@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   defineDirectedSocialRelationship, defineSocialBelief, defineSocialIntention,
-  pruneSocialEvidence, proposeSocialCommitment, recordSocialFact, rememberSocialFact,
+  pruneSocialEvidence, proposeSocialCommitment, recordSocialBeliefEvidence, recordSocialFact, rememberSocialFact,
   SOCIAL_ACTIVE_INTENTION_PER_PERSON_LIMIT, SOCIAL_FACT_LIMIT, SOCIAL_MEMORY_PER_PERSON_LIMIT,
   SOCIAL_RECORD_SCHEMA_VERSIONS, SOCIAL_RELATIONSHIP_PER_PERSON_LIMIT
 } from '../src/simulation/society/social-evidence.js';
@@ -168,6 +168,48 @@ test('beliefs cite only local memories and directed relations do not mutate the 
   assert.throws(() => defineSocialBelief(world, 2, {
     topic: 'kingdom_reliability', evaluation: .2, certainty: .4, supportingEventIds: [fact.eventId]
   }), /não possui memória da evidência/);
+});
+
+test('belief updates ignore repeated roots, accumulate independent evidence, and revise without deleting history', () => {
+  const world = fixture();
+  const firstFact = aidFact(world, 'first-aid');
+  rememberSocialFact(world, 2, firstFact.eventId, { source: 'direct' });
+  const first = recordSocialBeliefEvidence(world, 2, {
+    topic: 'food_aid_reliability', aboutId: 1, eventId: firstFact.eventId, polarity: 1
+  });
+  assert.equal(first.evaluation, 1);
+  assert.equal(first.revision, 1);
+
+  assert.equal(recordSocialBeliefEvidence(world, 2, {
+    topic: 'food_aid_reliability', aboutId: 1, eventId: firstFact.eventId, polarity: 1
+  }), first);
+  assert.equal(world.people[1].socialBeliefs.length, 1);
+
+  world.day++;
+  const secondFact = aidFact(world, 'second-aid', world.day);
+  rememberSocialFact(world, 2, secondFact.eventId, { source: 'direct' });
+  const revised = recordSocialBeliefEvidence(world, 2, {
+    topic: 'food_aid_reliability', aboutId: 1, eventId: secondFact.eventId, polarity: -1
+  });
+  assert.equal(revised.revision, 2);
+  assert.equal(revised.evaluation, 0);
+  assert.ok(revised.certainty > first.certainty);
+  assert.deepEqual(revised.supportingEventIds, [firstFact.eventId]);
+  assert.deepEqual(revised.opposingEventIds, [secondFact.eventId]);
+  assert.equal(first.evaluation, 1, 'previous belief snapshots stay immutable');
+  assert.equal(world.people[1].socialMemories.length, 2, 'revision preserves the memory of the earlier event');
+});
+
+test('a recipient keeps a reported memory when its source dies', () => {
+  const world = fixture();
+  const fact = aidFact(world, 'reported-before-death');
+  rememberSocialFact(world, 1, fact.eventId, { source: 'direct' });
+  const report = rememberSocialFact(world, 2, fact.eventId, { source: 'reported', sourcePersonId: 1 });
+
+  world.people[0].alive = false;
+  assert.equal(world.people[1].socialMemories[0], report);
+  assert.equal(report.sourcePersonId, '1');
+  assert.equal(report.rootEventId, fact.eventId);
 });
 
 test('commitment proposal is idempotent and reserves no resource before acceptance', () => {

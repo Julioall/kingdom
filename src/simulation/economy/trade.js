@@ -5,11 +5,12 @@ import { consumeStoreInventory, exchangeResources, removeStoredFruit, stockSurpl
 import { getSocialLink } from '../society/communities.js';
 import { nearestPenFor } from '../individuals/actions.js';
 import { cellAt, cellsWithin } from '../world/spatial.js';
-import { MEAT_NUTRITIONAL_VALUE } from '../../config/ecosystem.js';
+import { FOOD_RESERVE_PER_UNIT, MEAT_NUTRITIONAL_VALUE } from '../../config/ecosystem.js';
 import { log } from '../core/events.js';
 import { moveOne } from '../individuals/movement.js';
 import { recordTrade } from './trade-ledger.js';
 import { consumePersonEnergy } from '../individuals/energy.js';
+import { recordSocialBeliefEvidence, recordSocialFact, rememberSocialFact } from '../society/social-evidence.js';
 
 const RESOURCE_LABELS = Object.freeze({
   food: ['unidade de alimento', 'unidades de alimento'],
@@ -104,6 +105,25 @@ export function marketHasTradeOpportunity(w, community) {
     return hasSurplus || hasDemand;
   }
 
+function recordFoodAidExperience(w, giver, recipient, amount, method) {
+  const nextFact = w.socialEvidence?.nextFactNumber || 1;
+  const fact = recordSocialFact(w, {
+    idempotencyKey: 'food-aid:' + w.day + ':' + giver.id + ':' + recipient.id + ':' + nextFact,
+    type: 'food_aid_transferred',
+    participantIds: [giver.id, recipient.id],
+    witnessIds: [giver.id, recipient.id],
+    targetId: recipient.id,
+    location: { x: recipient.x, y: recipient.y },
+    outcome: { resource: 'food', amount, method }
+  });
+  rememberSocialFact(w, giver.id, fact.eventId, { source: 'direct' });
+  rememberSocialFact(w, recipient.id, fact.eventId, { source: 'direct' });
+  recordSocialBeliefEvidence(w, recipient.id, {
+    topic: 'food_aid_reliability', aboutId: giver.id, eventId: fact.eventId, polarity: 1
+  });
+  return fact;
+}
+
 export function performShare(w, person, community, target) {
     if (community && distance(person, community) <= 7) {
       const members = community.memberIds.map(id => w.people.find(p => p.id === id && p.alive))
@@ -112,6 +132,7 @@ export function performShare(w, person, community, target) {
       if (members.length) {
         const units = transferCommunityFood(w, community, members[0], 4.2);
         if (units > .02) {
+          recordFoodAidExperience(w, person, members[0], units * FOOD_RESERVE_PER_UNIT, 'community');
           consumePersonEnergy(person, .22);
           const link = getSocialLink(w, person, members[0]); link.trust = clamp(link.trust + .08, 0, 1); link.sharedFood += units;
           person.skills.care = clamp(person.skills.care + .004, 0, 1);
@@ -123,9 +144,11 @@ export function performShare(w, person, community, target) {
     }
     if (target && person.foodReserve > 82 && distance(person, target) <= 1.6 && target.foodReserve < 40) {
       const amount = Math.min(5, (person.foodReserve - 70) / 2, (76 - target.foodReserve));
-      if (amount > .5 && transferFoodReserve(person, target, amount * .5, 'voluntary-sharing') > .01) {
+      const moved = amount > .5 ? transferFoodReserve(person, target, amount * .5, 'voluntary-sharing') : 0;
+      if (moved > .01) {
+        recordFoodAidExperience(w, person, target, moved, 'voluntary');
         consumePersonEnergy(person, .22);
-        const link = getSocialLink(w, person, target); link.trust = clamp(link.trust + .12, 0, 1); link.sharedFood += amount;
+        const link = getSocialLink(w, person, target); link.trust = clamp(link.trust + .12, 0, 1); link.sharedFood += moved;
         person.skills.care = clamp(person.skills.care + .004, 0, 1);
         person.state = 'partilhando alimento';
         person.lastLesson = 'A partilha aumentou a chance de sobrevivência de alguém próximo.';

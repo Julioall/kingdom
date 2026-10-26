@@ -236,6 +236,8 @@ export function defineSocialBelief(world, personId, input = {}) {
   }
   const lastReviewedDay = input.lastReviewedDay ?? world.day;
   if (!Number.isSafeInteger(lastReviewedDay) || lastReviewedDay < 0 || lastReviewedDay > world.day) fail('lastReviewedDay inválido.');
+  const aboutId = input.aboutId == null ? null : idKey(input.aboutId, 'aboutId');
+  if (aboutId !== null && !entityExists(world, aboutId)) fail('aboutId referencia entidade inexistente: ' + aboutId + '.');
   const belief = freezeRecursively({
     schemaVersion: SOCIAL_RECORD_SCHEMA_VERSIONS.belief,
     worldSeed: world.seed,
@@ -243,14 +245,85 @@ export function defineSocialBelief(world, personId, input = {}) {
     beliefId: String(world.seed) + ':epoch:' + evidence.worldEpoch + ':belief:' + evidence.nextBeliefNumber++,
     ownerId: String(person.id),
     topic,
+    aboutId,
     evaluation: input.evaluation,
     certainty: unitInterval(input.certainty ?? 0, 'certainty'),
     supportingEventIds: localEvidenceIds(person, input.supportingEventIds || []),
     opposingEventIds: localEvidenceIds(person, input.opposingEventIds || []),
-    lastReviewedDay
+    lastReviewedDay,
+    revision: 1,
+    evidenceWeight: 0
   });
   person.socialBeliefs ||= [];
   person.socialBeliefs.push(belief);
+  return belief;
+}
+
+/**
+ * Re-evaluates one directed belief from a newly remembered, unique root event.
+ * Reports carry less weight than direct observation, and duplicate reports of
+ * the same root event never increase certainty a second time.
+ */
+export function recordSocialBeliefEvidence(world, personId, input = {}) {
+  const evidence = ensureEvidence(world);
+  const person = personById(world, personId);
+  if (!person) fail('a pessoa dona da crença não existe.');
+  const topic = typeof input.topic === 'string' ? input.topic.trim() : '';
+  if (!/^[a-z][a-z0-9_]{1,63}$/.test(topic)) fail('topic deve ser um identificador estável em snake_case.');
+  const aboutId = input.aboutId == null ? null : idKey(input.aboutId, 'aboutId');
+  if (aboutId !== null && !entityExists(world, aboutId)) fail('aboutId referencia entidade inexistente: ' + aboutId + '.');
+  const eventId = idKey(input.eventId, 'eventId');
+  const fact = evidence.facts.find(item => item.eventId === eventId);
+  if (!fact) fail('o fato de origem da crença não existe.');
+  if (!localEvidenceIds(person, [eventId]).length) fail('a pessoa não possui memória da evidência ' + eventId + '.');
+  if (typeof input.polarity !== 'number' || !Number.isFinite(input.polarity)
+      || input.polarity === 0 || input.polarity < -1 || input.polarity > 1) {
+    fail('polarity deve estar entre -1 e 1 e ser diferente de zero.');
+  }
+
+  person.socialBeliefs ||= [];
+  const beliefIndex = person.socialBeliefs.findIndex(item => item.topic === topic && item.aboutId === aboutId);
+  const previous = beliefIndex < 0 ? null : person.socialBeliefs[beliefIndex];
+  const supportingEventIds = previous ? previous.supportingEventIds.slice() : [];
+  const opposingEventIds = previous ? previous.opposingEventIds.slice() : [];
+  const hasPreviousEvidence = supportingEventIds.length > 0 || opposingEventIds.length > 0;
+  const priorClassification = supportingEventIds.includes(eventId) ? 1
+    : opposingEventIds.includes(eventId) ? -1 : 0;
+  const requestedClassification = Math.sign(input.polarity);
+  if (priorClassification) {
+    if (priorClassification !== requestedClassification) fail('a mesma evidência não pode sustentar e contrariar a crença.');
+    return previous;
+  }
+
+  (requestedClassification > 0 ? supportingEventIds : opposingEventIds).push(eventId);
+  const memoriesByEvent = new Map((person.socialMemories || []).map(memory => [memory.rootEventId, memory]));
+  const weightFor = id => memoriesByEvent.get(id)?.source === 'reported' ? .5 : 1;
+  const positiveWeight = supportingEventIds.reduce((sum, id) => sum + weightFor(id), 0);
+  const negativeWeight = opposingEventIds.reduce((sum, id) => sum + weightFor(id), 0);
+  const priorUncitedWeight = previous && !hasPreviousEvidence
+    ? -3 * Math.log(Math.max(1e-9, 1 - previous.certainty)) : 0;
+  const totalWeight = positiveWeight + negativeWeight + priorUncitedWeight;
+  const priorNet = previous && !hasPreviousEvidence
+    ? previous.evaluation * priorUncitedWeight : 0;
+  const netWeight = positiveWeight - negativeWeight + priorNet;
+  const belief = freezeRecursively({
+    schemaVersion: SOCIAL_RECORD_SCHEMA_VERSIONS.belief,
+    worldSeed: world.seed,
+    worldEpoch: evidence.worldEpoch,
+    beliefId: previous?.beliefId || String(world.seed) + ':epoch:' + evidence.worldEpoch + ':belief:' + evidence.nextBeliefNumber++,
+    ownerId: String(person.id),
+    topic,
+    aboutId,
+    evaluation: totalWeight > 0 ? Math.max(-1, Math.min(1, netWeight / totalWeight)) : input.polarity,
+    certainty: Math.max(0, Math.min(1, 1 - Math.exp(-totalWeight / 3))),
+    supportingEventIds,
+    opposingEventIds,
+    lastReviewedDay: world.day,
+    revision: (previous?.revision || 0) + 1,
+    evidenceWeight: totalWeight
+  });
+  if (beliefIndex < 0) person.socialBeliefs.push(belief);
+  else person.socialBeliefs[beliefIndex] = belief;
   return belief;
 }
 
