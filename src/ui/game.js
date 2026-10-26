@@ -25,6 +25,7 @@ import { createCloudSystem, atmosphereZoomProfile } from './cloud-system.js';
 import AtmosphericLayer from './atmospheric-layer.js';
 import DirtBrush from './dirt-brush.js';
 import { createLoadingScreen } from './loading-screen.js';
+import { renderSocialInspectorSections } from './social-inspector.js';
 
 function atmosphereProfileForZoom(zoom) {
   const density = atmosphereZoomProfile(zoom).fogDensity;
@@ -2512,43 +2513,7 @@ export function mountGame() {
       const choices = p.lastDecision && Array.isArray(p.lastDecision.scores) ? p.lastDecision.scores.map((score, i) => ({ action: (p.lastDecision.actions || Sim.actions)[i], score }))
         .filter(choice => choice.score > -1e8).sort((a, b) => b.score - a.score).slice(0, 3) : [];
       const personalMemories = (p.personalMemory || []).slice(-3).reverse();
-      const socialFacts = new Map((world.socialEvidence?.facts || []).map(fact => [fact.eventId, fact]));
-      const socialMemories = (p.socialMemories || []).slice(-3).reverse();
-      const socialBeliefs = (p.socialBeliefs || []).slice().reverse();
-      const socialEventLabels = {
-        food_aid_transferred: 'partilha de alimento',
-        military_pay_delayed: 'soldo atrasado',
-        military_pay_recovered: 'soldo em atraso pago'
-      };
-      const socialMemoryRows = socialMemories.map(memory => {
-        const fact = socialFacts.get(memory.rootEventId);
-        const eventLabel = socialEventLabels[memory.eventType] || String(memory.eventType || 'acontecimento').replaceAll('_', ' ');
-        const provenance = memory.source === 'reported'
-          ? 'Relato recebido de ' + esc(world.people.find(person => String(person.id) === memory.sourcePersonId)?.name || 'pessoa ' + memory.sourcePersonId)
-          : 'Observado diretamente';
-        const outcome = fact?.outcome?.resource === 'food' && Number.isFinite(fact.outcome.amount)
-          ? ' · ' + fmt(fact.outcome.amount, 1) + ' pontos de alimento'
-          : fact?.outcome?.resource === 'gold' && Number.isFinite(fact.outcome.amount)
-            ? ' · ' + fmt(fact.outcome.amount, 1) + ' ouro' : '';
-        const eventDay = Number.isSafeInteger(fact?.outcome?.paymentDay) ? fact.outcome.paymentDay : fact?.day ?? memory.eventDay;
-        const dueDay = Number.isSafeInteger(fact?.outcome?.dueDay) ? ' · vencimento no dia ' + fact.outcome.dueDay : '';
-        return '<div class="note-card"><b>' + esc(provenance) + '</b><span>Dia ' + eventDay + ': ' + esc(eventLabel) + outcome + dueDay
-          + (memory.source === 'reported' && memory.acquiredDay !== memory.eventDay ? ' · recebido no dia ' + memory.acquiredDay : '') + '</span></div>';
-      }).join('');
-      const socialBeliefRows = socialBeliefs.map(belief => {
-        const targetId = belief.aboutId == null ? null : String(belief.aboutId);
-        const targetName = targetId == null ? ''
-          : world.people.find(person => String(person.id) === targetId)?.name
-            || world.kingdoms.find(item => String(item.id) === targetId)?.name
-            || 'entidade ' + targetId;
-        const target = targetName ? ' sobre ' + esc(targetName) : '';
-        const label = belief.topic === 'food_aid_reliability' ? 'Confiabilidade na ajuda alimentar'
-          : belief.topic === 'military_pay_reliability' ? 'Regularidade do soldo'
-            : String(belief.topic).replaceAll('_', ' ');
-        const evaluation = Math.round((belief.evaluation + 1) * 50);
-        return '<div class="data-row"><span>' + esc(label) + target + '</span><b>Avaliação ' + evaluation + '% · certeza ' + Math.round(belief.certainty * 100)
-          + '% · evidências favoráveis ' + belief.supportingEventIds.length + ' / contrárias ' + belief.opposingEventIds.length + '</b></div>';
-      }).join('');
+      const socialInspector = renderSocialInspectorSections(p, world);
       const decisionBrain = p.role === 'soldier' && p.militaryBrain ? p.militaryBrain : p.brain;
       const recoveryNeeds = [];
       if (p.energy < GARRISON_RECOVERY.restEnergy) recoveryNeeds.push('energia até ' + GARRISON_RECOVERY.restEnergy + '%');
@@ -2590,8 +2555,7 @@ export function mountGame() {
         '<h3>Reino e fronteiras</h3><div class="note-card"><b>' + esc(kingdom ? kingdom.name : 'Terra comum') + '</b><span>' + esc(p.perception && p.perception.territorialAwareness && p.perception.territorialAwareness.warningText || (kingdom ? 'Você reconhece este domínio e os riscos de atravessar fronteiras estrangeiras.' : 'Você vive em terra comum, sem a proteção territorial de um reino.')) + '</span></div>' +
         '<h3>Decisão e aprendizado</h3><div class="brain-box"><strong>' + (p.militaryBrain && p.role === 'soldier' ? 'Rede militar' : 'Rede individual') + ' · ' + decisionBrain.inputSize + ' → ' + decisionBrain.hiddenSize + ' → ' + decisionBrain.actionCount + '</strong><small>' + (p.role === 'soldier' ? 'Compara guarda, patrulha e treino. Campanhas e necessidades urgentes limitam as opções disponíveis; os resultados ajustam seus pesos militares.' : p.role === 'ruler' ? 'O rei usa uma rede maior para comparar necessidades, recursos e riscos do reino; seus pesos também aprendem com os resultados.' : 'Avalia necessidades, alimento, água, risco de fronteira e áreas próximas; resultados positivos e negativos ajustam decisões futuras.') + '</small><div class="brain-metrics"><span>Intenção<b>' + esc(actionLabels[p.brain.lastAction] || p.brain.lastAction) + '</b></span><span>Atualizações<b>' + fmt(decisionBrain.updates) + '</b></span><span>Recompensa média<b>' + decisionBrain.rewardMean.toFixed(2) + '</b></span><span>Memória por ação<b>individual</b></span></div></div>' +
         (personalMemories.length ? '<h3>Memória pessoal recente</h3>' + personalMemories.map(memory => '<div class="event">Dia ' + memory.day + ': ' + esc(memory.state) + ' — ' + esc(memory.lesson) + '</div>').join('') : '') +
-        (socialMemoryRows ? '<h3>Fatos e relatos conhecidos</h3>' + socialMemoryRows : '') +
-        (socialBeliefRows ? '<h3>Interpretações pessoais</h3>' + socialBeliefRows : '') +
+        socialInspector.memorySection + socialInspector.beliefSection +
         '<div class="note-card"><b>O que aprendeu</b><span>' + esc(p.lastLesson || 'Ainda está aprendendo com o ambiente.') + '</span></div>' +
         (choices.length ? '<h3>Alternativas avaliadas</h3>' + choices.map(item => '<div class="data-row"><span>' + esc(actionLabels[item.action] || item.action) + '</span><b>' + item.score.toFixed(2) + '</b></div>').join('') : '') +
         (p.parents ? '<div class="note-card"><b>Dependência familiar</b><span>Esta pessoa nasceu durante a simulação e ainda recebe cuidado de seus responsáveis.</span></div>' : '');

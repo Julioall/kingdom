@@ -244,8 +244,17 @@ test('belief updates ignore repeated roots, accumulate independent evidence, and
   assert.ok(revised.certainty > first.certainty);
   assert.deepEqual(revised.supportingEventIds, [firstFact.eventId]);
   assert.deepEqual(revised.opposingEventIds, [secondFact.eventId]);
+  world.day++;
+  const thirdFact = aidFact(world, 'third-aid', world.day);
+  rememberSocialFact(world, 2, thirdFact.eventId, { source: 'direct' });
+  const withThirdIndependentFact = recordSocialBeliefEvidence(world, 2, {
+    topic: 'food_aid_reliability', aboutId: 1, eventId: thirdFact.eventId, polarity: 1
+  });
+  assert.ok(withThirdIndependentFact.certainty > revised.certainty);
+  assert.ok(withThirdIndependentFact.certainty - revised.certainty < revised.certainty - first.certainty,
+    'the certainty increase saturates as independent evidence accumulates');
   assert.equal(first.evaluation, 1, 'previous belief snapshots stay immutable');
-  assert.equal(world.people[1].socialMemories.length, 2, 'revision preserves the memory of the earlier event');
+  assert.equal(world.people[1].socialMemories.length, 3, 'revision preserves each independent event');
 });
 
 test('a recipient keeps a reported memory when its source dies', () => {
@@ -258,6 +267,33 @@ test('a recipient keeps a reported memory when its source dies', () => {
   assert.equal(world.people[1].socialMemories[0], report);
   assert.equal(report.sourcePersonId, '1');
   assert.equal(report.rootEventId, fact.eventId);
+});
+
+test('repeating the same report does not duplicate its belief consequence', () => {
+  const world = fixture();
+  const fact = recordSocialFact(world, {
+    idempotencyKey: 'single-event-reported-repeatedly', type: 'food_aid_transferred',
+    participantIds: [1, 2], witnessIds: [1], targetId: 4, outcome: { resource: 'food', amount: 2 }
+  });
+  rememberSocialFact(world, 1, fact.eventId, { source: 'direct' });
+  const firstMemory = rememberSocialFact(world, 2, fact.eventId, { source: 'reported', sourcePersonId: 1 });
+  const firstBelief = recordSocialBeliefEvidence(world, 2, {
+    topic: 'food_aid_reliability', aboutId: 1, eventId: fact.eventId, polarity: 1
+  });
+
+  for (let repeat = 0; repeat < 3; repeat++) {
+    assert.equal(rememberSocialFact(world, 2, fact.eventId, {
+      source: 'reported', sourcePersonId: 1, acquiredDay: world.day
+    }), firstMemory);
+    assert.equal(recordSocialBeliefEvidence(world, 2, {
+      topic: 'food_aid_reliability', aboutId: 1, eventId: fact.eventId, polarity: 1
+    }), firstBelief);
+  }
+
+  assert.equal(world.people[1].socialMemories.length, 1);
+  assert.equal(world.people[1].socialBeliefs.length, 1);
+  assert.equal(firstBelief.revision, 1);
+  assert.equal(firstBelief.supportingEventIds.length, 1);
 });
 
 test('commitment proposal is idempotent and reserves no resource before acceptance', () => {
