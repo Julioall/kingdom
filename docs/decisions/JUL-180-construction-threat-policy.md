@@ -1,6 +1,6 @@
 # JUL-180 — resposta local a ameaças em obras
 
-Data: 26/10/2026  
+Data: 26/10/2026<br>
 Branch de trabalho: `codex/jul195-integration`
 
 ## Decisão

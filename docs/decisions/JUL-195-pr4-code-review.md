@@ -1,7 +1,7 @@
 # JUL-195 — revisão da PR #4 e integração no branch de testes
 
-Data: 26/10/2026  
-PR: [#4](https://github.com/Julioall/kingdom/pull/4)  
+Data: 26/10/2026<br>
+PR: [#4](https://github.com/Julioall/kingdom/pull/4)<br>
 Branch de destino: `test/kingdom-autonomous`
 
 ## Revisão
@@ -29,4 +29,3 @@ Alternativas consideradas:
 3. Integrar em `main`: excluída pelo escopo autorizado.
 
 O próximo passo mantém a meta ativa, mede o risco de retenção em replay e continua a correção causal de acesso alimentar. Nenhuma issue fica concluída sem demonstrar seus critérios completos.
-

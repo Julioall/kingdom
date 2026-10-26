@@ -1,6 +1,6 @@
 # JUL-180 — verificação de construção sob ameaça
 
-Data: 26/10/2026  
+Data: 26/10/2026<br>
 Branch: `codex/jul195-integration`
 
 ## Teste automatizado

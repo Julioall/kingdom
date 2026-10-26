@@ -1,7 +1,7 @@
 # JUL-195 — decisões de arquitetura e evidências
 
-Data: 26/10/2026  
-Branch: `test/kingdom-autonomous`  
+Data: 26/10/2026<br>
+Branch: `test/kingdom-autonomous`<br>
 SHA-base remoto: `fb0af4e7f8bc07d3dbf5a1c0b9ea36bcb4102164`
 
 ## Contexto e preservação
