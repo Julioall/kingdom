@@ -7,6 +7,7 @@ export const STATIC_SPRITE_SOURCES = Object.freeze(manifest.staticSources.slice(
 const unitAliases = { aldeao: 'pawn', 'aldeão': 'pawn', resident: 'pawn', lanceiro: 'lancer',
   guerreiro: 'warrior', arqueiro: 'archer', monge: 'monk' };
 const slug = value => value.replace(/([a-z])([A-Z])/g, '$1-$2').replace(/[_ ]+/g, '-').toLowerCase();
+const unitAnimationCache = new Map();
 
 export function getAnimation(id) {
   const animation = ANIMATIONS[id];
@@ -20,10 +21,15 @@ export function listAnimations(filters = {}) {
 }
 
 export function getUnitAnimation(unit, action, palette = 'blue') {
+  const key = unit + ':' + action + ':' + palette;
+  const cached = unitAnimationCache.get(key);
+  if (cached) return cached;
   unit = unitAliases[unit] || unit.toLowerCase();
   action = slug(action);
   action = ({ shoot: 'attack', attack1: 'attack', attack2: 'attack-2', guard: 'defend' })[action] || action;
-  return getAnimation(`unit.${palette}.${unit}.${action}`);
+  const animation = getAnimation(`unit.${palette}.${unit}.${action}`);
+  unitAnimationCache.set(key, animation);
+  return animation;
 }
 
 export function getAnimationFrame(animation, elapsedMs, { loop, phase = 0 } = {}) {

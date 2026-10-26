@@ -1,0 +1,7 @@
+{
+  "images": 489,
+  "sourceBytes": 8418607,
+  "outputBytes": 5522240,
+  "failures": [],
+  "measurement": "Every published PNG decoded to RGBA and compared byte-for-byte with its lossless WebP build output."
+}

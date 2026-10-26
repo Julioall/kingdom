@@ -319,8 +319,10 @@ export class DirtBrush {
     return this;
   }
   toDataURL(type='image/png') {return this.canvas.toDataURL(type);}
-  download(filename='kingdom-solo-transparente.png') {
-    const a=document.createElement('a');a.download=filename;a.href=this.toDataURL();a.click();return this;
+  download(filename) {
+    const data=this.toDataURL();
+    const extension=data.slice(data.indexOf('/')+1,data.indexOf(';'))||'png';
+    const a=document.createElement('a');a.download=filename||`kingdom-solo-transparente.${extension}`;a.href=data;a.click();return this;
   }
   destroy() {
     for(const [name,fn] of this._boundHandlers)this.canvas.removeEventListener(name,fn);

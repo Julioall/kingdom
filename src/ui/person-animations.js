@@ -3,6 +3,7 @@ import { getAnimationFrame } from './animations.js';
 function carriedSprite(person) {
   if ((person.carriedMeat || 0) > .01) return 'meat';
   if ((person.carriedGold || 0) > .01) return 'gold';
+  if ((person.carriedStone || 0) > .01) return 'stone';
   if ((person.carriedWood || 0) > .01) return 'wood';
   return null;
 }
@@ -12,10 +13,15 @@ export function residentSpritePose(person, pose, day) {
   const action = person.brain?.lastAction;
   const activity = person.visualActivity?.day === day ? person.visualActivity : null;
   const cargo = carriedSprite(person);
-  const tool = activity?.tool || (activity?.kind === 'mine' || state.startsWith('extraindo ') || state === 'minerando rocha' ? 'pickaxe'
-    : activity?.kind === 'chop' || state === 'derrubando árvore' ? 'axe'
-      : activity?.kind === 'build' || state.startsWith('construindo ') ? 'hammer'
-        : ['hunt', 'fish'].includes(activity?.kind) || ['caça sem captura', 'pesca sem captura', 'pescando'].includes(state) ? 'knife' : null);
+  const activityTool = activity?.kind === 'mine' ? 'pickaxe'
+    : activity?.kind === 'chop' ? 'axe'
+      : activity?.kind === 'build' ? 'hammer'
+        : ['hunt', 'fish'].includes(activity?.kind) ? 'knife' : null;
+  const stateTool = cargo ? null : state.startsWith('extraindo ') || state === 'minerando rocha' ? 'pickaxe'
+    : state === 'derrubando árvore' ? 'axe'
+      : state.startsWith('construindo ') ? 'hammer'
+        : ['caça sem captura', 'pesca sem captura', 'pescando'].includes(state) ? 'knife' : null;
+  const tool = activity?.tool || activityTool || stateTool;
   // A day's extraction can produce a load before its work animation is shown.
   // While stationary, show the actual work first; in motion, show its cargo.
   const interaction = !pose.moving && tool;
