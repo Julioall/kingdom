@@ -85,10 +85,12 @@ export function mountGame() {
   const seasonNames = Sim.seasons;
   const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0] || 1;
   const sessionSeed = randomSeed();
+  const PATH_VISUAL_STRENGTH = 1.5; // 50% stronger footpath shading.
+  const PATH_EDGE_IRREGULARITY = 1; // DirtBrush maximum.
   const trailCanvasScale = 1;
   const trailCanvas = document.createElement('canvas');
   trailCanvas.width = trailCanvas.height = LOGICAL_SIZE * trailCanvasScale;
-  const dirtBrush = new DirtBrush({ canvas: trailCanvas, size: 5, irregularity: .42,
+  const dirtBrush = new DirtBrush({ canvas: trailCanvas, size: 5, irregularity: PATH_EDGE_IRREGULARITY,
     seed: sessionSeed ^ 0x4d2b79f5, autoBind: false });
   const trailLastPositionByPerson = new Map();
   const trailSegmentByPerson = new Map();
@@ -487,7 +489,7 @@ export function mountGame() {
 
     if (now - lastTrailFlushAt >= 180 && pendingPersonTrailPoints.size) {
       dirtBrush.appendPaths(Array.from(pendingPersonTrailPoints, ([key, points]) => ({
-        key, points, options: { size: 5, irregularity: .42 }
+        key, points, options: { size: 5, irregularity: PATH_EDGE_IRREGULARITY }
       })));
       pendingPersonTrailPoints.clear();
       lastTrailFlushAt = now;
@@ -1266,7 +1268,7 @@ export function mountGame() {
       if (tile.terrain !== 'land' || tile.cropFieldId != null || !isRoadTile(tile, true)) continue;
       const strength = Math.min(1, (wear - ROAD_RULES.fastAt) / (ROAD_RULES.maxWear - ROAD_RULES.fastAt));
       const radius = .48 + Math.sqrt(strength) * .12;
-      const alpha = .025 + strength * .05;
+      const alpha = (.025 + strength * .05) * PATH_VISUAL_STRENGTH;
       traceMudBlob(tile, radius, 781);
       ctx.fillStyle = 'rgba(112, 83, 53, ' + alpha + ')';
       ctx.fill();
