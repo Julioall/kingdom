@@ -151,6 +151,15 @@ if (repeatSeed !== null) {
 const report = { runtime: process.version, sourceRevision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
   base: 'engine.createWorld + production stepDay', days, seeds, repeatSeed, results };
 const output = JSON.stringify(report, null, 2) + '\n';
-if (outputPath) await writeFile(outputPath, output, 'utf8');
-process.stdout.write(output);
+if (outputPath) {
+  await writeFile(outputPath, output, 'utf8');
+  const summary = { sourceRevision: report.sourceRevision, days, seeds, repeatSeed,
+    results: results.map(({ seed, elapsedSeconds, stateSha256, chronicleSha256, determinismVerified,
+      determinismDiff, livingPeople, adultDaysFoodReserveBelow20, deathsByCause, births, deaths,
+      foodBiomass, activeCampaigns, campaignBattles, marketTransactions, stocks }) => ({ seed, elapsedSeconds,
+      stateSha256, chronicleSha256, determinismVerified, determinismDiff, livingPeople,
+      adultDaysFoodReserveBelow20, deathsByCause, births, deaths, foodBiomass,
+      activeCampaigns, campaignBattles, marketTransactions, stocks })) };
+  process.stdout.write(JSON.stringify(summary, null, 2) + '\n');
+} else process.stdout.write(output);
 if (repeatSeed !== null && !results.at(-1).determinismVerified) process.exitCode = 1;
