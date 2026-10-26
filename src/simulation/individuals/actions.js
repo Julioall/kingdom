@@ -37,7 +37,6 @@ import { chooseMilitaryAction, learnMilitaryOutcome, militaryTrainingPairs, trai
 const STARVATION_HEALTH_LOSS_PER_POINT = .035;
 const PERSONAL_FOOD_PRESSURE_THRESHOLD = 42;
 const FORAGE_TARGET_HYSTERESIS = .14;
-const FAILED_FOOD_TARGET_COOLDOWN_DAYS = 1;
 const MAX_FAILED_FOOD_TARGETS = 8;
 const RESOURCE_CONFLICT_TRUCE_DAYS = 14;
 const HARVEST_REACH_DISTANCE = 1.05;
@@ -162,6 +161,7 @@ function foodApproachTiles(w, person, foodTile) {
 }
 
 export function moveTowardFood(w, person, foodTile) {
+  if (foodTile?.cropFieldId != null) return moveOne(w, person, foodTile, false);
   for (const approach of foodApproachTiles(w, person, foodTile)) {
     if (moveOne(w, person, approach, false)) {
       person.failedFoodTargets = (person.failedFoodTargets || []).filter(target =>
@@ -171,7 +171,7 @@ export function moveTowardFood(w, person, foodTile) {
   }
   const failedTargets = (person.failedFoodTargets || []).filter(target => target.untilDay >= w.day
     && (target.x !== foodTile.x || target.y !== foodTile.y));
-  failedTargets.push({ x: foodTile.x, y: foodTile.y, untilDay: w.day + FAILED_FOOD_TARGET_COOLDOWN_DAYS });
+  failedTargets.push({ x: foodTile.x, y: foodTile.y, untilDay: w.day });
   person.failedFoodTargets = failedTargets.slice(-MAX_FAILED_FOOD_TARGETS);
   return false;
 }
@@ -1117,12 +1117,20 @@ function updatePeopleCore(w) {
             }
           }
         } else if (food) {
-          if (moveTowardFood(w, p, food)) {
-            p.foodTarget = { x: food.x, y: food.y };
-            p.state = 'procurando alimento'; p.lastLesson = 'Deslocar-se até um ponto livre ao lado do arbusto custa energia; a colheita começa ao alcançar a área de interação.';
+          let movementTarget = food, foundRoute = false;
+          for (let attempts = 0; movementTarget && attempts < 4; attempts++) {
+            if (moveTowardFood(w, p, movementTarget)) { foundRoute = true; break; }
+            movementTarget = bestPeopleFoodCell(w, p, 8, assignedFoodField?.id ?? null);
+          }
+          if (foundRoute) {
+            p.foodTarget = { x: movementTarget.x, y: movementTarget.y };
+            const isBush = movementTarget.cropFieldId == null;
+            p.state = 'procurando alimento'; p.lastLesson = isBush
+              ? 'Deslocar-se até um ponto livre ao lado do arbusto custa energia; a colheita começa ao alcançar a área de interação.'
+              : 'Deslocar-se até a roça custa energia e tempo; colher no talhão exige alcançar o campo.';
           } else {
             p.foodTarget = null;
-            p.state = 'mancha inacessível'; p.lastLesson = 'O arbusto não tem um ponto de aproximação livre; escolher outra mancha evita repetir um caminho sem saída.';
+            p.state = 'alimento inacessível'; p.lastLesson = 'Os destinos de alimento conhecidos não têm uma rota alcançável; reavaliar a percepção evita insistir no mesmo caminho.';
           }
         }
         else { p.foodTarget = null; p.state = 'sem alimento próximo'; p.lastLesson = 'Não encontrou alimento no alcance; migração ou cooperação pode abrir outras opções.'; }
