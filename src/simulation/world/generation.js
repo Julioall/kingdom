@@ -43,7 +43,7 @@ export function createWorld(seed) {
       kingdomRelations: {}, borderIncidents: 0, wars: [], campaigns: [], territoryClaims: [], treaties: [],
       deathsByCause: { starvation: 0, dehydration: 0, age: 0, injury: 0, combat: 0, predation: 0, harvest: 0, invasion: 0 },
       birthsByKind: { people: 0, animals: 0 },
-      harvests: { hunting: 0, fishing: 0, plantFoodBiomass: 0, cultivatedFoodBiomass: 0 },
+      harvests: { hunting: 0, fishing: 0, livestock: 0, livestockMeat: 0, plantFoodBiomass: 0, cultivatedFoodBiomass: 0 },
       ecologyFlows: {
         humanFoodRegrowth: 0, humanFoodNaturalLoss: 0,
         humanFoodSettlementLoss: 0, humanFoodEcologicalLoss: 0,

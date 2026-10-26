@@ -1,5 +1,5 @@
 import { nearestLoot, collectLoot } from '../economy/loot.js';
-import { ANIMALS, DAILY_FOOD_NEED, FOOD_RESERVE_PER_UNIT, HUMAN_FOOD, PEOPLE_ACTIONS, PLANTS } from '../../config/ecosystem.js';
+import { ANIMALS, DAILY_FOOD_NEED, FOOD_RESERVE_PER_UNIT, HUMAN_FOOD, MEAT_NUTRITIONAL_VALUE, PEOPLE_ACTIONS, PLANTS, SHEEP_ADULT_AGE_DAYS } from '../../config/ecosystem.js';
 import { clamp, distance, species } from '../core/math.js';
 import { cellAt, cellsWithin, nearby } from '../world/spatial.js';
 import { resourceUsePressure } from '../world/roads.js';
@@ -300,6 +300,23 @@ export function nearestShelterFor(w, person) {
       .sort((a, b) => distance(person, a) - distance(person, b))[0] || null;
   }
 
+export function nearestEmergencyHerdSheep(w, person, community, radius = 2.25) {
+    if (!w || !person || !community || person.communityId !== community.id || person.foodReserve >= 48
+        || (person.carriedMeat || 0) > .01 || !nearestShelterFor(w, person)) return null;
+    const adults = domesticatedSheep(w, community).filter(animal => animal.ageDays >= SHEEP_ADULT_AGE_DAYS && !animal.beingLedBy);
+    if (adults.length <= 2) return null;
+    const visibleHerd = new Set((person.perception && person.perception.animals || [])
+      .filter(sighting => sighting.visible && sighting.speciesId === 'sheep').map(sighting => sighting.id));
+    if (!visibleHerd.size) return null;
+    const residents = (w.people || []).filter(item => item.alive && item.communityId === community.id);
+    const dailyDemand = residents.reduce((total, item) => total + (item.ageDays >= 12 * 365 ? DAILY_FOOD_NEED : .42), 0);
+    const storedShelterMeat = (w.structures || []).filter(shelter => usableShelter(shelter) && shelter.communityId === community.id)
+      .reduce((total, shelter) => total + Math.max(0, Number(shelter.meatStored) || 0), 0);
+    if (communityFoodStock(community) + storedShelterMeat * MEAT_NUTRITIONAL_VALUE + .001 >= dailyDemand) return null;
+    return adults.filter(animal => visibleHerd.has(animal.id) && distance(person, animal) <= radius)
+      .sort((a, b) => distance(person, a) - distance(person, b) || a.id - b.id)[0] || null;
+  }
+
 function usableShelter(structure) {
     return structure.complete && structure.type === 'abrigo' && structure.destroyedDay == null
       && structure.integrity !== 0 && structure.health !== 0;
@@ -353,7 +370,10 @@ export function nearestPenFor(w, person) {
   }
 
 export function attemptHumanHunt(w, person, prey, community) {
-    if (!prey || !prey.alive || prey.herdCommunityId != null || prey.beingLedBy || person.carriedMeat > .01) return false;
+    if (!prey || !prey.alive || prey.beingLedBy || person.carriedMeat > .01) return false;
+    const livestock = prey.herdCommunityId != null;
+    if (livestock && (prey.speciesId !== 'sheep'
+        || nearestEmergencyHerdSheep(w, person, community, 2.25)?.id !== prey.id)) return false;
     if (!nearestShelterFor(w, person)) {
       person.state = 'sem abrigo para armazenar caça';
       person.lastLesson = 'Sem um abrigo, a caça não pode ser guardada; procurar alimento ou migrar evita insistir sem retorno.';
@@ -373,16 +393,23 @@ export function attemptHumanHunt(w, person, prey, community) {
       person.lastLesson = 'A presa escapou; perseguir custou energia e hidratação. Uma área com mais presas ou ajuda de outros membros melhora a próxima tentativa.';
       return false;
     }
-    prey.alive = false; w.deaths++; w.deathsByCause.harvest++;
-    w.harvests.hunting++;
-    if (tile) tile.detritusGPerM2 += prey.massKg * 8;
     const meat = clamp(prey.massKg * .48, 1.2, 28);
-    addResource(person, 'carriedMeat', meat, 28);
+    const meatAdded = addResource(person, 'carriedMeat', meat, 28);
+    if (meatAdded + .001 < meat) return false;
+    prey.alive = false; w.deaths++; w.deathsByCause.harvest++;
+    if (livestock) {
+      w.harvests.livestock = (w.harvests.livestock || 0) + 1;
+      w.harvests.livestockMeat = Number(((w.harvests.livestockMeat || 0) + meatAdded).toFixed(2));
+    } else {
+      w.harvests.hunting++;
+      if (tile) tile.detritusGPerM2 += prey.massKg * 8;
+    }
     person.skills.hunt = clamp(person.skills.hunt + .012, 0, 1);
-    person.state = 'carregando carne';
-    person.lastLesson = 'A captura gerou carne, mas a reserva só fica disponível depois que a carga chega a um abrigo.';
-    markCommunityGround(w, person, 'hunting', tile);
-    log(w, person.name + ' caçou ' + profile.name.toLowerCase() + ' e carregou ' + meat.toFixed(1) + ' unidades de carne para armazenar em um abrigo.');
+    person.state = livestock ? 'levando carne do rebanho ao abrigo' : 'carregando carne';
+    person.lastLesson = 'A captura converteu um animal em carne carregada; a reserva só recebe o alimento quando a carga chega ao abrigo.';
+    if (!livestock) markCommunityGround(w, person, 'hunting', tile);
+    log(w, person.name + (livestock ? ' abateu uma ovelha adulta excedente de ' + community.name : ' caçou ' + profile.name.toLowerCase())
+      + ' e carregou ' + meat.toFixed(1) + ' unidades de carne para armazenar em um abrigo.');
     return true;
   }
 
@@ -425,6 +452,8 @@ export function huntForFood(w, person, community) {
     }
     const prey = nearestHuntable(w, person, 2.25);
     if (prey) return attemptHumanHunt(w, person, prey, community);
+    const herdPrey = nearestEmergencyHerdSheep(w, person, community, 2.25);
+    if (herdPrey) return attemptHumanHunt(w, person, herdPrey, community);
     const ground = bestHuntingGround(w, person, 13);
     if (ground) {
       moveOne(w, person, ground, false);
@@ -884,10 +913,11 @@ function updatePeopleCore(w) {
       const shelter = nearestShelterFor(w, p);
       const huntGround = bestHuntingGround(w, p, 12);
       const preyNearby = nearestHuntable(w, p, 3.5);
+      const herdPrey = nearestEmergencyHerdSheep(w, p, community, 2.25);
       const preyTile = preyNearby && cellAt(w, Math.round(preyNearby.x), Math.round(preyNearby.y));
       const visibleCover = preyTile ? clamp(plantBiomass(preyTile, ['browse', 'berry', 'broadleaf', 'conifer']) / 500, 0, 1) : 0;
       const huntAccess = shelter
-        ? preyNearby ? .5 + visibleCover * .3 : huntGround ? .18 + clamp(1 - distance(p, huntGround) / 18, 0, 1) * .28 : 0
+        ? preyNearby ? .5 + visibleCover * .3 : herdPrey ? .5 : huntGround ? .18 + clamp(1 - distance(p, huntGround) / 18, 0, 1) * .28 : 0
         : 0;
       const pen = nearestPenFor(w, p);
       const sheepSighting = nearestPerceivedSheep(w, p, 5.5);
@@ -919,12 +949,12 @@ function updatePeopleCore(w) {
       const hasFoodPressure = p.foodReserve < PERSONAL_FOOD_PRESSURE_THRESHOLD && !food;
       const hasWaterPressure = p.hydration < 55 && (!waterTarget || distance(p, waterTarget) > 18);
       const foodNeed = clamp((70 - p.foodReserve) / 70, 0, 1) * (groupFood > 20 ? .72 : 1);
-      const hasLocalHarvest = foodNeed > .35 && !!shelter && (preyNearby || huntGround);
+      const hasLocalHarvest = foodNeed > .35 && !!shelter && (preyNearby || herdPrey || huntGround);
       const canMigrate = !!bestHabitatCell(w, p) && (localSuitability < .1 || p.conflictRisk > .62 || hasFoodPressure || hasWaterPressure) && !hasLocalHarvest;
       const marketTrust = tradePartner && tradePartner.relation ? tradePartner.relation.trust : .35;
       const utility = [
         food ? inputs[0] * 1.85 + .24 + inputs[4] * .2 + (community && groupFood < 8 ? .12 : 0) + p.skills.forage * .08 : -.6,
-        shelter && (preyNearby || huntGround) && (p.carriedMeat || 0) <= .01 ? .1 + foodNeed * (.45 + huntAccess * .5) + p.skills.hunt * .16 + (preyNearby ? .28 : 0) : -.65,
+        shelter && (preyNearby || herdPrey || huntGround) && (p.carriedMeat || 0) <= .01 ? .1 + foodNeed * (.45 + huntAccess * .5) + p.skills.hunt * .16 + (preyNearby || herdPrey ? .28 : 0) : -.65,
         (p.carriedMeat || 0) > .01 && shelter ? .72 + deliveryNeed * .45 : -.7,
         waterTarget ? inputs[1] * 2.05 + .32 : -.5,
         inputs[3] * p.sociability * .82 + (socialTarget ? .12 : -.35),
@@ -965,7 +995,7 @@ function updatePeopleCore(w) {
         ? (waterTarget ? 'drink' : (waterCue || bestHabitatCell(w, p) ? 'migrate' : null))
         : peacetimeSoldier ? null
         : p.foodReserve <= 8
-          ? (droppedLoot && distance(p, droppedLoot) <= 1.6 && ((droppedLoot.resources.food || 0) + (droppedLoot.resources.meat || 0)) > 0 ? 'collect_loot' : food ? 'forage' : (shelter && (preyNearby || huntGround) ? 'hunt' : (bestHabitatCell(w, p) ? 'migrate' : null)))
+          ? (droppedLoot && distance(p, droppedLoot) <= 1.6 && ((droppedLoot.resources.food || 0) + (droppedLoot.resources.meat || 0)) > 0 ? 'collect_loot' : food ? 'forage' : (shelter && (preyNearby || herdPrey || huntGround) ? 'hunt' : (bestHabitatCell(w, p) ? 'migrate' : null)))
             : null;
       if (assignment && !survivalAction && !assignmentConflict) {
         const assignedIndex = PEOPLE_ACTIONS.indexOf(p.assignment.action);
