@@ -1,6 +1,6 @@
 # JUL-172 — ajuda alimentar baseada em observação local
 
-Data: 26/10/2026  
+Data: 26/10/2026
 Issue: [JUL-172](https://linear.app/julio-alves/issue/JUL-172/s2-implementar-encontros-compartilhamento-de-informacao-e-ajuda)
 
 ## Pergunta e evidência no código
