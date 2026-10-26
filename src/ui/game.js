@@ -58,6 +58,7 @@ export function mountGame() {
   const diagnosticQuery = new URLSearchParams(window.location.search);
   const referenceRendering = diagnosticQuery.get('profile') === '1' && diagnosticQuery.get('render') === 'reference';
   const fixedEffects = diagnosticQuery.get('profile') === '1' && diagnosticQuery.get('effects') === 'fixed';
+  const combatDebug = diagnosticQuery.get('combatDebug') === '1';
   const trackedImage = () => loadingScreen.trackImage(new Image());
   const $ = id => document.getElementById(id);
   const forjaUI = window.FantasyUI;
@@ -1515,7 +1516,53 @@ export function mountGame() {
         (item.x + .5) * TILE, (item.y + (item.effect.personId != null ? 1 : .5)) * TILE,
         { elapsedMs: animationTime - item.effect.startedAt, scale: TILE / item.effect.pixels, rotation: item.effect.projectile ? Math.atan2(item.effect.targetY - item.effect.y, item.effect.targetX - item.effect.x) : 0 });
     }
+    if (combatDebug) drawCombatDebugOverlay(bounds);
     profile?.mark('entities');
+  }
+
+  function drawCombatDebugOverlay(bounds) {
+    const events = (world.combatEvents || []).filter(event => event.day === world.day
+      && (event.origin.x >= bounds.minX && event.origin.x <= bounds.maxX
+        && event.origin.y >= bounds.minY && event.origin.y <= bounds.maxY
+        || event.result?.point && event.result.point.x >= bounds.minX && event.result.point.x <= bounds.maxX
+          && event.result.point.y >= bounds.minY && event.result.point.y <= bounds.maxY)).slice(-16);
+    if (!events.length) return;
+    ctx.save();
+    ctx.lineWidth = 2;
+    ctx.font = '12px sans-serif';
+    ctx.textBaseline = 'bottom';
+    for (const event of events) {
+      const origin = { x: (event.origin.x + .5) * TILE, y: (event.origin.y + .5) * TILE };
+      const aim = event.result?.point || event.aim;
+      const endpoint = { x: (aim.x + .5) * TILE, y: (aim.y + .5) * TILE };
+      const hit = ['body', 'shield', 'weapon-guard', 'parry', 'structure'].includes(event.result?.kind);
+      const color = event.result?.kind === 'obstructed' ? '#ff9b38' : hit ? '#68ef93' : '#f05b5b';
+      ctx.strokeStyle = 'rgba(245, 245, 235, .75)';
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath(); ctx.moveTo(origin.x, origin.y); ctx.lineTo((event.aim.x + .5) * TILE, (event.aim.y + .5) * TILE); ctx.stroke();
+      ctx.setLineDash([]);
+      if (event.geometry?.type === 'swept-arc') {
+        const radius = event.geometry.reach * TILE;
+        const thickness = Math.max(2, event.geometry.radius * TILE);
+        ctx.strokeStyle = 'rgba(95, 220, 255, .82)';
+        ctx.beginPath(); ctx.arc(origin.x, origin.y, radius - thickness, event.angle - event.geometry.arcRadians,
+          event.angle + event.geometry.arcRadians); ctx.stroke();
+        ctx.beginPath(); ctx.arc(origin.x, origin.y, radius + thickness, event.angle - event.geometry.arcRadians,
+          event.angle + event.geometry.arcRadians); ctx.stroke();
+      } else {
+        ctx.strokeStyle = 'rgba(95, 220, 255, .82)';
+        ctx.beginPath(); ctx.moveTo(origin.x, origin.y); ctx.lineTo(endpoint.x, endpoint.y); ctx.stroke();
+      }
+      if (['circle', 'structure-contact'].includes(event.result?.hitbox?.shape) && event.result.targetPosition) {
+        ctx.strokeStyle = 'rgba(255, 230, 92, .9)';
+        ctx.beginPath(); ctx.arc((event.result.targetPosition.x + .5) * TILE,
+          (event.result.targetPosition.y + .5) * TILE, event.result.hitbox.radius * TILE, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(endpoint.x, endpoint.y, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillText(`#${event.id} ${event.result?.kind || 'miss'} ${event.result?.atMs ?? '—'}ms`, endpoint.x + 6, endpoint.y - 5);
+    }
+    ctx.restore();
   }
 
   function drawFenceSegment(item) {
