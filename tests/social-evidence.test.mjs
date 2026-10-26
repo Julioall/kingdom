@@ -257,6 +257,29 @@ test('belief updates ignore repeated roots, accumulate independent evidence, and
   assert.equal(world.people[1].socialMemories.length, 3, 'revision preserves each independent event');
 });
 
+test('a newly cited belief memory survives pruning when the existing evidence already fills its budget', () => {
+  const world = fixture();
+  const observer = world.people[1];
+  for (let index = 0; index < SOCIAL_MEMORY_PER_PERSON_LIMIT; index++) {
+    const fact = aidFact(world, 'bounded-belief-' + index);
+    rememberSocialFact(world, observer.id, fact.eventId, { source: 'direct' });
+    recordSocialBeliefEvidence(world, observer.id, {
+      topic: 'food_aid_reliability', aboutId: 1, eventId: fact.eventId, polarity: 1
+    });
+  }
+
+  const latestFact = aidFact(world, 'bounded-belief-latest');
+  rememberSocialFact(world, observer.id, latestFact.eventId, { source: 'direct', deferPrune: true });
+  const latestBelief = recordSocialBeliefEvidence(world, observer.id, {
+    topic: 'food_aid_reliability', aboutId: 1, eventId: latestFact.eventId, polarity: 1
+  });
+
+  assert.equal(latestBelief.supportingEventIds.length, SOCIAL_MEMORY_PER_PERSON_LIMIT + 1);
+  assert.equal(observer.socialMemories.length, SOCIAL_MEMORY_PER_PERSON_LIMIT + 1,
+    'evidence cited by a belief stays pinned even when it exceeds the unpinned memory budget');
+  assert.ok(observer.socialMemories.some(memory => memory.rootEventId === latestFact.eventId));
+});
+
 test('a recipient keeps a reported memory when its source dies', () => {
   const world = fixture();
   const fact = aidFact(world, 'reported-before-death');

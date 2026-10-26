@@ -1,8 +1,8 @@
 # JUL-171 S1 — primeira interação social com procedência
 
-Data: 26/10/2026  
-Issue: [JUL-171](https://linear.app/julio-alves/issue/JUL-171)  
-Base de contrato: JUL-170 S0, `social-evidence.js`  
+Data: 26/10/2026
+Issue: [JUL-171](https://linear.app/julio-alves/issue/JUL-171)
+Base de contrato: JUL-170 S0, `social-evidence.js`
 Escopo desta fatia: transferência de alimento e leitura no inspetor
 
 ## Pergunta e evidência
@@ -42,6 +42,8 @@ Na continuação da fatia, o serviço militar passa a registrar dois fatos disti
 Decisão: usar os movimentos reais de `militaryPayArrears` e `militaryWallet` em `paySoldier` como fonte de verdade, em vez de deduzir atraso de uma baixa reserva do tesouro ou de uma mensagem da crônica. Isso evita classificar como atraso uma parcela que foi coberta no mesmo ciclo. Os tipos de evento são `military_pay_delayed` e `military_pay_recovered`; a interface exibe o evento em português, o ouro observado e o reino relacionado.
 
 A consolidação mantém memórias citadas por crenças e relações, por intenções ativas e por compromissos ainda abertos. A janela de trabalho continua com no máximo 32 memórias por pessoa quando as evidências protegidas cabem nela; se mais registros estiverem referenciados, preservar as referências tem prioridade sobre a poda. O limite mundial de 512 fatos também cede a fatos ainda referenciados, removendo primeiro fatos sem referências. Compromissos propostos aceitam `evidenceEventIds` somente quando todas as partes conhecem esses fatos. Intenções ativas registram `evidenceIds` locais. Os limites continuam hipóteses operacionais, não capacidades calibradas.
+
+Na revisão da PR, um estresse reproduziu exceção ao registrar a 33ª evidência favorável: `rememberSocialFact` podava a memória recém-adquirida antes que `recordSocialBeliefEvidence` a citasse; as 32 anteriores estavam corretamente protegidas. A escrita agora pode adiar a poda até a crença ser atualizada, e `recordSocialBeliefEvidence` poda após aplicar a nova referência. O teste vermelho confirmou a falha; depois da correção, a 33ª memória permanece por ser evidência citada, conforme a prioridade de retenção acima. Isso não muda a política de evidências nem relaxa a validação de procedência.
 
 O teste `tests/military-pay-social.test.mjs` exercita uma parcela de 15 ouro em atraso seguida de pagamento posterior: dois fatos/memórias permanecem, a avaliação passa de negativa a neutra e a certeza aumenta. `tests/social-evidence.test.mjs` cobre recurso esgotado sem testemunha, retenção de crença, plano e compromisso após 400 dias, poda das evidências não protegidas, rejeição de consequências repetidas do mesmo relato e ganhos de certeza decrescentes para evidências independentes. `tests/social-inspector.test.mjs` cobre o mesmo formatador usado pelo jogo: fato observado, relato com fonte e dia de recebimento, interpretação pessoal e escaping de nomes. Testes direcionados: 19/19; validação completa: `npm test` (93/93), `npm run build` (inclui `tsc --noEmit`) e `git diff --check` aprovados.
 

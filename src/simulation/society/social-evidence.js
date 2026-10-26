@@ -206,7 +206,7 @@ export function rememberSocialFact(world, personId, eventId, options = {}) {
     sourcePersonId
   });
   person.socialMemories.push(memory);
-  pruneSocialEvidence(world);
+  if (!options.deferPrune) pruneSocialEvidence(world);
   return memory;
 }
 
@@ -292,6 +292,7 @@ export function recordSocialBeliefEvidence(world, personId, input = {}) {
   const requestedClassification = Math.sign(input.polarity);
   if (priorClassification) {
     if (priorClassification !== requestedClassification) fail('a mesma evidência não pode sustentar e contrariar a crença.');
+    pruneSocialEvidence(world);
     return previous;
   }
 
@@ -324,6 +325,7 @@ export function recordSocialBeliefEvidence(world, personId, input = {}) {
   });
   if (beliefIndex < 0) person.socialBeliefs.push(belief);
   else person.socialBeliefs[beliefIndex] = belief;
+  pruneSocialEvidence(world);
   return belief;
 }
 

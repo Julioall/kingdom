@@ -173,7 +173,7 @@ function recordMilitaryPayExperience(world, soldier, kingdom, type, amount, paym
     location: Number.isFinite(soldier.x) && Number.isFinite(soldier.y) ? { x: soldier.x, y: soldier.y } : null,
     outcome: { resource: 'gold', amount, paymentDay, dueDay }
   });
-  rememberSocialFact(world, soldier.id, fact.eventId, { source: 'direct' });
+  rememberSocialFact(world, soldier.id, fact.eventId, { source: 'direct', deferPrune: true });
   recordSocialBeliefEvidence(world, soldier.id, {
     topic: 'military_pay_reliability', aboutId: kingdom.id, eventId: fact.eventId,
     polarity: type === 'military_pay_delayed' ? -1 : 1

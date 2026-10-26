@@ -117,7 +117,7 @@ function recordFoodAidExperience(w, giver, recipient, amount, method) {
     outcome: { resource: 'food', amount, method }
   });
   rememberSocialFact(w, giver.id, fact.eventId, { source: 'direct' });
-  rememberSocialFact(w, recipient.id, fact.eventId, { source: 'direct' });
+  rememberSocialFact(w, recipient.id, fact.eventId, { source: 'direct', deferPrune: true });
   updateDirectedSocialRelationship(w, recipient.id, giver.id, {
     eventId: fact.eventId, trustDelta: method === 'community' ? .08 : .12
   });
@@ -217,7 +217,7 @@ export function resolveFoodAidRequest(w, requester, helper, participantsToday = 
     outcome: method ? { resource: 'food', result: 'accepted', amount: moved, method }
       : { resource: 'food', result: 'refused', reason: 'no-transferable-surplus' }
   });
-  rememberSocialFact(w, requester.id, response.eventId, { source: 'direct' });
+  rememberSocialFact(w, requester.id, response.eventId, { source: 'direct', deferPrune: !method });
   rememberSocialFact(w, helper.id, response.eventId, { source: 'direct' });
   if (!method) {
     updateDirectedSocialRelationship(w, requester.id, helper.id, { eventId: response.eventId, trustDelta: -.03 });
