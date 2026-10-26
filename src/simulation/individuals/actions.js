@@ -37,6 +37,8 @@ import { chooseMilitaryAction, learnMilitaryOutcome, militaryTrainingPairs, trai
 const STARVATION_HEALTH_LOSS_PER_POINT = .035;
 const PERSONAL_FOOD_PRESSURE_THRESHOLD = 42;
 const FORAGE_TARGET_HYSTERESIS = .14;
+const FAILED_FOOD_TARGET_COOLDOWN_DAYS = 7;
+const MAX_FAILED_FOOD_TARGETS = 8;
 const RESOURCE_CONFLICT_TRUCE_DAYS = 14;
 const HARVEST_REACH_DISTANCE = 1.05;
 
@@ -110,9 +112,14 @@ export function personalFoodHarvestLimit(person, requested, reserveCapacity, dir
 export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
     let best = null, bestScore = -Infinity;
     const resources = person.perception && person.perception.resources || [];
+    const failedTargets = (person.failedFoodTargets || []).filter(target => Number.isInteger(target.x)
+      && Number.isInteger(target.y) && Number.isInteger(target.untilDay) && target.untilDay >= w.day);
+    if (failedTargets.length !== (person.failedFoodTargets || []).length) person.failedFoodTargets = failedTargets;
+    const failedTargetKeys = new Set(failedTargets.map(target => target.x + ',' + target.y));
     const harvestCapacity = clamp(1.8 + person.skills.forage * 3.2, 1.8, 5);
     for (const resource of resources) {
       const tile = cellAt(w, resource.x, resource.y);
+      if (failedTargetKeys.has(resource.x + ',' + resource.y)) continue;
       if (fieldId != null && tile?.cropFieldId !== fieldId) continue;
       if (tile?.cropFieldId == null && !isBushAnchor(w, tile, 'berry')) continue;
       const availableFood = resource.harvestableBiomass || resource.biomass;
@@ -156,8 +163,16 @@ function foodApproachTiles(w, person, foodTile) {
 
 export function moveTowardFood(w, person, foodTile) {
   for (const approach of foodApproachTiles(w, person, foodTile)) {
-    if (moveOne(w, person, approach, false)) return true;
+    if (moveOne(w, person, approach, false)) {
+      person.failedFoodTargets = (person.failedFoodTargets || []).filter(target =>
+        target.x !== foodTile.x || target.y !== foodTile.y);
+      return true;
+    }
   }
+  const failedTargets = (person.failedFoodTargets || []).filter(target => target.untilDay >= w.day
+    && (target.x !== foodTile.x || target.y !== foodTile.y));
+  failedTargets.push({ x: foodTile.x, y: foodTile.y, untilDay: w.day + FAILED_FOOD_TARGET_COOLDOWN_DAYS });
+  person.failedFoodTargets = failedTargets.slice(-MAX_FAILED_FOOD_TARGETS);
   return false;
 }
 
