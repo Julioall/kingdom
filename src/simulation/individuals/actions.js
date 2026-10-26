@@ -8,7 +8,7 @@ import { log } from '../core/events.js';
 import { rand } from '../core/random.js';
 import { addFoodReserve, addHarvestedFood, addResource, carriedResources, communityFoodStock, communityMaterialStock, consumeEdibleCargo, consumeFoodReserve, moveCarriedResource, storeCommunityFruit, transferResource, withdrawCommunityFood } from '../economy/inventories.js';
 import { moveOne } from './movement.js';
-import { bushHarvestHitbox, hitboxesOverlap, mineralHitbox, npcHitbox } from '../physics/hitboxes.js';
+import { bushHarvestHitbox, collidesWithWorldAt, hitboxesOverlap, mineralHitbox, npcHitbox, worldCollisionIndex } from '../physics/hitboxes.js';
 import { communityHerd, domesticatedSheep } from '../ecology/animals.js';
 import { communityRelation, completeCommunityTask, updateCommunityGovernance } from '../society/governance.js';
 import { canCommunityBuild, communityBuildUtility, communityBuildingNeed, communityStructures, nextCommunityStructure, workOnCommunityStructure } from '../settlements/construction.js';
@@ -118,6 +118,7 @@ export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
       const availableFood = resource.harvestableBiomass || resource.biomass;
       const food = HUMAN_FOOD.reduce((sum, id) => sum + (availableFood[id] || 0), 0);
       if (resource.terrain !== 'land' || resource.distance > radius || food < .8) continue;
+      if (tile?.cropFieldId == null && !foodApproachTiles(w, person, tile).length) continue;
       const warningPenalty = tile && canEnterForeignTerritory(w, person, tile) ? 0 : 3;
       const expectedHarvestReserve = Math.min(food, harvestCapacity) * FOOD_RESERVE_PER_UNIT;
       const expectedTravelDays = Math.ceil(Math.max(0, resource.distance - HARVEST_REACH_DISTANCE) / Math.SQRT2);
@@ -133,6 +134,31 @@ export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
     }
     return best;
   }
+
+function foodApproachTiles(w, person, foodTile) {
+  if (!w || !person || !foodTile || foodTile.cropFieldId != null
+      || !isBushAnchor(w, foodTile, 'berry')) return [];
+  const harvestHitbox = bushHarvestHitbox(w, foodTile, 'berry');
+  if (!harvestHitbox) return [];
+  const collisionIndex = worldCollisionIndex(w);
+  const candidates = [];
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    const tile = cellAt(w, foodTile.x + dx, foodTile.y + dy);
+    if (!tile || tile.terrain !== 'land' || collidesWithWorldAt(w, person, tile.x, tile.y, collisionIndex)
+        || !canEnterForeignTerritory(w, person, tile)
+        || !hitboxesOverlap(npcHitbox(person, tile.x, tile.y), harvestHitbox)) continue;
+    candidates.push(tile);
+  }
+  return candidates.sort((a, b) => distance(person, a) - distance(person, b)
+    || distance(a, foodTile) - distance(b, foodTile) || a.y - b.y || a.x - b.x);
+}
+
+export function moveTowardFood(w, person, foodTile) {
+  for (const approach of foodApproachTiles(w, person, foodTile)) {
+    if (moveOne(w, person, approach, false)) return true;
+  }
+  return false;
+}
 
 export function collectFoodForCommunity(w, person, tile) {
     if (!person || !tile) return 0;
@@ -1075,8 +1101,13 @@ function updatePeopleCore(w) {
             }
           }
         } else if (food) {
-          p.foodTarget = { x: food.x, y: food.y };
-          moveOne(w, p, food, false); p.state = 'procurando alimento'; p.lastLesson = 'Deslocar-se até alimento custa energia; o retorno depende de a mancha ainda existir.';
+          if (moveTowardFood(w, p, food)) {
+            p.foodTarget = { x: food.x, y: food.y };
+            p.state = 'procurando alimento'; p.lastLesson = 'Deslocar-se até um ponto livre ao lado do arbusto custa energia; a colheita começa ao alcançar a área de interação.';
+          } else {
+            p.foodTarget = null;
+            p.state = 'mancha inacessível'; p.lastLesson = 'O arbusto não tem um ponto de aproximação livre; escolher outra mancha evita repetir um caminho sem saída.';
+          }
         }
         else { p.foodTarget = null; p.state = 'sem alimento próximo'; p.lastLesson = 'Não encontrou alimento no alcance; migração ou cooperação pode abrir outras opções.'; }
       } else if (action === 'hunt') {
