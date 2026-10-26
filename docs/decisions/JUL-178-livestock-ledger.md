@@ -1,8 +1,11 @@
 # JUL-178 — registro de ração e cenário controlado de rebanho
 
-Data: 26/10/2026  
-Branch: `codex/jul195-integration`  
-Commit de implementação: `5c55c6ec145a810cee2decafa5ca4a87da83cda0`  
+Data: 26/10/2026
+
+Branch: `codex/jul195-integration`
+
+Commit de implementação: `5c55c6ec145a810cee2decafa5ca4a87da83cda0`
+
 Evidência reproduzível: `docs/verification/JUL-178-livestock-shock-20261026.json`
 
 ## Decisão
