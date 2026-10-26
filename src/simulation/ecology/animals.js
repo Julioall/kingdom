@@ -295,7 +295,7 @@ export function updateAnimals(w) {
         else a.state = 'buscando alimento';
       } else if (action === 'hunt') {
         if (prey && distance(a, prey) <= 1.4 && rand(w) < .48) {
-          prey.alive = false; w.deaths++; w.deathsByCause.predation++; a.energy = clamp(a.energy + 46, 0, 100);
+          recordAnimalDeath(w, prey, 'predation'); a.energy = clamp(a.energy + 46, 0, 100);
           const carcass = cellAt(w, prey.x, prey.y); carcass.detritusGPerM2 += species(prey.speciesId, ANIMALS).mass * 190;
           log(w, 'Uma raposa capturou uma lebre; a matéria retorna ao ciclo ecológico.');
           a.state = 'caçando';
@@ -317,16 +317,23 @@ export function updateAnimals(w) {
   }
 
 function resolveAnimalDeath(w, animal, profile) {
-    if (!animal.alive) return;
-    animal.alive = false; w.deaths++;
     const cause = animal.ageDays > profile.life ? 'age'
       : profile.water && animal.hydration <= .1 ? 'dehydration' : 'starvation';
-    animal.deathDay = w.day + 1;
-    animal.deathCause = cause;
-    w.deathsByCause[cause] = (w.deathsByCause[cause] || 0) + 1;
+    if (!recordAnimalDeath(w, animal, cause)) return;
     const remains = cellAt(w, animal.x, animal.y);
     if (remains) remains.detritusGPerM2 += profile.mass * 170;
     if (w.deaths % 5 === 0) log(w, 'A mortalidade animal depositou biomassa no estoque de detritos.');
+  }
+
+export function recordAnimalDeath(world, animal, cause) {
+    if (!world || !animal?.alive || !cause) return false;
+    animal.alive = false;
+    animal.deathDay = world.day + 1;
+    animal.deathCause = cause;
+    world.deaths = (world.deaths || 0) + 1;
+    world.deathsByCause ||= {};
+    world.deathsByCause[cause] = (world.deathsByCause[cause] || 0) + 1;
+    return true;
   }
 
 export function reproduceAnimals(w) {
