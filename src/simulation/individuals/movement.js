@@ -355,9 +355,11 @@ export function moveOne(w, agent, target, aquatic, movementOptions = null) {
       const preferred = stepToward(current, false);
       const blocker = personOnTile(w, preferred, agent);
       if (blocker) {
-        blocker.passageRequest = { requesterId: agent.id, x: preferred.x, y: preferred.y, expiresDay: w.day + 1 };
-        agent.passageRequestSent = { personId: blocker.id, x: preferred.x, y: preferred.y, day: w.day };
-        respondToPassageRequest(w, blocker);
+        if (!movementOptions.passageYield) {
+          blocker.passageRequest = { requesterId: agent.id, x: preferred.x, y: preferred.y, expiresDay: w.day + 1 };
+          agent.passageRequestSent = { personId: blocker.id, x: preferred.x, y: preferred.y, day: w.day };
+          respondToPassageRequest(w, blocker);
+        }
         const canEnterFree = tile => canEnter(w, agent, tile, aquatic, pen, corrals, movementOptions) && !personOnTile(w, tile, agent);
         const canStepFree = (from, to) => canStep(w, agent, from, to, aquatic, pen, corrals, movementOptions) && !personOnTile(w, to, agent);
         first = !personOnTile(w, preferred, agent) ? preferred : localCongestionStep(w, agent,
