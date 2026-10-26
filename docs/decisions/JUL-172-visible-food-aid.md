@@ -36,4 +36,3 @@ Esta decisão corrige apenas a escolha local de destinatário e o registro de aj
 - npm run build no mesmo HEAD: typecheck e build passaram; Vite transformou 99 módulos. Permanece o aviso conhecido de bundle acima de 500 kB.
 - Replay social de 30 dias na seed 42 repetiu estado e crônica: state SHA 25249d59786d44d382ae5bf9cbaf31d3746e6ae6e4550648a13631d1f5935f5f, chronicle SHA c6a551b98b806f28f377b7d4db8544dc6a712dd79314280266873cbcf1cb7086. O relatório vê duas pessoas com share como última ação, mas não contabiliza transferências de ajuda; portanto, não prova ajuda bem-sucedida em uma execução orgânica.
 - Evidência e critérios ainda abertos: docs/verification/JUL-172-visible-food-aid-20261026.md.
-

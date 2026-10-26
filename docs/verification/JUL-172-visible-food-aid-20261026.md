@@ -38,4 +38,3 @@ Sem mudança visual; screenshot não aplicável.
 - Resolução atômica de encontros incompatíveis e suspensão em emergência.
 - Informação de água conhecida com procedência, confiança direcional/familiaridade e regressão de coesão.
 - Demonstração integrada de ponta a ponta no inspetor e replay orgânico com contador de ajuda confirmada.
-
