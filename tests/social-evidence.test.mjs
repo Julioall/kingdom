@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {
   defineDirectedSocialRelationship, defineSocialBelief, defineSocialIntention,
   pruneSocialEvidence, proposeSocialCommitment, recordSocialFact, rememberSocialFact,
-  SOCIAL_FACT_LIMIT, SOCIAL_MEMORY_PER_PERSON_LIMIT, SOCIAL_RECORD_SCHEMA_VERSIONS
+  SOCIAL_ACTIVE_INTENTION_PER_PERSON_LIMIT, SOCIAL_FACT_LIMIT, SOCIAL_MEMORY_PER_PERSON_LIMIT,
+  SOCIAL_RECORD_SCHEMA_VERSIONS, SOCIAL_RELATIONSHIP_PER_PERSON_LIMIT
 } from '../src/simulation/society/social-evidence.js';
 
 function fixture() {
@@ -79,8 +80,12 @@ test('fact writes and memories are idempotent; conflicting reuse of a key is rej
 
 test('unknown references and unobserved direct memories are rejected', () => {
   const world = fixture();
+  world.animals = [{ id: 90 }];
   assert.throws(() => recordSocialFact(world, { type: 'aid_transferred' }), /idempotencyKey é obrigatório/);
   assert.throws(() => recordSocialFact(world, { type: 'aid_transferred', participantIds: [999] }), /ID inexistente/);
+  assert.throws(() => recordSocialFact(world, {
+    idempotencyKey: 'animal-participant', type: 'aid_transferred', participantIds: [90]
+  }), /só pode apontar para pessoas/);
   const fact = recordSocialFact(world, { idempotencyKey: 'witnessed-aid', type: 'aid_transferred', participantIds: [1], witnessIds: [1] });
   assert.throws(() => rememberSocialFact(world, 2, fact.eventId), /não consta entre as testemunhas/);
   assert.throws(() => rememberSocialFact(world, 3, fact.eventId, { source: 'reported', sourcePersonId: 1 }), /ainda não conhece/);
@@ -123,6 +128,23 @@ test('retention bounds memories and facts while preserving references inside the
   const expired = pruneSocialEvidence(world);
   assert.equal(expired.retainedFacts, 0);
   assert.equal(expired.retainedMemories, 0);
+});
+
+test('world fact retention is enforced as facts are recorded and removes oldest unreferenced records', () => {
+  const world = fixture();
+  let lastFact;
+  for (let index = 0; index <= SOCIAL_FACT_LIMIT; index++) {
+    lastFact = recordSocialFact(world, {
+      idempotencyKey: 'bounded-fact-' + index,
+      type: 'aid_transferred',
+      participantIds: [1],
+      witnessIds: [1]
+    });
+  }
+  assert.equal(world.socialEvidence.facts.length, SOCIAL_FACT_LIMIT);
+  assert.equal(world.socialEvidence.facts.some(fact => fact.sequence === 1), false);
+  assert.equal(world.socialEvidence.facts.at(-1).eventId, lastFact.eventId);
+  assert.equal(Object.keys(world.socialEvidence.idempotency).length, SOCIAL_FACT_LIMIT);
 });
 
 test('beliefs cite only local memories and directed relations do not mutate the other person or shared links', () => {
@@ -180,4 +202,21 @@ test('individual intention stores explicit steps, target and termination conditi
   assert.throws(() => defineSocialIntention(world, 1, {
     type: 'seek_food_aid', steps: [{ action: 'approach', targetId: 999 }], endsWhen: 'done'
   }), /targetId de um passo não existe/);
+});
+
+test('initial social memory, relation and active intention budgets are enforced', () => {
+  const world = fixture();
+  world.people.push(...Array.from({ length: SOCIAL_RELATIONSHIP_PER_PERSON_LIMIT + 1 }, (_, index) => ({ id: 10 + index })));
+  for (const target of world.people.slice(3, 3 + SOCIAL_RELATIONSHIP_PER_PERSON_LIMIT)) {
+    defineDirectedSocialRelationship(world, 1, target.id);
+  }
+  assert.throws(() => defineDirectedSocialRelationship(world, 1, world.people.at(-1).id), /limite de relações detalhadas/);
+
+  for (let index = 0; index < SOCIAL_ACTIVE_INTENTION_PER_PERSON_LIMIT; index++) {
+    defineSocialIntention(world, 1, { type: 'seek_help', steps: [{ action: 'approach' }], endsWhen: 'help_or_timeout' });
+  }
+  assert.throws(() => defineSocialIntention(world, 1, {
+    type: 'seek_help', steps: [{ action: 'approach' }], endsWhen: 'help_or_timeout'
+  }), /limite de intenções ativas/);
+  assert.equal(SOCIAL_MEMORY_PER_PERSON_LIMIT, 32);
 });

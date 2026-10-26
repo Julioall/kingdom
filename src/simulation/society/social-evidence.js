@@ -3,7 +3,9 @@ export const SOCIAL_RECORD_SCHEMA_VERSIONS = Object.freeze({
   fact: 1, memory: 1, belief: 1, relationship: 1, commitment: 1, intention: 1
 });
 export const SOCIAL_FACT_RETENTION_DAYS = 365;
-export const SOCIAL_MEMORY_PER_PERSON_LIMIT = 64;
+export const SOCIAL_MEMORY_PER_PERSON_LIMIT = 32;
+export const SOCIAL_RELATIONSHIP_PER_PERSON_LIMIT = 16;
+export const SOCIAL_ACTIVE_INTENTION_PER_PERSON_LIMIT = 3;
 export const SOCIAL_FACT_LIMIT = 512;
 const REFERENCE_COLLECTIONS = Object.freeze({
   person: ['people'], animal: ['animals'], community: ['communities'], kingdom: ['kingdoms'],
@@ -43,6 +45,14 @@ function uniqueKnownIds(world, values, field) {
     result.push(id);
   }
   return result;
+}
+
+function uniqueKnownPersonIds(world, values, field) {
+  const ids = uniqueKnownIds(world, values, field);
+  for (const id of ids) {
+    if (!(world.people || []).some(person => String(person.id) === id)) fail(field + ' só pode apontar para pessoas.');
+  }
+  return ids;
 }
 
 function cloneJson(value, field) {
@@ -107,8 +117,8 @@ export function recordSocialFact(world, input = {}) {
   if (!/^[a-z][a-z0-9_]{1,63}$/.test(type)) fail('type deve ser um identificador estável em snake_case.');
   const day = input.day === undefined ? world.day : input.day;
   if (!Number.isSafeInteger(day) || day < 0 || day > world.day) fail('day deve pertencer ao passado observável do mundo.');
-  const participantIds = uniqueKnownIds(world, input.participantIds || [], 'participantIds');
-  const witnessIds = uniqueKnownIds(world, input.witnessIds || [], 'witnessIds');
+  const participantIds = uniqueKnownPersonIds(world, input.participantIds || [], 'participantIds');
+  const witnessIds = uniqueKnownPersonIds(world, input.witnessIds || [], 'witnessIds');
   const targetId = input.targetId == null ? null : idKey(input.targetId, 'targetId');
   if (targetId !== null && !entityExists(world, targetId)) fail('targetId referencia entidade inexistente: ' + targetId + '.');
   const location = input.location == null ? null : cloneJson(input.location, 'location');
@@ -147,10 +157,12 @@ export function recordSocialFact(world, input = {}) {
     }
     return existing;
   }
-  const eventId = String(world.seed) + ':epoch:' + evidence.worldEpoch + ':social:' + evidence.nextFactNumber++;
-  const fact = freezeRecursively({ ...factData, eventId });
+  const sequence = evidence.nextFactNumber++;
+  const eventId = String(world.seed) + ':epoch:' + evidence.worldEpoch + ':social:' + sequence;
+  const fact = freezeRecursively({ ...factData, sequence, eventId });
   evidence.facts.push(fact);
-  if (idempotencyKey) evidence.idempotency[idempotencyKey] = { eventId, fingerprint };
+  evidence.idempotency[idempotencyKey] = { eventId, fingerprint };
+  pruneSocialEvidence(world);
   return fact;
 }
 
@@ -186,6 +198,7 @@ export function rememberSocialFact(world, personId, eventId, options = {}) {
     worldEpoch: evidence.worldEpoch,
     memoryId: fact.eventId + ':person:' + String(person.id),
     rootEventId: fact.eventId,
+    sequence: fact.sequence,
     eventType: fact.type,
     eventDay: fact.day,
     acquiredDay,
@@ -193,6 +206,7 @@ export function rememberSocialFact(world, personId, eventId, options = {}) {
     sourcePersonId
   });
   person.socialMemories.push(memory);
+  pruneSocialEvidence(world);
   return memory;
 }
 
@@ -268,6 +282,9 @@ export function defineDirectedSocialRelationship(world, observerId, targetId, in
     if (JSON.stringify(existing) !== JSON.stringify(requested)) fail('a relação dirigida já existe com valores diferentes.');
     return existing;
   }
+  if (observer.socialRelations.length >= SOCIAL_RELATIONSHIP_PER_PERSON_LIMIT) {
+    fail('a pessoa atingiu o limite de relações detalhadas.');
+  }
   observer.socialRelations.push(relationship);
   return relationship;
 }
@@ -337,6 +354,10 @@ export function defineSocialIntention(world, ownerId, input = {}) {
   if (!Array.isArray(blockers) || blockers.some(item => typeof item !== 'string')) fail('blockers deve conter apenas textos.');
   const endsWhen = typeof input.endsWhen === 'string' ? input.endsWhen.trim() : '';
   if (!endsWhen) fail('endsWhen deve explicar a condição de encerramento.');
+  person.socialIntentions ||= [];
+  if (person.socialIntentions.filter(item => item.status === 'active').length >= SOCIAL_ACTIVE_INTENTION_PER_PERSON_LIMIT) {
+    fail('a pessoa atingiu o limite de intenções ativas.');
+  }
   const intention = freezeRecursively({
     schemaVersion: SOCIAL_RECORD_SCHEMA_VERSIONS.intention,
     worldSeed: world.seed,
@@ -352,7 +373,6 @@ export function defineSocialIntention(world, ownerId, input = {}) {
     endsWhen,
     status: 'active'
   });
-  person.socialIntentions ||= [];
   person.socialIntentions.push(intention);
   return intention;
 }
@@ -362,19 +382,22 @@ export function pruneSocialEvidence(world, currentDay = world.day) {
   if (!Number.isSafeInteger(currentDay) || currentDay < world.day) fail('currentDay não pode anteceder o mundo.');
   const cutoff = currentDay - SOCIAL_FACT_RETENTION_DAYS;
   for (const person of world.people || []) {
-    person.socialMemories = (person.socialMemories || [])
+    if (!Array.isArray(person.socialMemories)) continue;
+    person.socialMemories = person.socialMemories
       .filter(memory => memory.acquiredDay >= cutoff)
-      .sort((a, b) => a.acquiredDay - b.acquiredDay || a.memoryId.localeCompare(b.memoryId))
+      .sort((a, b) => a.acquiredDay - b.acquiredDay || a.sequence - b.sequence || a.memoryId.localeCompare(b.memoryId))
       .slice(-SOCIAL_MEMORY_PER_PERSON_LIMIT);
   }
   const referenced = new Set((world.people || []).flatMap(person =>
     (person.socialMemories || []).map(memory => memory.rootEventId)));
   evidence.facts = evidence.facts.filter(fact => fact.day >= cutoff || referenced.has(fact.eventId));
-  evidence.facts.sort((a, b) => a.day - b.day || a.eventId.localeCompare(b.eventId));
+  evidence.facts.sort((a, b) => a.day - b.day || a.sequence - b.sequence);
   while (evidence.facts.length > SOCIAL_FACT_LIMIT) {
     const expired = evidence.facts.shift();
     for (const person of world.people || []) {
-      person.socialMemories = (person.socialMemories || []).filter(memory => memory.rootEventId !== expired.eventId);
+      if (Array.isArray(person.socialMemories)) {
+        person.socialMemories = person.socialMemories.filter(memory => memory.rootEventId !== expired.eventId);
+      }
     }
   }
   const retainedIds = new Set(evidence.facts.map(fact => fact.eventId));
