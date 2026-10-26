@@ -6,7 +6,7 @@ import { createMovementInterpolator } from './movement-interpolation.js';
 import { createDamageBarTracker } from './health-bars.js';
 import { GameSession } from '../app/session.ts';
 import { SimulationClock } from '../app/simulation-loop.ts';
-import Sim from '../simulation/engine.js';
+import Sim from './simulation-view.js';
 import LocalAI from '../ai/local-engine.js';
 import { readLocalAiPreference, writeLocalAiPreference } from '../ai/preference.js';
 import { DOMESTIC_SHEEP_DAILY_FEED, SHEEP_ADULT_AGE_DAYS, SHEEP_JUVENILE_MIN_SCALE } from '../config/ecosystem.js';
@@ -25,6 +25,13 @@ import { createCloudSystem, atmosphereZoomProfile } from './cloud-system.js';
 import AtmosphericLayer from './atmospheric-layer.js';
 import DirtBrush from './dirt-brush.js';
 import { createLoadingScreen } from './loading-screen.js';
+import { createRenderDiagnostics } from './render-profiler-panel.js';
+import { createTerrainChunkCache } from './terrain-chunks.js';
+import { createPixelTileCache } from './pixel-tile-cache.js';
+import { compareDepth, mergeDepthItems } from './depth-order.js';
+
+const IMAGE_ASSET_EXTENSION = import.meta.env?.PROD ? 'webp' : 'png';
+const imageFileName = name => `${name}.${IMAGE_ASSET_EXTENSION}`;
 
 function atmosphereProfileForZoom(zoom) {
   const density = atmosphereZoomProfile(zoom).fogDensity;
@@ -46,6 +53,10 @@ function atmosphereLayerOpacityForZoom(zoom) {
 export function mountGame() {
   'use strict';
   const loadingScreen = createLoadingScreen();
+  const renderDiagnostics = createRenderDiagnostics();
+  const diagnosticQuery = new URLSearchParams(window.location.search);
+  const referenceRendering = diagnosticQuery.get('profile') === '1' && diagnosticQuery.get('render') === 'reference';
+  const fixedEffects = diagnosticQuery.get('profile') === '1' && diagnosticQuery.get('effects') === 'fixed';
   const trackedImage = () => loadingScreen.trackImage(new Image());
   const $ = id => document.getElementById(id);
   const forjaUI = window.FantasyUI;
@@ -78,9 +89,14 @@ export function mountGame() {
   ctx.imageSmoothingEnabled = false;
   groundCacheContext.imageSmoothingEnabled = false;
   const W = Sim.width, H = Sim.height, TILE = LOGICAL_SIZE / W, stage = canvas.parentElement;
+  const terrainChunks = createTerrainChunkCache({ width: W, height: H, tileSize: TILE });
+  const pixelTiles = createPixelTileCache();
+  let terrainSyncRevision = -1, terrainSyncFallback = null, assetRevision = 0, renderTimestamp = null;
   const seasonNames = Sim.seasons;
   const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0] || 1;
-  const sessionSeed = randomSeed();
+  const requestedSeed = diagnosticQuery.get('seed');
+  const sessionSeed = requestedSeed !== null && /^\d+$/.test(requestedSeed) && Number(requestedSeed) <= 0xffffffff
+    ? Number(requestedSeed) : randomSeed();
   const PATH_VISUAL_STRENGTH = 1.5; // 50% stronger footpath shading.
   const PATH_EDGE_IRREGULARITY = 1; // DirtBrush maximum.
   const trailCanvasScale = 1;
@@ -93,14 +109,25 @@ export function mountGame() {
   const pendingPersonTrailPoints = new Map();
   let lastTrailFlushAt = -Infinity;
   const session = new GameSession(undefined, sessionSeed);
+  if (diagnosticQuery.get('paused') === '1') {
+    session.paused = true;
+    session.ready.then(() => session.setPaused(true)).catch(error => session.onError?.(error));
+  }
   const clock = new SimulationClock();
 
   let world = null, rendered = false, localAI = null;
+  let peopleById = new Map(), animalsById = new Map(), communitiesById = new Map(), kingdomsById = new Map(), structuresById = new Map();
   let selection = null, showLeft = false, showRight = false, hoveredTerritoryStructureId = null, hoveredMapEntity = false;
   let kingdomActionNotice = '';
   const isResetCancellation = error => error && error.name === 'AbortError';
   session.onUpdate = (nextWorld, _stats, reset) => {
     world = nextWorld;
+    peopleById = new Map(world.people.map(person => [person.id, person]));
+    animalsById = new Map(world.animals.map(animal => [animal.id, animal]));
+    communitiesById = new Map(world.communities.map(community => [community.id, community]));
+    kingdomsById = new Map(world.kingdoms.map(kingdom => [kingdom.id, kingdom]));
+    structuresById = new Map(world.structures.map(structure => [structure.id, structure]));
+    invalidateStaticDepthCache();
 
     movementInterpolator.observe(world, performance.now(), { reset, speed: session.speed });
     npcDamageBars.observe(world.people, performance.now(), reset);
@@ -136,10 +163,10 @@ export function mountGame() {
     if (!rendered) {
       rendered = true;
       updateMapViewport();
-      render();
+      render('snapshot');
       window.requestAnimationFrame(frame);
       loadingScreen.markWorldReady();
-    } else render();
+    } else render('snapshot');
     if (localAI) localAI.pump();
   };
   session.onError = error => {
@@ -186,6 +213,7 @@ export function mountGame() {
 
   let mapTransform = [1, 0, 0, 1, 0, 0];
   let animationTime = 0, lastSpriteDraw = 0, lastAtmosphereUpdate = 0, assetRenderQueued = false, groundCacheKey = '', pendingClockDays = 0;
+  let pendingMapDraw = 'initial';
   let lastCloudLayerDraw = -Infinity, cloudLayerViewKey = '', fogUpdateAccumulator = 0;
   const movementInterpolator = createMovementInterpolator();
   document.addEventListener('visibilitychange', () => movementInterpolator.markDiscontinuity());
@@ -266,13 +294,13 @@ export function mountGame() {
   const tinyBuildingSprites = Object.create(null);
   const constructionFoundationSprites = Object.create(null);
   const constructionFoundationFiles = {
-    castle: 'castelo-construcao.png', house: 'casa-construcao.png', tower: 'torre-construcao.png',
-    barracks: 'centro-militar-construcao.png', archery: 'arquearia-construcao.png', monastery: 'convento-construcao.png'
+    castle: 'castelo-construcao', house: 'casa-construcao', tower: 'torre-construcao',
+    barracks: 'centro-militar-construcao', archery: 'arquearia-construcao', monastery: 'convento-construcao'
   };
   for (const [key, file] of Object.entries(constructionFoundationFiles)) {
     const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-    image.src = 'assets/construction-variants/' + file;
+    image.src = 'assets/construction-variants/' + imageFileName(file);
     constructionFoundationSprites[key] = image;
   }
   const tinyGoldSprites = Object.create(null);
@@ -281,14 +309,14 @@ export function mountGame() {
   for (const sprite of MAP_DECORATION_SPRITES) {
     const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-    image.src = 'assets/map-decorations/' + sprite + '.png';
+    image.src = 'assets/map-decorations/' + imageFileName(sprite);
     mapDecorationSprites[sprite] = image;
   }
   const tinyTerrainAtlases = [];
   for (let color = 1; color <= 5; color++) {
     const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-    image.src = 'assets/kingdom-autotile/Tilemap_color' + color + '.png';
+    image.src = 'assets/kingdom-autotile/' + imageFileName('Tilemap_color' + color);
     tinyTerrainAtlases.push(image);
   }
   // Water assets come from AutoTile.zip; its blue background happens to be
@@ -301,7 +329,7 @@ export function mountGame() {
   autoTileWaterFoam.src = 'assets/kingdom-autotile/water-foam.png';
   const cloudSprites = Array.from({ length: 8 }, (_, index) => {
     const image = trackedImage();
-    const asset = 'Clouds_' + String(index + 1).padStart(2, '0') + '.png';
+    const asset = imageFileName('Clouds_' + String(index + 1).padStart(2, '0'));
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
     image.onerror = () => console.error('[Kingdom cloud asset] Falha ao carregar ' + asset);
     image.src = 'assets/kingdom-clouds/' + asset;
@@ -333,9 +361,12 @@ export function mountGame() {
   const tinyMeatSprite = trackedImage();
   tinyMeatSprite.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
   tinyMeatSprite.src = 'assets/tiny-swords/meat-resource.png';
-  const cropFieldTexture = new Image();
-  cropFieldTexture.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-  cropFieldTexture.src = 'assets/kingdom-autotile/rice-field-ground.png';
+  const showCropFieldGround = false;
+  const cropFieldTexture = showCropFieldGround ? trackedImage() : null;
+  if (cropFieldTexture) {
+    cropFieldTexture.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
+    cropFieldTexture.src = 'assets/kingdom-autotile/rice-field-ground.png';
+  }
   const riceGrowthWindTexture = trackedImage();
   riceGrowthWindTexture.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
   riceGrowthWindTexture.src = 'assets/kingdom-autotile/rice-growth-wind.png';
@@ -343,26 +374,26 @@ export function mountGame() {
   for (const part of ['left', 'center', 'right']) {
     const image = trackedImage();
     image.onload = queueAssetRender;
-    image.src = 'assets/kingdom-ui/hud-big-track-' + part + '.png';
+    image.src = 'assets/kingdom-ui/' + imageFileName('hud-big-track-' + part);
     healthBarSprites.track[part] = image;
   }
   const personBarSprites = { track: {}, fills: {} };
   for (const part of ['left', 'center', 'right']) {
     const image = trackedImage();
     image.onload = queueAssetRender;
-    image.src = 'assets/kingdom-ui/hud-small-track-' + part + '.png';
+    image.src = 'assets/kingdom-ui/' + imageFileName('hud-small-track-' + part);
     personBarSprites.track[part] = image;
   }
   for (const color of ['red', 'yellow', 'green']) {
     const image = trackedImage();
     image.onload = queueAssetRender;
-    image.src = 'assets/kingdom-ui/hud-big-fill-' + color + '.png';
+    image.src = 'assets/kingdom-ui/' + imageFileName('hud-big-fill-' + color);
     healthBarSprites.fills[color] = image;
   }
   for (const color of ['red', 'yellow', 'green', 'blue']) {
     const image = trackedImage();
     image.onload = queueAssetRender;
-    image.src = 'assets/kingdom-ui/hud-small-fill-' + color + '.png';
+    image.src = 'assets/kingdom-ui/' + imageFileName('hud-small-fill-' + color);
     personBarSprites.fills[color] = image;
   }
   const commanderIcon = trackedImage();
@@ -374,7 +405,7 @@ export function mountGame() {
     for (const part of ['left', 'center', 'right']) {
       const image = trackedImage();
       image.onload = queueAssetRender;
-      image.src = 'assets/kingdom-ui/sword-' + color + '-' + part + '.png';
+      image.src = 'assets/kingdom-ui/' + imageFileName('sword-' + color + '-' + part);
       generalSwordSprites[color][part] = image;
     }
   }
@@ -384,25 +415,29 @@ export function mountGame() {
   for (let variant = 1; variant <= 4; variant++) {
     const image = trackedImage();
     image.onload = queueAssetRender;
-    image.src = 'assets/tiny-swords/rocks/rock-' + variant + '.png';
+    image.src = 'assets/tiny-swords/rocks/' + imageFileName('rock-' + variant);
     tinyRockSprites[variant] = image;
   }
   for (let variant = 1; variant <= 6; variant++) {
     const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-    image.src = 'assets/tiny-swords/minerals/gold-stone-' + variant + '.png';
+    image.src = 'assets/tiny-swords/minerals/' + imageFileName('gold-stone-' + variant);
     tinyGoldSprites[variant] = image;
   }
   function queueAssetRender() {
     if (assetRenderQueued) return;
     assetRenderQueued = true;
-    window.requestAnimationFrame(() => { assetRenderQueued = false; groundCacheKey = ''; if (world) render(); });
+    window.requestAnimationFrame(() => {
+      assetRenderQueued = false; groundCacheKey = ''; assetRevision++;
+      terrainChunks.invalidateAll(); invalidateStaticDepthCache();
+      if (world) render();
+    });
   }
   function visualPose(kind, agent) {
     // Interpolation samples are stamped with real snapshot arrival times.
-    const pose = movementInterpolator.pose(kind, agent, performance.now());
+    const pose = movementInterpolator.pose(kind, agent, renderTimestamp ?? performance.now());
     if (kind !== 'person' || !agent.towerMounted) return pose;
-    const tower = world.structures.find(structure => structure.id === agent.towerDutyId);
+    const tower = structuresById.get(agent.towerDutyId);
     return tower ? { ...pose, x: tower.x, y: tower.y - 3, moving: false }
       : { ...pose, moving: false };
   }
@@ -596,23 +631,23 @@ export function mountGame() {
   for (let id = 1; id <= 4; id++) {
     const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-    image.src = 'assets/tiny-swords/trees/tree-' + id + '.png';
+    image.src = 'assets/tiny-swords/trees/' + imageFileName('tree-' + id);
     tinyTreeSprites[id] = image;
     const bush = trackedImage();
     bush.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-    bush.src = 'assets/tiny-swords/bushes/bush-' + id + '.png';
+    bush.src = 'assets/tiny-swords/bushes/' + imageFileName('bush-' + id);
     tinyBushSprites[id] = bush;
   }
   for (let id = 1; id <= 4; id++) {
     const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-    image.src = 'assets/tiny-swords/stumps/stump-' + id + '.png';
+    image.src = 'assets/tiny-swords/stumps/' + imageFileName('stump-' + id);
     tinyStumpSprites[id] = image;
   }
-  for (const [action, file] of Object.entries({ idle: 'sheep_idle.png', move: 'sheep_move.png', grass: 'sheep_grass.png' })) {
+  for (const [action, file] of Object.entries({ idle: 'sheep_idle', move: 'sheep_move', grass: 'sheep_grass' })) {
     const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-    image.src = 'assets/tiny-swords/sheep/' + file;
+    image.src = 'assets/tiny-swords/sheep/' + imageFileName(file);
     tinySheepSprites[action] = image;
   }
   const tinyPalettes = ['blue', 'red', 'purple', 'yellow', 'black'];
@@ -627,7 +662,7 @@ export function mountGame() {
     for (const key of ['house1', 'house2', 'house3', 'castle', 'tower', 'barracks', 'archery', 'monastery', 'farmhouse']) {
       const image = trackedImage();
       image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-      image.src = 'assets/tiny-swords/buildings/' + palette + '/' + key + '.png';
+      image.src = 'assets/tiny-swords/buildings/' + palette + '/' + imageFileName(key);
       tinyBuildingSprites[palette][key] = image;
     }
   }
@@ -650,10 +685,10 @@ export function mountGame() {
   }
   function cell(x, y) { return x < 0 || y < 0 || x >= W || y >= H ? null : world.tiles[y * W + x]; }
   function plantIndex(id) { return Sim.plants.findIndex(p => p.id === id); }
-  function getCommunity(id) { return world.communities.find(c => c.id === id && !c.dissolved); }
-  function getKingdom(id) { return world.kingdoms.find(k => k.id === id); }
-  function getPerson(id) { return world.people.find(p => p.id === id && p.alive); }
-  function getAnimal(id) { return world.animals.find(a => a.id === id && a.alive); }
+  function getCommunity(id) { const entry = communitiesById.get(id); return entry && !entry.dissolved ? entry : undefined; }
+  function getKingdom(id) { return kingdomsById.get(id); }
+  function getPerson(id) { const entry = peopleById.get(id); return entry?.alive ? entry : undefined; }
+  function getAnimal(id) { const entry = animalsById.get(id); return entry?.alive ? entry : undefined; }
 
   function communityPalette(id) { return tinyPalettes[Math.abs(Math.trunc(id || 0)) % tinyPalettes.length]; }
 
@@ -674,30 +709,38 @@ export function mountGame() {
     const baseY = ({ 1: 241, 2: 249, 3: 170, 4: 168 })[treeId];
     const x = tile.x * TILE + TILE / 2 - width / 2;
     const y = (tile.y + 1) * TILE - baseY * scale;
-    return { image, frame, frameWidth, frameHeight, x, y, width, height };
+    return { image, frame, frameCount, variation, frameWidth, frameHeight, x, y, width, height };
   }
 
-  function drawTinySwordsTree(tile, type, mass) {
-    const layout = tinyTreeSpriteLayout(tile, type, mass);
+  function drawTinySwordsTree(tile, type, mass, prepared = null) {
+    const layout = prepared || tinyTreeSpriteLayout(tile, type, mass);
     if (!layout.image || !layout.image.complete || !layout.image.naturalWidth) return false;
-    ctx.drawImage(layout.image, layout.frame * layout.frameWidth, 0, layout.frameWidth, layout.frameHeight,
+    const frame = ((Math.floor(animationTime / 100) + layout.variation) % layout.frameCount + layout.frameCount) % layout.frameCount;
+    ctx.drawImage(layout.image, frame * layout.frameWidth, 0, layout.frameWidth, layout.frameHeight,
       layout.x, layout.y, layout.width, layout.height);
     return true;
   }
 
-  function drawTinySwordsBush(tile, plantId) {
+  function tinyBushSpriteLayout(tile, plantId) {
     const index = plantIndex(plantId), mass = tile.plants[index];
     const variation = hashColor(tile.x, tile.y, world.seed + (plantId === 'browse' ? 2729 : 2011));
     const bushId = 1 + variation % 4, image = tinyBushSprites[bushId];
     if (!image || !image.complete || !image.naturalWidth) return false;
     const frameWidth = 128, frameCount = Math.max(1, Math.floor(image.naturalWidth / frameWidth));
-    const frame = ((Math.floor(animationTime / 180) + variation) % frameCount + frameCount) % frameCount;
     const size = mass >= 70 ? 1 : .67;
     const scale = spriteScale(TILE, size), width = frameWidth * scale, height = image.naturalHeight * scale;
     const footY = tile.y * TILE + TILE;
     const x = tile.x * TILE + TILE / 2 - width / 2;
     const y = footY - 79 * scale;
-    ctx.drawImage(image, frame * frameWidth, 0, frameWidth, image.naturalHeight, x, y, width, height);
+    return { image, variation, frameCount, frameWidth, x, y, width, height };
+  }
+
+  function drawTinySwordsBush(tile, plantId, prepared = null) {
+    const layout = prepared || tinyBushSpriteLayout(tile, plantId);
+    if (!layout) return false;
+    const frame = ((Math.floor(animationTime / 180) + layout.variation) % layout.frameCount + layout.frameCount) % layout.frameCount;
+    ctx.drawImage(layout.image, frame * layout.frameWidth, 0, layout.frameWidth, layout.image.naturalHeight,
+      layout.x, layout.y, layout.width, layout.height);
     return true;
   }
 
@@ -791,8 +834,9 @@ export function mountGame() {
 
   function drawCarriedWood(person, x, y, pose) {
     if ((person.carriedWood || 0) + (person.carriedStone || 0) + (person.carriedFeed || 0) <= .01) return;
-    if (person.role !== 'soldier' && residentSpritePose(person, pose, world.day).cargoInSprite === 'wood'
-      && (person.carriedStone || 0) + (person.carriedFeed || 0) <= .01) return;
+    const cargoInSprite = person.role !== 'soldier' ? residentSpritePose(person, pose, world.day).cargoInSprite : null;
+    if (cargoInSprite === 'stone' && (person.carriedWood || 0) + (person.carriedFeed || 0) <= .01) return;
+    if (cargoInSprite === 'wood' && (person.carriedStone || 0) + (person.carriedFeed || 0) <= .01) return;
     const side = pose.dirX < 0 ? -1 : 1, px = x + TILE / 2 + (side < 0 ? -9 : 3), py = y + TILE / 2 - 2;
     const isStone = (person.carriedStone || 0) > .01;
     const image = isStone
@@ -926,7 +970,15 @@ export function mountGame() {
 
   function drawTinyAtlasTile(image, col, row, x, y) {
     if (!image || !image.complete || !image.naturalWidth) return false;
-    ctx.drawImage(image, col * 64, row * 64, 64, 64, ...alignedTileRect(x, y, TILE, mapTransform));
+    const [sx, , , sy, tx, ty] = mapTransform;
+    const left = Math.round(x * sx + tx), top = Math.round(y * sy + ty);
+    const width = Math.round((x + TILE) * sx + tx) - left;
+    const height = Math.round((y + TILE) * sy + ty) - top;
+    const tile = pixelTiles.get(image, col * 64, row * 64, 64, 64, width, height);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (tile) ctx.drawImage(tile, left, top);
+    else ctx.drawImage(image, col * 64, row * 64, 64, 64, left, top, width, height);
+    ctx.setTransform(...mapTransform);
     return true;
   }
 
@@ -1012,12 +1064,19 @@ export function mountGame() {
     }
   }
 
-  function drawTinySwordsGround() {
+  function* terrainTiles(bounds) {
+    if (!bounds) { yield* world.tiles; return; }
+    for (let y = bounds.minY; y <= bounds.maxY; y++) for (let x = bounds.minX; x <= bounds.maxX; x++) {
+      yield world.tiles[y * W + x];
+    }
+  }
+
+  function drawTinySwordsGround(bounds) {
     const baseAtlas = tinyTerrainAtlases[0];
     if (!baseAtlas || !baseAtlas.complete || !baseAtlas.naturalWidth) return false;
     const transition = seasonalTerrainTransition(world.day);
     const currentAtlas = tinyTerrainAtlases[tinyTerrainPalette(transition.season)];
-    for (const t of world.tiles) {
+    for (const t of terrainTiles(bounds)) {
       if (t.terrain === 'water') continue;
       const x = t.x * TILE, y = t.y * TILE;
       const coord = autoTileCoord(t, 0);
@@ -1029,7 +1088,7 @@ export function mountGame() {
       if (nextAtlas && nextAtlas.complete && nextAtlas.naturalWidth) {
         ctx.save();
         ctx.globalAlpha = transition.alpha;
-        for (const t of world.tiles) {
+        for (const t of terrainTiles(bounds)) {
           if (t.terrain === 'water') continue;
           const coord = autoTileCoord(t, 0);
           drawTinyAtlasTile(nextAtlas, coord.col, coord.row, t.x * TILE, t.y * TILE);
@@ -1040,9 +1099,9 @@ export function mountGame() {
     return true;
   }
 
-  function drawGround() {
-    if (drawTinySwordsGround()) return;
-    for (const t of world.tiles) {
+  function drawGround(bounds) {
+    if (drawTinySwordsGround(bounds)) return;
+    for (const t of terrainTiles(bounds)) {
       if (t.terrain === 'water') continue;
       const x = t.x * TILE, y = t.y * TILE, variation = hashColor(t.x, t.y, world.seed);
       if (t.terrain === 'rock') {
@@ -1063,8 +1122,9 @@ export function mountGame() {
     }
   }
 
-  function drawGroundPlants() {
-    for (const t of world.tiles) {
+  function drawGroundPlants(bounds) {
+    if (!showCropFieldGround || !cropFieldTexture) return;
+    for (const t of terrainTiles(bounds)) {
       if (t.terrain === 'water') continue;
       const px = t.x * TILE, py = t.y * TILE;
       if (t.cropFieldId == null) continue;
@@ -1084,12 +1144,41 @@ export function mountGame() {
     }
   }
 
+  const waterEdgeOffsets = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+  let shorelineRevision = -1, shorelineTiles = [];
+  function collectShoreline() {
+    if (shorelineRevision === session.revision) return shorelineTiles;
+    shorelineTiles = [];
+    for (const tile of world.tiles) {
+      if (tile.terrain === 'water') continue;
+      const edges = waterEdgeOffsets.filter(([dx, dy]) => {
+        const neighbor = cell(tile.x + dx, tile.y + dy);
+        return !neighbor || neighbor.terrain === 'water';
+      });
+      if (edges.length) shorelineTiles.push({ tile, edges, phase: autoTileHash(tile.x, tile.y, world.seed + 65) });
+    }
+    shorelineRevision = session.revision;
+    return shorelineTiles;
+  }
+
   function drawTinyWaterFoam(bounds) {
     const frameSize = 128, cropSize = 64, cropOffset = 32;
     if (!autoTileWaterFoam.complete || !autoTileWaterFoam.naturalWidth
         || autoTileWaterFoam.naturalHeight < frameSize) return;
     const frameCount = Math.floor(autoTileWaterFoam.naturalWidth / frameSize);
     if (!frameCount) return;
+    if (!referenceRendering) {
+      for (const { tile, edges, phase } of collectShoreline()) {
+        const { x, y } = tile;
+        if (x < bounds.minX || x > bounds.maxX || y < bounds.minY || y > bounds.maxY) continue;
+        const frame = Math.floor(animationTime / 110 + phase * frameCount) % frameCount;
+        for (const [dx, dy] of edges) {
+          ctx.drawImage(autoTileWaterFoam, frame * frameSize + cropOffset, cropOffset, cropSize, cropSize,
+            x * TILE + dx * TILE * .18, y * TILE + dy * TILE * .18, TILE, TILE);
+        }
+      }
+      return;
+    }
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     const edges = [[0, -1], [1, 0], [0, 1], [-1, 0]];
@@ -1262,9 +1351,9 @@ export function mountGame() {
     ctx.closePath();
   }
 
-  function drawRoads() {
+  function drawRoads(bounds) {
     ctx.save();
-    for (const tile of world.tiles) {
+    for (const tile of terrainTiles(bounds)) {
       const wear = tile.roadWear || 0;
       if (tile.terrain !== 'land' || tile.cropFieldId != null || !isRoadTile(tile, true)) continue;
       const strength = Math.min(1, (wear - ROAD_RULES.fastAt) / (ROAD_RULES.maxWear - ROAD_RULES.fastAt));
@@ -1309,13 +1398,15 @@ export function mountGame() {
       }
       if (treeAnchor) {
         const type = tree >= pine ? 'broadleaf' : 'conifer', mass = type === 'broadleaf' ? tree : pine;
-        add('tree', t.x, t.y, t, 0, t.i, { tile: t, type, mass, variant });
+        add('tree', t.x, t.y, t, 0, t.i, { tile: t, type, mass, variant,
+          layout: referenceRendering ? null : tinyTreeSpriteLayout(t, type, mass) });
       }
       let bushAnchor = false;
       for (const plantId of ['berry', 'browse']) {
         if (isBushAnchor(world, t, plantId)) {
           bushAnchor = true;
-          add('bush', t.x, t.y, t, 1, t.i, { tile: t, plantId });
+          add('bush', t.x, t.y, t, 1, t.i, { tile: t, plantId,
+            layout: referenceRendering ? null : tinyBushSpriteLayout(t, plantId) });
         }
       }
       const decoration = !treeAnchor && !bushAnchor && !isRoadTile(t) && t.stoneDeposit <= .7 && t.goldOre <= .05
@@ -1354,16 +1445,17 @@ export function mountGame() {
         }
       }
     }
-    staticDepthItems = items;
+    staticDepthItems = referenceRendering ? items : items.sort(compareDepth);
     staticDepthCacheWorld = world;
     staticDepthCacheDay = world.day;
     return staticDepthItems;
   }
 
   function collectDepthItems(bounds) {
-    const items = collectStaticDepthItems().filter(item => item.x >= bounds.minX && item.x <= bounds.maxX
+    const staticItems = collectStaticDepthItems().filter(item => item.x >= bounds.minX && item.x <= bounds.maxX
       && item.y >= bounds.minY && item.y <= bounds.maxY);
-    let sequence = items.length;
+    const items = referenceRendering ? staticItems : [];
+    let sequence = staticItems.length;
     function add(kind, x, y, tile, order, id, extra) {
       const z = tile ? Math.max(0, Math.min(1800, tile.heightM || 0)) : 0;
       items.push(Object.assign({ kind, x, y, z, depth: (y + 1) * TILE * 2048 + z, order, id: id || 0, sequence: sequence++ }, extra || {}));
@@ -1382,7 +1474,7 @@ export function mountGame() {
       const tile = cell(Math.round(p.x), Math.round(p.y));
       add('person', pose.x, pose.y, tile, 4, p.id, { person: p, pose });
       if (p.towerMounted) {
-        const tower = world.structures.find(structure => structure.id === p.towerDutyId);
+        const tower = structuresById.get(p.towerDutyId);
         items[items.length - 1].depth = ((tower?.y ?? p.y) + 1) * TILE * 2048 + (tile?.heightM || 0) + 1;
       }
     }
@@ -1400,16 +1492,16 @@ export function mountGame() {
       add('effect', position.x, position.y, cell(Math.round(position.x), Math.round(position.y)), 5, effect.id, { effect });
       if (effect.projectile || recipient?.towerMounted) items[items.length - 1].depth = Number.MAX_SAFE_INTEGER;
     }
-    return items;
+    return referenceRendering ? items.sort(compareDepth) : mergeDepthItems(staticItems, items);
   }
 
-  function drawDepthSortedWorld(bounds) {
+  function drawDepthSortedWorld(bounds, profile = null) {
     const items = collectDepthItems(bounds);
-    items.sort((a, b) => a.depth - b.depth || a.order - b.order || a.sequence - b.sequence || a.id - b.id);
+    profile?.mark('depthOrder');
     for (const item of items) {
       if (item.kind === 'tree') drawTreeItem(item);
       else if (item.kind === 'mineral') drawMineralDeposit(item);
-      else if (item.kind === 'bush') drawTinySwordsBush(item.tile, item.plantId);
+      else if (item.kind === 'bush') drawTinySwordsBush(item.tile, item.plantId, item.layout);
       else if (item.kind === 'decoration') drawMapDecoration(item);
       else if (item.kind === 'stump') drawTreeStump(item);
       else if (item.kind === 'log') drawLooseTreeLog(item);
@@ -1422,15 +1514,16 @@ export function mountGame() {
         (item.x + .5) * TILE, (item.y + (item.effect.personId != null ? 1 : .5)) * TILE,
         { elapsedMs: animationTime - item.effect.startedAt, scale: TILE / item.effect.pixels, rotation: item.effect.projectile ? Math.atan2(item.effect.targetY - item.effect.y, item.effect.targetX - item.effect.x) : 0 });
     }
+    profile?.mark('entities');
   }
 
   function drawFenceSegment(item) {
     const image = tinyFenceTilemap;
     if (!image.complete || image.naturalWidth < 352 || image.naturalHeight < 768) return;
     const x = item.x * TILE + TILE / 2, y = item.y * TILE + TILE / 2;
-    ctx.save(); ctx.imageSmoothingEnabled = false;
+    if (referenceRendering) { ctx.save(); ctx.imageSmoothingEnabled = false; }
     ctx.drawImage(image, item.sourceX, item.sourceY, 32, 32, x - TILE / 2, y - TILE / 2, TILE, TILE);
-    ctx.restore();
+    if (referenceRendering) ctx.restore();
   }
 
   function drawTreeStump(item) {
@@ -1445,9 +1538,9 @@ export function mountGame() {
     const x = item.x * TILE + TILE / 2 - anchor.x * scale;
     const groundY = (item.y + 1) * TILE;
     const y = groundY - anchor.y * scale;
-    ctx.save(); ctx.imageSmoothingEnabled = false;
+    if (referenceRendering) { ctx.save(); ctx.imageSmoothingEnabled = false; }
     ctx.drawImage(image, 64, 192, 64, 64, x, y, 64 * scale, 64 * scale);
-    ctx.restore();
+    if (referenceRendering) ctx.restore();
   }
 
   function drawMapDecoration(item) {
@@ -1457,9 +1550,9 @@ export function mountGame() {
     const width = image.naturalWidth * scale, height = image.naturalHeight * scale;
     const x = item.x * TILE + (TILE - width) / 2;
     const y = (item.y + 1) * TILE - height;
-    ctx.save(); ctx.imageSmoothingEnabled = false;
+    if (referenceRendering) { ctx.save(); ctx.imageSmoothingEnabled = false; }
     ctx.drawImage(image, x, y, width, height);
-    ctx.restore();
+    if (referenceRendering) ctx.restore();
   }
 
   function drawMineralDeposit(item) {
@@ -1473,9 +1566,9 @@ export function mountGame() {
       const image = tinyGoldSprites[variant];
       if (image && image.complete && image.naturalWidth) {
         const scale = spriteScale(TILE), width = image.naturalWidth * scale, height = image.naturalHeight * scale;
-        ctx.save(); ctx.imageSmoothingEnabled = false;
+        if (referenceRendering) { ctx.save(); ctx.imageSmoothingEnabled = false; }
         ctx.drawImage(image, x + TILE / 2 - width / 2, y + TILE / 2 - height / 2, width, height);
-        ctx.restore();
+        if (referenceRendering) ctx.restore();
       }
       return;
     } else {
@@ -1484,9 +1577,9 @@ export function mountGame() {
       if (image && image.complete && image.naturalWidth) {
         const scale = spriteScale(TILE) * (item.stone >= 8 ? 1.4 : 1);
         const width = image.naturalWidth * scale, height = image.naturalHeight * scale;
-        ctx.save(); ctx.imageSmoothingEnabled = false;
+        if (referenceRendering) { ctx.save(); ctx.imageSmoothingEnabled = false; }
         ctx.drawImage(image, x + TILE / 2 - width / 2, y + TILE / 2 - height / 2, width, height);
-        ctx.restore();
+        if (referenceRendering) ctx.restore();
       }
       return;
     }
@@ -1523,7 +1616,7 @@ export function mountGame() {
   }
 
   function drawTreeItem(item) {
-    drawTinySwordsTree(item.tile, item.type, item.mass);
+    drawTinySwordsTree(item.tile, item.type, item.mass, item.layout);
   }
 
   function drawCommunities() {
@@ -2023,11 +2116,16 @@ export function mountGame() {
     ctx.restore();
   }
 
+  const oceanPatterns = new WeakMap();
   function drawOceanBackdrop(context, camera) {
     context.fillStyle = '#16536e';
     context.fillRect(0, 0, canvas.width, canvas.height);
     if (!autoTileWaterBackground.complete || !autoTileWaterBackground.naturalWidth) return;
-    const pattern = context.createPattern(autoTileWaterBackground, 'repeat');
+    let pattern = referenceRendering ? null : oceanPatterns.get(context);
+    if (!pattern) {
+      pattern = context.createPattern(autoTileWaterBackground, 'repeat');
+      if (pattern && !referenceRendering) oceanPatterns.set(context, pattern);
+    }
     if (!pattern) return;
     const patternScale = camera.transform[0] * TILE / autoTileWaterBackground.naturalWidth;
     if (pattern.setTransform && typeof DOMMatrix === 'function') {
@@ -2067,9 +2165,16 @@ export function mountGame() {
     cloudSystem.drawAtmosphere(cloudSpritesContext, cloudCamera, width, height, center, mapZoom);
   }
 
-  function drawMap() {
+  function drawMap(source = 'event') {
+    if (referenceRendering) paintMap(source);
+    else pendingMapDraw = source;
+  }
+
+  function paintMap(source = 'event') {
     if (!world) return;
-    updateIndividualTrails(performance.now());
+    const profile = renderDiagnostics.profiler.beginDraw(source);
+    renderTimestamp = performance.now();
+    updateIndividualTrails(renderTimestamp);
     syncAtmosphereWithZoom();
     const displayContext = ctx;
     const camera = currentMapCamera();
@@ -2081,21 +2186,49 @@ export function mountGame() {
     }
     displayContext.setTransform(...camera.transform);
     const view = getMapViewport();
-    const nextGroundKey = [world.seed, world.day, visualPack, camera.width, camera.height, ...camera.transform].join(':');
-    if (groundCacheKey !== nextGroundKey) {
+    const fallbackTerrain = !(tinyTerrainAtlases[0]?.complete && tinyTerrainAtlases[0]?.naturalWidth);
+    if (!referenceRendering && (terrainSyncRevision !== session.revision || terrainSyncFallback !== fallbackTerrain)) {
+      terrainChunks.sync(world, tile => [tile.terrain, tile.cropFieldId != null,
+        tile.terrain === 'land' && tile.cropFieldId == null && isRoadTile(tile, true) ? tile.roadWear || 0 : 0,
+        ...(fallbackTerrain ? [tile.soilType, tile.soilWaterMm, tile.soilCapacityMm] : [])].join(':'));
+      terrainSyncRevision = session.revision; terrainSyncFallback = fallbackTerrain;
+    }
+    const transition = seasonalTerrainTransition(world.day);
+    const terrainStyle = [world.seed, visualPack, transition.season, transition.nextSeason, transition.alpha, assetRevision, fallbackTerrain].join(':');
+    const nextGroundKey = [referenceRendering ? world.day : terrainChunks.revision, terrainStyle,
+      camera.width, camera.height, ...camera.transform].join(':');
+    const cacheRebuilt = groundCacheKey !== nextGroundKey;
+    profile?.mark('preparation');
+    if (cacheRebuilt) {
       ctx = groundCacheContext;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, groundCacheCanvas.width, groundCacheCanvas.height);
-      ctx.setTransform(...camera.transform);
-      ctx.imageSmoothingEnabled = false;
-      drawGround();
-      drawGroundPlants();
-      drawRoads();
+      if (referenceRendering) {
+        ctx.setTransform(...camera.transform);
+        ctx.imageSmoothingEnabled = false;
+        profile?.mark('preparation');
+        drawGround(); profile?.mark('terrain');
+        drawGroundPlants(); profile?.mark('plants');
+        drawRoads(); profile?.mark('roads');
+      } else {
+        profile?.mark('preparation');
+        terrainChunks.draw(ctx, camera, terrainStyle, (chunkContext, bounds, transform) => {
+          const previousContext = ctx, previousTransform = mapTransform;
+          try {
+            ctx = chunkContext; mapTransform = transform;
+            drawGround(bounds); profile?.mark('terrain');
+            drawGroundPlants(bounds); profile?.mark('plants');
+            drawRoads(bounds); profile?.mark('roads');
+          } finally { ctx = previousContext; mapTransform = previousTransform; }
+        });
+        profile?.mark('composition');
+      }
       ctx = displayContext;
       groundCacheKey = nextGroundKey;
     }
     ctx = displayContext;
     ctx.imageSmoothingEnabled = false;
+    profile?.mark('preparation');
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -2108,10 +2241,12 @@ export function mountGame() {
       drawTinyWaterFoam(view.bounds);
       ctx.restore();
     }
+    profile?.mark('water');
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.drawImage(groundCacheCanvas, 0, 0);
     ctx.restore();
+    profile?.mark('composition');
     if (view.width > 0 && view.height > 0) {
       ctx.save();
       ctx.beginPath(); ctx.rect(view.x, view.y, view.width, view.height); ctx.clip();
@@ -2120,23 +2255,38 @@ export function mountGame() {
       ctx.drawImage(trailCanvas, 0, 0, LOGICAL_SIZE, LOGICAL_SIZE);
       ctx.restore();
     }
+    profile?.mark('groundEffects');
     if (view.width > 0 && view.height > 0) {
       ctx.save();
       ctx.beginPath(); ctx.rect(view.x, view.y, view.width, view.height); ctx.clip();
       drawRiceGrowthWindOverlay(view.bounds);
+      profile?.mark('groundEffects');
       drawHoveredStructureTerritory();
-      drawDepthSortedWorld(view.bounds);
+      profile?.mark('selection');
+      drawDepthSortedWorld(view.bounds, profile);
       ctx.restore();
       const cameraCenter = camera.toWorld(stage.clientWidth / 2, stage.clientHeight / 2);
       cloudSystem.drawShadows(ctx, camera, stage.clientWidth, stage.clientHeight, cameraCenter, mapZoom);
+      profile?.mark('clouds');
       ctx.save();
       ctx.beginPath(); ctx.rect(view.x, view.y, view.width, view.height); ctx.clip();
       drawSelection();
       ctx.restore();
+      profile?.mark('selection');
       drawCloudOverlay(camera, cameraCenter);
+      profile?.mark('clouds');
     }
-
-
+    profile?.end({ cacheRebuilt, day: world.day, zoom: mapZoom,
+      context: { renderer: 'canvas2d', atmosphereRenderer: atmosphericLayer.rendererType,
+        referenceRendering, fixedEffects, terrainChunks: referenceRendering ? null : terrainChunks.stats(),
+        pixelTiles: referenceRendering ? null : pixelTiles.stats(),
+        seed: world.seed, day: world.day, season: world.stats.season, paused: session.paused, speed: session.speed,
+        zoom: mapZoom, cameraTransform: camera.transform.slice(), viewport: { ...view.bounds },
+        canvasWidth: canvas.width, canvasHeight: canvas.height, devicePixelRatio: window.devicePixelRatio || 1,
+        viewportWidth: stage.clientWidth, viewportHeight: stage.clientHeight,
+        visibilityState: document.visibilityState, pageHasFocus: document.hasFocus(),
+        worldWidth: world.width, worldHeight: world.height, peopleTotal: world.people.length, animalsTotal: world.animals.length } });
+    renderTimestamp = null;
   }
 
   function renderKingdomList() {
@@ -2683,12 +2833,12 @@ export function mountGame() {
     }
   }
 
-  function render() {
+  function render(source = 'ui') {
     if (!world) return;
     const stats = world.stats;
     $('assetCreditTiny').hidden = false;
     updateHeader(stats);
-    drawMap();
+    drawMap(source);
     renderMiniMap();
     renderKingdomList();
     renderSpecies(stats);
@@ -3141,11 +3291,13 @@ export function mountGame() {
 
   let lastAnimationFrame = 0;
   function frame(now) {
+    const profile = renderDiagnostics.profiler.beginFrame(now);
     if (lastAnimationFrame && !session.paused) animationTime += Math.min(100, now - lastAnimationFrame) * session.speed;
     lastAnimationFrame = now;
     gameAudio.update(animationTime, session.speed, session.paused);
     syncAudioActivation();
-    const elapsed = lastAtmosphereUpdate ? Math.min(.1, (now - lastAtmosphereUpdate) / 1000) : 0;
+    profile?.mark('audio');
+    const elapsed = !fixedEffects && lastAtmosphereUpdate ? Math.min(.1, (now - lastAtmosphereUpdate) / 1000) : 0;
     lastAtmosphereUpdate = now;
     cloudSystem.update(elapsed);
     if (atmosphereLayerOpacityForZoom(mapZoom) > .001) {
@@ -3157,13 +3309,22 @@ export function mountGame() {
     } else {
       fogUpdateAccumulator = 0;
     }
+    profile?.mark('atmosphere');
 
     const days = clock.advance(now, session.paused, session.speed);
     if (days > 0) submitClockDays(days);
-    if (now - lastSpriteDraw >= 1000 / 60) {
-      lastSpriteDraw = now;
-      drawMap();
+    profile?.mark('simulationDispatch');
+    const frameInterval = 1000 / 60;
+    if (pendingMapDraw || now - lastSpriteDraw >= frameInterval - .5) {
+      const elapsed = now - lastSpriteDraw;
+      lastSpriteDraw = elapsed >= frameInterval ? now - elapsed % frameInterval : now;
+      const source = pendingMapDraw || 'animation';
+      pendingMapDraw = null;
+      paintMap(source);
     }
+    profile?.mark('map');
+    profile?.end();
+    if (renderDiagnostics.profiler.enabled) renderDiagnostics.refresh(now);
     window.requestAnimationFrame(frame);
   }
 

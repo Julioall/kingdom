@@ -1130,6 +1130,26 @@ export default {
       "fps": 10
     },
     {
+      "id": "unit.black.pawn.idle-stone",
+      "category": "unit",
+      "unit": "pawn",
+      "palette": "black",
+      "action": "idle-stone",
+      "url": "assets/tiny-swords/people/black/pawn_idle-stone.png",
+      "loop": true,
+      "anchor": {
+        "x": 96,
+        "y": 135
+      },
+      "source": "pawn_idle-gold.zip/sprite_0.png (stone color variant)",
+      "width": 1536,
+      "height": 192,
+      "frameWidth": 192,
+      "frameHeight": 192,
+      "frames": 8,
+      "fps": 10
+    },
+    {
       "id": "unit.black.pawn.idle-wood",
       "category": "unit",
       "unit": "pawn",
@@ -1362,6 +1382,26 @@ export default {
         "y": 135
       },
       "source": "Tiny Swords/Units/Black Units/Pawn/Pawn_Run Pickaxe.png",
+      "width": 1152,
+      "height": 192,
+      "frameWidth": 192,
+      "frameHeight": 192,
+      "frames": 6,
+      "fps": 10
+    },
+    {
+      "id": "unit.black.pawn.run-stone",
+      "category": "unit",
+      "unit": "pawn",
+      "palette": "black",
+      "action": "run-stone",
+      "url": "assets/tiny-swords/people/black/pawn_run-stone.png",
+      "loop": true,
+      "anchor": {
+        "x": 96,
+        "y": 135
+      },
+      "source": "pawn_run-gold.zip/sprite_0.png (stone color variant)",
       "width": 1152,
       "height": 192,
       "frameWidth": 192,
@@ -2030,6 +2070,26 @@ export default {
       "fps": 10
     },
     {
+      "id": "unit.blue.pawn.idle-stone",
+      "category": "unit",
+      "unit": "pawn",
+      "palette": "blue",
+      "action": "idle-stone",
+      "url": "assets/tiny-swords/people/blue/pawn_idle-stone.png",
+      "loop": true,
+      "anchor": {
+        "x": 96,
+        "y": 135
+      },
+      "source": "pawn_idle-gold.zip/sprite_1.png (stone color variant)",
+      "width": 1536,
+      "height": 192,
+      "frameWidth": 192,
+      "frameHeight": 192,
+      "frames": 8,
+      "fps": 10
+    },
+    {
       "id": "unit.blue.pawn.idle-wood",
       "category": "unit",
       "unit": "pawn",
@@ -2262,6 +2322,26 @@ export default {
         "y": 135
       },
       "source": "Tiny Swords/Units/Blue Units/Pawn/Pawn_Run Pickaxe.png",
+      "width": 1152,
+      "height": 192,
+      "frameWidth": 192,
+      "frameHeight": 192,
+      "frames": 6,
+      "fps": 10
+    },
+    {
+      "id": "unit.blue.pawn.run-stone",
+      "category": "unit",
+      "unit": "pawn",
+      "palette": "blue",
+      "action": "run-stone",
+      "url": "assets/tiny-swords/people/blue/pawn_run-stone.png",
+      "loop": true,
+      "anchor": {
+        "x": 96,
+        "y": 135
+      },
+      "source": "pawn_run-gold.zip/sprite_1.png (stone color variant)",
       "width": 1152,
       "height": 192,
       "frameWidth": 192,
@@ -2930,6 +3010,26 @@ export default {
       "fps": 10
     },
     {
+      "id": "unit.purple.pawn.idle-stone",
+      "category": "unit",
+      "unit": "pawn",
+      "palette": "purple",
+      "action": "idle-stone",
+      "url": "assets/tiny-swords/people/purple/pawn_idle-stone.png",
+      "loop": true,
+      "anchor": {
+        "x": 96,
+        "y": 135
+      },
+      "source": "pawn_idle-gold.zip/sprite_2.png (stone color variant)",
+      "width": 1536,
+      "height": 192,
+      "frameWidth": 192,
+      "frameHeight": 192,
+      "frames": 8,
+      "fps": 10
+    },
+    {
       "id": "unit.purple.pawn.idle-wood",
       "category": "unit",
       "unit": "pawn",
@@ -3162,6 +3262,26 @@ export default {
         "y": 135
       },
       "source": "Tiny Swords/Units/Purple Units/Pawn/Pawn_Run Pickaxe.png",
+      "width": 1152,
+      "height": 192,
+      "frameWidth": 192,
+      "frameHeight": 192,
+      "frames": 6,
+      "fps": 10
+    },
+    {
+      "id": "unit.purple.pawn.run-stone",
+      "category": "unit",
+      "unit": "pawn",
+      "palette": "purple",
+      "action": "run-stone",
+      "url": "assets/tiny-swords/people/purple/pawn_run-stone.png",
+      "loop": true,
+      "anchor": {
+        "x": 96,
+        "y": 135
+      },
+      "source": "pawn_run-gold.zip/sprite_2.png (stone color variant)",
       "width": 1152,
       "height": 192,
       "frameWidth": 192,
@@ -3830,6 +3950,26 @@ export default {
       "fps": 10
     },
     {
+      "id": "unit.red.pawn.idle-stone",
+      "category": "unit",
+      "unit": "pawn",
+      "palette": "red",
+      "action": "idle-stone",
+      "url": "assets/tiny-swords/people/red/pawn_idle-stone.png",
+      "loop": true,
+      "anchor": {
+        "x": 96,
+        "y": 135
+      },
+      "source": "pawn_idle-gold.zip/sprite_3.png (stone color variant)",
+      "width": 1536,
+      "height": 192,
+      "frameWidth": 192,
+      "frameHeight": 192,
+      "frames": 8,
+      "fps": 10
+    },
+    {
       "id": "unit.red.pawn.idle-wood",
       "category": "unit",
       "unit": "pawn",
@@ -4062,6 +4202,26 @@ export default {
         "y": 135
       },
       "source": "Tiny Swords/Units/Red Units/Pawn/Pawn_Run Pickaxe.png",
+      "width": 1152,
+      "height": 192,
+      "frameWidth": 192,
+      "frameHeight": 192,
+      "frames": 6,
+      "fps": 10
+    },
+    {
+      "id": "unit.red.pawn.run-stone",
+      "category": "unit",
+      "unit": "pawn",
+      "palette": "red",
+      "action": "run-stone",
+      "url": "assets/tiny-swords/people/red/pawn_run-stone.png",
+      "loop": true,
+      "anchor": {
+        "x": 96,
+        "y": 135
+      },
+      "source": "pawn_run-gold.zip/sprite_3.png (stone color variant)",
       "width": 1152,
       "height": 192,
       "frameWidth": 192,
@@ -4730,6 +4890,26 @@ export default {
       "fps": 10
     },
     {
+      "id": "unit.yellow.pawn.idle-stone",
+      "category": "unit",
+      "unit": "pawn",
+      "palette": "yellow",
+      "action": "idle-stone",
+      "url": "assets/tiny-swords/people/yellow/pawn_idle-stone.png",
+      "loop": true,
+      "anchor": {
+        "x": 96,
+        "y": 135
+      },
+      "source": "pawn_idle-gold.zip/sprite_4.png (stone color variant)",
+      "width": 1536,
+      "height": 192,
+      "frameWidth": 192,
+      "frameHeight": 192,
+      "frames": 8,
+      "fps": 10
+    },
+    {
       "id": "unit.yellow.pawn.idle-wood",
       "category": "unit",
       "unit": "pawn",
@@ -4962,6 +5142,26 @@ export default {
         "y": 135
       },
       "source": "Tiny Swords/Units/Yellow Units/Pawn/Pawn_Run Pickaxe.png",
+      "width": 1152,
+      "height": 192,
+      "frameWidth": 192,
+      "frameHeight": 192,
+      "frames": 6,
+      "fps": 10
+    },
+    {
+      "id": "unit.yellow.pawn.run-stone",
+      "category": "unit",
+      "unit": "pawn",
+      "palette": "yellow",
+      "action": "run-stone",
+      "url": "assets/tiny-swords/people/yellow/pawn_run-stone.png",
+      "loop": true,
+      "anchor": {
+        "x": 96,
+        "y": 135
+      },
+      "source": "pawn_run-gold.zip/sprite_4.png (stone color variant)",
       "width": 1152,
       "height": 192,
       "frameWidth": 192,
