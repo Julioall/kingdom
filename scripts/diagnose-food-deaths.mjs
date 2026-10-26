@@ -16,7 +16,30 @@ const world = engine.createWorld(seed);
 const seen = new Set();
 const deaths = [];
 
+function nearFood(person) {
+  return world.tiles.filter(tile => Math.hypot(tile.x - person.x, tile.y - person.y) <= 20)
+    .map(tile => ({ x: tile.x, y: tile.y, distance: Math.hypot(tile.x - person.x, tile.y - person.y),
+      edibleBiomass: plantBiomass(tile, HUMAN_FOOD), berryAnchor: isBushAnchor(world, tile, 'berry'),
+      cropFieldId: tile.cropFieldId ?? null }))
+    .filter(tile => tile.edibleBiomass > 0)
+    .sort((a, b) => a.distance - b.distance || b.edibleBiomass - a.edibleBiomass).slice(0, 5);
+}
+
+function capturePreDeath(person) {
+  const selected = bestPeopleFoodCell(world, person, 8);
+  return {
+    day: world.day, health: person.health, foodReserve: person.foodReserve, hydration: person.hydration,
+    state: person.state, lastLesson: person.lastLesson, lastDecision: person.lastDecision || null,
+    foodTarget: person.foodTarget || null,
+    selectedFoodTarget: selected && { x: selected.x, y: selected.y },
+    perceptionResourceCount: person.perception?.resources?.length ?? 0,
+    nearFood: nearFood(person)
+  };
+}
+
 for (let day = 1; day <= days; day++) {
+  const preDeathStates = new Map(world.people.filter(person => person.alive
+    && (person.foodReserve < 20 || person.health < 40)).map(person => [person.id, capturePreDeath(person)]));
   engine.stepDay(world, { includeSnapshot: false });
   for (const person of world.people) {
     if (person.alive || person.deathCause !== 'starvation' || seen.has(person.id)) continue;
@@ -45,6 +68,7 @@ for (let day = 1; day <= days; day++) {
       lastLesson: person.lastLesson, x: person.x, y: person.y,
       communityId: person.communityId, kingdomId, homeId: person.homeId,
       guardianId: person.guardianId, assignment: person.assignment,
+      preDeathState: preDeathStates.get(person.id) || null,
       foodTarget: person.foodTarget || null,
       selectedFoodTarget: (() => { const target = bestPeopleFoodCell(world, person, 8); return target && { x: target.x, y: target.y }; })(),
       lastDecision: person.lastDecision || null,
