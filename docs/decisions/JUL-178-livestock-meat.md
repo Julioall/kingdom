@@ -2,6 +2,7 @@
 
 Data: 26/10/2026  
 SHA de implementação: `f51d2b37feb25ec74f67103c6522157aa123fba6`  
+SHA de validação: `c591f98575f4e4d0b5ef4f1bf4e76a005418bd08`  
 Issue: [JUL-178](https://linear.app/julio-alves/issue/JUL-178/auditar-conservacao-e-logistica-de-alimentos-coleta-cultivo-caca-civis)
 
 ## Pergunta e diagnóstico
@@ -24,6 +25,8 @@ Como permitir que o rebanho doméstico produza alimento sem criar carne, sacrifi
 
 A ação de caça pode selecionar uma ovelha adulta da própria comunidade apenas quando a pessoa tem reserva abaixo de 48, percebe a ovelha, tem abrigo, não leva carne, o estoque alimentar disponível é menor que a demanda de um dia e restam mais de dois adultos no rebanho. O abate usa a conversão de carne já aplicada à caça, debita a vida do animal, guarda a carne na carga pessoal e reutiliza a entrega para o abrigo. Os contadores `harvests.livestock` e `harvests.livestockMeat` tornam quantidade e unidade produzida observáveis. Nenhuma sazonalidade ou ação neural nova é adicionada.
 
-## Validação planejada e limites
+## Validação e limites
 
-Os testes focados cobrem abate, carne produzida a partir da massa, dois adultos restantes, estoque comunitário/da despensa, idade adulta e percepção local. Após o commit, comparar o replay de 253 dias das quatro seeds com `docs/verification/JUL-178-food-replays-253-20261026.json`: fome, adulto-dias abaixo de 20, estoque do rebanho, carne produzida/consumida, outras mortes e determinismo da seed 42. Reverter o comportamento em um commit próprio se piorar a sobrevivência ou retirar causalidade; não ajustar números sem relatório. Mesmo se este experimento melhorar, 365/730 dias, auditoria completa de origem/destino e abastecimento real em campanha continuam pendentes.
+Os cinco testes focados cobrem abate, carne produzida a partir da massa, piso de dois adultos, estoques comunitários/da despensa, idade adulta e percepção local. `npm run audit:food -- --days 253 --seeds 1,42,987,2026 --repeat-seed 42` foi executado antes e depois. No replay de referência da seed 42, a crônica e o estado econômico observável permaneceram iguais; a única diferença de estado é a inicialização dos contadores novos de rebanho, que ficaram em zero. Em todas as quatro seeds, `livestock=0` e `livestockMeat=0`; fome permaneceu 1/0/1/0 e adulto-dias com reserva abaixo de 20 permaneceu 3305/3510/2912/2746. O replay padrão, portanto, não acionou nem demonstrou benefício da nova saída alimentar. A seed 42 repetida no SHA de validação foi determinística (`bfd44499c54b3105aa7e51e0b329291264bbfec484ff0155460911c73b072be3`; crônica `085ee8752bfa2670842c0414a4bb51ba4a8db2325df2d6a37c893b1250c8fc97`). Relatório completo: `docs/verification/JUL-178-food-replays-253-livestock-20261026.json`.
+
+Mantemos o experimento por enquanto porque os testes controlados demonstram a regra e o replay padrão não piorou nem mudou as decisões do jogo; isso **não** satisfaz o aceite de uma cadeia alimentar de rebanho comprovada em cenários longos. Não ajustamos thresholds com base em poucas seeds. O próximo teste necessário é um choque controlado e reproduzível de oferta baixa que exercite a ação na simulação, com estoque, produção, mortes e piso do plantel registrados. Permanecem pendentes os horizontes 365/730 dias, auditoria completa de origem/destino e abastecimento real em campanha.
