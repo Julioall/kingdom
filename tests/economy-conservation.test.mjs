@@ -154,5 +154,3 @@ test('campaign ration debits only available field food and respects personal res
   assert.equal(drawCampaignRation(world, person, 12), 0, 'a full personal reserve cannot consume another field ration');
   assert.equal(side.supply.stock.food, 1);
 });
-
-

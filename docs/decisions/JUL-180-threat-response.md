@@ -1,7 +1,7 @@
 # JUL-180 — resposta local a ameaça durante construção
 
-Data: 26/10/2026  
-Base auditada: `fb0af4e7f8bc07d3dbf5a1c0b9ea36bcb4102164`  
+Data: 26/10/2026
+Base auditada: `fb0af4e7f8bc07d3dbf5a1c0b9ea36bcb4102164`
 Fixture de auditoria: `b46eef9638872cd2395469d589765fde36122716`
 
 ## Observação do jogo

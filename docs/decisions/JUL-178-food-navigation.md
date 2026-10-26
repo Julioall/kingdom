@@ -1,6 +1,6 @@
 # JUL-178 — acesso ao alimento e replanejamento local
 
-Data: 26/10/2026  
+Data: 26/10/2026
 SHA validado: `0b4d633fe7930bd1011ca00a2acbd22f9f230414`
 
 ## Pergunta

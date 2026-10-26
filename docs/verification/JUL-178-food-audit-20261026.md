@@ -1,7 +1,7 @@
 # JUL-178 — auditoria alimentar no branch atual
 
-Data da inspeção: 26/10/2026  
-Base limpa observada: `fb0af4e7f8bc07d3dbf5a1c0b9ea36bcb4102164` (`kingdom/main`)  
+Data da inspeção: 26/10/2026
+Base limpa observada: `fb0af4e7f8bc07d3dbf5a1c0b9ea36bcb4102164` (`kingdom/main`)
 Patch da auditoria: branch de integração `codex/jul195-integration`, base `test/kingdom-autonomous`.
 
 ## Referência e método

@@ -1,8 +1,8 @@
 # JUL-163 — escambo e fronteira fechada
 
-Data: 26/10/2026  
-SHA de implementação: `d6d052f1f02aae9832fe103d28ce31dabd5e08ad`  
-Issue relacionada: [JUL-163](https://linear.app/julio-alves/issue/JUL-163/m4-disputas-territoriais-logistica-e-guerra-com-consequencias)  
+Data: 26/10/2026
+SHA de implementação: `d6d052f1f02aae9832fe103d28ce31dabd5e08ad`
+Issue relacionada: [JUL-163](https://linear.app/julio-alves/issue/JUL-163/m4-disputas-territoriais-logistica-e-guerra-com-consequencias)
 Cobertura alimentar associada: [JUL-178](https://linear.app/julio-alves/issue/JUL-178/auditar-conservacao-e-logistica-de-alimentos-coleta-cultivo-caca-civis)
 
 ## Pergunta e observação do código
