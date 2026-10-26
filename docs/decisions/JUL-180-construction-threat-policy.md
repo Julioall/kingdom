@@ -9,6 +9,8 @@ Interromper o trabalho quando uma ameaça de combate observável alcança o raio
 
 A política individual compara risco local, oportunidade de progresso e valores aprendidos de `build` e `migrate`. Ela escolhe `flee`, `seek-cover`, `wait` ou `retry-build`; registra a decisão e atualiza um valor por ação após observar separação, dano e progresso. O retorno exige duas observações diárias sem ameaça. Uma rota bloqueada por quatro dias libera o slot e permite substituição; a equipe não cancela nem cobra novamente a obra.
 
+Na revisão do diff da branch para PR, limitei a busca da rota de evasão às 32 melhores posições seguras por decisão: o mapa pode oferecer milhares de destinos, e tentar todos quando a região está desconectada multiplica buscas de caminho sem limite útil. Os incidentes da obra continuam limitados aos 40 mais recentes também quando o trabalhador abandona uma obra capturada, destruída ou concluída.
+
 ## Alternativas consideradas
 
 1. **Só pausar a obra durante o cerco.** Preserva progresso, mas deixa o trabalhador exposto; os testes antigos de JUL-180 demonstravam justamente essa lacuna.
@@ -35,6 +37,6 @@ A política observa soldados rivais em campanha, alvos de combate e ações de f
 - O replay final do código desta fatia foi aberto em `http://127.0.0.1:5174/?seed=42&paused=1`, chegou ao dia 295 e manteve a crônica legível, o mapa visível e os controles de simulação acessíveis. Os postos de fronteira foram concluídos nos dias 67 e 77; a crônica também registrou campanha e perda por invasão no dia 259.
 - Não houve mensagem de retirada no replay limpo final. Um replay interativo anterior mostrou retirada nos dias 64 e 68, mas precedeu a correção final que remove o evacuado da escala ativa. Essa captura não é evidência do SHA final. Fuga, slot liberado, substituição, histerese, retorno, custo e progresso são exercitados pelos 11 testes focados no código final.
 - Não anexei screenshot ao Linear: a aba do Linear no navegador abriu uma tela “Create a workspace”, e o navegador recusou a URL `data:` usada para persistir a captura. A tela final foi inspecionada visualmente na sessão e a crônica observada foi transcrita no relatório de verificação. Não usei outra rota para contornar a recusa.
-- `node --test tests/construction-threat-audit.test.mjs`: 11/11 aprovados. `npm test`: 138/138 aprovados (97,76 s). `npm run build`: typecheck, Vite e conversão lossless passaram.
+- `node --test tests/construction-threat-audit.test.mjs`: 11/11 aprovados após a revisão (incluindo retenção de 40 incidentes). `npm test`: 165/165 e `npm run build`: typecheck, Vite e conversão lossless passaram no SHA anterior à revisão; repetir no SHA final da branch antes da PR.
 
 Essas evidências demonstram a regra local e a continuidade normal de construções em runtime. A ausência de retirada no replay final limita a observação visual específica da transição de fuga; não é apresentada como ocorrência visual reproduzida no SHA final.

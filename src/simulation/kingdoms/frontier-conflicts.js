@@ -15,6 +15,7 @@ const CONSTRUCTION_THREAT_NOTICE_RADIUS = 9;
 const CONSTRUCTION_THREAT_EVADE_RADIUS = 6.5;
 const CONSTRUCTION_THREAT_PATH_BUFFER = 3.5;
 const CONSTRUCTION_CLEAR_DAYS_TO_RESUME = 2;
+const CONSTRUCTION_MAX_EVADE_PATH_ATTEMPTS = 32;
 
 function constructionThreats(world, person, project) {
   return world.people.filter(candidate => candidate.alive && candidate.role === 'soldier'
@@ -133,18 +134,22 @@ function releaseConstructionWorkstation(project, person) {
   person.constructionStallDays = 0;
 }
 
+function appendConstructionIncident(project, entry) {
+  project.constructionIncidents ||= [];
+  project.constructionIncidents.push(entry);
+  if (project.constructionIncidents.length > 40) project.constructionIncidents.shift();
+}
+
 function recordConstructionRisk(world, person, project, decision, incident) {
   person.constructionPolicyDecision = decision;
   project.constructionRiskHistory ||= [];
   project.constructionRiskHistory.push({ ...decision });
   if (project.constructionRiskHistory.length > 40) project.constructionRiskHistory.shift();
   if (!incident) return;
-  project.constructionIncidents ||= [];
   const entry = { day: decision.day, projectId: project.id, workerId: person.id,
     action: decision.action, threatId: decision.threatId, risk: decision.risk,
     opportunity: decision.opportunity, reason: incident };
-  project.constructionIncidents.push(entry);
-  if (project.constructionIncidents.length > 40) project.constructionIncidents.shift();
+  appendConstructionIncident(project, entry);
   log(world, person.name + (decision.action === 'retry-build'
     ? ' retomou a obra ' : decision.action === 'wait' ? ' aguardou a redução do risco na obra ' : ' se retirou da obra ')
     + project.id + ' (' + incident + ').', decision.day);
@@ -195,7 +200,7 @@ function respondToConstructionRisk(world, person, project) {
     const { candidates, safePathTile } = constructionSafeTargets(world, person, threats, decision.action === 'seek-cover');
     let moved = false;
     let reachedCover = false;
-    for (const target of candidates) {
+    for (const target of candidates.slice(0, CONSTRUCTION_MAX_EVADE_PATH_ATTEMPTS)) {
       if (distance(person, target) <= .25 || moveOne(world, person, target, false, { allowedTile: safePathTile })) {
         person.constructionThreatState.target = { x: target.x, y: target.y };
         reachedCover = decision.action === 'seek-cover' && constructionCover(world, target) > .05;
@@ -356,8 +361,7 @@ export function frontierWorkOrder(world, person) {
     const reason = previousProject.complete ? 'obra concluída' : previousProject.kingdomId !== person.kingdomId
       ? 'obra capturada por outro reino' : 'obra destruída ou cancelada';
     if (person.constructionThreatState?.projectId === previousProject.id || previousProject.workerIds?.includes(person.id)) {
-      previousProject.constructionIncidents ||= [];
-      previousProject.constructionIncidents.push({ day: world.day, projectId: previousProject.id,
+      appendConstructionIncident(previousProject, { day: world.day, projectId: previousProject.id,
         workerId: person.id, action: 'abandon', reason });
       log(world, person.name + ' abandonou a obra ' + previousProject.id + ': ' + reason + '.', world.day);
       releaseConstructionWorkstation(previousProject, person);

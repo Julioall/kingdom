@@ -197,6 +197,7 @@ test('capturing a funded worksite releases the former kingdom worker and clears 
   const world = constructionWorld({ withThreat: false });
   const { project, worker } = world;
   work(world);
+  project.constructionIncidents = Array.from({ length: 40 }, (_, index) => ({ reason: 'retained-' + index }));
   project.kingdomId = 2;
   world.day++;
 
@@ -205,6 +206,8 @@ test('capturing a funded worksite releases the former kingdom worker and clears 
   assert.deepEqual(project.constructionWorkerIds, []);
   assert.equal(worker.constructionProjectId, null);
   assert.equal(worker.constructionThreatState, null);
+  assert.equal(project.constructionIncidents.length, 40, 'project incident history remains bounded during abandonment');
+  assert.equal(project.constructionIncidents[0].reason, 'retained-1');
   assert.ok(world.chronicle.some(entry => entry.text.includes('abandonou a obra') && entry.text.includes('capturada')));
 });
 
