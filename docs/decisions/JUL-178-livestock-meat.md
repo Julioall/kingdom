@@ -1,7 +1,7 @@
 # JUL-178 — alimento de rebanho em escassez crítica
 
 Data: 26/10/2026  
-SHA de implementação: será atualizado após o commit desta fatia  
+SHA de implementação: `f51d2b37feb25ec74f67103c6522157aa123fba6`  
 Issue: [JUL-178](https://linear.app/julio-alves/issue/JUL-178/auditar-conservacao-e-logistica-de-alimentos-coleta-cultivo-caca-civis)
 
 ## Pergunta e diagnóstico
