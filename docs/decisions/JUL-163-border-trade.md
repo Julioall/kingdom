@@ -1,7 +1,7 @@
 # JUL-163 — escambo e fronteira fechada
 
 Data: 26/10/2026  
-SHA de implementação: pendente de commit  
+SHA de implementação: `d6d052f1f02aae9832fe103d28ce31dabd5e08ad`  
 Issue relacionada: [JUL-163](https://linear.app/julio-alves/issue/JUL-163/m4-disputas-territoriais-logistica-e-guerra-com-consequencias)  
 Cobertura alimentar associada: [JUL-178](https://linear.app/julio-alves/issue/JUL-178/auditar-conservacao-e-logistica-de-alimentos-coleta-cultivo-caca-civis)
 
@@ -28,4 +28,4 @@ O campo opcional `borderClosed: true` bloqueia descoberta e execução de escamb
 
 ## Validação
 
-`tests/war-trade.test.mjs` cobre paz com comércio aberto, fechamento explícito impedindo descoberta e execução de parceiro obsoleto sem mutação de estoques, e guerra com fronteira aberta permitindo escambo. No commit, atualizar o SHA e registrar os gates aplicáveis. Os resultados headless demonstram a regra de troca; um replay de longo prazo ainda precisa demonstrar impacto econômico e continua pendente em JUL-163/JUL-178.
+`tests/war-trade.test.mjs` cobre paz com comércio aberto, fechamento explícito impedindo descoberta e execução de parceiro obsoleto sem mutação de estoques, e guerra com fronteira aberta permitindo escambo. `node --test tests/war-trade.test.mjs tests/economy-conservation.test.mjs`: 12/12; `git diff --check`: aprovado. Os resultados headless demonstram a regra de troca; um replay de longo prazo ainda precisa demonstrar impacto econômico e continua pendente em JUL-163/JUL-178.
