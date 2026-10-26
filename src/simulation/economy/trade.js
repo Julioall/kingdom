@@ -52,6 +52,15 @@ function tradeDelta(before, after) {
   return changes;
 }
 
+function communitiesHaveClosedBorder(w, first, second) {
+  const firstKingdom = (w.kingdoms || []).find(item => item.communityId === first.id);
+  const secondKingdom = (w.kingdoms || []).find(item => item.communityId === second.id);
+  if (!firstKingdom || !secondKingdom || firstKingdom.id === secondKingdom.id) return false;
+  const low = Math.min(firstKingdom.id, secondKingdom.id);
+  const high = Math.max(firstKingdom.id, secondKingdom.id);
+  return w.kingdomRelations && w.kingdomRelations[low + ':' + high]?.borderClosed === true;
+}
+
 export function findTradePartner(w, community, person) {
     if (!community) return null;
     const kingdom = (w.kingdoms || []).find(item => item.communityId === community.id);
@@ -70,7 +79,8 @@ export function findTradePartner(w, community, person) {
         const hasExchange = ((community.stores.food || 0) > 22 && ((c.stores.wood || 0) > 12 || (c.stores.stone || 0) > 10))
           || ((c.stores.food || 0) > 22 && ((community.stores.wood || 0) > 12 || (community.stores.stone || 0) > 10));
         return { community: c, person: other, relation, hasExchange, distance: other ? distance(person, other) : Infinity };
-      }).filter(x => x.person && x.hasExchange && x.relation.trust > .14)
+      }).filter(x => x.person && x.hasExchange && x.relation.trust > .14
+        && !communitiesHaveClosedBorder(w, community, x.community))
       .sort((a, b) => a.distance - b.distance)[0] || null;
   }
 
@@ -127,6 +137,7 @@ export function performShare(w, person, community, target) {
 
 export function performTrade(w, person, community, partner) {
     if (!community || !partner) return false;
+    if (!partner.isMarket && partner.community && communitiesHaveClosedBorder(w, community, partner.community)) return false;
     if (partner.distance > 2.2) {
       const target = partner.isMarket ? partner.station : partner.person;
       const tile = target && cellAt(w, target.x, target.y);
