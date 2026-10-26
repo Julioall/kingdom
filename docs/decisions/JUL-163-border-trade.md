@@ -24,7 +24,7 @@ O que significa uma fronteira fechada para o escambo de comunidades? `trade.js` 
 | Não modelar fechamento de fronteira | Nenhum campo novo | Não permite reproduzir o cenário “fronteira fechada” pedido pela auditoria JUL-178 | Rejeitada |
 | Consultar `kingdomRelations[low:high].borderClosed` para escambo direto | Torna a restrição explícita; preserva guerra e comércio como decisões separadas; revalida no ponto de execução mesmo com parceiro obsoleto | Não fecha rotas físicas nem o mercado compartilhado; apenas bloqueia a troca direta entre comunidades | Escolhida para esta fatia |
 
-O campo opcional `borderClosed: true` bloqueia descoberta e execução de escambo comunitário entre reinos diferentes. Guerra sozinha não fecha a fronteira. Mercados locais, transferências internas e navegação de pessoas ficam fora desta política e precisam de contratos próprios se passarem a depender de fronteiras.
+O campo opcional `borderClosed: true` bloqueia descoberta e execução de escambo comunitário entre reinos diferentes. Guerra sozinha não fecha a fronteira. Mercados locais, transferências internas e navegação de pessoas ficam fora desta política e precisam de contratos próprios se passarem a depender de fronteiras. No estado atual do código, nenhuma política da IA escreve esse campo: este incremento implementa e testa a consequência de um fechamento explícito fornecido ao estado, não uma decisão autônoma de fechar/abrir a fronteira. Essa decisão de agente ainda precisa de contrato e replay em JUL-163.
 
 ## Validação
 
