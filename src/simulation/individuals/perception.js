@@ -65,7 +65,10 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
         const key = targetKind + ':' + target.id;
         seenKeys.add(key);
         const sighting = { id: target.id, kind: targetKind, speciesId: target.speciesId || null,
-          x: target.x, y: target.y, distance: d, visible: true, confidence: 1, lastSeenDay: world.day };
+          x: target.x, y: target.y, distance: d, visible: true, confidence: 1, lastSeenDay: world.day,
+          ...(targetKind === 'person' ? {
+            visibleSignals: { foodDistress: Number.isFinite(target.foodReserve) && target.foodReserve < 48 }
+          } : {}) };
         memory.actors[key] = { id: target.id, kind: targetKind, speciesId: sighting.speciesId,
           x: target.x, y: target.y, lastSeenDay: world.day };
         (targetKind === 'animal' ? visibleAnimals : visiblePeople).push(sighting);

@@ -125,30 +125,34 @@ function recordFoodAidExperience(w, giver, recipient, amount, method) {
 }
 
 export function performShare(w, person, community, target) {
-    if (community && distance(person, community) <= 7) {
-      const members = community.memberIds.map(id => w.people.find(p => p.id === id && p.alive))
-        .filter(p => p && p.id !== person.id && p.foodReserve < 48)
-        .sort((a, b) => a.foodReserve - b.foodReserve);
-      if (members.length) {
-        const units = transferCommunityFood(w, community, members[0], 4.2);
+    const sighting = target && (person.perception && person.perception.people || [])
+      .find(item => item.visible && item.id === target.id);
+    const recipient = sighting && sighting.visibleSignals?.foodDistress === true
+      ? (w.people || []).find(item => item.id === target.id && item.alive)
+      : null;
+    if (!recipient || recipient !== target) return false;
+    if (community && community.id === person.communityId && recipient.communityId === community.id
+        && community.memberIds.includes(person.id) && community.memberIds.includes(recipient.id)
+        && distance(person, community) <= 7 && distance(person, recipient) <= 7
+        && recipient.foodReserve < 48) {
+        const units = transferCommunityFood(w, community, recipient, 4.2);
         if (units > .02) {
-          recordFoodAidExperience(w, person, members[0], units * FOOD_RESERVE_PER_UNIT, 'community');
+          recordFoodAidExperience(w, person, recipient, units * FOOD_RESERVE_PER_UNIT, 'community');
           consumePersonEnergy(person, .22);
-          const link = getSocialLink(w, person, members[0]); link.trust = clamp(link.trust + .08, 0, 1); link.sharedFood += units;
+          const link = getSocialLink(w, person, recipient); link.trust = clamp(link.trust + .08, 0, 1); link.sharedFood += units;
           person.skills.care = clamp(person.skills.care + .004, 0, 1);
           person.state = 'partilhando alimento';
-          person.lastLesson = 'Compartilhar a reserva reduziu a fome de um membro.';
+          person.lastLesson = 'Compartilhar a reserva reduziu a fome de um membro visível.';
           return true;
         }
-      }
     }
-    if (target && person.foodReserve > 82 && distance(person, target) <= 1.6 && target.foodReserve < 40) {
-      const amount = Math.min(5, (person.foodReserve - 70) / 2, (76 - target.foodReserve));
-      const moved = amount > .5 ? transferFoodReserve(person, target, amount * .5, 'voluntary-sharing') : 0;
+    if (person.foodReserve > 82 && distance(person, recipient) <= 1.6 && recipient.foodReserve < 40) {
+      const amount = Math.min(5, (person.foodReserve - 70) / 2, (76 - recipient.foodReserve));
+      const moved = amount > .5 ? transferFoodReserve(person, recipient, amount * .5, 'voluntary-sharing') : 0;
       if (moved > .01) {
-        recordFoodAidExperience(w, person, target, moved, 'voluntary');
+        recordFoodAidExperience(w, person, recipient, moved, 'voluntary');
         consumePersonEnergy(person, .22);
-        const link = getSocialLink(w, person, target); link.trust = clamp(link.trust + .12, 0, 1); link.sharedFood += moved;
+        const link = getSocialLink(w, person, recipient); link.trust = clamp(link.trust + .12, 0, 1); link.sharedFood += moved;
         person.skills.care = clamp(person.skills.care + .004, 0, 1);
         person.state = 'partilhando alimento';
         person.lastLesson = 'A partilha aumentou a chance de sobrevivência de alguém próximo.';

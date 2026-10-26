@@ -905,6 +905,11 @@ function updatePeopleCore(w) {
         : territoryAwareness && territoryAwareness.nearestForeignTerritory && territoryAwareness.nearestForeignTerritory.distance <= 2 ? .35 : 0;
       const risk = clamp(predatorRisk + p.conflictRisk + borderRisk, 0, 1);
       const socialTarget = nearestPerson(w, p, 14);
+      const foodAidTarget = (p.perception && p.perception.people || [])
+        .filter(sighting => sighting.visible && sighting.distance <= 14 && sighting.visibleSignals?.foodDistress === true)
+        .map(sighting => findPersonById(w, sighting.id))
+        .filter(target => target && target.alive)
+        .sort((a, b) => distance(p, a) - distance(p, b) || a.id - b.id)[0] || null;
       const groupFood = communityFoodStock(community);
       const groupMaterial = community ? communityMaterialStock(community) : 0;
       const browseFood = bestSheepFeedCell(w, p, 8);
@@ -947,7 +952,11 @@ function updatePeopleCore(w) {
         && canCommunityBuild(w, community, communitySize);
       const canGather = p.perception.resources.some(resource => resource.visible && resource.terrain === 'land'
         && (resource.stone > 0 || resource.goldOre > 0 || ['broadleaf', 'conifer'].some(id => (resource.biomass[id] || 0) > 260)));
-      const hungryMember = community && community.memberIds.some(id => { const q = findPersonById(w, id); return q && q.alive && q.foodReserve < 48; });
+      const communityFoodAidAvailable = !!(community && foodAidTarget
+        && foodAidTarget.communityId === community.id && community.memberIds.includes(foodAidTarget.id)
+        && distance(p, community) <= 7 && distance(p, foodAidTarget) <= 7
+        && communityFoodStock(community) > 1);
+      const voluntaryFoodAidAvailable = !!(foodAidTarget && p.foodReserve > 82 && distance(p, foodAidTarget) <= 1.6);
       const tradePartner = findTradePartner(w, community, p);
       const hasFoodPressure = p.foodReserve < PERSONAL_FOOD_PRESSURE_THRESHOLD && !food;
       const hasWaterPressure = p.hydration < 55 && (!waterTarget || distance(p, waterTarget) > 18);
@@ -969,7 +978,7 @@ function updatePeopleCore(w) {
           ? clamp(.32 + inputs[16] * .3 + materialNeed * .55 + (storage.community.stores.wood < 18 ? .18 : 0), .2, .95) : -.65,
         community && pen && browseFood && herd.length && (community.stores.feed || 0) < 48
           ? clamp(.12 + browseAccess * .2 + feedNeed * .62 + p.skills.care * .15, .12, .9) : -.65,
-        (community && ((groupFood > 1 && hungryMember) || (p.foodReserve > 82 && socialTarget && socialTarget.foodReserve < 40))) ? .3 + inputs[6] * .5 + p.skills.care * .16 : -.55,
+        (communityFoodAidAvailable || voluntaryFoodAidAvailable) ? .3 + inputs[6] * .5 + p.skills.care * .16 : -.55,
         tradePartner ? .54 + p.skills.diplomacy * .15 + marketTrust * .12 : -.55,
         canMigrate ? .18 + risk * .58 + (1 - localSuitability) * .32 + (hasFoodPressure ? .64 : 0) + (hasWaterPressure ? .62 : 0) : -.7,
         community && pen && sheepSighting && sheepSighting.visible && !p.leadingSheepId
@@ -1272,7 +1281,7 @@ function updatePeopleCore(w) {
       else if (action === 'collect_loot') collectLoot(w, p, droppedLoot);
       else if (action === 'collect_feed') collectSheepFeed(w, p, community, browseFood);
       else if (action === 'share') {
-        if (!performShare(w, p, community, socialTarget)) { p.state = 'sem excedente para partilhar'; p.lastLesson = 'A partilha só ocorre quando existe reserva disponível e alguém precisa dela.'; }
+        if (!performShare(w, p, community, foodAidTarget)) { p.state = 'sem excedente para partilhar'; p.lastLesson = 'A partilha só ocorre quando existe reserva disponível e alguém próximo demonstra necessidade.'; }
       } else if (action === 'trade') {
         if (!performTrade(w, p, community, tradePartner)) { p.state = 'procurando troca'; p.lastLesson = 'Sem excedente complementar ou contato próximo, a troca não acontece.'; }
       } else if (action === 'capture_sheep') {
