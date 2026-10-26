@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { attemptHumanHunt, huntForFood, nearestEmergencyHerdSheep } from '../src/simulation/individuals/actions.js';
 import { feedCommunalHerds } from '../src/simulation/ecology/animals.js';
 import { DOMESTIC_SHEEP_DAILY_FEED } from '../src/config/ecosystem.js';
+import engine from '../src/simulation/engine.js';
 
 function herdFixture(adultCount = 3) {
   const community = { id: 1, name: 'Valedouro', stores: { food: 0, meat: 0 }, memberIds: [1], history: [] };
@@ -55,6 +56,11 @@ test('stored food and shelter meat cover the daily need before a herd is harvest
   assert.equal(nearestEmergencyHerdSheep(world, person, community), null);
 
   community.stores.food = 0;
+  community.stores.meat = .16;
+  shelter.meatStored = .16;
+  assert.equal(nearestEmergencyHerdSheep(world, person, community), sheep[0]);
+
+  community.stores.meat = 0;
   shelter.meatStored = .32;
   assert.equal(nearestEmergencyHerdSheep(world, person, community), null);
   assert.equal(sheep.every(animal => animal.alive), true);
@@ -90,4 +96,30 @@ test('communal herd feed is debited from stores and recorded as a livestock inpu
   assert.ok(Math.abs(community.stores.feed) < 1e-9);
   assert.ok(Math.abs(world.ecologyFlows.livestockFeedConsumed - consumed) < 1e-9);
   assert.ok(sheep.every(animal => Math.abs(animal.lastFeedAmount - DOMESTIC_SHEEP_DAILY_FEED) < 1e-9));
+});
+
+test('resident under food pressure delivers carried meat to a nearby shelter', () => {
+  const world = engine.createWorld(42);
+  const community = world.communities[0];
+  const person = world.people.find(item => item.alive && item.communityId === community.id
+    && item.role !== 'soldier' && item.ageDays >= 12 * 365);
+  const shelter = { id: world.nextId++, type: 'abrigo', complete: true, destroyedDay: null,
+    communityId: community.id, x: person.x, y: person.y, integrity: 100, health: 100, meatStored: 0 };
+  world.structures.push(shelter);
+  world.day = 1;
+  community.stores.food = 0;
+  community.stores.meat = 0;
+  person.foodReserve = 8;
+  person.carriedMeat = 5.2;
+  person.carriedFood = 0;
+  person.carriedFruit = 0;
+  world.people = [person];
+  community.memberIds = [person.id];
+
+  engine.modules.SocietyExperiment.updatePeople(world);
+
+  assert.ok(Math.abs(person.carriedMeat) < 1e-9);
+  assert.ok(Math.abs(community.stores.meat - 5.2) < 1e-9);
+  assert.ok(Math.abs(shelter.meatStored - 5.2) < 1e-9);
+  assert.equal(person.state, 'carne armazenada no abrigo');
 });

@@ -312,7 +312,8 @@ export function nearestEmergencyHerdSheep(w, person, community, radius = 2.25) {
     const dailyDemand = residents.reduce((total, item) => total + (item.ageDays >= 12 * 365 ? DAILY_FOOD_NEED : .42), 0);
     const storedShelterMeat = (w.structures || []).filter(shelter => usableShelter(shelter) && shelter.communityId === community.id)
       .reduce((total, shelter) => total + Math.max(0, Number(shelter.meatStored) || 0), 0);
-    if (communityFoodStock(community) + storedShelterMeat * MEAT_NUTRITIONAL_VALUE + .001 >= dailyDemand) return null;
+    const unregisteredShelterMeat = Math.max(0, storedShelterMeat - Math.max(0, Number(community.stores.meat) || 0));
+    if (communityFoodStock(community) + unregisteredShelterMeat * MEAT_NUTRITIONAL_VALUE + .001 >= dailyDemand) return null;
     return adults.filter(animal => visibleHerd.has(animal.id) && distance(person, animal) <= radius)
       .sort((a, b) => distance(person, a) - distance(person, b) || a.id - b.id)[0] || null;
   }
@@ -925,6 +926,8 @@ function updatePeopleCore(w) {
       const storage = nearestKnownStorage(w, p, community);
       const delivery = cargoDeliveryPlan(w, p, community, storage);
       const deliveryNeed = clamp(carriedResources(p) / 24, 0, 1);
+      const canDeliverEdibleCargo = !!delivery
+        && (p.carriedFood || 0) + (p.carriedFruit || 0) + (p.carriedMeat || 0) > .01;
       const looseLog = nearestKnownLog(p, 7);
       const droppedLoot = nearestLoot(w, p, 7);
       const herd = community ? domesticatedSheep(w, community) : [];
@@ -995,7 +998,9 @@ function updatePeopleCore(w) {
         ? (waterTarget ? 'drink' : (waterCue || bestHabitatCell(w, p) ? 'migrate' : null))
         : peacetimeSoldier ? null
         : p.foodReserve <= 8
-          ? (droppedLoot && distance(p, droppedLoot) <= 1.6 && ((droppedLoot.resources.food || 0) + (droppedLoot.resources.meat || 0)) > 0 ? 'collect_loot' : food ? 'forage' : (shelter && (preyNearby || herdPrey || huntGround) ? 'hunt' : (bestHabitatCell(w, p) ? 'migrate' : null)))
+          ? (canDeliverEdibleCargo ? 'deliver'
+            : droppedLoot && distance(p, droppedLoot) <= 1.6 && ((droppedLoot.resources.food || 0) + (droppedLoot.resources.meat || 0)) > 0 ? 'collect_loot'
+              : food ? 'forage' : (shelter && (preyNearby || herdPrey || huntGround) ? 'hunt' : (bestHabitatCell(w, p) ? 'migrate' : null)))
             : null;
       if (assignment && !survivalAction && !assignmentConflict) {
         const assignedIndex = PEOPLE_ACTIONS.indexOf(p.assignment.action);
@@ -1014,7 +1019,7 @@ function updatePeopleCore(w) {
       const carryingGoods = carriedResources(p) > .01;
       const carrierMaintenanceAction = carryingGoods && !peacetimeSoldier && !campaignOrder
         ? p.hydration < 40 && waterTarget ? 'drink'
-          : p.foodReserve < 24 && food ? 'forage'
+          : p.foodReserve < 24 && food && !canDeliverEdibleCargo ? 'forage'
             : null : null;
       const collectionLoad = delivery ? clamp(6 + distance(p, delivery.destination) * 1.5, 6, 24) : 0;
       const continueCommunalCollection = carryingGoods && delivery && distance(p, delivery.destination) > 1.5

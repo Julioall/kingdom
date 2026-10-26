@@ -42,6 +42,16 @@ function run(seed) {
   community.stores.food = 0;
   community.stores.meat = 0;
   community.stores.feed = herd.length * DOMESTIC_SHEEP_DAILY_FEED;
+  community.memberIds = [person.id];
+  world.people = [person];
+  for (const kingdom of world.kingdoms) {
+    for (const account of [kingdom.treasury?.stock, kingdom.market?.stock]) {
+      if (!account) continue;
+      account.food = 0;
+      account.feed = 0;
+    }
+  }
+  if (world.market) { world.market.food = 0; world.market.feed = 0; }
 
   const shelter = {
     id: world.nextId++, type: 'abrigo', complete: true, destroyedDay: null,
@@ -68,24 +78,30 @@ function run(seed) {
   const target = nearestEmergencyHerdSheep(world, person, community);
   if (!target) throw new Error('O choque controlado não habilitou uma ovelha visível para emergência.');
   if (!attemptHumanHunt(world, person, target, community)) throw new Error('A captura determinística do cenário falhou.');
+  engine.modules.SocietyExperiment.updatePeople(world);
 
   const adultHerdAfter = herd.filter(animal => animal.alive && animal.ageDays >= SHEEP_ADULT_AGE_DAYS).length;
   const meatProduced = Number(world.harvests.livestockMeat.toFixed(2));
   const result = {
     seed,
     day: world.day,
-    scenario: 'low-community-food-visible-domestic-herd',
+    scenario: 'low-community-food-visible-domestic-herd-delivery',
     initialCommunityFood: 0,
+    initialCommunityFeed: Number(feedStart.toFixed(2)),
     adultHerdBefore: herd.length,
     feedStart: Number(feedStart.toFixed(2)),
     feedConsumed: Number(feedConsumed.toFixed(2)),
     feedRemaining: Number(community.stores.feed.toFixed(2)),
+    communityFoodAfterAction: Number(community.stores.food.toFixed(2)),
+    communityFeedAfterAction: Number(community.stores.feed.toFixed(2)),
     livestockFeedLedger: Number(world.ecologyFlows.livestockFeedConsumed.toFixed(2)),
     harvestedAnimals: world.harvests.livestock,
     adultHerdAfter,
     meatProduced,
     meatCarried: Number(person.carriedMeat.toFixed(2)),
+    communityMeat: Number(community.stores.meat.toFixed(2)),
     shelterMeat: Number(shelter.meatStored.toFixed(2)),
+    deliveryState: person.state,
     dailyFoodNeedFromMeat: Number((meatProduced * 2.5).toFixed(2)),
     event: world.events.find(item => /abateu uma ovelha adulta excedente/.test(item.text || ''))?.text || null,
     elapsedSeconds: Number(((performance.now() - startedAt) / 1000).toFixed(3))
@@ -93,8 +109,11 @@ function run(seed) {
 
   if (Math.abs(feedConsumed - feedStart) > 1e-9 || community.stores.feed < -1e-9
       || result.livestockFeedLedger !== result.feedConsumed || result.harvestedAnimals !== 1
-      || adultHerdAfter !== 2 || Math.abs(person.carriedMeat - meatProduced) > 1e-9
-      || community.stores.food < 0 || shelter.meatStored < 0) {
+      || adultHerdAfter !== 2 || Math.abs(person.carriedMeat) > 1e-9
+      || Math.abs(community.stores.meat - meatProduced) > 1e-9
+      || Math.abs(shelter.meatStored - meatProduced) > 1e-9
+      || person.state !== 'carne armazenada no abrigo'
+      || community.stores.food < -1e-9 || community.stores.feed > 1e-9 || shelter.meatStored < 0) {
     throw new Error('O ledger do cenário não fechou: ' + JSON.stringify(result));
   }
   return result;
@@ -111,10 +130,11 @@ const determinismVerified = !!first && comparable(first) === comparable(repeated
 const report = {
   runtime: process.version,
   sourceRevision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
-  base: 'engine.createWorld + controlled starting shock + production feed/hunt functions',
+  base: 'engine.createWorld + controlled starting shock + production feed/hunt/individual-action functions',
   limitations: [
     'The scenario assigns three generated sheep to one community and creates a usable shelter so the emergency rule is reachable.',
-    'The resident begins with a low reserve and the community begins with zero food; this is a controlled action and ledger replay, not evidence that an unmodified world autonomously reaches the condition.'
+    'Only the selected resident is active in the individual action phase so other residents cannot consume the stored output during this logistics check.',
+    'The resident begins with a low reserve and the community begins with zero food; this is a controlled action and ledger replay, not evidence that an unmodified world autonomously reaches the condition or that a full stepDay creates it.'
   ],
   seeds,
   repeatSeed,
