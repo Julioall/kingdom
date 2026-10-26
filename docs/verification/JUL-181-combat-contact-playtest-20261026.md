@@ -1,6 +1,6 @@
 # JUL-181 — verificação de contato e apresentação de combate
 
-Data: 26/10/2026  
+Data: 26/10/2026
 Branch: `codex/jul195-integration`
 
 ## Testes

@@ -1,6 +1,6 @@
 # JUL-181 — contrato entre geometria de combate e apresentação
 
-Data: 26/10/2026  
+Data: 26/10/2026
 Branch de trabalho: `codex/jul195-integration`
 
 ## Decisão
