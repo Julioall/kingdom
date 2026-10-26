@@ -856,6 +856,11 @@ function updatePeopleCore(w) {
       const peacetimeSoldier = p.role === 'soldier' && p.campaignId == null
         && !campaignOrder?.campaign && !campaignOrder?.returning;
       const militaryCenter = peacetimeSoldier ? militaryDutyCenterFor(w, p) : null;
+      const garrisonKingdom = peacetimeSoldier ? w.kingdoms.find(item => item.id === p.kingdomId) : null;
+      const garrisonCommunity = garrisonKingdom && w.communities.find(item =>
+        item.id === garrisonKingdom.communityId && item.kingdomId === p.kingdomId);
+      const garrisonFoodAvailable = Math.max(0, Number(garrisonKingdom?.treasury?.stock?.food) || 0)
+        + communityFoodStock(garrisonCommunity);
       const dailyFoodNeed = peacetimeSoldier ? PEACETIME_SOLDIER_FOOD_NEED : DAILY_FOOD_NEED;
       const communitySize = community ? (communityCounts.get(community.id) || 0) : 0;
       const sheltered = w.structures.some(s => s.complete && s.type === 'abrigo' && community && p.communityId === s.communityId && distance(p, s) <= 4);
@@ -1093,16 +1098,17 @@ function updatePeopleCore(w) {
         && !homeRest && !carryingGoods && !p.leadingSheepId;
       // Food and water require resupply or drinking, never an endless sleep.
       const returnToGarrison = peacetimeSoldier && p.foodReserve < GARRISON_RECOVERY.food
-        && !soldierHomeRest
-        && militaryCenter && distance(p, militaryCenter) > 2;
+        && garrisonFoodAvailable > .01 && militaryCenter && distance(p, militaryCenter) > 2;
       if (p.militaryBrain) p.militaryBrain.pending = null;
-      const militaryAction = p.role === 'soldier' && !homeRest && !survivalAction
-        ? chooseMilitaryAction(w, p, { campaign: !!campaignOrder, resupply: returnToGarrison,
+      const militaryAction = p.role === 'soldier' && (!homeRest || returnToGarrison)
+        && (!survivalAction || returnToGarrison)
+        ? chooseMilitaryAction(w, p, { campaign: !!campaignOrder?.campaign, resupply: returnToGarrison,
           thirst: p.hydration < 40 && !!waterTarget, patrol: patrolDuty,
           training: !campaignOrder && trainingPairs.has(p.id) }) : null;
       const peacetimeSoldierAction = militaryAction;
       const action = campaignOrder && campaignOrder.withdrawing && !homeRest && survivalAction !== 'drink'
         ? 'campaign'
+        : returnToGarrison && peacetimeSoldierAction === 'return_garrison' ? peacetimeSoldierAction
         : survivalAction || carrierMaintenanceAction || (homeRest ? 'rest' : peacetimeSoldier ? peacetimeSoldierAction : (droppedLoot && !assignment && !carryingGoods && p.energy >= 9
           && (!campaignOrder || !campaignOrder.withdrawing && distance(p, droppedLoot) <= 1.6) ? 'collect_loot'
           : campaignOrder ? militaryAction || 'campaign' : cargoAction || foodDuty || (p.leadingSheepId ? 'lead_sheep'
@@ -1388,10 +1394,7 @@ function updatePeopleCore(w) {
           if (p.state !== 'indo ao treino de combate simulado') p.state = 'aguardando colega para treino';
         }
       } else if (action === 'return_garrison') {
-        const moved = militaryCenter && moveOne(w, p, militaryCenter, false, {
-          allowedTile: tile => tile.kingdomId === p.kingdomId,
-          preferRoads: true
-        });
+        const moved = militaryCenter && moveOne(w, p, militaryCenter, false, { preferRoads: true });
         p.towerMounted = false;
         if (p.towerDutyId != null) {
           const tower = w.structures.find(structure => structure.id === p.towerDutyId);
