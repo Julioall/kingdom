@@ -747,6 +747,21 @@ export function maintainSocialIntentions(world, person) {
       changes++;
       continue;
     }
+    if (current.type === 'seek_food_aid' && Number.isFinite(person.foodReserve) && person.foodReserve >= 40) {
+      const commitment = getSocialCommitment(world, current.commitmentId);
+      if (commitment?.status === 'fulfilled') {
+        advanceSocialIntention(world, person.id, current.intentionId, { progress: current.steps.length,
+          status: 'completed', blockers: [], terminationReason: 'aid_delivered' });
+      } else {
+        if (commitment && ['proposed', 'accepted'].includes(commitment.status)) {
+          cancelSocialCommitment(world, person.id, commitment.commitmentId);
+        }
+        advanceSocialIntention(world, person.id, current.intentionId, { status: 'abandoned',
+          blockers: ['need_satisfied'], terminationReason: 'need_satisfied' });
+      }
+      changes++;
+      continue;
+    }
     if (current.type === 'seek_food_aid' && current.targetId != null) {
       const target = personById(world, current.targetId);
       if (!target?.alive) {

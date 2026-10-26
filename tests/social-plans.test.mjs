@@ -136,6 +136,25 @@ test('an overdue intention is abandoned with a durable reason and evidence', () 
   assert.throws(() => advanceSocialIntention(state, 1, plan.intentionId, { progress: 1 }), /encerrada/);
 });
 
+test('a recovered requester cancels the outstanding aid commitment and closes its plan', () => {
+  const state = world();
+  const commitment = propose(state, 'need-resolved');
+  acceptSocialCommitment(state, 2, commitment.commitmentId);
+  const plan = defineSocialIntention(state, 1, {
+    type: 'seek_food_aid', targetId: 2, commitmentId: commitment.commitmentId, dueDay: 12,
+    steps: [{ action: 'approach_helper' }, { action: 'request_food' }, { action: 'receive_food' }],
+    endsWhen: 'aid_delivered_or_need_resolved_or_deadline'
+  });
+  state.people[0].foodReserve = 40;
+
+  assert.equal(maintainSocialIntentions(state, state.people[0]), 1);
+  assert.equal(getSocialCommitment(state, commitment.commitmentId).status, 'cancelled');
+  assert.equal(state.people[0].socialIntentions[0].intentionId, plan.intentionId);
+  assert.equal(state.people[0].socialIntentions[0].status, 'abandoned');
+  assert.equal(state.people[0].socialIntentions[0].terminationReason, 'need_satisfied');
+  assert.equal(state.socialEvidence.facts.at(-1).outcome.terminationReason, 'need_satisfied');
+});
+
 test('death abandons open intentions with a social fact and leaves commitments in world evidence', () => {
   const state = world();
   const plan = defineSocialIntention(state, 1, {
