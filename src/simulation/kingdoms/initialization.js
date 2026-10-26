@@ -17,11 +17,11 @@ const KINGDOM_STARTS = [
 ];
 const INITIAL_KINGDOM_COUNT = 2;
 const INITIAL_TOWER_OFFSETS = [[16, 7], [7, 16], [-16, -7], [-7, -16]];
-export const INITIAL_POPULATION_PER_KINGDOM = 50;
+export const INITIAL_POPULATION_PER_KINGDOM = 48;
 export const INITIAL_MILITARY_ROSTER = Object.freeze([
-  { school: 'centro_militar', militaryClass: 'guerreiro', count: 10 },
-  { school: 'centro_militar', militaryClass: 'lanceiro', count: 5 },
-  { school: 'arquearia', militaryClass: 'arqueiro', count: 4 },
+  { school: 'centro_militar', militaryClass: 'guerreiro', count: 13 },
+  { school: 'centro_militar', militaryClass: 'lanceiro', count: 7 },
+  { school: 'arquearia', militaryClass: 'arqueiro', count: 5 },
   { school: 'monasterio', militaryClass: 'monge', count: 2 }
 ]);
 export const INITIAL_SOLDIERS_PER_KINGDOM = INITIAL_MILITARY_ROSTER.reduce((sum, entry) => sum + entry.count, 0);

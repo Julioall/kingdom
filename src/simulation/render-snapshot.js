@@ -7,7 +7,8 @@ const SCALAR_FIELDS = [
   'huntingSuitability', 'fishingSuitability', 'elevationLevel', 'autoTileVariant',
   'rampSide', 'rampLevel', 'rampSegment'
 ];
-const ID_FIELDS = ['regionId', 'kingdomId', 'lakeId', 'cropFieldId', 'stumpUntilDay'];
+const ID_FIELDS = ['regionId', 'kingdomId', 'lakeId', 'cropFieldId', 'stumpUntilDay',
+  'berryBushHiddenUntilDay', 'browseBushHiddenUntilDay'];
 const STUMP_ID_INDEX = ID_FIELDS.indexOf('stumpUntilDay');
 const TYPE_FIELDS = ['terrain', 'soilType', 'waterKind'];
 const TYPE_VALUES = [

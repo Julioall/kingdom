@@ -1,4 +1,5 @@
-import { COMBAT_RESOURCES, initializeCombatResources, spendAttackStamina, recordArrow } from './combat-resources.js';
+import { COMBAT_RESOURCES, initializeCombatResources, spendAttackStamina, recordArrow,
+  canSpendDefenseStamina, spendDefenseStamina, isCombatDisarmed } from './combat-resources.js';
 import { attackTower } from './fortifications.js';
 import { rand } from '../core/random.js';
 import { distance, clamp } from '../core/math.js';
@@ -8,6 +9,10 @@ import { log } from '../core/events.js';
 import { updateServiceGrades } from './frontier-intelligence.js';
 import { clearMilitaryCommand } from './military-identity.js';
 import { createCombatAction, resolveCombatAction, frontGuard } from './combat-contact.js';
+import { cellAt } from '../world/spatial.js';
+import { canTraverseElevation } from '../world/island-terrain.js';
+import { collidesWithWorldPositionAt, worldCollisionIndex } from '../physics/hitboxes.js';
+import { peopleNear } from '../individuals/spatial-index.js';
 
 export const MILITARY_CLASSES = Object.freeze({
   guerreiro: { label: 'Infantaria', vitality: 360, range: 1.8, damage: 18, dodge: .12, block: .42 },
@@ -16,6 +21,44 @@ export const MILITARY_CLASSES = Object.freeze({
   monge: { label: 'Clérigo', vitality: 240, range: 6, damage: 0, dodge: .45, block: .05,
     healRadius: 3, healing: 24, areaHealing: 16, healCooldownDays: 6 }
 });
+
+const COMBAT_KNOCKBACK = Object.freeze({ guerreiro: .28, lanceiro: .34, arqueiro: .12 });
+const COMBO_MAX = 3;
+const COMBO_DAMAGE_STEP = .1;
+
+export function combatEngagementRange(militaryClass) {
+  const spec = MILITARY_CLASSES[militaryClass];
+  if (!spec || !['guerreiro', 'lanceiro'].includes(militaryClass)) return null;
+  const approachBuffer = militaryClass === 'guerreiro' ? .55 : .7;
+  return Math.max(.65, spec.range - approachBuffer);
+}
+
+function nudgePersonFrom(world, person, threat, amount) {
+  if (!person || !threat || !Number.isFinite(amount) || amount <= 0 || person.towerMounted) return false;
+  let dx = person.x - threat.x, dy = person.y - threat.y;
+  let length = Math.hypot(dx, dy);
+  if (length < 1e-6) { dx = 1; dy = 0; length = 1; }
+  dx /= length; dy /= length;
+  const fromTile = cellAt(world, person.x, person.y);
+  if (!fromTile) return false;
+  const collisionIndex = worldCollisionIndex(world);
+  for (const scale of [1, .7, .4]) {
+    const x = person.x + dx * amount * scale, y = person.y + dy * amount * scale;
+    const toTile = cellAt(world, x, y);
+    if (!toTile || toTile.terrain === 'water' || toTile.terrain === 'rock'
+        || !canTraverseElevation(fromTile, toTile)
+        || collidesWithWorldPositionAt(world, person, x, y, collisionIndex)) continue;
+    const occupied = peopleNear(world, x, y, .55).some(other => other !== person && other.alive
+      && Math.hypot(other.x - x, other.y - y) < .42);
+    if (occupied) continue;
+    person.x = x; person.y = y;
+    person.navigationRoute = null;
+    person.navigationCongestion = 0;
+    world.peopleSpatialIndex?.move(person);
+    return true;
+  }
+  return false;
+}
 
 const HEALING_HEALTH_THRESHOLD = 95;
 
@@ -175,6 +218,15 @@ export function fightTacticalRound(world, allies, enemies, day, objective = null
   let casualties = 0;
   for (const person of allies) {
     if (!person.alive || person.militaryRestTargetId != null || person.restingStructureId != null) continue;
+    if (person.combatDisarmedUntilDay != null && !isCombatDisarmed(person, day)) {
+      delete person.combatDisarmedUntilDay;
+      delete person.combatDisarmedById;
+    }
+    if (isCombatDisarmed(person, day)) {
+      person.state = 'desarmado após parry';
+      person.militaryAnimation = 'defend'; person.militaryAnimationDay = day;
+      continue;
+    }
     const spec = MILITARY_CLASSES[person.militaryClass] || MILITARY_CLASSES.lanceiro;
     const threats = enemies.filter(p => p.alive && p.restingStructureId == null
       && (person.kingdomId == null || p.kingdomId !== person.kingdomId));
@@ -184,7 +236,17 @@ export function fightTacticalRound(world, allies, enemies, day, objective = null
       .sort((a, b) => a.health - b.health || distance(person, a) - distance(person, b) || a.id - b.id)[0];
     const assistingThreat = threatenedAlly && threats.find(threat => threat.id === threatenedAlly.lastAttackedById
       && distance(person, threat) <= spec.range);
-    const enemy = assistingThreat || threats.sort((a, b) => distance(person, a) - distance(person, b) || a.id - b.id)[0];
+    const opening = person.combatOpening?.expiresDay > day ? person.combatOpening : null;
+    if (!opening && person.combatOpening) person.combatOpening = null;
+    const combo = person.combatCombo?.lastDay === day - 1
+      && person.combatCombo.count < COMBO_MAX ? person.combatCombo : null;
+    if (!combo && person.combatCombo) person.combatCombo = null;
+    const openingThreat = opening && threats.find(threat => threat.id === opening.targetId);
+    const comboThreat = combo && threats.find(threat => threat.id === combo.targetId);
+    const designatedThreat = threats.find(threat => threat.id === person.combatTargetId);
+    if (!designatedThreat && person.combatTargetId != null) person.combatTargetId = null;
+    const nearestThreat = threats.sort((a, b) => distance(person, a) - distance(person, b) || a.id - b.id)[0];
+    const enemy = openingThreat || comboThreat || designatedThreat || assistingThreat || nearestThreat;
     if (person.militaryClass === 'monge') {
       const healed = castAreaHealing(world, person, allies, day);
       if (!healed.length && enemy && distance(person, enemy) < 3) {
@@ -201,16 +263,28 @@ export function fightTacticalRound(world, allies, enemies, day, objective = null
       moveOne(world, person, { x: person.x + (person.x - enemy.x || 1) * 2, y: person.y + (person.y - enemy.y) * 2 }, false);
       person.state = 'recuando para proteção';
     }
-    if (person.health < 28 || distance(person, enemy) > spec.range + (person.towerMounted ? 6 : 0)) continue;
-    if (!spendAttackStamina(person, day)) { person.state = 'recuperando estamina'; continue; }
-    const action = createCombatAction(world, person, enemy, day, { reach: spec.range + (person.towerMounted ? 6 : 0) });
+    const attackRange = spec.range + (person.towerMounted ? 6 : 0);
+    const reliableRange = person.towerMounted ? attackRange : combatEngagementRange(person.militaryClass) ?? attackRange;
+    if (person.health < 28 || distance(person, enemy) > reliableRange) continue;
+    const isOpeningAttack = openingThreat?.id === enemy.id;
+    const comboIndex = Math.min(COMBO_MAX, isOpeningAttack
+      ? Math.max(2, comboThreat?.id === enemy.id ? combo.count + 1 : 2)
+      : comboThreat?.id === enemy.id ? combo.count + 1 : 1);
+    if (!spendAttackStamina(person, day, { combo: comboIndex > 1 })) {
+      person.state = 'recuperando estamina'; continue;
+    }
+    const action = createCombatAction(world, person, enemy, day, {
+      reach: spec.range + (person.towerMounted ? 6 : 0), comboIndex });
+    if (!action) continue;
     recordArrow(person, enemy, day, action);
     person.lastMilitaryAttackDay = day;
     person.attackingTowerId = null;
     person.militaryAnimation = 'attack'; person.militaryAnimationDay = day;
     person.state = person.militaryClass === 'arqueiro' ? 'disparando à distância' : person.militaryClass === 'lanceiro' ? 'apoiando a linha de infantaria' : 'combatendo na linha de frente';
-    const defense = enemy.role === 'soldier' ? MILITARY_CLASSES[enemy.militaryClass] || MILITARY_CLASSES.lanceiro
+    const defenderDisarmed = isCombatDisarmed(enemy, day);
+    const defenseSpec = enemy.role === 'soldier' ? MILITARY_CLASSES[enemy.militaryClass] || MILITARY_CLASSES.lanceiro
       : { vitality: 100, dodge: .05, block: 0 };
+    const defense = defenderDisarmed ? { ...defenseSpec, block: 0 } : defenseSpec;
     const defensiveTraining = clamp(enemy.militaryTraining || 0, 0, 1);
     let dodge = null;
     if (!enemy.towerMounted && rand(world) < defense.dodge + defensiveTraining * .04) {
@@ -220,12 +294,28 @@ export function fightTacticalRound(world, allies, enemies, day, objective = null
       enemy.x = from.x; enemy.y = from.y;
       enemy.militaryAnimation = 'run'; enemy.militaryAnimationDay = day;
     }
-    const guarding = new Set();
-    if (frontGuard(enemy, person) && rand(world) < defense.block + defensiveTraining * .05) guarding.add(enemy.id);
+    const guarding = new Set(), parrying = new Set(), parryWindows = new Map();
+    const canGuard = !defenderDisarmed && enemy.role === 'soldier'
+      && ['guerreiro', 'lanceiro'].includes(enemy.militaryClass)
+      && (enemy.militaryClass !== 'lanceiro' || person.militaryClass !== 'arqueiro')
+      && frontGuard(enemy, person) && canSpendDefenseStamina(enemy);
+    if (canGuard && rand(world) < Math.min(.9, defense.block + defensiveTraining * .05)) {
+      guarding.add(enemy.id);
+      const parryChance = enemy.militaryClass === 'guerreiro' ? .24 : .18;
+      if (person.militaryClass !== 'arqueiro' && canSpendDefenseStamina(enemy, true)
+          && rand(world) < parryChance + defensiveTraining * .24) {
+        parrying.add(enemy.id);
+        parryWindows.set(enemy.id, 38 + defensiveTraining * 28);
+      }
+    }
     const strength = spec.damage * (1 + clamp(person.militaryTraining || 0, 0, 1) * .1) * (.85 + rand(world) * .3);
-    resolveCombatAction(world, person, action, threats, (victim, blocked) => {
+    const result = resolveCombatAction(world, person, action, threats, (victim, blocked) => {
+      if (blocked) spendDefenseStamina(victim);
+      else nudgePersonFrom(world, victim, person, COMBAT_KNOCKBACK[person.militaryClass] || .2);
       const vitality = victim.role === 'soldier' ? victim.maxCombatHealth || MILITARY_CLASSES[victim.militaryClass]?.vitality || 300 : 100;
-      const appliedHealth = -changePersonHealth(world, victim, -strength * (blocked ? .3 : 1) / vitality * 100, 'battle');
+      const comboMultiplier = 1 + (action.comboIndex - 1) * COMBO_DAMAGE_STEP;
+      const appliedHealth = -changePersonHealth(world, victim,
+        -strength * comboMultiplier * (blocked ? .3 : 1) / vitality * 100, 'battle');
       const damage = appliedHealth * vitality / 100;
       victim.lastAttackedDay = day; victim.lastAttackedById = person.id;
       victim.injury = clamp((victim.injury || 0) + damage / 120, 0, 10);
@@ -236,12 +326,31 @@ export function fightTacticalRound(world, allies, enemies, day, objective = null
         person.combatVictories = (person.combatVictories || 0) + 1;
       }
       return damage;
-    }, { guarding, beforeStep: elapsed => {
+    }, { guarding, parrying, parryWindows, beforeStep: elapsed => {
       if (!dodge) return;
       const progress = Math.min(1, elapsed / action.windupMs);
       enemy.x = dodge.from.x + (dodge.to.x - dodge.from.x) * progress;
       enemy.y = dodge.from.y + (dodge.to.y - dodge.from.y) * progress;
     } });
+    if (isOpeningAttack) person.combatOpening = null;
+    if (result.kind === 'parry') {
+      spendDefenseStamina(enemy, true);
+      person.combatDisarmedUntilDay = Math.max(person.combatDisarmedUntilDay || 0, day + 2);
+      person.combatDisarmedById = enemy.id;
+      person.combatCombo = null;
+      person.combatOpening = null;
+      person.lastParriedDay = day; person.lastParriedById = enemy.id;
+      person.militaryAnimation = 'defend'; person.militaryAnimationDay = day;
+      person.state = 'desarmado após parry';
+      nudgePersonFrom(world, person, enemy, .2);
+      enemy.combatCombo = null;
+      enemy.combatOpening = { targetId: person.id, expiresDay: day + 2 };
+      enemy.state = 'abriu a guarda com um parry';
+    } else if (result.kind === 'body' && result.damageApplied > 0 && enemy.alive) {
+      person.combatCombo = { targetId: enemy.id, count: comboIndex, lastDay: day };
+    } else {
+      person.combatCombo = null;
+    }
   }
   return casualties;
 }

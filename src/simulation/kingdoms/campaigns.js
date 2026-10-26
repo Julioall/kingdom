@@ -2,7 +2,8 @@ import { towerDutyOrder, performTowerDuty } from './tower-archers.js';
 import { clearMilitaryCommand } from './military-identity.js';
 import { advanceTowerCapture } from './tower-capture.js';
 import { initializeTowerHealth, campaignTower, attackTower, towerBattlePosition, destroyTowerInWorld } from './fortifications.js';
-import { fightTacticalRound, updateMilitaryCommand, tacticalDestination, militaryMerit, selectHealingTarget, MILITARY_CLASSES, battlefieldOpponents } from './military.js';
+import { fightTacticalRound, updateMilitaryCommand, tacticalDestination, militaryMerit, selectHealingTarget,
+  combatEngagementRange, MILITARY_CLASSES, battlefieldOpponents } from './military.js';
 import { frontierWorkOrder, performFrontierWork, prepareFrontierConflicts, FRONTIER_RECOVERY_DAYS } from './frontier-conflicts.js';
 import { DAILY_FOOD_NEED, FOOD_RESERVE_PER_UNIT } from '../../config/ecosystem.js';
 import { clamp, distance } from '../core/math.js';
@@ -590,10 +591,15 @@ export function campaignOrderFor(world, person) {
   const deployed = !withdrawing && campaign.status !== 'mobilizing' && (side.formation?.deployed || atFront);
   // Nearby threats take priority over parade slots, even if reinforcements
   // or the opposing formation have not finished deploying.
+  const comboTargetId = person.combatCombo?.lastDay === world.day - 1 && person.combatCombo.count < 3
+    ? person.combatCombo.targetId : null;
+  const openingTargetId = person.combatOpening?.expiresDay > world.day ? person.combatOpening.targetId : null;
+  const preferredTargetId = openingTargetId ?? comboTargetId ?? side.fieldCommand?.targetEnemyId;
   const enemy = deployed && ['guerreiro', 'lanceiro'].includes(person.militaryClass)
     ? opponents.filter(enemy => distance(person, enemy) <= 12)
-      .sort((a, b) => Number(b.id === side.fieldCommand?.targetEnemyId) - Number(a.id === side.fieldCommand?.targetEnemyId)
+      .sort((a, b) => Number(b.id === preferredTargetId) - Number(a.id === preferredTargetId)
         || distance(person, a) - distance(person, b) || a.id - b.id)[0] : null;
+  person.combatTargetId = enemy?.id ?? null;
   const patient = deployed && person.militaryClass === 'monge'
     ? selectHealingTarget(person, livingSideTroops(world, side), 12) : null;
   const formation = withdrawing && side.formation ? { ...side.formation, worldSlots: null } : side.formation;
@@ -608,7 +614,7 @@ export function campaignOrderFor(world, person) {
   if (commanding) target = formation?.worldSlots?.[person.id] || { x: geometry.destination.x - geometry.orientation.x * 6,
     y: geometry.destination.y - geometry.orientation.y * 6 };
   const tactical = !needsIndividualTarget && deployed && (!!enemy || !!towerPosition || !!patient);
-  const engagementRange = engagingEnemy ? MILITARY_CLASSES[person.militaryClass].range - .1 : null;
+  const engagementRange = engagingEnemy ? combatEngagementRange(person.militaryClass) : null;
   return { campaign, side, target, destination, withdrawing, tactical: !commanding && tactical,
     engagementRange: commanding ? null : engagementRange, commanding, formation: side.formation || null };
 }

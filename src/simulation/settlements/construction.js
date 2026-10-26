@@ -7,8 +7,10 @@ import { collectCommunityFieldSeeds, plantBiomass, sowCommunityField } from '../
 import { PLANTS } from '../../config/ecosystem.js';
 import { localNameFeature } from '../society/communities.js';
 import { log } from '../core/events.js';
-import { moveOne } from '../individuals/movement.js';
+import { moveOne, reachableAreaAround } from '../individuals/movement.js';
+import { hitboxesOverlap, structureHitbox, worldCollisionIndex } from '../physics/hitboxes.js';
 import { consumePersonEnergy } from '../individuals/energy.js';
+import { claimConstructionWorkstation, constructionContactPoint, constructionWorkPositions } from './construction-workstations.js';
 
 const COMMUNITY_BUILDING_TYPES = new Set(['abrigo', 'roça', 'curral', 'posto de coleta', 'acampamento']);
 const KINGDOM_REPAIR_COST = Object.freeze({ wood: 3, stone: 2 });
@@ -42,14 +44,21 @@ function workOnKingdomStructureRepair(w, person, community) {
     const target = damagedKingdomStructures(w, community.kingdomId)[0]?.structure;
     if (!kingdom || !target) { person.state = 'não há construção danificada'; return false; }
     if (target.siegeBlocked) { person.state = 'reparo adiado durante o cerco'; person.buildCooldown = 2; return false; }
-    if (distance(person, target) > 3.5) {
-      moveOne(w, person, cellAt(w, target.x, target.y), false);
+    const workstation = claimConstructionWorkstation(w, target, person);
+    if (!workstation) {
+      person.state = 'aguardando um ponto livre para reparar';
+      person.buildCooldown = 2;
+      return false;
+    }
+    if (!workstation.arrived) {
+      moveOne(w, person, cellAt(w, workstation.position.x, workstation.position.y), false);
       person.state = 'indo reparar ' + target.type;
       person.buildCooldown = 2;
       return false;
     }
     if (target.lastRepairDay === w.day) {
-      person.visualActivity = { kind: 'build', x: target.x, y: target.y, day: w.day + 1 };
+      const contact = constructionContactPoint(target);
+      person.visualActivity = { kind: 'build', ...contact, day: w.day + 1 };
       person.state = 'auxiliando no reparo de ' + target.type;
       person.buildCooldown = 1;
       return false;
@@ -62,7 +71,8 @@ function workOnKingdomStructureRepair(w, person, community) {
       target.health = Math.min(target.maxHealth, (Number.isFinite(target.health) ? target.health : 0) + target.maxHealth * .12);
     }
     target.lastRepairDay = w.day;
-    person.visualActivity = { kind: 'build', x: target.x, y: target.y, day: w.day + 1 };
+    const contact = constructionContactPoint(target);
+    person.visualActivity = { kind: 'build', ...contact, day: w.day + 1 };
     consumePersonEnergy(person, 1.2);
     consumeFoodReserve(person, .2, 'repair-effort');
     person.buildCooldown = 1;
@@ -115,7 +125,17 @@ export function communityBuildUtility(w, community, size) {
     return clamp(.28 + size * .035 + (active ? .25 : 0) + (!hasShelter ? .44 : 0), .32, .92);
   }
 
-export function chooseBuildSite(w, community, structures) {
+function overlapsSiteResources(w, hitbox, resourceIndex) {
+    if (!hitbox) return false;
+    const radius = Math.max(hitbox.halfWidth || 0, hitbox.halfDepth || 0) + .5;
+    for (const tile of cellsWithin(w, hitbox.x, hitbox.y, radius, () => true)) {
+      const resources = resourceIndex.byTile.get(tile.i) || [];
+      if (resources.some(resource => hitboxesOverlap(hitbox, resource))) return true;
+    }
+    return false;
+  }
+
+export function chooseBuildSite(w, community, structures, builder = null) {
     const completed = structures.filter(s => s.complete);
     const size = community.memberIds.filter(id => w.people.some(p => p.id === id && p.alive)).length;
     const plan = nextCommunityStructure(w, community, size, structures);
@@ -124,9 +144,12 @@ export function chooseBuildSite(w, community, structures) {
     const isFarm = nextType === 'roça';
     const worldStructures = w.structures;
     const candidateRadius = nextType === 'curral' ? 3.5 : 2.5;
+    const resourceIndex = worldCollisionIndex(w).resources;
+    const reachableWorkTiles = builder
+      ? new Set(reachableAreaAround(w, builder, builder, Math.hypot(w.width, w.height)).map(tile => tile.i)) : null;
     let best = null, bestScore = -Infinity;
     for (const t of w.tiles) {
-      if (t.terrain !== 'land' || t.slope > .8 || t.kingdomId !== community.kingdomId) continue;
+      if (t.terrain !== 'land' || t.slope > .8 || t.waterDist < 3 || t.kingdomId !== community.kingdomId) continue;
       if (nextType === 'curral') {
         const kingdom = w.kingdoms.find(k => k.id === community.kingdomId);
         if (kingdom && (rearProjection(w, kingdom, t) < 6 || !safeCorralFootprint(w, t))) continue;
@@ -159,10 +182,16 @@ export function chooseBuildSite(w, community, structures) {
       const nearbyBrowse = cellsWithin(w, t.x, t.y, 3.5, q => q.terrain === 'land')
         .reduce((sum, q) => sum + plantBiomass(q, ['browse']), 0);
       const flockDistance = Math.min(...w.animals.filter(a => a.alive && a.speciesId === 'sheep').map(a => distance(a, t)), 22);
+      const sitePreview = { type: nextType, x: t.x, y: t.y,
+        radius: nextType === 'curral' ? 3.5 : undefined, complete: false };
+      const siteHitbox = structureHitbox({ ...sitePreview, complete: true });
+      if (overlapsSiteResources(w, siteHitbox, resourceIndex)) continue;
+      const workPositions = builder ? constructionWorkPositions(w, sitePreview, builder) : null;
+      if (builder && (!workPositions || workPositions.some(point => !reachableWorkTiles.has(point.y * w.width + point.x)))) continue;
       const score = Math.log1p(localBiomass) * .24 + waterAccess * .12 - t.slope * 1.4 - spacing * .045 - centerDistance * .012
         + (ownedProperty ? .42 : 0) + (nextType === 'curral' ? Math.log1p(nearbyBrowse) * .19 - flockDistance * .045 : 0)
         + (fieldTiles ? Math.min(1, fieldTiles.length / 25) * .61 + Math.min(1, fieldSeedBiomass / plan.seedMass) * .18 : 0) + noise;
-      if (score > bestScore) { best = { tile: t, fieldTileIndices: fieldTiles && fieldTiles.map(q => q.i) }; bestScore = score; }
+      if (score > bestScore) { best = { tile: t, fieldTileIndices: fieldTiles && fieldTiles.map(q => q.i), workPositions }; bestScore = score; }
     }
     if (!best) return null;
     return {
@@ -171,6 +200,7 @@ export function chooseBuildSite(w, community, structures) {
       woodCost: plan.woodCost, stoneCost: plan.stoneCost, foodCost: plan.foodCost,
       seedMass: plan.seedMass || 0,
       fieldTileIndices: best.fieldTileIndices || undefined,
+      workPositions: best.workPositions || undefined,
       fruitStored: nextType === 'abrigo' ? 0 : undefined, meatStored: nextType === 'abrigo' ? 0 : undefined,
       radius: nextType === 'curral' ? 3.5 : undefined,
       complete: false, createdDay: w.day, builtDay: null, lastProgressDay: null
@@ -201,7 +231,7 @@ export function workOnCommunityStructure(w, person, community, size) {
     let structures = communityStructures(w, community);
     let structure = structures.find(s => !s.complete);
     if (!structure) {
-      structure = chooseBuildSite(w, community, structures);
+      structure = chooseBuildSite(w, community, structures, person);
       if (!structure) { person.state = 'procurando local para construir'; person.buildCooldown = 4; return; }
       if ((community.stores.wood || 0) < structure.woodCost || (community.stores.stone || 0) < structure.stoneCost
           || communityFoodStock(community) < structure.foodCost) {
@@ -224,20 +254,28 @@ export function workOnCommunityStructure(w, person, community, size) {
       community.history.push('Começou a construção de ' + structure.type + ' perto de ' + localNameFeature(w, structure.x, structure.y) + '.');
       log(w, community.name + ' começou a construir ' + structure.type + ' em uma área de recursos próximos.');
     }
-    if (distance(person, structure) > 3.5) {
-      moveOne(w, person, cellAt(w, structure.x, structure.y), false);
-      person.state = 'indo para a construção'; person.buildCooldown = 2; return;
+    const workstation = claimConstructionWorkstation(w, structure, person);
+    if (!workstation) {
+      person.state = 'aguardando uma vaga na construção';
+      person.buildCooldown = 2;
+      return;
+    }
+    if (!workstation.arrived) {
+      moveOne(w, person, cellAt(w, workstation.position.x, workstation.position.y), false);
+      person.state = 'indo para o ponto de construção'; person.buildCooldown = 2; return;
     }
     // Several residents can help, but an entire building cannot materialize
     // between two daily snapshots just because many workers chose it at once.
     if (structure.lastProgressDay === w.day) {
-      person.visualActivity = { kind: 'build', x: structure.x, y: structure.y, day: w.day + 1 };
+      const contact = constructionContactPoint(structure);
+      person.visualActivity = { kind: 'build', ...contact, day: w.day + 1 };
       person.state = 'auxiliando na construção de ' + structure.type;
       person.buildCooldown = 1;
       return;
     }
     structure.progress++;
-    person.visualActivity = { kind: 'build', x: structure.x, y: structure.y, day: w.day + 1 };
+    const contact = constructionContactPoint(structure);
+    person.visualActivity = { kind: 'build', ...contact, day: w.day + 1 };
     structure.lastProgressDay = w.day;
     consumePersonEnergy(person, 1.6);
     consumeFoodReserve(person, .4, 'construction-effort');

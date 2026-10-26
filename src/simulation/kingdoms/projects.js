@@ -24,8 +24,12 @@ export function advanceKingdomProjects(world, day) {
     structure.siegeBlocked = world.people.some(p => p.alive && p.role === 'soldier' && p.kingdomId !== structure.kingdomId && p.campaignId != null && Math.hypot(p.x - structure.x, p.y - structure.y) < 6);
     if (structure.siegeBlocked) continue;
     const worker = world.people.find(p => p.id === structure.lastConstructionWorkerId && p.alive && p.role === 'resident');
+    const workPosition = structure.lastConstructionWorkPosition;
+    const workerAtWorkPosition = worker && (workPosition
+      ? Math.hypot(worker.x - workPosition.x, worker.y - workPosition.y) <= .1
+      : Math.hypot(worker.x - structure.x, worker.y - structure.y) <= 2);
     if (structure.lastConstructionWorkDay !== day || structure.lastProgressDay === day || !worker
-      || Math.hypot(worker.x - structure.x, worker.y - structure.y) > 2) continue;
+      || !workerAtWorkPosition) continue;
     initializeTowerHealth(structure);
     structure.progress = Math.min(structure.required, (structure.progress || 0) + 1);
     structure.lastProgressDay = day;
@@ -41,6 +45,7 @@ export function advanceKingdomProjects(world, day) {
       if (person.state === 'escoltando trabalhadores da torre') person.state = 'escolta concluída; retomando serviço';
       else if (person.state === 'construindo ' + structure.type) person.state = 'obra concluída; retomando atividades';
       person.constructionProjectId = null; person.constructionStallDays = 0;
+      person.constructionWorkPosition = null;
     }
     structure.workerIds = []; structure.escortIds = [];
     const kingdom = world.kingdoms.find(item => item.id === structure.kingdomId);

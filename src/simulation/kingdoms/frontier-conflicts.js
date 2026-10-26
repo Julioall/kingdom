@@ -4,6 +4,7 @@ import { moveOne } from '../individuals/movement.js';
 import { log } from '../core/events.js';
 import { consumeFoodReserve } from '../economy/inventories.js';
 import { consumePersonEnergy } from '../individuals/energy.js';
+import { claimConstructionWorkstation, constructionContactPoint, MAX_CONSTRUCTION_WORKERS } from '../settlements/construction-workstations.js';
 
 export const INITIAL_PEACE_DAYS = 45;
 export const FRONTIER_RECOVERY_DAYS = 45;
@@ -77,14 +78,19 @@ export function frontierWorkOrder(world, person) {
     && p.energy > 24 && p.foodReserve > 8 && p.hydration > 15 && p.health >= 45
     && !p.constructionRetreating && p.homeRestTargetId == null && p.restingStructureId == null && !p.restingOutdoors
     && (project.blockedWorkerUntil?.[p.id] ?? -1) < world.day;
-  const civilians = (project.workerIds || []).map(id => world.people.find(p => p.id === id)).filter(p => p && available(p));
+  const civilians = (project.workerIds || []).map(id => world.people.find(p => p.id === id))
+    .filter(p => p && available(p)).slice(0, MAX_CONSTRUCTION_WORKERS);
   const replacements = world.people.filter(p => available(p) && !civilians.includes(p)
     && p.energy >= 35 && p.hydration >= 30
     && p.foodReserve >= Math.min(45, 16 + distance(p, project) * .78))
     .sort((a, b) => distance(a, project) - (a.skills?.build || 0) * 5
       - distance(b, project) + (b.skills?.build || 0) * 5 || a.id - b.id);
-  civilians.push(...replacements.slice(0, Math.max(0, 3 - civilians.length)));
+  civilians.push(...replacements.slice(0, Math.max(0, MAX_CONSTRUCTION_WORKERS - civilians.length)));
   project.workerIds = civilians.map(p => p.id);
+  project.constructionWorkerIds = project.workerIds.slice();
+  project.constructionWorkerLastSeen ||= {};
+  for (const id of project.constructionWorkerIds) project.constructionWorkerLastSeen[id] = world.day;
+  project.constructionWorkersPrunedDay = world.day;
   const troops = world.people.filter(p => p.alive && p.role === 'soldier' && p.kingdomId === person.kingdomId
     && p.campaignId == null && p.militaryRank !== 'general' && p.towerDutyId == null && !p.towerMounted
     && p.militaryRestTargetId == null && p.restingStructureId == null
@@ -95,7 +101,7 @@ export function frontierWorkOrder(world, person) {
   project.escortIds = escort.map(p => p.id);
   project.constructionStatus = !civilians.length ? 'aguardando trabalhadores aptos'
     : project.siegeBlocked ? 'obra interrompida por ataque'
-      : civilians.some(p => distance(p, project) <= 2) ? 'equipe trabalhando na obra' : 'trabalhadores a caminho';
+      : civilians.some(p => distance(p, project) <= 3) ? 'equipe trabalhando na obra' : 'trabalhadores a caminho';
   if (!project.workerIds.includes(person.id) && !project.escortIds.includes(person.id)) return null;
   return { construction: true, project, target: project, withdrawing: false };
 }
@@ -107,29 +113,38 @@ export function performFrontierWork(world, person, order) {
     person.constructionProjectId = order.project.id;
     person.constructionStallDays = 0;
   }
-  const radius = person.role === 'soldier' ? 3 : 2;
-  if (distance(person, order.project) > radius) {
-    const moved = moveOne(world, person, order.project, false, { arrivalRadius: radius });
-    if (person.role === 'resident') {
-      person.constructionStallDays = moved ? 0 : (person.constructionStallDays || 0) + 1;
-      if (person.constructionStallDays >= 4) {
-        (order.project.blockedWorkerUntil ||= {})[person.id] = world.day + 7;
-        order.project.workerIds = (order.project.workerIds || []).filter(id => id !== person.id);
-        person.constructionStallDays = 0;
-        person.state = 'rota da obra bloqueada; equipe será substituída';
-        return false;
-      }
+  const workstation = person.role === 'resident'
+    ? claimConstructionWorkstation(world, order.project, person) : null;
+  if (person.role === 'resident' && !workstation) {
+    person.state = 'aguardando ponto de trabalho na obra';
+    return false;
+  }
+  let moved = false;
+  if (person.role === 'resident' && !workstation.arrived) {
+    moved = moveOne(world, person, { x: workstation.position.x, y: workstation.position.y }, false);
+  } else if (person.role === 'soldier' && distance(person, order.project) > 3) {
+    moved = moveOne(world, person, order.project, false, { arrivalRadius: 3 });
+  }
+  if (person.role === 'resident') {
+    person.constructionStallDays = moved || workstation.arrived ? 0 : (person.constructionStallDays || 0) + 1;
+    if (person.constructionStallDays >= 4) {
+      (order.project.blockedWorkerUntil ||= {})[person.id] = world.day + 7;
+      order.project.workerIds = (order.project.workerIds || []).filter(id => id !== person.id);
+      person.constructionStallDays = 0;
+      person.state = 'rota da obra bloqueada; equipe será substituída';
+      return false;
     }
-  } else person.constructionStallDays = 0;
-  const working = person.role === 'resident' && distance(person, order.project) <= 2;
+  }
+  const working = person.role === 'resident' && workstation.arrived;
   person.state = person.role === 'soldier' ? 'escoltando trabalhadores da torre' : working ? 'construindo ' + order.project.type : 'indo para a obra do rei';
   person.brain.lastAction = person.role === 'soldier' ? 'guard' : 'build';
   if (working && person.energy > 8 && !order.project.siegeBlocked) {
     const day = world.day + 1;
     order.project.lastConstructionWorkDay = day;
     order.project.lastConstructionWorkerId = person.id;
+    order.project.lastConstructionWorkPosition = { x: workstation.position.x, y: workstation.position.y };
     if (!order.project.progress) order.project.constructionStartedDay = day;
-    person.visualActivity = { kind: 'build', x: order.project.x, y: order.project.y, day };
+    person.visualActivity = { kind: 'build', ...constructionContactPoint(order.project), day };
     consumePersonEnergy(person, 1.2);
     consumeFoodReserve(person, .2, 'royal-construction-effort');
   }

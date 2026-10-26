@@ -372,18 +372,29 @@ export function moveOne(w, agent, target, aquatic, movementOptions = null) {
     }
     let route = first ? [first] : [];
     if (route.length && agent.speciesId == null && isRoadTile(currentTile, true) && isRoadTile(first, true)) {
-      // Established, straight road segments carry a person two cells in one daily action.
-      const dx = first.x - current.x, dy = first.y - current.y;
-      const second = cellAt(w, first.x + dx, first.y + dy);
-      const planned = agent.navigationRoute?.path;
-      const cursor = agent.navigationRoute?.cursor ?? -1;
-      const firstPosition = planned?.[cursor + 1] === first.i ? cursor + 1 : planned?.indexOf(first.i);
-      const followsRoute = !planned || planned[firstPosition + 1] === second?.i;
-      if (followsRoute && isRoadTile(second, true) && canStep(w, agent, first, second, aquatic, pen, corrals, movementOptions)
-          && (aquatic || agent.speciesId != null || !personOnTile(w, second, agent))
-          && distance(second, destination) < distance(first, destination) - .001) route.push(second);
+      // Consolidated paths grant one extra step for every ten ordinary road steps.
+      agent.roadStrideProgress = Math.min(10, (agent.roadStrideProgress || 0) + 1);
+      if (agent.roadStrideProgress >= 10) {
+        const planned = agent.navigationRoute?.path;
+        const cursor = agent.navigationRoute?.cursor ?? -1;
+        const firstPosition = planned?.[cursor + 1] === first.i ? cursor + 1 : planned?.indexOf(first.i);
+        const plannedSecondIndex = planned?.[firstPosition + 1];
+        const second = Number.isInteger(plannedSecondIndex) ? w.tiles[plannedSecondIndex]
+          : planned ? null : cellAt(w, first.x + first.x - current.x, first.y + first.y - current.y);
+        if (isRoadTile(second, true) && canStep(w, agent, first, second, aquatic, pen, corrals, movementOptions)
+            && (aquatic || agent.speciesId != null || !personOnTile(w, second, agent))
+            && distance(second, destination) < distance(first, destination) - .001) {
+          route.push(second);
+          agent.roadStrideProgress = 0;
+        } else agent.roadStrideProgress = 9;
+      }
+    } else if (route.length && agent.speciesId == null) {
+      agent.roadStrideProgress = 0;
     }
-    if (!route.length) return false;
+    if (!route.length) {
+      if (agent.speciesId == null) agent.roadStrideProgress = 0;
+      return false;
+    }
     for (const next of route) {
       let boundaryCost = 0;
       if (agent.communityId !== undefined && agent.communityId !== null) {

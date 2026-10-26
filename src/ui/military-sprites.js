@@ -25,8 +25,11 @@ export function militarySpritePose(person, pose, day) {
   const fighting = person.militaryAnimationDay === day;
   if (fighting) action = person.militaryAnimation || 'attack';
   else if (!pose.moving && person.state === 'de guarda') action = 'defend';
-  if (fighting && unit === MILITARY_SPRITES.guerreiro && action === 'attack'
-      && (person.id + day) % 2 === 0) action = 'attack-2';
+  if (fighting && unit === MILITARY_SPRITES.guerreiro && action === 'attack') {
+    const comboIndex = person.combatAction?.comboIndex;
+    if (comboIndex != null) action = comboIndex % 2 === 0 ? 'attack-2' : 'attack';
+    else if ((person.id + day) % 2 === 0) action = 'attack-2';
+  }
   if (unit === MILITARY_SPRITES.lanceiro && ['attack', 'defend'].includes(action)) {
     const direction = Math.abs(dy) > Math.abs(dx) * 2 ? dy < 0 ? 'Up' : 'Down'
       : Math.abs(dy) > Math.abs(dx) * .4 ? dy < 0 ? 'UpRight' : 'DownRight' : 'Right';

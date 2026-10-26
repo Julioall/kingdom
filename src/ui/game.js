@@ -9,15 +9,38 @@ import { SimulationClock } from '../app/simulation-loop.ts';
 import Sim from '../simulation/engine.js';
 import LocalAI from '../ai/local-engine.js';
 import { readLocalAiPreference, writeLocalAiPreference } from '../ai/preference.js';
-import { DOMESTIC_SHEEP_DAILY_FEED } from '../config/ecosystem.js';
+import { DOMESTIC_SHEEP_DAILY_FEED, SHEEP_ADULT_AGE_DAYS, SHEEP_JUVENILE_MIN_SCALE } from '../config/ecosystem.js';
 import { isRoadTile, ROAD_RULES } from '../simulation/world/roads.js';
+import { isBushAnchor } from '../simulation/ecology/plants.js';
 import { CHARACTER_SPRITE_SCALE, MILITARY_SPRITES, militarySpritePose } from './military-sprites.js';
 import { createAnimationRenderer, getUnitAnimation, getAnimationFrame } from './animations.js';
 import { residentSpritePose, createActorAnimationClock, createActivityEffects } from './person-animations.js';
+import { createGameAudio, windGainAtZoom } from './game-audio.js';
+import { musicGainAtZoom } from './music-audio.js';
 import { mapDecorationAt, MAP_DECORATION_SPRITES } from './map-decorations.js';
 import { MILITARY_PAY, GARRISON_RECOVERY } from '../simulation/kingdoms/service.js';
 import { mapCamera, spriteScale, BUILDING_FEET, alignedTileRect, SOURCE_TILE_PIXELS } from './map-camera.js';
-import { createCloudSystem } from './cloud-system.js';
+import { structureDepthY } from './world-depth.js';
+import { createCloudSystem, atmosphereZoomProfile } from './cloud-system.js';
+import AtmosphericLayer from './atmospheric-layer.js';
+import DirtBrush from './dirt-brush.js';
+
+function atmosphereProfileForZoom(zoom) {
+  const density = atmosphereZoomProfile(zoom).fogDensity;
+  return {
+    coverage: .62 + density * .32,
+    openings: .85 - density * .52,
+    speed: .32,
+    turbulence: .54,
+    scale: .60 + density * .30,
+    shadows: .35 + density * .15,
+    opacity: 1,
+  };
+}
+
+function atmosphereLayerOpacityForZoom(zoom) {
+  return atmosphereZoomProfile(zoom).fogOpacity;
+}
 
 export function mountGame() {
   'use strict';
@@ -26,7 +49,11 @@ export function mountGame() {
   if (forjaUI) {
     for (const [selector, skin] of [['.topbar', 'wood'], ['.mini-map-panel', 'wood'], ['.left-panel', 'scroll'], ['.right-panel', 'paper'], ['.journal-panel', 'scroll'], ['.utility-drawer', 'wood']]) {
       const panel = document.querySelector(selector);
-      if (panel) panel.prepend(forjaUI.skinLayer(skin));
+      if (panel && !panel.querySelector(':scope > .skin-layer')) {
+        panel.classList.add('ui-skinned-panel');
+        panel.dataset.uiSkin = skin;
+        panel.prepend(forjaUI.skinLayer(skin));
+      }
     }
     const crest = document.querySelector('.brand-mark'), wordmark = document.querySelector('.brand-text');
     if (crest) crest.replaceWith(forjaUI.crest('cyan', '', 0, 10));
@@ -37,6 +64,11 @@ export function mountGame() {
     }
   }
   const canvas = $('world');
+  const selectionFrameSprite = new Image();
+  selectionFrameSprite.addEventListener('load', () => { if (world) drawMap(); });
+  selectionFrameSprite.src = '/assets/kingdom-ui/Cursor_04.png';
+  const cloudSpritesCanvas = $('cloudSprites');
+  const cloudSpritesContext = cloudSpritesCanvas.getContext('2d');
   const miniMapCanvas = $('miniMap');
   const miniMapContext = miniMapCanvas.getContext('2d');
   miniMapContext.imageSmoothingEnabled = false;
@@ -53,11 +85,20 @@ export function mountGame() {
   const seasonNames = Sim.seasons;
   const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0] || 1;
   const sessionSeed = randomSeed();
+  const trailCanvasScale = 1;
+  const trailCanvas = document.createElement('canvas');
+  trailCanvas.width = trailCanvas.height = LOGICAL_SIZE * trailCanvasScale;
+  const dirtBrush = new DirtBrush({ canvas: trailCanvas, size: 5, irregularity: .42,
+    seed: sessionSeed ^ 0x4d2b79f5, autoBind: false });
+  const trailLastPositionByPerson = new Map();
+  const trailSegmentByPerson = new Map();
+  const pendingPersonTrailPoints = new Map();
+  let lastTrailFlushAt = -Infinity;
   const session = new GameSession(undefined, sessionSeed);
   const clock = new SimulationClock();
 
   let world = null, rendered = false, localAI = null;
-  let selection = null, showLeft = false, showRight = false, hoveredTerritoryStructureId = null;
+  let selection = null, showLeft = false, showRight = false, hoveredTerritoryStructureId = null, hoveredMapEntity = false;
   let kingdomActionNotice = '';
   const isResetCancellation = error => error && error.name === 'AbortError';
   session.onUpdate = (nextWorld, _stats, reset) => {
@@ -68,6 +109,7 @@ export function mountGame() {
     structureDamageBars.observe(world.structures.map(s => ({ id: s.id, alive: s.destroyedDay == null,
       lastAttackSequence: s.lastAttackSequence })), performance.now(), reset);
     activityEffects.observe(world, animationTime, reset);
+    gameAudio.observe(world, animationTime, reset);
     for (const person of world.people) if (person.combatAction?.day === world.day) {
       actorAnimationClock.elapsed('combat:' + person.id, String(person.combatAction.id), animationTime);
     }
@@ -79,6 +121,11 @@ export function mountGame() {
     actorAnimationClock.retain(new Set(world.people.filter(person => person.alive).flatMap(person => [person.id, 'shot:' + person.id, 'combat:' + person.id, 'defense:' + person.id])));
     for (const kingdom of world.kingdoms) ensureTinyPalette(kingdom.palette);
     if (reset) {
+      dirtBrush.clear();
+      trailLastPositionByPerson.clear();
+      trailSegmentByPerson.clear();
+      pendingPersonTrailPoints.clear();
+      lastTrailFlushAt = performance.now();
       selection = null;
       showRight = false;
 
@@ -86,7 +133,7 @@ export function mountGame() {
       kingdomActionNotice = '';
       actorAnimationClock.clear();
       invalidateStaticDepthCache();
-      resetMapViewport();
+      resetMapViewport(MIN_MAP_ZOOM);
     }
     if (!rendered) {
       rendered = true;
@@ -129,17 +176,82 @@ export function mountGame() {
   const SEASON_TERRAIN_PALETTES = Object.freeze([0, 2, 3, 4]);
   // Blend in the next palette across the final two weeks of each season.
   const SEASON_TERRAIN_TRANSITION_DAYS = 14;
-  const MIN_MAP_ZOOM = 1, MAX_MAP_ZOOM = 16;
+  const MIN_MAP_ZOOM = .5, MAX_MAP_ZOOM = 16, FIT_MAP_ZOOM = 2;
   const COLLISION_CALIBRATION_STORAGE_KEY = 'kingdom-collision-calibration-v3';
   const LEGACY_COLLISION_CALIBRATION_STORAGE_KEY = 'kingdom-collision-calibration-v2';
-  let mapZoom = 1, mapPanX = 0, mapPanY = 0;
+  let mapZoom = MIN_MAP_ZOOM, mapPanX = 0, mapPanY = 0;
 
   let mapTransform = [1, 0, 0, 1, 0, 0];
   let animationTime = 0, lastSpriteDraw = 0, lastAtmosphereUpdate = 0, assetRenderQueued = false, groundCacheKey = '', pendingClockDays = 0;
+  let lastCloudLayerDraw = -Infinity, cloudLayerViewKey = '', fogUpdateAccumulator = 0;
   const movementInterpolator = createMovementInterpolator();
   document.addEventListener('visibilitychange', () => movementInterpolator.markDiscontinuity());
   const actorAnimationClock = createActorAnimationClock();
   const activityEffects = createActivityEffects();
+  const gameAudio = createGameAudio({
+    onStatus: status => { const node = $('audioStatus'); if (node) node.textContent = status; },
+    getWindGain: () => windGainAtZoom(mapZoom, MIN_MAP_ZOOM, MAX_MAP_ZOOM),
+    getMusicGain: () => musicGainAtZoom(mapZoom, MIN_MAP_ZOOM, MAX_MAP_ZOOM),
+    getPan: (x, y) => {
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return 0;
+      const camera = currentMapCamera();
+      const screenX = (x * TILE * camera.scale + camera.offsetX) / Math.max(1, stage.clientWidth);
+      return Math.max(-1, Math.min(1, (screenX - .5) * 2));
+    },
+    getDistanceGain: (x, y) => {
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return 1;
+      const camera = currentMapCamera();
+      const center = camera.toWorld(stage.clientWidth / 2, stage.clientHeight / 2);
+      const distanceInCells = Math.hypot(x - center.x / TILE, y - center.y / TILE);
+      const zoomGain = Math.min(1, mapZoom / 10);
+      return zoomGain / (1 + (distanceInCells / 10) ** 2);
+    }
+  });
+  function syncAudioControls() {
+    $('musicVolume').value = String(gameAudio.musicVolume);
+    $('musicVolumeValue').textContent = Math.round(gameAudio.musicVolume * 100) + '%';
+    $('effectsVolume').value = String(gameAudio.effectsVolume);
+    $('effectsVolumeValue').textContent = Math.round(gameAudio.effectsVolume * 100) + '%';
+    syncAudioActivation();
+  }
+  function syncAudioActivation() {
+    const waiting = gameAudio.enabled && !gameAudio.ready;
+    const button = $('audioToggle');
+    const label = !gameAudio.enabled ? 'Ativar todos os sons' : waiting ? 'Ativar som' : 'Silenciar todos os sons';
+    const icon = !gameAudio.enabled ? '🔇' : waiting ? '🔈' : '🔊';
+    if (button.textContent !== icon) button.textContent = icon;
+    if (button.title !== label) {
+      button.title = label;
+      button.setAttribute('aria-label', label);
+    }
+    button.setAttribute('aria-pressed', String(!gameAudio.enabled));
+    const state = !gameAudio.enabled ? 'silenciado' : waiting ? 'aguardando ativação' : 'ligado';
+    if ($('audioState').textContent !== state) $('audioState').textContent = state;
+  }
+  syncAudioControls();
+  const unlockAudio = event => {
+    if (event?.target?.closest?.('#audioToggle')) return;
+    if (!gameAudio.ready) void gameAudio.unlock();
+  };
+  document.addEventListener('pointerdown', unlockAudio, true);
+  document.addEventListener('pointerup', unlockAudio, true);
+  document.addEventListener('keydown', unlockAudio, true);
+  document.addEventListener('wheel', unlockAudio, { capture: true, passive: true, once: true });
+  window.addEventListener('focus', unlockAudio);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) unlockAudio(); });
+  $('audioToggle').addEventListener('click', () => {
+    if (gameAudio.enabled && !gameAudio.ready) void gameAudio.unlock();
+    else gameAudio.setEnabled(!gameAudio.enabled);
+    syncAudioControls();
+  });
+  $('musicVolume').addEventListener('input', event => {
+    gameAudio.setMusicVolume(event.target.value);
+    syncAudioControls();
+  });
+  $('effectsVolume').addEventListener('input', event => {
+    gameAudio.setEffectsVolume(event.target.value);
+    syncAudioControls();
+  });
   let activeMiningSites = new Set();
   const tinyTreeSprites = Object.create(null);
   const tinyBushSprites = [];
@@ -193,21 +305,37 @@ export function mountGame() {
     return image;
   });
   const cloudSystem = createCloudSystem(cloudSprites, sessionSeed);
+  const fogCanvas = $('cloudAtmosphere');
+  const atmosphericLayer = new AtmosphericLayer({
+    canvas: fogCanvas,
+    preset: 'dense',
+    options: atmosphereProfileForZoom(mapZoom),
+    autoStart: false,
+    maxPixels: 300_000,
+  });
+  fogCanvas.style.opacity = String(atmosphereLayerOpacityForZoom(mapZoom));
+  let atmosphericProfile = atmosphereProfileForZoom(mapZoom);
+  function syncAtmosphereWithZoom() {
+    fogCanvas.style.opacity = String(atmosphereLayerOpacityForZoom(mapZoom));
+    cloudSpritesCanvas.style.opacity = String(atmosphereZoomProfile(mapZoom).cloudLayerOpacity);
+    const next = atmosphereProfileForZoom(mapZoom);
+    if (Object.keys(next).some(key => Math.abs(next[key] - atmosphericProfile[key]) >= .012)) {
+      atmosphericLayer.setOptions(next);
+      atmosphericProfile = next;
+    }
+  }
   const tinyFenceTilemap = new Image();
   tinyFenceTilemap.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
   tinyFenceTilemap.src = 'assets/tiny-swords/fences/tileset-fences-1.png';
   const tinyMeatSprite = new Image();
   tinyMeatSprite.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
   tinyMeatSprite.src = 'assets/tiny-swords/meat-resource.png';
-  const roadTileAtlas = new Image();
-  roadTileAtlas.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-  roadTileAtlas.src = 'assets/kingdom-autotile/roads.png';
   const cropFieldTexture = new Image();
   cropFieldTexture.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-  cropFieldTexture.src = 'assets/kingdom-autotile/crop-field.png';
-  const riceFieldDryPlantsTexture = new Image();
-  riceFieldDryPlantsTexture.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-  riceFieldDryPlantsTexture.src = 'assets/kingdom-autotile/rice-field-dry-plants.png';
+  cropFieldTexture.src = 'assets/kingdom-autotile/rice-field-ground.png';
+  const riceGrowthWindTexture = new Image();
+  riceGrowthWindTexture.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
+  riceGrowthWindTexture.src = 'assets/kingdom-autotile/rice-growth-wind.png';
   const healthBarSprites = { track: {}, fills: {} };
   for (const part of ['left', 'center', 'right']) {
     const image = new Image();
@@ -268,11 +396,102 @@ export function mountGame() {
     window.requestAnimationFrame(() => { assetRenderQueued = false; groundCacheKey = ''; if (world) render(); });
   }
   function visualPose(kind, agent) {
-    const pose = movementInterpolator.pose(kind, agent, animationTime);
+    // Interpolation samples are stamped with real snapshot arrival times.
+    const pose = movementInterpolator.pose(kind, agent, performance.now());
     if (kind !== 'person' || !agent.towerMounted) return pose;
     const tower = world.structures.find(structure => structure.id === agent.towerDutyId);
     return tower ? { ...pose, x: tower.x, y: tower.y - 3, moving: false }
       : { ...pose, moving: false };
+  }
+  function updateIndividualTrails(now) {
+    if (!world) return;
+    const visibleWear = ROAD_RULES.fastAt;
+    const minSampleDistance = 2.2;
+    const maxSegmentDistance = TILE * 6;
+    const maxPointSpacing = TILE * .2;
+    const wornGroundAt = point => {
+      const x = Math.round(point.x / TILE - .5);
+      const y = Math.round(point.y / TILE - 1);
+      const tile = cell(x, y);
+      return tile?.terrain === 'land' && tile.cropFieldId == null && (tile.roadWear || 0) >= visibleWear
+        ? tile : null;
+    };
+    const isWalkableGround = point => !!wornGroundAt(point);
+    const pressureForWear = wear => .65 + Math.max(0, Math.min(1,
+      (wear - visibleWear) / (ROAD_RULES.maxWear - visibleWear))) * .55;
+    const queuePoints = (key, points) => {
+      if (!points.length) return;
+      let pending = pendingPersonTrailPoints.get(key);
+      if (!pending) pendingPersonTrailPoints.set(key, pending = []);
+      for (const point of points) pending.push({ x: point.x * trailCanvasScale, y: point.y * trailCanvasScale, p: point.p });
+    };
+    const breakTrail = id => {
+      trailLastPositionByPerson.delete(id);
+      trailSegmentByPerson.set(id, (trailSegmentByPerson.get(id) || 0) + 1);
+    };
+
+    for (const person of world.people || []) {
+      const id = person.id;
+      if (!person.alive) {
+        trailLastPositionByPerson.delete(id);
+        trailSegmentByPerson.delete(id);
+        continue;
+      }
+      if (person.restingStructureId != null || person.towerMounted) {
+        if (trailLastPositionByPerson.has(id)) breakTrail(id);
+        continue;
+      }
+      const pose = visualPose('person', person);
+      if (!pose.moving) continue;
+      const current = { x: (pose.x + .5) * TILE, y: (pose.y + 1) * TILE };
+      if (!isWalkableGround(current)) {
+        if (trailLastPositionByPerson.has(id)) breakTrail(id);
+        continue;
+      }
+      const previous = trailLastPositionByPerson.get(id);
+      if (!previous) {
+        trailLastPositionByPerson.set(id, current);
+        continue;
+      }
+      const distance = Math.hypot(current.x - previous.x, current.y - previous.y);
+      if (distance < minSampleDistance) continue;
+      if (distance > maxSegmentDistance) {
+        breakTrail(id);
+        trailLastPositionByPerson.set(id, current);
+        continue;
+      }
+
+      const samples = Math.max(1, Math.ceil(distance / maxPointSpacing));
+      let pathPoints = [];
+      let inGap = false;
+      let segment = trailSegmentByPerson.get(id) || 0;
+      for (let i = 1; i <= samples; i++) {
+        const ratio = i / samples;
+        const point = { x: previous.x + (current.x - previous.x) * ratio,
+          y: previous.y + (current.y - previous.y) * ratio };
+        const tile = wornGroundAt(point);
+        if (tile) {
+          pathPoints.push({ ...point, p: pressureForWear(tile.roadWear || 0) });
+          inGap = false;
+        } else if (!inGap) {
+          queuePoints(id + ':' + segment, pathPoints);
+          pathPoints = [];
+          segment++;
+          inGap = true;
+        }
+      }
+      queuePoints(id + ':' + segment, pathPoints);
+      trailSegmentByPerson.set(id, segment);
+      trailLastPositionByPerson.set(id, current);
+    }
+
+    if (now - lastTrailFlushAt >= 180 && pendingPersonTrailPoints.size) {
+      dirtBrush.appendPaths(Array.from(pendingPersonTrailPoints, ([key, points]) => ({
+        key, points, options: { size: 5, irregularity: .42 }
+      })));
+      pendingPersonTrailPoints.clear();
+      lastTrailFlushAt = now;
+    }
   }
   function clampMapPan() {
     const mapSize = Math.min(stage.clientWidth, stage.clientHeight) * mapZoom;
@@ -283,10 +502,11 @@ export function mountGame() {
   }
   function updateMapViewport() {
     clampMapPan();
+    gameAudio.refreshAmbience();
     $('mapZoomLevel').textContent = Math.round(mapZoom * 100) + '%';
     $('mapZoomOut').disabled = mapZoom <= MIN_MAP_ZOOM + .001;
     $('mapZoomIn').disabled = mapZoom >= MAX_MAP_ZOOM - .001;
-    $('mapZoomReset').disabled = mapZoom <= MIN_MAP_ZOOM + .001 && Math.abs(mapPanX) < 1 && Math.abs(mapPanY) < 1;
+    $('mapZoomReset').disabled = Math.abs(mapZoom - FIT_MAP_ZOOM) < .001 && Math.abs(mapPanX) < 1 && Math.abs(mapPanY) < 1;
     $('cameraPosition').textContent = mapZoom > MIN_MAP_ZOOM + .001 ? 'ZOOM ' + Math.round(mapZoom * 100) + '%' : 'MAPA INTEIRO';
     canvas.style.cursor = mapZoom > MIN_MAP_ZOOM + .001 ? 'grab' : 'crosshair';
     renderMiniMap();
@@ -364,8 +584,8 @@ export function mountGame() {
     updateMapViewport();
     drawMap();
   }
-  function resetMapViewport() {
-    mapZoom = MIN_MAP_ZOOM; mapPanX = 0; mapPanY = 0;
+  function resetMapViewport(zoom = FIT_MAP_ZOOM) {
+    mapZoom = zoom; mapPanX = 0; mapPanY = 0;
     updateMapViewport();
     drawMap();
   }
@@ -434,41 +654,31 @@ export function mountGame() {
 
   function communityPalette(id) { return tinyPalettes[Math.abs(Math.trunc(id || 0)) % tinyPalettes.length]; }
 
-  function drawTinySwordsTree(tile, type, mass) {
+  function tinyTreeSpriteLayout(tile, type, mass) {
     const variation = hashColor(tile.x, tile.y, world.seed + 991);
     const season = Sim.modules.Cosmos.seasonIndex(world.day);
     const treeId = type === 'conifer' ? 1 + variation % 2 : season < 2 ? 3 : 4;
     const image = tinyTreeSprites[treeId];
-    if (!image || !image.complete || !image.naturalWidth) return false;
-    const frameWidth = 192, frameCount = Math.max(1, Math.floor(image.naturalWidth / frameWidth));
+    const frameWidth = 192;
+    const frameCount = Math.max(1, Math.floor((image && image.naturalWidth || frameWidth) / frameWidth));
     const frame = ((Math.floor(animationTime / 100) + variation) % frameCount + frameCount) % frameCount;
     const maturityScale = mass > 760 ? 1 : mass > 420 ? .84 : .68;
     const naturalSize = .8 + (variation % 5) * .1;
-    const size = maturityScale * naturalSize;
-    const scale = spriteScale(TILE, size);
-    const width = frameWidth * scale, height = image.naturalHeight * scale;
+    const scale = spriteScale(TILE, maturityScale * naturalSize);
+    const width = frameWidth * scale;
+    const frameHeight = image && image.naturalHeight || (treeId < 3 ? 256 : 192);
+    const height = frameHeight * scale;
     const baseY = ({ 1: 241, 2: 249, 3: 170, 4: 168 })[treeId];
     const x = tile.x * TILE + TILE / 2 - width / 2;
-    const groundY = tile.y * TILE + TILE;
-    const y = groundY - baseY * scale;
-    ctx.drawImage(image, frame * frameWidth, 0, frameWidth, image.naturalHeight, x, y, width, height);
-    return true;
+    const y = (tile.y + 1) * TILE - baseY * scale;
+    return { image, frame, frameWidth, frameHeight, x, y, width, height };
   }
 
-  function isBushAssetAnchor(tile, plantId) {
-    const plant = plantIndex(plantId), mass = tile.plants[plant];
-    if (tile.terrain === 'water' || mass < 18) return false;
-    const salt = plantId === 'browse' ? 2503 : 1907;
-    const tie = hashColor(tile.x, tile.y, world.seed + salt), index = tile.y * W + tile.x;
-    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-      if (!dx && !dy) continue;
-      const neighbor = cell(tile.x + dx, tile.y + dy);
-      if (!neighbor || neighbor.terrain === 'water') continue;
-      const otherMass = neighbor.plants[plant];
-      const otherTie = hashColor(neighbor.x, neighbor.y, world.seed + salt);
-      const otherIndex = neighbor.y * W + neighbor.x;
-      if (otherMass > mass || (otherMass === mass && (otherTie > tie || (otherTie === tie && otherIndex < index)))) return false;
-    }
+  function drawTinySwordsTree(tile, type, mass) {
+    const layout = tinyTreeSpriteLayout(tile, type, mass);
+    if (!layout.image || !layout.image.complete || !layout.image.naturalWidth) return false;
+    ctx.drawImage(layout.image, layout.frame * layout.frameWidth, 0, layout.frameWidth, layout.frameHeight,
+      layout.x, layout.y, layout.width, layout.height);
     return true;
   }
 
@@ -488,21 +698,30 @@ export function mountGame() {
     return true;
   }
 
-  function drawTinySwordsSheep(animal, x, y, pose) {
+  function tinySwordsSheepLayout(animal, x, y, pose) {
     const state = String(animal.state || '').toLowerCase();
     const action = animal.brain.lastAction;
     const sheet = action === 'feed' || state.includes('alimentando') ? 'grass' : pose.moving ? 'move' : 'idle';
     const image = tinySheepSprites[sheet];
-    if (!image || !image.complete || !image.naturalWidth) return false;
+    if (!image || !image.complete || !image.naturalWidth) return null;
     const frameWidth = 128, frameCount = Math.max(1, Math.floor(image.naturalWidth / frameWidth));
     const frame = ((Math.floor(animationTime / (sheet === 'grass' ? 145 : 180)) + animal.id * 2) % frameCount + frameCount) % frameCount;
-    const scale = spriteScale(TILE), width = frameWidth * scale, height = image.naturalHeight * scale;
+    const growth = Math.max(0, Math.min(1, (animal.ageDays || 0) / SHEEP_ADULT_AGE_DAYS));
+    const sheepScale = SHEEP_JUVENILE_MIN_SCALE + (1 - SHEEP_JUVENILE_MIN_SCALE) * growth;
+    const scale = spriteScale(TILE, sheepScale), width = frameWidth * scale, height = image.naturalHeight * scale;
     const footY = y + TILE, x0 = x + TILE / 2 - width / 2, y0 = footY - 84 * scale;
-    ctx.drawImage(image, frame * frameWidth, 0, frameWidth, image.naturalHeight, x0, y0, width, height);
+    return { image, frame, frameWidth, frameHeight: image.naturalHeight, x: x0, y: y0, width, height };
+  }
+
+  function drawTinySwordsSheep(animal, x, y, pose) {
+    const layout = tinySwordsSheepLayout(animal, x, y, pose);
+    if (!layout) return false;
+    ctx.drawImage(layout.image, layout.frame * layout.frameWidth, 0, layout.frameWidth, layout.frameHeight,
+      layout.x, layout.y, layout.width, layout.height);
     return true;
   }
 
-  function drawMilitaryPerson(person, x, y, pose) {
+  function militaryAnimationState(person, pose) {
     const palette = getKingdom(person.kingdomId)?.palette || 'blue';
     const action = person.combatAction;
     const contactElapsed = action ? actorAnimationClock.elapsed('combat:' + person.id, String(action.id), animationTime) : Infinity;
@@ -530,6 +749,11 @@ export function mountGame() {
       sprite = militarySpritePose(restingPerson, pose, -1);
       animation = getUnitAnimation(sprite.unit.folder.toLowerCase(), sprite.action, palette);
     }
+    return { sprite, animation, elapsedMs, battle };
+  }
+
+  function drawMilitaryPerson(person, x, y, pose) {
+    const { sprite, animation, elapsedMs, battle } = militaryAnimationState(person, pose);
     return animationRenderer.draw(ctx, animation, x + TILE / 2, y + TILE,
       { elapsedMs, scale: spriteScale(TILE, CHARACTER_SPRITE_SCALE), flipX: sprite.flip,
         rotation: pose.rotation || 0,
@@ -620,17 +844,23 @@ export function mountGame() {
     return ({ castelo: 'Castelo', torre: 'Torre', centro_militar: 'Centro de treinamento', monasterio: 'Monastério', arquearia: 'Arquearia', vila: 'Vila', mercado: 'Mercado', curral: 'Curral', casa: 'Casa', abrigo: 'Abrigo', roça: 'Roça comunitária', 'posto de coleta': 'Posto de coleta' })[type] || type;
   }
 
-  function drawTinySwordsBuilding(structure, community, kingdom, x, y) {
+  function tinySwordsBuildingLayout(structure, community, kingdom, x = structure.x * TILE, y = structure.y * TILE) {
     const spriteKey = structureSpriteKey(structure);
     const palette = kingdom ? kingdom.palette : community ? communityPalette(community.id) : 'blue';
     ensureTinyPalette(palette);
     const image = tinyBuildingSprites[palette] && tinyBuildingSprites[palette][spriteKey];
-    if (!image || !image.complete || !image.naturalWidth) return false;
+    if (!image || !image.complete || !image.naturalWidth) return null;
     const scale = spriteScale(TILE), width = image.naturalWidth * scale, height = image.naturalHeight * scale;
     const x0 = x + TILE / 2 - width / 2;
     const y0 = y + TILE - (BUILDING_FEET[spriteKey] || image.naturalHeight) * scale;
+    return { image, x: x0, y: y0, width, height };
+  }
+
+  function drawTinySwordsBuilding(structure, community, kingdom, x, y) {
+    const layout = tinySwordsBuildingLayout(structure, community, kingdom, x, y);
+    if (!layout) return false;
     ctx.save(); ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(image, x0, y0, width, height);
+    ctx.drawImage(layout.image, layout.x, layout.y, layout.width, layout.height);
     ctx.restore();
     return true;
   }
@@ -655,7 +885,7 @@ export function mountGame() {
     const width = Math.max(TILE * 2, spec.width * scale);
     const ratio = structure.required > 0
       ? Math.max(0, Math.min(1, (structure.progress || 0) / structure.required)) : 0;
-    drawWorldHealthBar(x + TILE / 2 - width / 2, foundationTop - 9, width, 7, ratio, 'yellow');
+    drawWorldHealthBar(x + TILE / 2 - width / 2, foundationTop - 7, width, 4, ratio, 'yellow');
   }
 
   function tinyTerrainPalette(season = Sim.modules.Cosmos.seasonIndex(world.day)) {
@@ -835,7 +1065,7 @@ export function mountGame() {
       if (t.terrain === 'water') continue;
       const px = t.x * TILE, py = t.y * TILE;
       if (t.cropFieldId == null) continue;
-      const tileSize = SOURCE_TILE_PIXELS;
+      const tileSize = TILE;
       const columns = Math.floor(cropFieldTexture.naturalWidth / tileSize);
       const rows = Math.floor(cropFieldTexture.naturalHeight / tileSize);
       if (!cropFieldTexture.complete || !columns || !rows) continue;
@@ -978,14 +1208,14 @@ export function mountGame() {
     }
   }
 
-  function drawRiceWindOverlay(bounds) {
+  function drawRiceGrowthWindOverlay(bounds) {
     if (!world || visualPack !== 'tiny-swords'
-        || !riceFieldDryPlantsTexture.complete || riceFieldDryPlantsTexture.naturalWidth === 0) return;
+        || !riceGrowthWindTexture.complete || riceGrowthWindTexture.naturalWidth === 0) return;
     const crop = plantIndex('cultivated-root');
     const tileSize = SOURCE_TILE_PIXELS;
-    const columns = Math.floor(riceFieldDryPlantsTexture.naturalWidth / tileSize);
-    const rows = Math.floor(riceFieldDryPlantsTexture.naturalHeight / tileSize);
-    if (!columns || !rows) return;
+    const frameCount = Math.floor(riceGrowthWindTexture.naturalWidth / tileSize);
+    const growthStageCount = Math.floor(riceGrowthWindTexture.naturalHeight / tileSize);
+    if (frameCount < 16 || growthStageCount < 4 || crop < 0) return;
 
     ctx.save();
     ctx.imageSmoothingEnabled = false;
@@ -993,70 +1223,58 @@ export function mountGame() {
     const minY = Math.max(0, bounds?.minY ?? 0), maxY = Math.min(H - 1, bounds?.maxY ?? H - 1);
     for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
       const tile = world.tiles[y * W + x];
-      if (!tile || tile.terrain === 'water' || tile.cropFieldId == null || (tile.plants[crop] || 0) <= 80) continue;
-      const variantCount = columns * rows;
-      const variant = Math.min(variantCount - 1,
-        Math.floor(autoTileHash(tile.x, tile.y, world.seed + 2147) * variantCount));
-      const sourceX = (variant % columns) * tileSize;
-      const sourceY = Math.floor(variant / columns) * tileSize;
+      if (!tile || tile.terrain === 'water' || tile.cropFieldId == null) continue;
+      const cropMass = tile.plants[crop] || 0;
+      if (cropMass < .8) continue;
+      const growthStage = cropMass >= 80 ? 3 : cropMass >= 50 ? 2 : cropMass >= 24 ? 1 : 0;
+      const windFrame = (Math.floor(animationTime / 50)
+        + hashColor(tile.x, tile.y, world.seed + 991)) % frameCount;
+      const sourceX = windFrame * tileSize;
+      const sourceY = growthStage * tileSize;
       const [drawX, drawY, drawWidth, drawHeight] = alignedTileRect(
         tile.x * TILE, tile.y * TILE, TILE, mapTransform
       );
-      const localPhase = tile.x * .17 + tile.y * .11
-        + autoTileHash(tile.x, tile.y, world.seed + 7589) * .18;
-      const swayPixels = Math.round(Math.sin(animationTime / 1150 + localPhase) * 1.5);
-      const sway = swayPixels / Math.max(.01, mapTransform[0]);
-
-      ctx.save();
-      ctx.translate(drawX, drawY);
-      // Pivot at the roots: the tops drift sideways while the soil stays still.
-      ctx.transform(1, 0, -sway / Math.max(1, drawHeight), 1, sway, 0);
-      ctx.drawImage(riceFieldDryPlantsTexture, sourceX, sourceY, tileSize, tileSize,
-        0, 0, drawWidth, drawHeight);
-      ctx.restore();
+      ctx.drawImage(riceGrowthWindTexture, sourceX, sourceY, tileSize, tileSize,
+        drawX, drawY, drawWidth, drawHeight);
     }
     ctx.restore();
   }
 
-  function drawRoads() {
-    const directions = [
-      [0, -1], [1, -1], [1, 0], [1, 1],
-      [0, 1], [-1, 1], [-1, 0], [-1, -1]
-    ];
-    for (const tile of world.tiles) {
-      if (tile.terrain !== 'land' || tile.cropFieldId != null || !isRoadTile(tile)) continue;
-      if (roadTileAtlas.complete && roadTileAtlas.naturalWidth >= 2048 && roadTileAtlas.naturalHeight >= 2048) {
-        let mask = 0;
-        for (let index = 0; index < directions.length; index++) {
-          const [dx, dy] = directions[index];
-          if (isRoadTile(cell(tile.x + dx, tile.y + dy), false)) mask |= 1 << index;
-        }
-        const variant = Math.min(3, Math.floor(autoTileHash(tile.x, tile.y, world.seed + 781) * 4));
-        const sourceIndex = mask * 4 + variant;
-        const sourceX = sourceIndex % 32 * 64, sourceY = Math.floor(sourceIndex / 32) * 64;
-        const alpha = Math.min(.80, .42 + tile.roadWear / ROAD_RULES.maxWear * .38);
-        ctx.save(); ctx.imageSmoothingEnabled = false; ctx.globalAlpha = alpha;
-        ctx.drawImage(roadTileAtlas, sourceX, sourceY, 64, 64,
-          ...alignedTileRect(tile.x * TILE, tile.y * TILE, TILE, mapTransform));
-        ctx.restore();
-      } else {
-        const pathWidth = TILE * .38, x = tile.x * TILE, y = tile.y * TILE;
-        const cx = x + TILE / 2, cy = y + TILE / 2;
-        const neighbors = directions.filter(([dx, dy]) => isRoadTile(cell(tile.x + dx, tile.y + dy), false));
-        const alpha = Math.min(.43, .18 + tile.roadWear * .008);
-        ctx.save(); ctx.strokeStyle = 'rgba(113,84,52,' + alpha + ')'; ctx.lineWidth = pathWidth; ctx.lineCap = 'square';
-        ctx.beginPath();
-        if (neighbors.length) {
-          for (const [dx, dy] of neighbors) {
-            ctx.moveTo(cx, cy); ctx.lineTo(cx + dx * TILE / 2, cy + dy * TILE / 2);
-          }
-        } else {
-          ctx.moveTo(cx - pathWidth / 2, cy); ctx.lineTo(cx + pathWidth / 2, cy);
-        }
-        ctx.stroke();
-        ctx.restore();
-      }
+  function traceMudBlob(tile, radiusScale, seedOffset) {
+    const points = [], centerX = (tile.x + .5) * TILE, centerY = (tile.y + .5) * TILE;
+    const count = 12, rotation = autoTileHash(tile.x, tile.y, world.seed + seedOffset) * Math.PI * 2;
+    for (let index = 0; index < count; index++) {
+      const angle = rotation + index * Math.PI * 2 / count;
+      const jitter = .78 + autoTileHash(tile.x * 17 + index, tile.y * 29 - index, world.seed + seedOffset + 1) * .38;
+      points.push({ x: centerX + Math.cos(angle) * TILE * radiusScale * jitter,
+        y: centerY + Math.sin(angle) * TILE * radiusScale * jitter });
     }
+    ctx.beginPath();
+    for (let index = 0; index < count; index++) {
+      const current = points[index], next = points[(index + 1) % count];
+      const midpoint = { x: (current.x + next.x) / 2, y: (current.y + next.y) / 2 };
+      if (index === 0) ctx.moveTo(midpoint.x, midpoint.y);
+      ctx.quadraticCurveTo(current.x, current.y, midpoint.x, midpoint.y);
+    }
+    ctx.closePath();
+  }
+
+  function drawRoads() {
+    ctx.save();
+    for (const tile of world.tiles) {
+      const wear = tile.roadWear || 0;
+      if (tile.terrain !== 'land' || tile.cropFieldId != null || !isRoadTile(tile, true)) continue;
+      const strength = Math.min(1, (wear - ROAD_RULES.fastAt) / (ROAD_RULES.maxWear - ROAD_RULES.fastAt));
+      const radius = .48 + Math.sqrt(strength) * .12;
+      const alpha = .025 + strength * .05;
+      traceMudBlob(tile, radius, 781);
+      ctx.fillStyle = 'rgba(112, 83, 53, ' + alpha + ')';
+      ctx.fill();
+      traceMudBlob(tile, radius * .58, 1781);
+      ctx.fillStyle = 'rgba(155, 119, 75, ' + (alpha * .28) + ')';
+      ctx.fill();
+    }
+    ctx.restore();
   }
 
   let staticDepthCacheWorld = null, staticDepthCacheDay = -1, staticDepthItems = [];
@@ -1075,7 +1293,8 @@ export function mountGame() {
     function add(kind, x, y, tile, order, id, extra) {
       const z = tile ? Math.max(0, Math.min(1800, tile.heightM || 0)) : 0;
       // Screen-space ground contact is primary; terrain elevation is the explicit Z tie-breaker.
-      items.push(Object.assign({ kind, x, y, z, depth: (y + 1) * TILE * 2048 + z, order, id: id || 0, sequence: sequence++ }, extra || {}));
+      const depthY = extra?.depthY ?? y;
+      items.push(Object.assign({ kind, x, y, z, depth: (depthY + 1) * TILE * 2048 + z, order, id: id || 0, sequence: sequence++ }, extra || {}));
     }
     for (const t of world.tiles) {
       if (t.terrain === 'water' || t.cropFieldId != null) continue;
@@ -1091,7 +1310,7 @@ export function mountGame() {
       }
       let bushAnchor = false;
       for (const plantId of ['berry', 'browse']) {
-        if (isBushAssetAnchor(t, plantId)) {
+        if (isBushAnchor(world, t, plantId)) {
           bushAnchor = true;
           add('bush', t.x, t.y, t, 1, t.i, { tile: t, plantId });
         }
@@ -1109,7 +1328,8 @@ export function mountGame() {
     for (const s of world.structures) {
       if (s.type === 'divisa') continue;
       const tile = cell(Math.round(s.x), Math.round(s.y));
-      add('structure', s.x, s.y, tile, 2, s.id, { structure: s });
+      const footprint = s.type === 'castelo' ? Sim.modules.Collision.structureHitbox(s) : null;
+      add('structure', s.x, s.y, tile, 2, s.id, { structure: s, depthY: structureDepthY(s, footprint) });
       if (s.complete && s.type === 'curral') {
         const radius = Math.max(2, Math.round(s.radius || 3.5));
         const centerX = Math.round(s.x), centerY = Math.round(s.y);
@@ -1244,8 +1464,7 @@ export function mountGame() {
     const gold = item.gold > .05;
     if (gold) {
       const variant = Math.max(1, Math.min(6, Math.ceil(item.gold / 3.5 * 6)));
-      const highlighted = activeMiningSites.has(item.x + ':' + item.y)
-        || selection?.kind === 'cell' && selection.x === item.x && selection.y === item.y;
+      const highlighted = activeMiningSites.has(item.x + ':' + item.y);
       if (highlighted && animationRenderer.draw(ctx, 'resource.gold-stone-' + variant + '-highlight',
         x + TILE / 2, y + TILE / 2, { elapsedMs: animationTime, scale: spriteScale(TILE), phase: item.id || 0 })) return;
       const image = tinyGoldSprites[variant];
@@ -1529,7 +1748,8 @@ export function mountGame() {
         ctx.fillStyle = '#e2d4a5'; ctx.fillRect(x + 4, y + 11, 10, 2);
         ctx.fillStyle = '#b8844e'; ctx.fillRect(x + 7, y + 8, 2, 3); ctx.fillRect(x + 10, y + 7, 2, 4);
       }
-      if (!s.complete && foundationSpec) drawConstructionProgressBar(s, x, y, foundationSpec);
+      const damageVisible = structureDamageBars.visible(s.id, performance.now());
+      if (!s.complete && foundationSpec && !damageVisible) drawConstructionProgressBar(s, x, y, foundationSpec);
       if (s.maxHealth) drawStructureLife(s, x, y, !s.complete && foundationSpec ? 9 : 0);
   }
 
@@ -1537,6 +1757,13 @@ export function mountGame() {
       const p = Sim.animals.find(s => s.id === a.speciesId), x = pose.x * TILE, y = pose.y * TILE;
       if (!p) return;
       if (a.speciesId === 'sheep' && drawTinySwordsSheep(a, x, y, pose)) return;
+      const sheepScale = a.speciesId === 'sheep'
+        ? SHEEP_JUVENILE_MIN_SCALE + (1 - SHEEP_JUVENILE_MIN_SCALE)
+          * Math.max(0, Math.min(1, (a.ageDays || 0) / SHEEP_ADULT_AGE_DAYS)) : 1;
+      if (sheepScale < 1) {
+        ctx.save(); ctx.translate(x + TILE / 2, y + TILE - 1); ctx.scale(sheepScale, sheepScale);
+        ctx.translate(-x - TILE / 2, -y - TILE + 1);
+      }
       if (p.aquatic) {
         ctx.fillStyle = p.color; ctx.fillRect(x + 5, y + 7, 7, 3); ctx.fillRect(x + 11, y + 6, 3, 5);
         ctx.fillStyle = '#f4e8b5'; ctx.fillRect(x + 7, y + 8, 1, 1);
@@ -1550,6 +1777,7 @@ export function mountGame() {
         if (a.speciesId === 'fox') { ctx.fillRect(x + 2, y + 7, 4, 2); ctx.fillRect(x + 3, y + 6, 2, 2); }
         ctx.fillStyle = '#302a22'; ctx.fillRect(x + 12, y + 6, 1, 1);
       }
+      if (sheepScale < 1) ctx.restore();
   }
 
   const npcDamageBars = createDamageBarTracker();
@@ -1583,6 +1811,23 @@ export function mountGame() {
       }
       drawCarriedMeat(p, x, y, pose);
       drawCarriedWood(p, x, y, pose);
+      const disarmed = p.role === 'soldier' && p.combatDisarmedUntilDay > world.day;
+      const opening = p.role === 'soldier' && p.combatOpening?.expiresDay > world.day;
+      if (disarmed || opening) {
+        const badgeX = x + TILE / 2, badgeY = y + 2;
+        ctx.save();
+        ctx.fillStyle = 'rgba(34,31,23,.92)';
+        ctx.beginPath(); ctx.arc(badgeX, badgeY, 4.5, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = disarmed ? '#f2ca73' : '#a9dfa7'; ctx.lineWidth = 1.25;
+        if (disarmed) {
+          ctx.beginPath(); ctx.moveTo(badgeX - 1.7, badgeY - 1.7); ctx.lineTo(badgeX + 1.7, badgeY + 1.7);
+          ctx.moveTo(badgeX + 1.7, badgeY - 1.7); ctx.lineTo(badgeX - 1.7, badgeY + 1.7); ctx.stroke();
+        } else {
+          ctx.beginPath(); ctx.moveTo(badgeX, badgeY - 2.4); ctx.lineTo(badgeX + 2.4, badgeY);
+          ctx.lineTo(badgeX, badgeY + 2.4); ctx.lineTo(badgeX - 2.4, badgeY); ctx.closePath(); ctx.fillStyle = '#a9dfa7'; ctx.fill();
+        }
+        ctx.restore();
+      }
       const now = performance.now();
       const isMonk = p.role === 'soldier' && p.militaryClass === 'monge';
       if (npcDamageBars.visible(p.id, now)) {
@@ -1601,37 +1846,153 @@ export function mountGame() {
 
   function drawSelection() {
     if (!selection) return;
-    if (selection.kind === 'cell') {
-      const x = selection.x * TILE, y = selection.y * TILE;
-      ctx.fillStyle = 'rgba(255,239,177,.24)'; ctx.fillRect(x, y, TILE, TILE);
-      ctx.strokeStyle = '#fff0b4'; ctx.lineWidth = 2;
-      ctx.strokeRect(x + 1, y + 1, TILE - 2, TILE - 2);
-      const arm = Math.max(3, TILE * .45);
-      ctx.beginPath(); ctx.moveTo(x + TILE / 2 - arm, y + TILE / 2); ctx.lineTo(x + TILE / 2 + arm, y + TILE / 2);
-      ctx.moveTo(x + TILE / 2, y + TILE / 2 - arm); ctx.lineTo(x + TILE / 2, y + TILE / 2 + arm); ctx.stroke();
-    } else if (selection.kind === 'person') {
-      const p = getPerson(selection.id); if (!p || p.restingStructureId != null) return;
-      ctx.strokeStyle = '#fff0b4'; ctx.lineWidth = 1.5;
-      const pose = visualPose('person', p);
-      ctx.strokeRect(pose.x * TILE + 1, pose.y * TILE + 1, 14, 15);
-    } else if (selection.kind === 'animal') {
-      const a = getAnimal(selection.id); if (!a) return;
-      const pose = visualPose('animal', a);
-      const x = pose.x * TILE, y = pose.y * TILE;
-      ctx.strokeStyle = '#fff5cd'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.ellipse(x + TILE / 2, y + TILE - 1, a.speciesId === 'sheep' ? 11 : 8, 4, 0, 0, Math.PI * 2); ctx.stroke();
-    } else if (selection.kind === 'kingdom') {
-      const kingdom = getKingdom(selection.id); if (!kingdom) return;
-      ctx.strokeStyle = kingdom.color; ctx.lineWidth = 3;
-      ctx.strokeRect(kingdom.x * TILE - 12, kingdom.y * TILE - 30, 40, 52);
-    } else if (selection.kind === 'structure') {
-      const s = world.structures.find(item => item.id === selection.id); if (!s) return;
-      const x = s.x * TILE, y = s.y * TILE;
-      ctx.strokeStyle = '#fff0b4'; ctx.lineWidth = 1.5;
-      if (s.type === 'divisa') {
-        ctx.beginPath(); ctx.arc(x + 8, y + 8, (s.radius || 4) * TILE + 3, 0, Math.PI * 2); ctx.stroke();
-      } else ctx.strokeRect(x - 8, y - 30, 32, 48);
+    const bounds = selectionBounds(selection);
+    if (bounds) drawSelectionFrame(bounds);
+  }
+
+  function animationSpriteBounds(animation, centerX, baseY, scale, rotation = 0) {
+    const left = -(animation.anchor?.x ?? animation.frameWidth / 2);
+    const top = -(animation.anchor?.y ?? animation.frameHeight);
+    const right = left + animation.frameWidth, bottom = top + animation.frameHeight;
+    const cos = Math.cos(rotation || 0), sin = Math.sin(rotation || 0);
+    const corners = [[left, top], [right, top], [right, bottom], [left, bottom]].map(([x, y]) => ({
+      x: centerX + (x * cos - y * sin) * scale,
+      y: baseY + (x * sin + y * cos) * scale
+    }));
+    const xs = corners.map(point => point.x), ys = corners.map(point => point.y);
+    const minX = Math.min(...xs), minY = Math.min(...ys);
+    return { x: minX, y: minY, width: Math.max(...xs) - minX, height: Math.max(...ys) - minY };
+  }
+
+  function selectionBounds(item) {
+    if (item.kind === 'plant') {
+      const tile = cell(item.x, item.y);
+      if (!tile) return null;
+      const broadleaf = tile.plants[plantIndex('broadleaf')], conifer = tile.plants[plantIndex('conifer')];
+      return tinyTreeSpriteLayout(tile, broadleaf >= conifer ? 'broadleaf' : 'conifer', Math.max(broadleaf, conifer));
     }
+    if (item.kind === 'person') {
+      const person = getPerson(item.id);
+      if (!person || person.restingStructureId != null) return null;
+      const pose = visualPose('person', person);
+      const towerDrop = person.towerMounted
+        ? ((MILITARY_SPRITES[person.militaryClass]?.foot || 0) * .625
+          + (MILITARY_SPRITES[person.militaryClass]?.size || 0) * .1) * spriteScale(TILE, CHARACTER_SPRITE_SCALE) : 0;
+      const x = pose.x * TILE, y = pose.y * TILE + towerDrop;
+      const palette = getKingdom(person.kingdomId)?.palette || 'blue';
+      const animation = person.role === 'soldier'
+        ? militaryAnimationState(person, pose).animation
+        : getUnitAnimation('pawn', residentSpritePose(person, pose, world.day).action, palette);
+      const scale = spriteScale(TILE, CHARACTER_SPRITE_SCALE * (person.role === 'soldier' || person.ageDays >= 12 * 365 ? 1 : .78));
+      return animationSpriteBounds(animation, x + TILE / 2, y + TILE, scale, pose.rotation);
+    }
+    if (item.kind === 'animal') {
+      const animal = getAnimal(item.id);
+      if (!animal) return null;
+      const pose = visualPose('animal', animal), x = pose.x * TILE, y = pose.y * TILE;
+      if (animal.speciesId === 'sheep') {
+        const layout = tinySwordsSheepLayout(animal, x, y, pose);
+        if (layout) return layout;
+      }
+      const profile = Sim.animals.find(species => species.id === animal.speciesId);
+      let bounds = profile?.aquatic ? { x: x + 5, y: y + 6, width: 10, height: 7 }
+        : animal.speciesId === 'bird' ? { x: x + 5, y: y + 4, width: 10, height: 6 }
+          : animal.speciesId === 'fox' ? { x: x + 2, y: y + 5, width: 14, height: 7 }
+            : animal.speciesId === 'hare' ? { x: x + 5, y: y + 2, width: 11, height: 11 }
+              : { x: x + 4, y: y + 5, width: 11, height: 8 };
+      if (animal.speciesId === 'sheep') {
+        const growth = Math.max(0, Math.min(1, (animal.ageDays || 0) / SHEEP_ADULT_AGE_DAYS));
+        const scale = SHEEP_JUVENILE_MIN_SCALE + (1 - SHEEP_JUVENILE_MIN_SCALE) * growth;
+        const anchorX = x + TILE / 2, anchorY = y + TILE - 1;
+        bounds = { x: anchorX + (bounds.x - anchorX) * scale, y: anchorY + (bounds.y - anchorY) * scale,
+          width: bounds.width * scale, height: bounds.height * scale };
+      }
+      return bounds;
+    }
+    if (item.kind === 'kingdom') {
+      const kingdom = getKingdom(item.id);
+      if (!kingdom) return null;
+      const castle = world.structures.find(structure => structure.type === 'castelo' && structure.kingdomId === kingdom.id);
+      return castle ? structureSelectionBounds(castle) : { x: kingdom.x * TILE, y: kingdom.y * TILE, width: TILE, height: TILE };
+    }
+    if (item.kind === 'structure') {
+      const structure = world.structures.find(entry => entry.id === item.id);
+      return structure ? structureSelectionBounds(structure) : null;
+    }
+    if (item.kind === 'loot') {
+      const pile = (world.loot || []).find(entry => entry.id === item.id && entry.available);
+      if (!pile) return null;
+      const x = pile.x * TILE, y = pile.y * TILE;
+      const stoneOnly = (pile.resources.stone || 0) > 0
+        && !['food', 'meat', 'wood', 'gold', 'feed'].some(resource => (pile.resources[resource] || 0) > 0);
+      return stoneOnly ? { x: x + 1, y: y + 5, width: 14, height: 9 } : { x: x - 2, y: y + 1, width: 21, height: 14 };
+    }
+    if (item.kind === 'log') {
+      const log = (world.logs || []).find(entry => entry.id === item.id && entry.available);
+      if (!log) return null;
+      const image = tinyWoodSprite, scale = spriteScale(TILE);
+      const width = image.complete && image.naturalWidth ? image.naturalWidth * scale : TILE;
+      const height = image.complete && image.naturalHeight ? image.naturalHeight * scale : TILE * .7;
+      return { x: log.x * TILE + TILE / 2 - width / 2, y: log.y * TILE + TILE - 46 * scale, width, height };
+    }
+    if (item.kind === 'community') {
+      const community = getCommunity(item.id);
+      if (!community) return null;
+      const radius = (4 + Math.min(4, Math.sqrt(community.memberIds.filter(id => getPerson(id)).length))) * TILE;
+      return { x: community.x * TILE + 8 - radius, y: community.y * TILE + 8 - radius, width: radius * 2, height: radius * 2 };
+    }
+    return null;
+  }
+
+  function structureSelectionBounds(structure) {
+    const x = structure.x * TILE, y = structure.y * TILE;
+    if (structure.type === 'divisa') {
+      const radius = (structure.radius || 4) * TILE + 3;
+      return { x: x + 8 - radius, y: y + 8 - radius, width: radius * 2, height: radius * 2 };
+    }
+    if (structure.type === 'curral' && structure.complete && structure.destroyedDay == null) {
+      const radius = Math.max(2, Math.round(structure.radius || 3.5));
+      return { x: (Math.round(structure.x) - radius) * TILE, y: (Math.round(structure.y) - radius) * TILE,
+        width: (radius * 2 + 1) * TILE, height: (radius * 2 + 1) * TILE };
+    }
+    if (structure.destroyedDay != null) return { x: x - 5, y: y + 2, width: 23, height: 11 };
+    const community = getCommunity(structure.communityId), kingdom = getKingdom(structure.kingdomId);
+    if (structure.complete) {
+      const layout = tinySwordsBuildingLayout(structure, community, kingdom);
+      if (layout) return layout;
+      return { x: x + 3, y: y + 5, width: 12, height: 11 };
+    }
+    const foundation = constructionFoundationSpec(structure);
+    if (foundation) {
+      const scale = spriteScale(TILE), width = foundation.width * scale, height = foundation.height * scale;
+      const feet = BUILDING_FEET[foundation.sprite] || foundation.height;
+      return { x: x + TILE / 2 - width / 2, y: y + TILE - feet * scale, width, height };
+    }
+    return structure.progress > 0 ? { x: x + 4, y: y + 7, width: 8, height: 6 } : null;
+  }
+
+  function drawSelectionFrame(bounds) {
+    const padding = Math.min(4, Math.max(1, Math.min(bounds.width, bounds.height) * .08));
+    const x = bounds.x - padding, y = bounds.y - padding;
+    const width = bounds.width + padding * 2, height = bounds.height + padding * 2;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    if (selectionFrameSprite.complete && selectionFrameSprite.naturalWidth) {
+      const sourceSize = selectionFrameSprite.naturalWidth / 4;
+      const cornerSize = Math.min(20, width / 2, height / 2, Math.max(3, Math.min(width, height) * .36));
+      ctx.drawImage(selectionFrameSprite, 0, 0, sourceSize, sourceSize, x, y, cornerSize, cornerSize);
+      ctx.drawImage(selectionFrameSprite, selectionFrameSprite.naturalWidth - sourceSize, 0, sourceSize, sourceSize,
+        x + width - cornerSize, y, cornerSize, cornerSize);
+      ctx.drawImage(selectionFrameSprite, 0, selectionFrameSprite.naturalHeight - sourceSize, sourceSize, sourceSize,
+        x, y + height - cornerSize, cornerSize, cornerSize);
+      ctx.drawImage(selectionFrameSprite, selectionFrameSprite.naturalWidth - sourceSize,
+        selectionFrameSprite.naturalHeight - sourceSize, sourceSize, sourceSize,
+        x + width - cornerSize, y + height - cornerSize, cornerSize, cornerSize);
+    } else {
+      ctx.strokeStyle = '#fff0b4'; ctx.lineWidth = 1.5;
+      ctx.strokeRect(x, y, width, height);
+    }
+    ctx.restore();
   }
 
   function drawHoveredStructureTerritory() {
@@ -1676,8 +2037,37 @@ export function mountGame() {
   }
 
 
+  function drawCloudOverlay(camera, center) {
+    const width = stage.clientWidth, height = stage.clientHeight;
+    if (!width || !height) return;
+    const ratio = Math.min(window.devicePixelRatio || 1, Math.sqrt(1_000_000 / (width * height)));
+    const backingWidth = Math.max(1, Math.floor(width * ratio));
+    const backingHeight = Math.max(1, Math.floor(height * ratio));
+    const key = [backingWidth, backingHeight, mapZoom, ...camera.transform].join(':');
+    const now = performance.now();
+    if (key === cloudLayerViewKey && (mapZoom >= 2 || now - lastCloudLayerDraw < 1000 / 30 - 1)) return;
+    cloudLayerViewKey = key;
+    lastCloudLayerDraw = now;
+    if (cloudSpritesCanvas.width !== backingWidth || cloudSpritesCanvas.height !== backingHeight) {
+      cloudSpritesCanvas.width = backingWidth;
+      cloudSpritesCanvas.height = backingHeight;
+    }
+    cloudSpritesContext.setTransform(1, 0, 0, 1, 0, 0);
+    cloudSpritesContext.clearRect(0, 0, backingWidth, backingHeight);
+    if (mapZoom >= 2) return;
+    const ratioX = backingWidth / width, ratioY = backingHeight / height;
+    const cloudCamera = {
+      ...camera, width: backingWidth, height: backingHeight,
+      transform: [camera.scale * ratioX, 0, 0, camera.scale * ratioY,
+        camera.offsetX * ratioX, camera.offsetY * ratioY],
+    };
+    cloudSystem.drawAtmosphere(cloudSpritesContext, cloudCamera, width, height, center, mapZoom);
+  }
+
   function drawMap() {
     if (!world) return;
+    updateIndividualTrails(performance.now());
+    syncAtmosphereWithZoom();
     const displayContext = ctx;
     const camera = currentMapCamera();
     mapTransform = camera.transform;
@@ -1722,7 +2112,15 @@ export function mountGame() {
     if (view.width > 0 && view.height > 0) {
       ctx.save();
       ctx.beginPath(); ctx.rect(view.x, view.y, view.width, view.height); ctx.clip();
-      drawRiceWindOverlay(view.bounds);
+      ctx.imageSmoothingEnabled = true;
+      ctx.globalAlpha = .15;
+      ctx.drawImage(trailCanvas, 0, 0, LOGICAL_SIZE, LOGICAL_SIZE);
+      ctx.restore();
+    }
+    if (view.width > 0 && view.height > 0) {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(view.x, view.y, view.width, view.height); ctx.clip();
+      drawRiceGrowthWindOverlay(view.bounds);
       drawHoveredStructureTerritory();
       drawDepthSortedWorld(view.bounds);
       ctx.restore();
@@ -1732,7 +2130,7 @@ export function mountGame() {
       ctx.beginPath(); ctx.rect(view.x, view.y, view.width, view.height); ctx.clip();
       drawSelection();
       ctx.restore();
-      cloudSystem.drawAtmosphere(ctx, camera, stage.clientWidth, stage.clientHeight, cameraCenter, mapZoom);
+      drawCloudOverlay(camera, cameraCenter);
     }
 
 
@@ -1798,7 +2196,6 @@ export function mountGame() {
     $('season').textContent = seasonNames[stats.season].toUpperCase();
     $('temperature').textContent = Math.round(avgTemp) + ' °C';
     $('rainfall').textContent = fmt(stats.rainfallMm, 1) + ' mm';
-    $('moisture').textContent = Math.round(stats.soilMoisture * 100) + '%';
     $('foodPressureTag').hidden = stats.foodRiskPeople === 0;
     $('foodRiskCount').textContent = fmt(stats.foodRiskPeople);
     $('runState').textContent = session.paused ? 'PAUSADA' : 'ATIVA';
@@ -1872,7 +2269,7 @@ export function mountGame() {
       $('rightPanel').classList.remove('is-open');
       $('inspectEyebrow').textContent = 'CAMPO DE OBSERVAÇÃO';
       $('inspectTitle').textContent = 'Um ecossistema em formação';
-      root.innerHTML = '<p class="intro">Selecione uma pessoa, construção ou reino para acompanhar suas condições.</p>';
+      root.innerHTML = '<p class="intro">Selecione um organismo, construção ou reino para acompanhar suas condições.</p>';
       return;
     }
     if (selection.kind === 'kingdom') {
@@ -2128,6 +2525,12 @@ export function mountGame() {
         '<div class="data-row"><span>Alimento / água</span><b>' + Math.round(p.foodReserve) + ' / ' + Math.round(p.hydration) + '%</b></div>' +
         (p.role === 'soldier' ? '<div class="data-row"><span>Vitalidade de combate</span><b>' + Math.round(p.health / 100 * (p.maxCombatHealth || 100)) + ' / ' + (p.maxCombatHealth || 100) + '</b></div>' : '') +
         (p.role === 'soldier' ? '<div class="data-row"><span>Estamina</span><b>' + Math.round(p.stamina ?? 100) + ' / 100</b></div>' : '') +
+        (p.role === 'soldier' && p.combatDisarmedUntilDay > world.day
+          ? '<div class="data-row"><span>Estado de combate</span><b>Desarmado · volta a lutar no dia ' + p.combatDisarmedUntilDay + '</b></div>' : '') +
+        (p.role === 'soldier' && p.combatOpening?.expiresDay > world.day
+          ? '<div class="data-row"><span>Abertura de parry</span><b>Contra ' + esc(getPerson(p.combatOpening.targetId)?.name || 'oponente') + '</b></div>' : '') +
+        (p.role === 'soldier' && p.combatCombo?.lastDay === world.day
+          ? '<div class="data-row"><span>Combo</span><b>' + p.combatCombo.count + ' / 3 golpes contra ' + esc(getPerson(p.combatCombo.targetId)?.name || 'oponente') + '</b></div>' : '') +
         (p.militaryClass === 'monge' ? '<div class="data-row"><span>Mana · cura custa 30</span><b>' + Math.round(p.mana ?? 100) + ' / 100</b></div>' : '') +
         (p.towerMounted ? '<div class="data-row"><span>Posto na torre</span><b>Alcance: 14 células</b></div>' : '') +
         '<div class="data-row"><span>Energia / saúde</span><b>' + Math.round(p.energy) + ' / ' + Math.round(p.health) + '%</b></div>' +
@@ -2172,7 +2575,6 @@ export function mountGame() {
       const a = getAnimal(selection.id);
       if (!a) { selection = null; renderInspector(); return; }
       const profile = Sim.animals.find(p => p.id === a.speciesId);
-      const t = cell(a.x, a.y);
       $('inspectEyebrow').textContent = 'BIOSFERA · FAUNA';
       $('inspectTitle').textContent = profile.name;
       root.innerHTML = '<div class="data-row"><span>Perfil funcional</span><b>' + esc(profile.role) + '</b></div>' +
@@ -2180,8 +2582,6 @@ export function mountGame() {
         (a.beingLedBy ? '<div class="data-row"><span>Conduzida por</span><b>' + esc((getPerson(a.beingLedBy) || {}).name || 'morador') + ' · a caminho do curral</b></div>' : a.herdCommunityId ? '<div class="data-row"><span>Rebanho</span><b>ovelha habituada · ' + Math.round((a.habituation || 0) * 100) + '%</b></div>' : '<div class="data-row"><span>Condição</span><b>ovelha selvagem</b></div>') +
         '<div class="data-row"><span>Idade / longevidade</span><b>' + fmt(a.ageDays / 365, 1) + ' / ' + fmt(profile.life / 365) + ' anos</b></div>' +
         '<div class="data-row"><span>Energia / hidratação</span><b>' + Math.round(a.energy) + ' / ' + Math.round(a.hydration) + '%</b></div>' +
-        '<h3>Condições locais</h3><div class="data-row"><span>Água no solo</span><b>' + Math.round(t.soilWaterMm) + ' mm</b></div>' +
-        '<div class="data-row"><span>Altitude</span><b>' + Math.round(t.heightM) + ' m</b></div>' +
         (a.speciesId === 'sheep' && a.herdCommunityId != null
           ? '<div class="brain-box"><strong>Manejo do rebanho · IA individual desligada</strong><small>A ovelha permanece no curral e recebe uma ração pequena. Os moradores recolhem brotos para manter o estoque comunitário.</small><div class="brain-metrics"><span>Ração diária<b>' + fmt(DOMESTIC_SHEEP_DAILY_FEED, 2) + '</b></span><span>Recebida hoje<b>' + fmt(a.lastFeedAmount || 0, 2) + '</b></span><span>Ração no reino<b>' + fmt((getCommunity(a.herdCommunityId) || { stores: {} }).stores.feed || 0, 1) + '</b></span><span>Aprendizado<b>desativado</b></span></div></div>'
           : '<div class="brain-box"><strong>Controlador individual · rede ' + a.brain.inputSize + ' → ' + a.brain.hiddenSize + ' → ' + a.brain.actionCount + '</strong><small>As necessidades e o habitat limitam as ações possíveis; a rede aprende com os resultados das decisões.</small><div class="brain-metrics"><span>Última intenção<b>' + esc(a.brain.lastAction) + '</b></span><span>Decisões<b>' + a.brain.decisions + '</b></span><span>Atualizações<b>' + a.brain.updates + '</b></span><span>Pesos<b>independentes</b></span></div></div>') +
@@ -2269,26 +2669,15 @@ export function mountGame() {
       if (meter && window.ForjaHUD) meter.append(window.ForjaHUD.create({ size: 'small', color: 'yellow', value: Number(meter.dataset.progress), label: 'Progresso da construção' }));
       return;
     }
-    const d = Sim.inspectTile(world, selection.x, selection.y);
-    if (!d) return;
-    const soilNames = { loam: 'franco', shallow: 'raso/pedregoso', sandy: 'arenoso', riparian: 'margem úmida', water: 'água superficial' };
-    $('inspectEyebrow').textContent = 'GEOSFERA · CÉLULA ' + d.x + ',' + d.y;
-    $('inspectTitle').textContent = d.terrain === 'water' ? 'Água superficial' : 'Solo e habitat';
-    const tileKingdom = d.kingdomId == null ? null : getKingdom(d.kingdomId);
-    root.innerHTML = '<div class="data-row"><span>Terreno</span><b>' + (d.terrain === 'water' ? 'lago' : 'terra firme') + '</b></div>' +
-      '<div class="data-row"><span>Domínio</span><b>' + esc(tileKingdom ? tileKingdom.name : 'terra comum') + '</b></div>' +
-      '<div class="data-row"><span>Superfície</span><b>plana</b></div>' +
-      '<div class="data-row"><span>Classe de solo</span><b>' + (soilNames[d.soilType] || d.soilType) + '</b></div>' +
-      '<div class="data-row"><span>Água retida</span><b>' + d.soilWaterMm + ' / ' + d.soilCapacityMm + ' mm</b></div>' +
-      '<div class="data-row"><span>N mineral</span><b>' + d.mineralNitrogenGPerM2 + ' g/m²</b></div>' +
-      '<div class="data-row"><span>Recursos geológicos</span><b>pedra ' + fmt(d.stoneDeposit, 1) + ' · ouro ' + fmt(d.goldOre, 1) + '</b></div>' +
-      (d.roadWear >= ROAD_RULES.visibleAt ? '<div class="data-row"><span>Trilha</span><b>' + (d.roadWear >= ROAD_RULES.fastAt ? 'consolidada · marcha rápida' : 'em formação · tráfego ' + fmt(d.roadWear, 1)) + '</b></div>' : '') +
-      (d.looseTreeResource > .01 ? '<div class="data-row"><span>Tronco no chão</span><b>' + fmt(d.looseTreeResource, 1) + ' unidades de madeira</b></div>' : '') +
-      (d.stump ? '<div class="data-row"><span>Árvore cortada</span><b>toco em recuperação</b></div>' : '') +
-      '<h3>Caça</h3>' +
-      '<div class="data-row"><span>Potencial de caça</span><b>' + qualityLabel(d.huntingSuitability) + ' · ' + Math.round(d.huntingSuitability * 100) + '% · índice de presas ' + d.nearbyHuntableAnimals + '</b></div>' +
-      '<h3>Biomassa vegetal local</h3>' + (d.plantBiomass.length ? d.plantBiomass.map(p => '<div class="data-row"><span>' + esc(p.name) + '</span><b>' + fmt(p.biomass) + ' g/m²</b></div>').join('') : '<p>Sem biomassa vegetal visível nesta célula.</p>') +
-      '<p class="quiet">Os perfis e taxas desta prévia são parâmetros exploratórios, não uma calibração de campo.</p>';
+    if (selection.kind === 'plant') {
+      const d = Sim.inspectTile(world, selection.x, selection.y);
+      if (!d) return;
+      $('inspectEyebrow').textContent = 'BIOSFERA · VEGETAÇÃO';
+      $('inspectTitle').textContent = 'Vegetação local';
+      root.innerHTML = '<h3>Biomassa vegetal</h3>' + (d.plantBiomass.length
+        ? d.plantBiomass.map(p => '<div class="data-row"><span>' + esc(p.name) + '</span><b>' + fmt(p.biomass) + ' g/m²</b></div>').join('')
+        : '<p>Sem biomassa vegetal visível nesta área.</p>');
+    }
   }
 
   function render() {
@@ -2345,27 +2734,19 @@ export function mountGame() {
       if (!tile || !Sim.modules.Biosphere.Botany.isTreeAnchor(world, tile)) continue;
       const broadleaf = tile.plants[broad], pine = tile.plants[conifer];
       const type = broadleaf >= pine ? 'broadleaf' : 'conifer';
-      const mass = Math.max(broadleaf, pine), variation = hashColor(tx, ty, world.seed + 991);
-      const season = Sim.modules.Cosmos.seasonIndex(world.day);
-      const treeId = type === 'conifer' ? 1 + variation % 2 : season < 2 ? 3 : 4;
-      const sprite = tinyTreeSprites[treeId];
-      const size = mass > 760 ? 1 : mass > 420 ? .84 : .68, scale = spriteScale(TILE, size);
-      const width = 192 * scale, height = (sprite && sprite.naturalHeight || (treeId < 3 ? 256 : 192)) * scale;
-      const baseY = ({ 1: 241, 2: 249, 3: 170, 4: 168 })[treeId];
-      const left = (tx + .5) * TILE - width / 2;
-      const groundY = (ty + 1) * TILE;
-      const top = groundY - baseY * scale;
-      if (pointPx >= left && pointPx <= left + width && pointPy >= top && pointPy <= top + height) {
+      const mass = Math.max(broadleaf, pine);
+      const layout = tinyTreeSpriteLayout(tile, type, mass);
+      if (pointPx >= layout.x && pointPx <= layout.x + layout.width && pointPy >= layout.y && pointPy <= layout.y + layout.height) {
         trees.push({ x: tx, y: ty, depth: ty, distance: Math.hypot(tx - x, ty - y) });
       }
     }
     if (trees.length) {
       trees.sort((a, b) => b.depth - a.depth || a.distance - b.distance);
-      return { kind: 'cell', x: trees[0].x, y: trees[0].y };
+      return { kind: 'plant', x: trees[0].x, y: trees[0].y };
     }
     const kingdom = world.kingdoms.find(k => Math.hypot(k.x - x, k.y - y) < 12);
     if (kingdom) return { kind: 'kingdom', id: kingdom.id };
-    return { kind: 'cell', x: tileX, y: tileY };
+    return null;
   }
 
   function territoryStructureAtMapPosition(mapX, mapY) {
@@ -2413,6 +2794,17 @@ export function mountGame() {
 
   const activeMapPointers = new Map();
   let mapDrag = null, pinchGesture = null, mapGestureMoved = false, ignoreNextMapClick = false;
+  function setMapCursor(mode) {
+    for (const cursorMode of ['entity', 'pan', 'panning', 'blocked']) {
+      canvas.classList.toggle('map-cursor-' + cursorMode, mode === cursorMode);
+    }
+  }
+  function syncMapCursor(panning = false) {
+    if (panning) setMapCursor('panning');
+    else if (hoveredMapEntity) setMapCursor('entity');
+    else if (mapZoom > MIN_MAP_ZOOM + .001) setMapCursor('pan');
+    else setMapCursor('blocked');
+  }
   function beginMapPointer(event) {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
 
@@ -2423,6 +2815,7 @@ export function mountGame() {
       mapDrag = mapZoom > MIN_MAP_ZOOM + .001
         ? { pointerId: event.pointerId, x: event.clientX, y: event.clientY, panX: mapPanX, panY: mapPanY }
         : null;
+      if (event.pointerType === 'mouse') syncMapCursor(!!mapDrag);
     } else if (activeMapPointers.size >= 2) {
       const points = Array.from(activeMapPointers.values()).slice(0, 2);
       const centerX = (points[0].x + points[1].x) / 2, centerY = (points[0].y + points[1].y) / 2;
@@ -2439,11 +2832,13 @@ export function mountGame() {
         const point = currentMapCamera().toWorld(event.clientX - rect.left, event.clientY - rect.top);
         const structure = territoryStructureAtMapPosition(point.x / TILE, point.y / TILE);
         const nextHoveredId = structure?.id ?? null;
-        if (nextHoveredId !== hoveredTerritoryStructureId) {
+        const nextHoveringEntity = !!pickEntity(point.x / TILE, point.y / TILE);
+        if (nextHoveredId !== hoveredTerritoryStructureId || nextHoveringEntity !== hoveredMapEntity) {
           hoveredTerritoryStructureId = nextHoveredId;
-          canvas.style.cursor = hoveredTerritoryStructureId ? 'pointer' : mapZoom > MIN_MAP_ZOOM + .001 ? 'grab' : 'crosshair';
+          hoveredMapEntity = nextHoveringEntity;
+          syncMapCursor();
           drawMap();
-        }
+        } else syncMapCursor();
       }
       return;
     }
@@ -2472,7 +2867,7 @@ export function mountGame() {
       if (Math.hypot(dx, dy) > 4) mapGestureMoved = true;
       if (mapGestureMoved) {
         mapPanX = mapDrag.panX + dx; mapPanY = mapDrag.panY + dy;
-        updateMapViewport(); canvas.style.cursor = 'grabbing';
+        updateMapViewport(); syncMapCursor(true);
       }
     }
   }
@@ -2499,15 +2894,16 @@ export function mountGame() {
         window.setTimeout(() => { ignoreNextMapClick = false; }, 0);
       }
       mapGestureMoved = false;
-      canvas.style.cursor = mapZoom > MIN_MAP_ZOOM + .001 ? 'grab' : 'crosshair';
+      syncMapCursor();
     }
   }
   canvas.addEventListener('pointerdown', beginMapPointer);
   canvas.addEventListener('pointermove', moveMapPointer);
   canvas.addEventListener('pointerleave', () => {
-    if (hoveredTerritoryStructureId == null) return;
+    if (hoveredTerritoryStructureId == null && !hoveredMapEntity) return;
     hoveredTerritoryStructureId = null;
-    canvas.style.cursor = mapZoom > MIN_MAP_ZOOM + .001 ? 'grab' : 'crosshair';
+    hoveredMapEntity = false;
+    setMapCursor('default');
     drawMap();
   });
   canvas.addEventListener('pointerup', endMapPointer);
@@ -2515,10 +2911,11 @@ export function mountGame() {
   canvas.addEventListener('wheel', event => {
     event.preventDefault();
     zoomMapTo(mapZoom * Math.exp(-event.deltaY * .0015), event.clientX, event.clientY);
+    syncMapCursor();
   }, { passive: false });
   $('mapZoomIn').addEventListener('click', () => zoomMapTo(mapZoom * 1.25));
   $('mapZoomOut').addEventListener('click', () => zoomMapTo(mapZoom / 1.25));
-  $('mapZoomReset').addEventListener('click', resetMapViewport);
+  $('mapZoomReset').addEventListener('click', () => resetMapViewport());
 
 
 
@@ -2688,6 +3085,7 @@ export function mountGame() {
     if (!button) return;
     if (button.dataset.structureCommand === 'attack-installation') {
       session.dispatch({ type: 'attack-installation', kingdomId: Number(button.dataset.kingdomId), structureId: Number(button.dataset.structureId) }).then(result => {
+        if (result?.ok) gameAudio.play('war_call', `war-call:installation:${button.dataset.kingdomId}:${button.dataset.structureId}:${Date.now()}`, world.kingdoms.find(item => item.id === Number(button.dataset.kingdomId)));
         selection = { kind: 'kingdom', id: Number(button.dataset.kingdomId) };
         kingdomActionNotice = result?.ok ? 'O rei ordenou o ataque à instalação. A tropa será mobilizada com suprimentos para o cerco.' : result?.reason || 'Não foi possível ordenar o ataque.';
         render();
@@ -2696,6 +3094,7 @@ export function mountGame() {
     }
     if (button.dataset.structureCommand === 'capture-tower') {
       session.dispatch({ type: 'capture-tower', kingdomId: Number(button.dataset.kingdomId), towerId: Number(button.dataset.towerId) }).then(result => {
+        if (result?.ok) gameAudio.play('war_call', `war-call:capture:${button.dataset.kingdomId}:${button.dataset.towerId}:${Date.now()}`, world.kingdoms.find(item => item.id === Number(button.dataset.kingdomId)));
         selection = { kind: 'kingdom', id: Number(button.dataset.kingdomId) };
         kingdomActionNotice = result?.ok ? 'O rei ordenou a captura. A tropa será mobilizada com suprimentos para tomar a torre.' : result?.reason || 'Não foi possível ordenar a captura.';
         render();
@@ -2741,9 +3140,20 @@ export function mountGame() {
   function frame(now) {
     if (lastAnimationFrame && !session.paused) animationTime += Math.min(100, now - lastAnimationFrame) * session.speed;
     lastAnimationFrame = now;
+    gameAudio.update(animationTime, session.speed, session.paused);
+    syncAudioActivation();
     const elapsed = lastAtmosphereUpdate ? Math.min(.1, (now - lastAtmosphereUpdate) / 1000) : 0;
     lastAtmosphereUpdate = now;
     cloudSystem.update(elapsed);
+    if (atmosphereLayerOpacityForZoom(mapZoom) > .001) {
+      fogUpdateAccumulator += elapsed;
+      if (fogUpdateAccumulator >= 1 / 30 - .001) {
+        atmosphericLayer.update(fogUpdateAccumulator);
+        fogUpdateAccumulator = 0;
+      }
+    } else {
+      fogUpdateAccumulator = 0;
+    }
 
     const days = clock.advance(now, session.paused, session.speed);
     if (days > 0) submitClockDays(days);
@@ -2755,4 +3165,5 @@ export function mountGame() {
   }
 
   updateMapViewport();
+  unlockAudio();
 }

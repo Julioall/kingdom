@@ -1,0 +1,257 @@
+{
+  "version": "2.4.0",
+  "events": {
+    "magic_heal": [
+      "effect_magic_heal_01"
+    ],
+    "sword_slash": [
+      "effect_sword_slash_01",
+      "effect_sword_slash_02",
+      "effect_sword_slash_03",
+      "effect_sword_slash_04"
+    ],
+    "sword_armor_impact": [
+      "effect_sword_armor_impact_01"
+    ],
+    "sword_clash": [
+      "effect_sword_clash_02",
+      "effect_sword_clash_01"
+    ],
+    "axe_slash": [
+      "effect_axe_slash_01"
+    ],
+    "crossbow_fire": [
+      "effect_crossbow_fire_01"
+    ],
+    "war_horn": [
+      "effect_war_horn_01"
+    ],
+    "sword_unsheathe": [
+      "effect_sword_unsheathe_01"
+    ],
+    "wood_impact": [
+      "effect_wood_impact_01"
+    ],
+    "bow_draw": [
+      "effect_bow_draw_01"
+    ],
+    "bow_release": [
+      "effect_bow_release_01"
+    ],
+    "magic_cast": [
+      "effect_magic_cast_01"
+    ],
+    "shield_impact": [
+      "effect_shield_impact_01",
+      "effect_shield_impact_02",
+      "effect_shield_impact_03",
+      "effect_shield_impact_04",
+      "effect_shield_impact_05"
+    ],
+    "character_hurt": [
+      "effect_character_hurt_01",
+      "effect_character_hurt_02"
+    ],
+    "war_call": [
+      "effect_war_horn_call_01"
+    ],
+    "retreat_ordered": [
+      "effect_war_horn_retreat_01"
+    ],
+    "building_destroyed": [
+      "effect_building_destroy_01",
+      "effect_building_destroy_02",
+      "effect_building_destroy_03",
+      "effect_building_destroy_04"
+    ],
+    "arrow_release": [
+      "effect_arrow_release_01",
+      "effect_arrow_release_02"
+    ],
+    "arrow_sequence": [
+      "effect_arrow_action_sequence_01",
+      "effect_arrow_flight_impact_sequence_01"
+    ],
+    "arrow_wood_impact": [
+      "effect_arrow_wood_impact_01"
+    ],
+    "arrow_flight": [
+      "effect_arrow_flight_01"
+    ],
+    "arrow_impact": [
+      "effect_arrow_impact_01"
+    ],
+    "bow_string_twang": [
+      "effect_arrow_twang_01"
+    ],
+    "character_fall": [
+      "effect_character_fall_01"
+    ],
+    "body_thud": [
+      "effect_body_thud_01"
+    ],
+    "body_fall_fatal": [
+      "effect_body_fall_fatal_01"
+    ],
+    "spear_thrust": [
+      "effect_spear_thrust_01",
+      "effect_spear_thrust_02",
+      "effect_spear_thrust_03",
+      "effect_spear_thrust_04",
+      "effect_spear_thrust_05",
+      "effect_spear_thrust_06"
+    ],
+    "light_thud": [
+      "effect_light_thud_01"
+    ],
+    "character_body_impact": [
+      "effect_character_body_impact_01"
+    ],
+    "hammer_build": [
+      "effect_hammer_build_01",
+      "effect_hammer_build_02"
+    ],
+    "mining": [
+      "effect_mining_01"
+    ],
+    "harvesting": [
+      "effect_harvesting_01"
+    ],
+    "building_melee_impact": [
+      "effect_building_destroy_01"
+    ],
+    "sheep_bleat": [
+      "effect_sheep_bleat_01",
+      "effect_sheep_bleat_02"
+    ],
+    "lamb_call_mother": [
+      "effect_lamb_call_mother_01"
+    ],
+    "wind_ambience": [
+      "effect_wind_ambience_01"
+    ]
+  },
+  "usage": {
+    "wind_ambience": {
+      "when": "after_audio_unlock",
+      "pick": "continuous_loop",
+      "zoom_gain": "50% de zoom: 70%; 1600% de zoom: 10%; transição suave e controle de volume geral.",
+      "ids": ["effect_wind_ambience_01"]
+    },
+    "building_destroyed": {
+      "when": "on_building_destroyed",
+      "pick": "random_one",
+      "cooldown_rule": "one_shot_per_building_death",
+      "ids": [
+        "effect_building_destroy_01",
+        "effect_building_destroy_02",
+        "effect_building_destroy_03",
+        "effect_building_destroy_04"
+      ]
+    },
+    "war_call": {
+      "when": "on_war_call",
+      "pick": "fixed",
+      "ids": [
+        "effect_war_horn_call_01"
+      ]
+    },
+    "retreat_ordered": {
+      "when": "on_army_retreat_order",
+      "pick": "fixed",
+      "ids": [
+        "effect_war_horn_retreat_01"
+      ]
+    },
+    "war_horn": {
+      "when": "optional_generic_signal",
+      "pick": "fixed",
+      "ids": [
+        "effect_war_horn_01"
+      ]
+    },
+    "building_melee_impact": {
+      "when": "on_positive_sword_or_spear_damage_to_structure",
+      "pick": "fixed",
+      "ids": [
+        "effect_building_destroy_01"
+      ]
+    },
+    "character_body_impact": {
+      "when": "on_melee_body_hit_to_unarmored_pawn",
+      "pick": "fixed",
+      "ids": [
+        "effect_character_body_impact_01"
+      ]
+    },
+    "arrow_wood_impact": {
+      "when": "on_arrow_hit_to_unarmored_target",
+      "pick": "fixed",
+      "ids": [
+        "effect_arrow_wood_impact_01"
+      ]
+    },
+    "crossbow_fire": {
+      "when": "on_arrow_hit_to_armored_military_target_per_design_mapping",
+      "pick": "fixed",
+      "ids": [
+        "effect_crossbow_fire_01"
+      ]
+    },
+    "hammer_build": {
+      "when": "on_successful_pawn_build_activity",
+      "pick": "random_one",
+      "ids": [
+        "effect_hammer_build_01",
+        "effect_hammer_build_02"
+      ]
+    },
+    "mining": {
+      "when": "on_successful_mining_activity",
+      "pick": "fixed",
+      "ids": [
+        "effect_mining_01"
+      ]
+    },
+    "harvesting": {
+      "when": "on_successful_food_or_feed_harvest",
+      "pick": "fixed",
+      "ids": [
+        "effect_harvesting_01"
+      ]
+    },
+    "arrow_sequence": {
+      "when": "reserved_for_four_arrow_area_volley_not_yet_in_game",
+      "pick": "fixed",
+      "ids": [
+        "effect_arrow_action_sequence_01"
+      ]
+    },
+    "sheep_bleat": {
+      "when": "ambient_adult_sheep_vocalization",
+      "pick": "alternate_strictly",
+      "ids": [
+        "effect_sheep_bleat_01",
+        "effect_sheep_bleat_02"
+      ]
+    },
+    "lamb_call_mother": {
+      "when": "ambient_lamb_call_when_separated_from_registered_mother",
+      "pick": "fixed",
+      "ids": [
+        "effect_lamb_call_mother_01"
+      ]
+    }
+  },
+  "integration_notes": [
+    "As quatro versões de building_destroyed são variações alternativas: sorteie uma por evento de destruição, não as quatro em sequência.",
+    "Não iniciar o áudio quando começar a perder vida: tocar somente quando a construção for efetivamente destruída.",
+    "A primeira chamada de corneta grave foi designada para guerra; a segunda para recuo. Elas não são variações aleatórias do mesmo comando.",
+    "Os eventos de flecha permanecem separados em release/flight/impact conforme a simulação.",
+    "effect_building_destroy_01 também marca contato positivo de espada/lança contra estrutura; se o golpe destruir a estrutura, a sequência de impacto e colapso pode usar esse efeito e uma variação de building_destroyed.",
+    "Efeitos de mineração e colheita disparam somente quando a simulação registra coleta positiva; caminhar até o recurso não toca o som.",
+    "Rajada de quatro flechas em arco e área ainda não existe como ação de jogo. arrow_sequence permanece reservado para essa mecânica e não toca em disparos comuns.",
+    "Ovelhas adultas começam a alternar os dois balidos a partir dos 180 dias; filhotes menores usam o chamado da mãe quando estão separados dela.",
+    "Vocalizações são ambientais, espaçadas entre animais e atenuadas pela distância. Os três arquivos deste lote são MP3 e não incluem cópias OGG."
+  ]
+}
