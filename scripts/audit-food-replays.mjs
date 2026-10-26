@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
 import { isDeepStrictEqual } from 'node:util';
 import engine from '../src/simulation/engine.js';
@@ -150,7 +151,8 @@ if (repeatSeed !== null) {
   delete repeatedEntry._world;
   delete repeatedEntry.stateParts;
 }
-const report = { runtime: process.version, base: 'engine.createWorld + production stepDay', days, seeds, repeatSeed, results };
+const report = { runtime: process.version, sourceRevision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+  base: 'engine.createWorld + production stepDay', days, seeds, repeatSeed, results };
 const output = JSON.stringify(report, null, 2) + '\n';
 if (outputPath) await writeFile(outputPath, output, 'utf8');
 process.stdout.write(output);
