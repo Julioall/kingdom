@@ -2,7 +2,8 @@ import { writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import engine from '../src/simulation/engine.js';
 import { HUMAN_FOOD } from '../src/config/ecosystem.js';
-import { plantBiomass } from '../src/simulation/ecology/plants.js';
+import { isBushAnchor, plantBiomass } from '../src/simulation/ecology/plants.js';
+import { bestPeopleFoodCell } from '../src/simulation/individuals/actions.js';
 
 const values = new Map(process.argv.slice(2).map(value => {
   const [key, ...rest] = value.replace(/^--/, '').split('=');
@@ -28,8 +29,14 @@ for (let day = 1; day <= days; day++) {
         foodReserve: item.foodReserve, state: item.state, communityId: item.communityId }))
       .sort((a, b) => a.distance - b.distance || a.id - b.id).slice(0, 3);
     const nearbyFood = world.tiles.filter(tile => Math.hypot(tile.x - person.x, tile.y - person.y) <= 20)
-      .map(tile => ({ x: tile.x, y: tile.y, distance: Math.hypot(tile.x - person.x, tile.y - person.y),
-        edibleBiomass: plantBiomass(tile, HUMAN_FOOD) }))
+      .map(tile => {
+        const perceived = person.perception?.resources?.find(resource => resource.x === tile.x && resource.y === tile.y);
+        return { x: tile.x, y: tile.y, distance: Math.hypot(tile.x - person.x, tile.y - person.y),
+          edibleBiomass: plantBiomass(tile, HUMAN_FOOD), berryAnchor: isBushAnchor(world, tile, 'berry'),
+          cropFieldId: tile.cropFieldId ?? null,
+          perceived: perceived ? { distance: perceived.distance, biomass: perceived.biomass,
+            harvestableBiomass: perceived.harvestableBiomass } : null };
+      })
       .filter(tile => tile.edibleBiomass > 0)
       .sort((a, b) => a.distance - b.distance || b.edibleBiomass - a.edibleBiomass).slice(0, 5);
     deaths.push({
@@ -38,6 +45,9 @@ for (let day = 1; day <= days; day++) {
       lastLesson: person.lastLesson, x: person.x, y: person.y,
       communityId: person.communityId, kingdomId, homeId: person.homeId,
       guardianId: person.guardianId, assignment: person.assignment,
+      foodTarget: person.foodTarget || null,
+      selectedFoodTarget: (() => { const target = bestPeopleFoodCell(world, person, 8); return target && { x: target.x, y: target.y }; })(),
+      lastDecision: person.lastDecision || null,
       communityFood: community?.stores?.food ?? 0,
       nearestAdults, nearestFood: nearbyFood
     });
