@@ -56,10 +56,10 @@ test('forager approaches the interaction edge of a berry anchor blocked by its t
   alternate.plants[berryIndex] = 100;
   person.perception.resources.push({ x: alternate.x, y: alternate.y, distance: Math.hypot(person.x - alternate.x, person.y - alternate.y),
     terrain: 'land', slope: 0, biomass: { berry: 100 }, harvestableBiomass: { berry: 100 } });
-  person.failedFoodTargets = [{ x: target.x, y: target.y, untilDay: world.day + 7 }];
+  person.failedFoodTargets = [{ x: target.x, y: target.y, untilDay: world.day + 1 }];
   assert.deepEqual(bestPeopleFoodCell(world, person, 8), alternate,
     'an unreachable resource is skipped while its short cooldown is active');
-  world.day += 8;
+  world.day += 2;
   assert.deepEqual(bestPeopleFoodCell(world, person, 8), target,
     'the target becomes eligible again after the cooldown expires');
 });
