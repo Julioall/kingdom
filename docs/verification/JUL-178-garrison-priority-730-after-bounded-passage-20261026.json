@@ -1,0 +1,58 @@
+{
+  "runtime": "v24.19.0",
+  "sourceRevision": "09d3933bd5beed43eaea7e2abeffa15135a5fbb2",
+  "base": "engine.createWorld + production stepDay",
+  "days": 730,
+  "seeds": [42],
+  "repeatSeed": 42,
+  "elapsedSeconds": [133.41, 147.78],
+  "stateSha256": "6d272cd56cc103b978a189f2e641f184339d38eb50491327bcd563090cea1af5",
+  "chronicleSha256": "7c1ee5ec265254c557c1499bce244b3da9b170410df29e38d00c7269e55f1c5b",
+  "determinismVerified": true,
+  "determinismDiff": [],
+  "livingPeople": 87,
+  "adultDaysFoodReserveBelow20": 36913,
+  "births": 25,
+  "deaths": 12,
+  "deathsByCause": {
+    "starvation": 0,
+    "dehydration": 0,
+    "age": 0,
+    "injury": 0,
+    "combat": 2,
+    "predation": 0,
+    "harvest": 0,
+    "invasion": 10
+  },
+  "harvests": {
+    "hunting": 0,
+    "fishing": 0,
+    "livestock": 0,
+    "livestockMeat": 0,
+    "plantFoodBiomass": 36091.103211122485,
+    "cultivatedFoodBiomass": 7417.13138115406
+  },
+  "ecologyFlows": {
+    "humanFoodRegrowth": 87036.04831080552,
+    "humanFoodNaturalLoss": 0,
+    "humanFoodSettlementLoss": 0,
+    "humanFoodEcologicalLoss": 0,
+    "humanFoodCultivatedRegrowth": 10454.679385433696,
+    "humanFoodCultivationSeeded": 16,
+    "livestockFeedConsumed": 316.5600000000004
+  },
+  "foodBiomass": 141626.25,
+  "campaignBattles": 45,
+  "marketTransactions": 78,
+  "stocks": {
+    "communityFood": 0,
+    "communityMeat": 0,
+    "treasuryFood": 0,
+    "marketFood": 0,
+    "personalFoodReserve": 1490.69,
+    "carriedFood": 0,
+    "carriedFruit": 0,
+    "carriedMeat": 0,
+    "campaignFieldFood": 0
+  }
+}

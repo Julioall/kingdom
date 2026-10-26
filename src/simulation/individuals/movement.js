@@ -12,6 +12,7 @@ import { collidesWithWorldAt, hitboxesOverlap, mineralHitbox, npcHitbox, worldCo
 
 const PASSAGE_BUSY_ACTIONS = new Set(['forage', 'hunt', 'deliver', 'drink', 'rest', 'build', 'gather',
   'collect_log', 'collect_feed', 'trade', 'capture_sheep', 'lead_sheep', 'raid', 'campaign']);
+const MAX_PASSAGE_HANDOFF_DEPTH = 12;
 
 function insideCorral(x, y, structure, radius) {
   return x > structure.x - radius && x < structure.x + radius
@@ -177,6 +178,11 @@ function respondToPassageRequest(w, person) {
   if (request.expiresDay < w.day) return false;
   const requester = personById(w, request.requesterId);
   if (!requester || Math.hypot(requester.x - request.x, requester.y - request.y) > 2) return false;
+  const passageChain = request.passageChain instanceof Set ? request.passageChain : new Set();
+  if (passageChain.has(person.id) || passageChain.size >= MAX_PASSAGE_HANDOFF_DEPTH) {
+    requester.passageResponse = { personId: person.id, accepted: false, day: w.day };
+    return false;
+  }
   if (!canYieldPassage(w, person, requester)) {
     requester.passageResponse = { personId: person.id, accepted: false, day: w.day };
     return false;
@@ -197,11 +203,16 @@ function respondToPassageRequest(w, person) {
   candidates.sort((a, b) => a.lateral - b.lateral
     || Math.hypot(b.tile.x - requester.x, b.tile.y - requester.y) - Math.hypot(a.tile.x - requester.x, a.tile.y - requester.y)
     || a.tile.y - b.tile.y || a.tile.x - b.tile.x);
-  for (const { tile } of candidates) {
-    if (moveOne(w, person, tile, false, { passageYield: true })) {
-      requester.passageResponse = { personId: person.id, accepted: true, day: w.day };
-      return true;
+  passageChain.add(person.id);
+  try {
+    for (const { tile } of candidates) {
+      if (moveOne(w, person, tile, false, { passageYield: true, passageChain })) {
+        requester.passageResponse = { personId: person.id, accepted: true, day: w.day };
+        return true;
+      }
     }
+  } finally {
+    passageChain.delete(person.id);
   }
   requester.passageResponse = { personId: person.id, accepted: false, day: w.day };
   return false;
@@ -355,9 +366,19 @@ export function moveOne(w, agent, target, aquatic, movementOptions = null) {
       const preferred = stepToward(current, false);
       const blocker = personOnTile(w, preferred, agent);
       if (blocker) {
-        blocker.passageRequest = { requesterId: agent.id, x: preferred.x, y: preferred.y, expiresDay: w.day + 1 };
-        agent.passageRequestSent = { personId: blocker.id, x: preferred.x, y: preferred.y, day: w.day };
-        respondToPassageRequest(w, blocker);
+        const passageChain = movementOptions.passageChain instanceof Set ? movementOptions.passageChain : new Set();
+        if (!passageChain.has(blocker.id) && passageChain.size < MAX_PASSAGE_HANDOFF_DEPTH) {
+          const ownsChainEntry = !passageChain.has(agent.id);
+          if (ownsChainEntry) passageChain.add(agent.id);
+          blocker.passageRequest = { requesterId: agent.id, x: preferred.x, y: preferred.y,
+            expiresDay: w.day + 1, passageChain };
+          agent.passageRequestSent = { personId: blocker.id, x: preferred.x, y: preferred.y, day: w.day };
+          try {
+            respondToPassageRequest(w, blocker);
+          } finally {
+            if (ownsChainEntry) passageChain.delete(agent.id);
+          }
+        }
         const canEnterFree = tile => canEnter(w, agent, tile, aquatic, pen, corrals, movementOptions) && !personOnTile(w, tile, agent);
         const canStepFree = (from, to) => canStep(w, agent, from, to, aquatic, pen, corrals, movementOptions) && !personOnTile(w, to, agent);
         first = !personOnTile(w, preferred, agent) ? preferred : localCongestionStep(w, agent,

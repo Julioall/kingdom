@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
+    "audit:food": "node scripts/audit-food-replays.mjs",
+    "audit:livestock": "node scripts/audit-livestock-scenario.mjs",
+    "audit:social": "node scripts/audit-social-baseline.mjs",
     "dev": "node scripts/run-local.mjs",
     "dev:vite": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build && node scripts/optimize-images.mjs",

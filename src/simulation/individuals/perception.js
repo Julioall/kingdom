@@ -65,7 +65,18 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
         const key = targetKind + ':' + target.id;
         seenKeys.add(key);
         const sighting = { id: target.id, kind: targetKind, speciesId: target.speciesId || null,
-          x: target.x, y: target.y, distance: d, visible: true, confidence: 1, lastSeenDay: world.day };
+          x: target.x, y: target.y, distance: d, visible: true, confidence: 1, lastSeenDay: world.day,
+          ...(targetKind === 'person' ? {
+            visibleSignals: {
+              foodDistress: Number.isFinite(target.foodReserve) && target.foodReserve < 48,
+              foodSurplus: Number.isFinite(target.foodReserve) && target.foodReserve > 82,
+              waterDistress: Number.isFinite(target.hydration) && target.hydration < 55,
+              physicalEmergency: Number.isFinite(target.hydration) && target.hydration <= 9
+                || Number.isFinite(target.foodReserve) && target.foodReserve <= 8
+                || Number.isFinite(target.health) && target.health <= 18
+                || Number.isFinite(target.energy) && target.energy <= 8
+            }
+          } : {}) };
         memory.actors[key] = { id: target.id, kind: targetKind, speciesId: sighting.speciesId,
           x: target.x, y: target.y, lastSeenDay: world.day };
         (targetKind === 'animal' ? visibleAnimals : visiblePeople).push(sighting);
@@ -123,7 +134,8 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
     const water = resources.filter(resource => resource.waterSource);
     const rememberedWater = new Map((memory.water || []).map(point => [point.x + ',' + point.y, point]));
     for (const resource of water) rememberedWater.set(resource.x + ',' + resource.y,
-      { x: resource.x, y: resource.y, source: resource.waterSource, lastSeenDay: world.day });
+      { x: resource.x, y: resource.y, source: resource.waterSource, lastSeenDay: world.day,
+        knowledgeOrigin: 'observed', reportedById: null, evidenceEventId: null, acquiredDay: world.day });
     memory.water = [...rememberedWater.values()].filter(point => world.day - point.lastSeenDay
       <= (point.source === 'lake' || point.source === 'ocean' ? 20 : 1));
     memory.logs = memory.logs || {};
@@ -226,7 +238,10 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
       animals: visibleAnimals.concat(rememberedAnimals), people: visiblePeople.concat(rememberedPeople),
       resources, logs: visibleLogs.concat(rememberedLogs), knownWater: memory.water.map(point => ({ x: point.x, y: point.y, source: point.source,
         distance: distance(observer, point), visible: world.day - point.lastSeenDay <= 0,
-        confidence: Math.exp(-Math.max(0, world.day - point.lastSeenDay) / (point.source === 'lake' || point.source === 'ocean' ? 12 : .8)), lastSeenDay: point.lastSeenDay })),
+        confidence: Math.exp(-Math.max(0, world.day - point.lastSeenDay) / (point.source === 'lake' || point.source === 'ocean' ? 12 : .8)),
+        lastSeenDay: point.lastSeenDay, knowledgeOrigin: point.knowledgeOrigin || 'observed',
+        reportedById: point.reportedById ?? null, evidenceEventId: point.evidenceEventId ?? null,
+        acquiredDay: point.acquiredDay ?? point.lastSeenDay })),
       knownStorages, territorialAwareness
     };
   }

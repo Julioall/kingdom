@@ -8,6 +8,7 @@ import { MILITARY_CLASSES } from './military.js';
 import { moveOne } from '../individuals/movement.js';
 import { structureInteractionPoint } from '../physics/hitboxes.js';
 import { recordTrade } from '../economy/trade-ledger.js';
+import { recordSocialBeliefEvidence, recordSocialFact, rememberSocialFact } from '../society/social-evidence.js';
 
 export const MILITARY_PAY = Object.freeze({ gold: 15, days: 30 });
 export const PEACETIME_SOLDIER_FOOD_NEED = DAILY_FOOD_NEED * .45;
@@ -136,19 +137,47 @@ function paySoldier(world, person, day) {
   person.militaryWallet ||= { stock: { gold: 0 } };
   person.nextMilitaryPayDay ??= day;
   person.militaryPayArrears ||= 0;
+  const previousArrears = person.militaryPayArrears;
+  let missedPayDay = null;
   if (person.campaignId == null) {
     person.nextMilitaryPayDay = day + MILITARY_PAY.days;
   } else if (day >= person.nextMilitaryPayDay) {
+    missedPayDay = person.nextMilitaryPayDay;
     const months = Math.floor((day - person.nextMilitaryPayDay) / MILITARY_PAY.days) + 1;
     person.militaryPayArrears += months * MILITARY_PAY.gold;
     person.nextMilitaryPayDay += months * MILITARY_PAY.days;
   }
   const paid = transferInventory(kingdom.treasury, person.militaryWallet, 'gold', person.militaryPayArrears, 'military-salary');
   person.militaryPayArrears = Math.max(0, person.militaryPayArrears - paid);
+  if (missedPayDay !== null && person.militaryPayArrears > previousArrears) {
+    recordMilitaryPayExperience(world, person, kingdom, 'military_pay_delayed',
+      person.militaryPayArrears - previousArrears, day, missedPayDay);
+  }
+  if (previousArrears > 0 && paid > 0) {
+    recordMilitaryPayExperience(world, person, kingdom, 'military_pay_recovered', paid, day, null);
+  }
   if (paid > 0) {
     person.lastMilitaryPayDay = day;
     person.totalMilitaryPay = (person.totalMilitaryPay || 0) + paid;
   }
+}
+
+function recordMilitaryPayExperience(world, soldier, kingdom, type, amount, paymentDay, dueDay) {
+  const nextFact = world.socialEvidence?.nextFactNumber || 1;
+  const fact = recordSocialFact(world, {
+    idempotencyKey: 'military-pay:' + type + ':' + soldier.id + ':' + paymentDay + ':' + nextFact,
+    type,
+    participantIds: [soldier.id],
+    witnessIds: [soldier.id],
+    targetId: kingdom.id,
+    location: Number.isFinite(soldier.x) && Number.isFinite(soldier.y) ? { x: soldier.x, y: soldier.y } : null,
+    outcome: { resource: 'gold', amount, paymentDay, dueDay }
+  });
+  rememberSocialFact(world, soldier.id, fact.eventId, { source: 'direct', deferPrune: true });
+  recordSocialBeliefEvidence(world, soldier.id, {
+    topic: 'military_pay_reliability', aboutId: kingdom.id, eventId: fact.eventId,
+    polarity: type === 'military_pay_delayed' ? -1 : 1
+  });
 }
 
 export function payMilitarySalaries(world, day) {

@@ -1,5 +1,5 @@
 import { nearestLoot, collectLoot } from '../economy/loot.js';
-import { ANIMALS, DAILY_FOOD_NEED, FOOD_RESERVE_PER_UNIT, HUMAN_FOOD, PEOPLE_ACTIONS, PLANTS } from '../../config/ecosystem.js';
+import { ANIMALS, DAILY_FOOD_NEED, FOOD_RESERVE_PER_UNIT, HUMAN_FOOD, MEAT_NUTRITIONAL_VALUE, PEOPLE_ACTIONS, PLANTS, SHEEP_ADULT_AGE_DAYS } from '../../config/ecosystem.js';
 import { clamp, distance, species } from '../core/math.js';
 import { cellAt, cellsWithin, nearby } from '../world/spatial.js';
 import { resourceUsePressure } from '../world/roads.js';
@@ -8,7 +8,7 @@ import { log } from '../core/events.js';
 import { rand } from '../core/random.js';
 import { addFoodReserve, addHarvestedFood, addResource, carriedResources, communityFoodStock, communityMaterialStock, consumeEdibleCargo, consumeFoodReserve, moveCarriedResource, storeCommunityFruit, transferResource, withdrawCommunityFood } from '../economy/inventories.js';
 import { moveOne } from './movement.js';
-import { bushHarvestHitbox, hitboxesOverlap, mineralHitbox, npcHitbox } from '../physics/hitboxes.js';
+import { bushHarvestHitbox, collidesWithWorldAt, hitboxesOverlap, mineralHitbox, npcHitbox, worldCollisionIndex } from '../physics/hitboxes.js';
 import { communityHerd, domesticatedSheep } from '../ecology/animals.js';
 import { communityRelation, completeCommunityTask, updateCommunityGovernance } from '../society/governance.js';
 import { canCommunityBuild, communityBuildUtility, communityBuildingNeed, communityStructures, nextCommunityStructure, workOnCommunityStructure } from '../settlements/construction.js';
@@ -16,7 +16,7 @@ import { eatPlants, isBushAnchor, plantBiomass } from '../ecology/plants.js';
 import { refreshHarvestSuitability } from '../world/queries.js';
 import { changePersonHealth, killPerson, reproducePeople, updateDependent } from './lifecycle.js';
 import Senses from './perception.js';
-import { findTradePartner, performShare, performTrade } from '../economy/trade.js';
+import { findTradePartner, performShare, performTrade, resolveFoodAidRequest } from '../economy/trade.js';
 import { choosePeopleAction, updateBrain } from '../../controllers/individual/neural.js';
 import { drinkWater } from '../ecology/hydrology.js';
 import { recordPersonalMemory } from './strategy.js';
@@ -31,12 +31,15 @@ import { createPersonSpatialIndex, peopleNear } from './spatial-index.js';
 import { invalidateNavigation } from './navigation-cache.js';
 import { clearMilitaryCommand } from '../kingdoms/military-identity.js';
 import { updateResidencyAbsence } from '../society/residency.js';
+import { resolveSocialMeeting } from '../society/social-meetings.js';
+import { indicateKnownWaterReference } from '../society/water-indication.js';
 import { consumePersonEnergy } from './energy.js';
 import { chooseMilitaryAction, learnMilitaryOutcome, militaryTrainingPairs, trainMilitaryPair } from '../kingdoms/military-learning.js';
 
 const STARVATION_HEALTH_LOSS_PER_POINT = .035;
 const PERSONAL_FOOD_PRESSURE_THRESHOLD = 42;
 const FORAGE_TARGET_HYSTERESIS = .14;
+const MAX_FAILED_FOOD_TARGETS = 8;
 const RESOURCE_CONFLICT_TRUCE_DAYS = 14;
 const HARVEST_REACH_DISTANCE = 1.05;
 
@@ -99,12 +102,25 @@ function harvestHumanFood(w, tile, capacity) {
     return harvest;
   }
 
+export function personalFoodHarvestLimit(person, requested, reserveCapacity, directStorage = false) {
+    if (!person || !Number.isFinite(requested) || requested <= 0
+        || !Number.isFinite(reserveCapacity) || reserveCapacity < 0) return 0;
+    const alreadyCarried = Number.isFinite(person.carriedFruit) ? Math.max(0, person.carriedFruit) : 0;
+    const carryCapacity = directStorage ? requested : Math.max(0, 24 - alreadyCarried);
+    return Math.min(requested, reserveCapacity + carryCapacity);
+  }
+
 export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
     let best = null, bestScore = -Infinity;
     const resources = person.perception && person.perception.resources || [];
+    const failedTargets = (person.failedFoodTargets || []).filter(target => Number.isInteger(target.x)
+      && Number.isInteger(target.y) && Number.isInteger(target.untilDay) && target.untilDay >= w.day);
+    if (failedTargets.length !== (person.failedFoodTargets || []).length) person.failedFoodTargets = failedTargets;
+    const failedTargetKeys = new Set(failedTargets.map(target => target.x + ',' + target.y));
     const harvestCapacity = clamp(1.8 + person.skills.forage * 3.2, 1.8, 5);
     for (const resource of resources) {
       const tile = cellAt(w, resource.x, resource.y);
+      if (failedTargetKeys.has(resource.x + ',' + resource.y)) continue;
       if (fieldId != null && tile?.cropFieldId !== fieldId) continue;
       if (tile?.cropFieldId == null && !isBushAnchor(w, tile, 'berry')) continue;
       const availableFood = resource.harvestableBiomass || resource.biomass;
@@ -121,10 +137,46 @@ export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
       const usePressurePenalty = tile?.cropFieldId == null ? resourceUsePressure(tile) * .34 : 0;
       const score = Math.min(food, harvestCapacity) * .018 - resource.distance * .065 - resource.slope * .09
         - warningPenalty - usePressurePenalty + continuityBonus;
+      if (score <= bestScore) continue;
+      if (tile?.cropFieldId == null && !foodApproachTiles(w, person, tile).length) continue;
       if (score > bestScore) { best = cellAt(w, resource.x, resource.y); bestScore = score; }
     }
     return best;
   }
+
+function foodApproachTiles(w, person, foodTile) {
+  if (!w || !person || !foodTile || foodTile.cropFieldId != null
+      || !isBushAnchor(w, foodTile, 'berry')) return [];
+  const harvestHitbox = bushHarvestHitbox(w, foodTile, 'berry');
+  if (!harvestHitbox) return [];
+  const collisionIndex = worldCollisionIndex(w);
+  const candidates = [];
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    const tile = cellAt(w, foodTile.x + dx, foodTile.y + dy);
+    if (!tile || tile.terrain !== 'land' || collidesWithWorldAt(w, person, tile.x, tile.y, collisionIndex)
+        || !canEnterForeignTerritory(w, person, tile)
+        || !hitboxesOverlap(npcHitbox(person, tile.x, tile.y), harvestHitbox)) continue;
+    candidates.push(tile);
+  }
+  return candidates.sort((a, b) => distance(person, a) - distance(person, b)
+    || distance(a, foodTile) - distance(b, foodTile) || a.y - b.y || a.x - b.x);
+}
+
+export function moveTowardFood(w, person, foodTile) {
+  if (foodTile?.cropFieldId != null) return moveOne(w, person, foodTile, false);
+  for (const approach of foodApproachTiles(w, person, foodTile)) {
+    if (moveOne(w, person, approach, false)) {
+      person.failedFoodTargets = (person.failedFoodTargets || []).filter(target =>
+        target.x !== foodTile.x || target.y !== foodTile.y);
+      return true;
+    }
+  }
+  const failedTargets = (person.failedFoodTargets || []).filter(target => target.untilDay >= w.day
+    && (target.x !== foodTile.x || target.y !== foodTile.y));
+  failedTargets.push({ x: foodTile.x, y: foodTile.y, untilDay: w.day });
+  person.failedFoodTargets = failedTargets.slice(-MAX_FAILED_FOOD_TARGETS);
+  return false;
+}
 
 export function collectFoodForCommunity(w, person, tile) {
     if (!person || !tile) return 0;
@@ -250,6 +302,24 @@ export function nearestShelterFor(w, person) {
       .sort((a, b) => distance(person, a) - distance(person, b))[0] || null;
   }
 
+export function nearestEmergencyHerdSheep(w, person, community, radius = 2.25) {
+    if (!w || !person || !community || person.communityId !== community.id || person.foodReserve >= 48
+        || (person.carriedMeat || 0) > .01 || !nearestShelterFor(w, person)) return null;
+    const adults = domesticatedSheep(w, community).filter(animal => animal.ageDays >= SHEEP_ADULT_AGE_DAYS && !animal.beingLedBy);
+    if (adults.length <= 2) return null;
+    const visibleHerd = new Set((person.perception && person.perception.animals || [])
+      .filter(sighting => sighting.visible && sighting.speciesId === 'sheep').map(sighting => sighting.id));
+    if (!visibleHerd.size) return null;
+    const residents = (w.people || []).filter(item => item.alive && item.communityId === community.id);
+    const dailyDemand = residents.reduce((total, item) => total + (item.ageDays >= 12 * 365 ? DAILY_FOOD_NEED : .42), 0);
+    const storedShelterMeat = (w.structures || []).filter(shelter => usableShelter(shelter) && shelter.communityId === community.id)
+      .reduce((total, shelter) => total + Math.max(0, Number(shelter.meatStored) || 0), 0);
+    const unregisteredShelterMeat = Math.max(0, storedShelterMeat - Math.max(0, Number(community.stores.meat) || 0));
+    if (communityFoodStock(community) + unregisteredShelterMeat * MEAT_NUTRITIONAL_VALUE + .001 >= dailyDemand) return null;
+    return adults.filter(animal => visibleHerd.has(animal.id) && distance(person, animal) <= radius)
+      .sort((a, b) => distance(person, a) - distance(person, b) || a.id - b.id)[0] || null;
+  }
+
 function usableShelter(structure) {
     return structure.complete && structure.type === 'abrigo' && structure.destroyedDay == null
       && structure.integrity !== 0 && structure.health !== 0;
@@ -303,7 +373,10 @@ export function nearestPenFor(w, person) {
   }
 
 export function attemptHumanHunt(w, person, prey, community) {
-    if (!prey || !prey.alive || prey.herdCommunityId != null || prey.beingLedBy || person.carriedMeat > .01) return false;
+    if (!prey || !prey.alive || prey.beingLedBy || person.carriedMeat > .01) return false;
+    const livestock = prey.herdCommunityId != null;
+    if (livestock && (prey.speciesId !== 'sheep'
+        || nearestEmergencyHerdSheep(w, person, community, 2.25)?.id !== prey.id)) return false;
     if (!nearestShelterFor(w, person)) {
       person.state = 'sem abrigo para armazenar caça';
       person.lastLesson = 'Sem um abrigo, a caça não pode ser guardada; procurar alimento ou migrar evita insistir sem retorno.';
@@ -323,16 +396,23 @@ export function attemptHumanHunt(w, person, prey, community) {
       person.lastLesson = 'A presa escapou; perseguir custou energia e hidratação. Uma área com mais presas ou ajuda de outros membros melhora a próxima tentativa.';
       return false;
     }
-    prey.alive = false; w.deaths++; w.deathsByCause.harvest++;
-    w.harvests.hunting++;
-    if (tile) tile.detritusGPerM2 += prey.massKg * 8;
     const meat = clamp(prey.massKg * .48, 1.2, 28);
-    addResource(person, 'carriedMeat', meat, 28);
+    const meatAdded = addResource(person, 'carriedMeat', meat, 28);
+    if (meatAdded + .001 < meat) return false;
+    prey.alive = false; w.deaths++; w.deathsByCause.harvest++;
+    if (livestock) {
+      w.harvests.livestock = (w.harvests.livestock || 0) + 1;
+      w.harvests.livestockMeat = Number(((w.harvests.livestockMeat || 0) + meatAdded).toFixed(2));
+    } else {
+      w.harvests.hunting++;
+      if (tile) tile.detritusGPerM2 += prey.massKg * 8;
+    }
     person.skills.hunt = clamp(person.skills.hunt + .012, 0, 1);
-    person.state = 'carregando carne';
-    person.lastLesson = 'A captura gerou carne, mas a reserva só fica disponível depois que a carga chega a um abrigo.';
-    markCommunityGround(w, person, 'hunting', tile);
-    log(w, person.name + ' caçou ' + profile.name.toLowerCase() + ' e carregou ' + meat.toFixed(1) + ' unidades de carne para armazenar em um abrigo.');
+    person.state = livestock ? 'levando carne do rebanho ao abrigo' : 'carregando carne';
+    person.lastLesson = 'A captura converteu um animal em carne carregada; a reserva só recebe o alimento quando a carga chega ao abrigo.';
+    if (!livestock) markCommunityGround(w, person, 'hunting', tile);
+    log(w, person.name + (livestock ? ' abateu uma ovelha adulta excedente de ' + community.name : ' caçou ' + profile.name.toLowerCase())
+      + ' e carregou ' + meat.toFixed(1) + ' unidades de carne para armazenar em um abrigo.');
     return true;
   }
 
@@ -375,6 +455,8 @@ export function huntForFood(w, person, community) {
     }
     const prey = nearestHuntable(w, person, 2.25);
     if (prey) return attemptHumanHunt(w, person, prey, community);
+    const herdPrey = nearestEmergencyHerdSheep(w, person, community, 2.25);
+    if (herdPrey) return attemptHumanHunt(w, person, herdPrey, community);
     const ground = bestHuntingGround(w, person, 13);
     if (ground) {
       moveOne(w, person, ground, false);
@@ -732,6 +814,7 @@ export function resolveResourceConflict(w, a, b, tile, resourceKind, patchValue)
 function updatePeopleCore(w) {
     refreshHarvestSuitability(w);
     const living = w.people.filter(p => p.alive).sort((a, b) => a.id - b.id);
+    const socialMeetingParticipants = new Set();
     const trainingPairs = militaryTrainingPairs(w);
     const communityCounts = new Map();
     w.resourceClaims = new Map(); w.contestedResources = new Set();
@@ -824,7 +907,19 @@ function updatePeopleCore(w) {
       const borderRisk = territoryAwareness && territoryAwareness.inForeignTerritory ? .8
         : territoryAwareness && territoryAwareness.nearestForeignTerritory && territoryAwareness.nearestForeignTerritory.distance <= 2 ? .35 : 0;
       const risk = clamp(predatorRisk + p.conflictRisk + borderRisk, 0, 1);
-      const socialTarget = nearestPerson(w, p, 14);
+      const socialTarget = socialMeetingParticipants.has(p.id) ? null : nearestPerson(w, p, 14, socialMeetingParticipants);
+      const foodAidTarget = (p.perception && p.perception.people || [])
+        .filter(sighting => sighting.visible && sighting.distance <= 14 && sighting.visibleSignals?.foodDistress === true
+          && !socialMeetingParticipants.has(sighting.id))
+        .map(sighting => findPersonById(w, sighting.id))
+        .filter(target => target && target.alive)
+        .sort((a, b) => distance(p, a) - distance(p, b) || a.id - b.id)[0] || null;
+      const foodRequestTarget = p.foodReserve < 40
+        ? (p.perception?.people || []).filter(sighting => sighting.visible && sighting.distance <= 1.6
+          && sighting.visibleSignals?.foodSurplus === true && !socialMeetingParticipants.has(sighting.id))
+          .map(sighting => findPersonById(w, sighting.id)).filter(Boolean)
+          .sort((a, b) => distance(p, a) - distance(p, b))[0] || null
+        : null;
       const groupFood = communityFoodStock(community);
       const groupMaterial = community ? communityMaterialStock(community) : 0;
       const browseFood = bestSheepFeedCell(w, p, 8);
@@ -834,10 +929,11 @@ function updatePeopleCore(w) {
       const shelter = nearestShelterFor(w, p);
       const huntGround = bestHuntingGround(w, p, 12);
       const preyNearby = nearestHuntable(w, p, 3.5);
+      const herdPrey = nearestEmergencyHerdSheep(w, p, community, 2.25);
       const preyTile = preyNearby && cellAt(w, Math.round(preyNearby.x), Math.round(preyNearby.y));
       const visibleCover = preyTile ? clamp(plantBiomass(preyTile, ['browse', 'berry', 'broadleaf', 'conifer']) / 500, 0, 1) : 0;
       const huntAccess = shelter
-        ? preyNearby ? .5 + visibleCover * .3 : huntGround ? .18 + clamp(1 - distance(p, huntGround) / 18, 0, 1) * .28 : 0
+        ? preyNearby ? .5 + visibleCover * .3 : herdPrey ? .5 : huntGround ? .18 + clamp(1 - distance(p, huntGround) / 18, 0, 1) * .28 : 0
         : 0;
       const pen = nearestPenFor(w, p);
       const sheepSighting = nearestPerceivedSheep(w, p, 5.5);
@@ -845,6 +941,8 @@ function updatePeopleCore(w) {
       const storage = nearestKnownStorage(w, p, community);
       const delivery = cargoDeliveryPlan(w, p, community, storage);
       const deliveryNeed = clamp(carriedResources(p) / 24, 0, 1);
+      const canDeliverEdibleCargo = !!delivery
+        && (p.carriedFood || 0) + (p.carriedFruit || 0) + (p.carriedMeat || 0) > .01;
       const looseLog = nearestKnownLog(p, 7);
       const droppedLoot = nearestLoot(w, p, 7);
       const herd = community ? domesticatedSheep(w, community) : [];
@@ -864,17 +962,21 @@ function updatePeopleCore(w) {
         && canCommunityBuild(w, community, communitySize);
       const canGather = p.perception.resources.some(resource => resource.visible && resource.terrain === 'land'
         && (resource.stone > 0 || resource.goldOre > 0 || ['broadleaf', 'conifer'].some(id => (resource.biomass[id] || 0) > 260)));
-      const hungryMember = community && community.memberIds.some(id => { const q = findPersonById(w, id); return q && q.alive && q.foodReserve < 48; });
+      const communityFoodAidAvailable = !!(community && foodAidTarget
+        && foodAidTarget.communityId === community.id && community.memberIds.includes(foodAidTarget.id)
+        && distance(p, community) <= 7 && distance(p, foodAidTarget) <= 7
+        && communityFoodStock(community) > 1);
+      const voluntaryFoodAidAvailable = !!(foodAidTarget && p.foodReserve > 82 && distance(p, foodAidTarget) <= 1.6);
       const tradePartner = findTradePartner(w, community, p);
       const hasFoodPressure = p.foodReserve < PERSONAL_FOOD_PRESSURE_THRESHOLD && !food;
       const hasWaterPressure = p.hydration < 55 && (!waterTarget || distance(p, waterTarget) > 18);
       const foodNeed = clamp((70 - p.foodReserve) / 70, 0, 1) * (groupFood > 20 ? .72 : 1);
-      const hasLocalHarvest = foodNeed > .35 && !!shelter && (preyNearby || huntGround);
+      const hasLocalHarvest = foodNeed > .35 && !!shelter && (preyNearby || herdPrey || huntGround);
       const canMigrate = !!bestHabitatCell(w, p) && (localSuitability < .1 || p.conflictRisk > .62 || hasFoodPressure || hasWaterPressure) && !hasLocalHarvest;
       const marketTrust = tradePartner && tradePartner.relation ? tradePartner.relation.trust : .35;
       const utility = [
         food ? inputs[0] * 1.85 + .24 + inputs[4] * .2 + (community && groupFood < 8 ? .12 : 0) + p.skills.forage * .08 : -.6,
-        shelter && (preyNearby || huntGround) && (p.carriedMeat || 0) <= .01 ? .1 + foodNeed * (.45 + huntAccess * .5) + p.skills.hunt * .16 + (preyNearby ? .28 : 0) : -.65,
+        shelter && (preyNearby || herdPrey || huntGround) && (p.carriedMeat || 0) <= .01 ? .1 + foodNeed * (.45 + huntAccess * .5) + p.skills.hunt * .16 + (preyNearby || herdPrey ? .28 : 0) : -.65,
         (p.carriedMeat || 0) > .01 && shelter ? .72 + deliveryNeed * .45 : -.7,
         waterTarget ? inputs[1] * 2.05 + .32 : -.5,
         inputs[3] * p.sociability * .82 + (socialTarget ? .12 : -.35),
@@ -886,7 +988,7 @@ function updatePeopleCore(w) {
           ? clamp(.32 + inputs[16] * .3 + materialNeed * .55 + (storage.community.stores.wood < 18 ? .18 : 0), .2, .95) : -.65,
         community && pen && browseFood && herd.length && (community.stores.feed || 0) < 48
           ? clamp(.12 + browseAccess * .2 + feedNeed * .62 + p.skills.care * .15, .12, .9) : -.65,
-        (community && ((groupFood > 1 && hungryMember) || (p.foodReserve > 82 && socialTarget && socialTarget.foodReserve < 40))) ? .3 + inputs[6] * .5 + p.skills.care * .16 : -.55,
+        (communityFoodAidAvailable || voluntaryFoodAidAvailable) ? .3 + inputs[6] * .5 + p.skills.care * .16 : -.55,
         tradePartner ? .54 + p.skills.diplomacy * .15 + marketTrust * .12 : -.55,
         canMigrate ? .18 + risk * .58 + (1 - localSuitability) * .32 + (hasFoodPressure ? .64 : 0) + (hasWaterPressure ? .62 : 0) : -.7,
         community && pen && sheepSighting && sheepSighting.visible && !p.leadingSheepId
@@ -913,10 +1015,11 @@ function updatePeopleCore(w) {
       const urgentWaterNeed = p.hydration <= 9 || healthRelatedWaterRisk;
       const survivalAction = urgentWaterNeed
         ? (waterTarget ? 'drink' : (waterCue || bestHabitatCell(w, p) ? 'migrate' : null))
-        : peacetimeSoldier ? null
         : p.foodReserve <= 8
-          ? (droppedLoot && distance(p, droppedLoot) <= 1.6 && ((droppedLoot.resources.food || 0) + (droppedLoot.resources.meat || 0)) > 0 ? 'collect_loot' : food ? 'forage' : (shelter && (preyNearby || huntGround) ? 'hunt' : (bestHabitatCell(w, p) ? 'migrate' : null)))
-            : null;
+          ? (canDeliverEdibleCargo ? 'deliver'
+            : droppedLoot && distance(p, droppedLoot) <= 1.6 && ((droppedLoot.resources.food || 0) + (droppedLoot.resources.meat || 0)) > 0 ? 'collect_loot'
+              : food ? 'forage' : (shelter && (preyNearby || herdPrey || huntGround) ? 'hunt' : (bestHabitatCell(w, p) ? 'migrate' : null)))
+          : null;
       if (assignment && !survivalAction && !assignmentConflict) {
         const assignedIndex = PEOPLE_ACTIONS.indexOf(p.assignment.action);
         const leader = findPersonById(w, assignment.assignedBy);
@@ -934,7 +1037,7 @@ function updatePeopleCore(w) {
       const carryingGoods = carriedResources(p) > .01;
       const carrierMaintenanceAction = carryingGoods && !peacetimeSoldier && !campaignOrder
         ? p.hydration < 40 && waterTarget ? 'drink'
-          : p.foodReserve < 24 && food ? 'forage'
+          : p.foodReserve < 24 && food && !canDeliverEdibleCargo ? 'forage'
             : null : null;
       const collectionLoad = delivery ? clamp(6 + distance(p, delivery.destination) * 1.5, 6, 24) : 0;
       const continueCommunalCollection = carryingGoods && delivery && distance(p, delivery.destination) > 1.5
@@ -1040,8 +1143,14 @@ function updatePeopleCore(w) {
                 p.lastLesson = 'A carga de alimento já está cheia; levá-la ao abrigo libera espaço para outra coleta.';
               }
             } else {
-            const harvest = harvestHumanFood(w, food, clamp(1.8 + p.skills.forage * 3.2, 1.8, 5));
-            const use = Math.min(harvest, Math.max(0, (91 - p.foodReserve) / FOOD_RESERVE_PER_UNIT));
+            const reserveCapacity = Math.max(0, (91 - p.foodReserve) / FOOD_RESERVE_PER_UNIT);
+            const desiredHarvest = clamp(1.8 + p.skills.forage * 3.2, 1.8, 5);
+            const fruitShelter = nearestShelterFor(w, p);
+            const directStorage = community && ((fruitShelter && distance(p, fruitShelter) <= 1.5)
+              || (!fruitShelter && distance(p, community) <= 5));
+            const harvestLimit = personalFoodHarvestLimit(p, desiredHarvest, reserveCapacity, !!directStorage);
+            const harvest = harvestHumanFood(w, food, harvestLimit);
+            const use = Math.min(harvest, reserveCapacity);
             addFoodReserve(p, use * FOOD_RESERVE_PER_UNIT, 'personal-harvest');
             if (harvest > .1) {
               if (food.cropFieldId == null) hideCollectedBush(w, food, 'berry');
@@ -1051,7 +1160,6 @@ function updatePeopleCore(w) {
 
             p.energy = clamp(p.energy + use * .18, 0, 100);
             const surplus = Math.max(0, harvest - use);
-            const fruitShelter = nearestShelterFor(w, p);
             if (community && fruitShelter && distance(p, fruitShelter) <= 1.5) storeCommunityFruit(w, community, fruitShelter, surplus);
             else if (community && !fruitShelter && distance(p, community) <= 5) storeCommunityFruit(w, community, null, surplus);
             else addResource(p, 'carriedFruit', surplus, 24);
@@ -1062,8 +1170,21 @@ function updatePeopleCore(w) {
             }
           }
         } else if (food) {
-          p.foodTarget = { x: food.x, y: food.y };
-          moveOne(w, p, food, false); p.state = 'procurando alimento'; p.lastLesson = 'Deslocar-se até alimento custa energia; o retorno depende de a mancha ainda existir.';
+          let movementTarget = food, foundRoute = false;
+          for (let attempts = 0; movementTarget && attempts < 4; attempts++) {
+            if (moveTowardFood(w, p, movementTarget)) { foundRoute = true; break; }
+            movementTarget = bestPeopleFoodCell(w, p, 8, assignedFoodField?.id ?? null);
+          }
+          if (foundRoute) {
+            p.foodTarget = { x: movementTarget.x, y: movementTarget.y };
+            const isBush = movementTarget.cropFieldId == null;
+            p.state = 'procurando alimento'; p.lastLesson = isBush
+              ? 'Deslocar-se até um ponto livre ao lado do arbusto custa energia; a colheita começa ao alcançar a área de interação.'
+              : 'Deslocar-se até a roça custa energia e tempo; colher no talhão exige alcançar o campo.';
+          } else {
+            p.foodTarget = null;
+            p.state = 'alimento inacessível'; p.lastLesson = 'Os destinos de alimento conhecidos não têm uma rota alcançável; reavaliar a percepção evita insistir no mesmo caminho.';
+          }
         }
         else { p.foodTarget = null; p.state = 'sem alimento próximo'; p.lastLesson = 'Não encontrou alimento no alcance; migração ou cooperação pode abrir outras opções.'; }
       } else if (action === 'hunt') {
@@ -1121,10 +1242,28 @@ function updatePeopleCore(w) {
         else if (waterTarget) { moveOne(w, p, waterTarget, false); p.state = 'buscando água'; p.lastLesson = 'A aproximação da água custa energia e tempo.'; }
         else { p.state = 'sem água conhecida'; p.lastLesson = 'A água não foi localizada; continuar aqui mantém a desidratação.'; }
       } else if (action === 'socialize') {
-        if (socialTarget && distance(p, socialTarget) <= 2.1) {
-          p.socialNeed = Math.max(0, p.socialNeed - 17); consumePersonEnergy(p, .1);
-          p.state = 'conversando'; p.lastLesson = 'O encontro reduziu a necessidade social e pode fortalecer um vínculo.';
-        } else if (socialTarget) { moveOne(w, p, cellAt(w, socialTarget.x, socialTarget.y), false); p.state = 'procurando companhia'; }
+        const aidRequest = foodRequestTarget
+          ? resolveFoodAidRequest(w, p, foodRequestTarget, socialMeetingParticipants) : null;
+        const meeting = aidRequest?.requested ? null : socialTarget && distance(p, socialTarget) > 2.1
+          ? null : socialTarget && resolveSocialMeeting(w, p, socialTarget, socialMeetingParticipants);
+        if (aidRequest?.requested) {
+          // The request and its response are resolved atomically before another encounter can use either person.
+        } else if (meeting?.completed) {
+          const indication = indicateKnownWaterReference(w, p, socialTarget);
+          if (indication.transferred) {
+            p.state = 'indicando água conhecida';
+            p.lastLesson = 'A referência veio de uma fonte que você já conhecia; o relato conserva quem transmitiu e o lugar observado.';
+          }
+        } else if (socialTarget && !meeting && distance(p, socialTarget) > 2.1) {
+          moveOne(w, p, cellAt(w, socialTarget.x, socialTarget.y), false); p.state = 'procurando companhia';
+        } else {
+          p.state = 'encontro adiado';
+          p.lastLesson = meeting?.reason === 'physical-emergency'
+            ? 'A conversa foi suspensa porque uma pessoa precisa atender uma emergência física.'
+            : meeting?.reason === 'participant-busy'
+              ? 'A pessoa já participou de outro encontro neste dia.'
+              : 'O encontro exige uma pessoa viva e visível dentro do alcance.';
+        }
       } else if (action === 'rest') {
         const indoors = restPersonInHouse(w, p);
         const resting = indoors || p.militaryRestTargetId == null && p.homeRestTargetId == null;
@@ -1169,7 +1308,7 @@ function updatePeopleCore(w) {
       else if (action === 'collect_loot') collectLoot(w, p, droppedLoot);
       else if (action === 'collect_feed') collectSheepFeed(w, p, community, browseFood);
       else if (action === 'share') {
-        if (!performShare(w, p, community, socialTarget)) { p.state = 'sem excedente para partilhar'; p.lastLesson = 'A partilha só ocorre quando existe reserva disponível e alguém precisa dela.'; }
+        if (!performShare(w, p, community, foodAidTarget)) { p.state = 'sem excedente para partilhar'; p.lastLesson = 'A partilha só ocorre quando existe reserva disponível e alguém próximo demonstra necessidade.'; }
       } else if (action === 'trade') {
         if (!performTrade(w, p, community, tradePartner)) { p.state = 'procurando troca'; p.lastLesson = 'Sem excedente complementar ou contato próximo, a troca não acontece.'; }
       } else if (action === 'capture_sheep') {
@@ -1299,9 +1438,9 @@ export function updatePeople(w) {
       }
     }
   }
-export function nearestPerson(w, p, radius) {
+export function nearestPerson(w, p, radius, excludedIds = null) {
     const sightings = p.perception && p.perception.people || [];
-    return sightings.filter(s => s.visible && s.distance <= radius)
+    return sightings.filter(s => s.visible && s.distance <= radius && !excludedIds?.has(s.id))
       .map(s => findPersonById(w, s.id))
       .filter(Boolean).sort((a, b) => distance(p, a) - distance(p, b))[0] || null;
   }

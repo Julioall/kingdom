@@ -4,6 +4,15 @@ import { once } from 'node:events';
 import { Worker } from 'node:worker_threads';
 import { SIMULATION_PROTOCOL_VERSION } from '../src/simulation/protocol-version.js';
 
+function normalizeEpochScopedEvidence(value) {
+  if (Array.isArray(value)) return value.map(normalizeEpochScopedEvidence);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key,
+      key === 'worldEpoch' ? '<run>' : normalizeEpochScopedEvidence(entry)]));
+  }
+  return typeof value === 'string' ? value.replace(/:epoch:\d+:/g, ':epoch:<run>:') : value;
+}
+
 test('production Worker: determinism, real campaign contacts, pause, batching, reset and stale epoch rejection', { timeout: 120000 }, async t => {
   const worker = new Worker(new URL('./support/browser-worker.mjs', import.meta.url));
   t.after(() => worker.terminate());
@@ -59,7 +68,9 @@ test('production Worker: determinism, real campaign contacts, pause, batching, r
   assert.equal((await request('advance', { days: 1 }, 1)).type, 'error');
   result = await request('advance', { days: 12 }, 2);
   assert.equal(result.type, 'snapshot');
-  assert.deepEqual(result.snapshot.base.people, day12.base.people);
+  // Reset advances the Worker epoch to keep evidence references from crossing worlds.
+  // Compare stable simulation state while treating those run-scoped IDs as equivalent.
+  assert.deepEqual(normalizeEpochScopedEvidence(result.snapshot.base.people), normalizeEpochScopedEvidence(day12.base.people));
   assert.deepEqual(result.snapshot.base.structures, day12.base.structures);
   assert.deepEqual(result.snapshot.tileColumns.scalars, day12.tileColumns.scalars);
 });
