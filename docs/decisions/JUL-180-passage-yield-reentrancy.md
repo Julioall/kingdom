@@ -2,6 +2,8 @@
 
 Data: 26/10/2026
 
+Commit da fatia: `dae979502b8d02b3e5b9cd97570cb1682c29f210` (`fix(JUL-180): stop recursive passage yielding`).
+
 ## Evidência e causa
 
 O replay de controle da seed 1 no horizonte de 730 dias parou por `RangeError: Maximum call stack size exceeded`, no dia 125. A reprodução no mesmo SHA `737fce35fd80edb5fffe5d920017ac3a6e06b99f` ocorreu mesmo sem a nova prioridade alimentar, então não é uma regressão dessa mudança. `tests/movement-passage.test.mjs` conserva a reprodução de 125 dias.
@@ -10,13 +12,13 @@ O ciclo estava em `moveOne` → `respondToPassageRequest` → `moveOne`: ao tent
 
 ## Decisão
 
-Um movimento marcado como `passageYield` não inicia uma nova solicitação de passagem. Se o passo preferido estiver ocupado, a rotina tenta o desvio local e a rota de congestionamento existentes; se ainda estiver bloqueado, a ação termina sem mover. A solicitação original continua sendo limitada e pode ser reavaliada na próxima atualização.
+O primeiro reparo impedia toda solicitação aninhada durante `passageYield`, mas o replay da seed 42 mudou de 5 para 25 mortes por fome e de 34.914 para 38.148 adultos-dia com reserva baixa em relação ao SHA anterior. Isso não prova causalidade exclusiva, mas mostra que a guarda ampla não é neutra. A revisão mantém repasses cooperativos e acompanha apenas a cadeia ativa: bloqueia IDs já visitados ou mais de 12 transferências; em ciclos, o agente usa o desvio local e a rota de congestionamento existentes.
 
 | Alternativa | Decisão | Motivo |
 | --- | --- | --- |
 | Remover as solicitações de passagem | Rejeitada | Tiraria a cooperação que ajuda agentes a sair do caminho e não é necessária para eliminar o ciclo. |
-| Acrescentar tentativas recursivas com limite alto | Rejeitada | O resultado depende da profundidade da cadeia de pessoas e mantém trabalho repetido sob congestionamento. |
-| Não abrir outra solicitação durante um movimento que já está cedendo | Escolhida | Cada pedido concede uma tentativa de movimento; uma obstrução secundária usa os desvios existentes ou aguarda a próxima avaliação sem recursão. |
+| Proibir qualquer pedido aninhado | Rejeitada após replay | Evita recursão, mas o amplo bloqueio coincide com uma diferença material na sobrevivência e restringe cadeias válidas. |
+| Rastrear IDs ativos e limitar profundidade a 12 | Escolhida para validação | Mantém repasses para pessoas ainda não visitadas e encerra repetição de ID ou cadeia excessiva. O limite é uma proteção, não evidência de comportamento tático completo. |
 
 ## Fontes e limites
 
@@ -27,5 +29,8 @@ Um movimento marcado como `passageYield` não inicia uma nova solicitação de p
 ## Validação
 
 - Antes do ajuste, `node --test tests/movement-passage.test.mjs` falhou no dia 125 com `Maximum call stack size exceeded`.
-- Após o ajuste, o mesmo teste passou em 29,1 s e chegou ao dia 125.
-- A execução de seed 1 por 730 dias e as seeds de controle 987/2026 ainda serão repetidas no SHA final desta fatia.
+- A primeira correção ampla passou o teste de 125 dias em 29,1 s; o replay seed 42 de 730 dias repetiu exatamente, mas divergiu materialmente do SHA anterior. A revisão de cadeia limitada também passou `node --test tests/movement-passage.test.mjs` em 26,9 s e chegou ao dia 125.
+- `npm test` passou em 125/125, incluindo a reprodução de 125 dias; `npm run build` passou com typecheck, Vite (107 módulos) e otimização de imagens.
+- No replay de 730 dias no mesmo SHA, as seeds 1, 987 e 2026 concluíram sem a recursão nem estoques negativos. Resultados: seed 1, 12 mortes por fome e 2 por invasão; seed 987, 27 por fome, 2 em combate e 7 por invasão; seed 2026, 2 por fome, 1 em combate, 1 na colheita e 3 por invasão. Esses resultados não são pareados e não comprovam melhora uniforme da sobrevivência.
+- O relatório pareado de seed 42 na guarda ampla está em `JUL-178-garrison-priority-730-after-passage-20261026.json`; a repetição foi determinística, com 25 mortes por fome e 38.148 adultos-dia de reserva abaixo de 20, contra 5 e 34.914 no SHA anterior `737fce3`. A revisão com cadeia limitada ainda requer replay de 730 dias em seu próprio SHA.
+- JUL-180 continua aberto: esta fatia elimina a recursão e mantém a rota de replanejamento; não demonstra fuga de obra, cover sob ameaça, substituição ou retomada da construção.
