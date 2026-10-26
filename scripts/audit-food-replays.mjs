@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
-import { isDeepStrictEqual } from 'node:util';
 import engine from '../src/simulation/engine.js';
 
 const args = new Map();
@@ -114,7 +113,7 @@ function run(seed) {
   const chronicleDigest = hash(canonical(world.chronicle || []));
   return {
     seed, days, elapsedSeconds: Number(((performance.now() - startedAt) / 1000).toFixed(2)),
-    stateSha256: digest, stateParts, chronicleSha256: chronicleDigest, _world: world,
+    stateSha256: digest, stateParts, chronicleSha256: chronicleDigest,
     determinismVerified: false,
     livingPeople: (world.people || []).filter(person => person.alive).length,
     adultDaysFoodReserveBelow20,
@@ -131,25 +130,23 @@ function run(seed) {
 }
 
 const results = [];
-for (const seed of seeds) results.push(run(seed));
+for (const seed of seeds) {
+  const result = run(seed);
+  results.push(result);
+  process.stderr.write('Replay seed ' + seed + ' concluído em ' + result.elapsedSeconds + ' s; estado ' + result.stateSha256.slice(0, 12) + '.\n');
+}
 if (repeatSeed !== null) {
   const first = results.find(result => result.seed === repeatSeed);
   const repeated = run(repeatSeed);
-  const verified = !!first && isDeepStrictEqual(first._world, repeated._world)
-    && first.chronicleSha256 === repeated.chronicleSha256;
+  const verified = !!first && first.stateSha256 === repeated.stateSha256
+    && first.chronicleSha256 === repeated.chronicleSha256
+    && Object.keys(first.stateParts).every(key => first.stateParts[key] === repeated.stateParts[key]);
   const determinismDiff = first ? Object.keys(first.stateParts).filter(key => first.stateParts[key] !== repeated.stateParts[key]) : [];
   const repeatedEntry = { ...repeated, repeatedFromSeedIndex: first ? seeds.indexOf(repeatSeed) : null,
     determinismVerified: verified, determinismDiff };
   results.push(repeatedEntry);
-  if (first) {
-    delete first._world;
-    delete first.stateParts;
-    first.determinismVerified = verified;
-  }
-  delete repeated._world;
-  delete repeated.stateParts;
-  delete repeatedEntry._world;
-  delete repeatedEntry.stateParts;
+  if (first) first.determinismVerified = verified;
+  process.stderr.write('Replay repetido da seed ' + repeatSeed + ': ' + (verified ? 'determinístico' : 'divergente') + '.\n');
 }
 const report = { runtime: process.version, sourceRevision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
   base: 'engine.createWorld + production stepDay', days, seeds, repeatSeed, results };
