@@ -48,6 +48,10 @@ Replay curto de 430 dias em seed 42 no mesmo SHA: 97 vivos, 11 mortes por fome, 
 
 O trace determinístico mostrou uma falha concreta: o agente selecionava um arbusto cujo tile era bloqueado pelo tronco e nunca entrava no alcance de colheita. A regressão `tests/food-navigation.test.mjs` reproduz o alvo e confirma a escolha de tile cardinal livre; também protege a rota direta de roças. Um cooldown de sete dias foi rejeitado pelo replay. A versão atual troca de destino no mesmo dia e o replay 730 reduziu a fome sem divergência de estado. Traces anteriores também mostraram dependentes sem transferência alimentar efetiva, problema distinto que precisa de reprodução direcionada.
 
+## Smoke de browser
+
+No SHA `d456e8f1a3ef997ed7183dd984e33aacdf13cece`, abri o build local em `http://127.0.0.1:5173/`, acompanhei o mundo autônomo seed 42 até o dia 78, selecionei Valedouro, pausei e conferi o mapa a 200%. O HUD mostrou 97 pessoas vivas e a tela exibiu os dois reinos e suas estruturas; o log de console não teve erros. A captura integral está em `JUL-178-browser-day78-20261026.jpg` e foi anexada à issue. Este smoke comprova que a navegação renderizada continua executando no browser, mas não substitui replay determinístico nem os cenários de choque pendentes.
+
 Pendente: horizontes isolados de 253/365 dias no SHA final, cenários controlados (estoque zerado, baixa oferta, perda do cuidador, guerra/ração, fronteira fechada e mercado 0..12), reconciliação quantitativa por proprietário/transferência, alimentação de rebanho e métricas de distância/entrega. A issue permanece **In Progress**; o replay de 730 dias é reproduzível, mas não satisfaz os critérios de produto.
 
 ## Decisões, fontes e alternativas
