@@ -10,7 +10,9 @@ Preservar `world.deathsByCause` para compatibilidade, mas não tratá-lo como mo
 
 No SHA `0fad44abf7c7548daec5ad29bbee7748c13410ac`, `npm run audit:food -- --days 253 --seeds 42 --repeat-seed 42` reproduziu estado completo e crônica (hashes `907fda498f57cbaa2a9ea81c92896820e31ae20d9307e73b0664bdbe28864e9f` e `53fd0857bdec1eaf343ad96c0365c45e2b619c328971092363e5b99c0b31d`), com `deathsByCause.starvation = 1`. O trace humano no mesmo SHA registrou `deathsCaptured = 0`. A inspeção do código confirmou que `resolveAnimalDeath` também incrementa a mesma chave agregada e que a morte por raposa não guardava causa no animal. Logo, o contador agregado não prova morte humana; métricas não tipadas tornavam a conclusão ambígua.
 
-O primeiro replay tipado após este commit separará o evento em pessoa/rebanho/fauna e atualizará a evidência do auditor. Não ajusto números ecológicos nem adiciono bioma/estação: a correção é de atribuição, e o critério de sobrevivência humana permanece medido sobre `world.people`.
+Replay tipado no commit `63804698717d9910fe982a0ce524d81e8ad7f43a`, seed 42/253 dias e repetição: estado `907fda498f57cbaa2a9ea81c92896820e31ae20d9307e73b0664bdbe28864e9f`, crônica `53fd0857bdec1eaf343ad96c0365c45e2b619c328971092363e5b99c0b31d`, divergência vazia. O único evento de fome foi **um animal selvagem**; pessoas: 1 baixa por invasão, 0 por fome; rebanho doméstico: 0 mortes. A leitura inicial do contador agregado como possível fome humana estava incorreta. O relatório tipado está em `docs/verification/JUL-178-attribution-253-seed42-20261026.json`.
+
+Não ajusto números ecológicos nem adiciono bioma/estação: a correção é de atribuição, e o critério de sobrevivência humana permanece medido sobre `world.people`. A sobrevivência do rebanho será avaliada separadamente nos cenários de 730 dias.
 
 ## Alternativas
 
