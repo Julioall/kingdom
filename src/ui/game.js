@@ -24,6 +24,7 @@ import { structureDepthY } from './world-depth.js';
 import { createCloudSystem, atmosphereZoomProfile } from './cloud-system.js';
 import AtmosphericLayer from './atmospheric-layer.js';
 import DirtBrush from './dirt-brush.js';
+import { createLoadingScreen } from './loading-screen.js';
 
 function atmosphereProfileForZoom(zoom) {
   const density = atmosphereZoomProfile(zoom).fogDensity;
@@ -44,6 +45,8 @@ function atmosphereLayerOpacityForZoom(zoom) {
 
 export function mountGame() {
   'use strict';
+  const loadingScreen = createLoadingScreen();
+  const trackedImage = () => loadingScreen.trackImage(new Image());
   const $ = id => document.getElementById(id);
   const forjaUI = window.FantasyUI;
   if (forjaUI) {
@@ -55,16 +58,9 @@ export function mountGame() {
         panel.prepend(forjaUI.skinLayer(skin));
       }
     }
-    const crest = document.querySelector('.brand-mark'), wordmark = document.querySelector('.brand-text');
-    if (crest) crest.replaceWith(forjaUI.crest('cyan', '', 0, 10));
-    if (wordmark) {
-      const title = document.createElement('strong');
-      title.textContent = 'KINGDOM';
-      wordmark.replaceChildren(title);
-    }
   }
   const canvas = $('world');
-  const selectionFrameSprite = new Image();
+  const selectionFrameSprite = trackedImage();
   selectionFrameSprite.addEventListener('load', () => { if (world) drawMap(); });
   selectionFrameSprite.src = '/assets/kingdom-ui/Cursor_04.png';
   const cloudSpritesCanvas = $('cloudSprites');
@@ -142,14 +138,19 @@ export function mountGame() {
       updateMapViewport();
       render();
       window.requestAnimationFrame(frame);
+      loadingScreen.markWorldReady();
     } else render();
     if (localAI) localAI.pump();
   };
   session.onError = error => {
     if (isResetCancellation(error)) return;
     console.error('[Kingdom Worker de simulação]', error);
+    if (!rendered) loadingScreen.fail(error);
     if ($('worldLine')) $('worldLine').textContent = 'Falha na simulação: ' + error.message;
   };
+  session.ready.catch(error => {
+    if (!isResetCancellation(error)) loadingScreen.fail(error);
+  });
   localAI = LocalAI ? LocalAI.create({
     getWorld: () => world,
     getWorldEpoch: () => session.epoch,
@@ -259,7 +260,7 @@ export function mountGame() {
   const tinyBushSprites = [];
   const tinyStumpSprites = Object.create(null);
   const tinySheepSprites = Object.create(null);
-  const animationRenderer = createAnimationRenderer({ onReady: queueAssetRender });
+  const animationRenderer = createAnimationRenderer({ imageFactory: trackedImage, onReady: queueAssetRender });
   let waterRockDistanceWorld = null, waterRockDistances = null;
   let waterRockPlacementsWorld = null, waterRockPlacements = null;
   const tinyBuildingSprites = Object.create(null);
@@ -269,7 +270,7 @@ export function mountGame() {
     barracks: 'centro-militar-construcao.png', archery: 'arquearia-construcao.png', monastery: 'convento-construcao.png'
   };
   for (const [key, file] of Object.entries(constructionFoundationFiles)) {
-    const image = new Image();
+    const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
     image.src = 'assets/construction-variants/' + file;
     constructionFoundationSprites[key] = image;
@@ -278,28 +279,28 @@ export function mountGame() {
   const tinyRockSprites = Object.create(null);
   const mapDecorationSprites = Object.create(null);
   for (const sprite of MAP_DECORATION_SPRITES) {
-    const image = new Image();
+    const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
     image.src = 'assets/map-decorations/' + sprite + '.png';
     mapDecorationSprites[sprite] = image;
   }
   const tinyTerrainAtlases = [];
   for (let color = 1; color <= 5; color++) {
-    const image = new Image();
+    const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
     image.src = 'assets/kingdom-autotile/Tilemap_color' + color + '.png';
     tinyTerrainAtlases.push(image);
   }
   // Water assets come from AutoTile.zip; its blue background happens to be
   // pixel-identical to the older Tiny Swords water tile.
-  const autoTileWaterBackground = new Image();
+  const autoTileWaterBackground = trackedImage();
   autoTileWaterBackground.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
   autoTileWaterBackground.src = 'assets/kingdom-autotile/water-background.png';
-  const autoTileWaterFoam = new Image();
+  const autoTileWaterFoam = trackedImage();
   autoTileWaterFoam.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
   autoTileWaterFoam.src = 'assets/kingdom-autotile/water-foam.png';
   const cloudSprites = Array.from({ length: 8 }, (_, index) => {
-    const image = new Image();
+    const image = trackedImage();
     const asset = 'Clouds_' + String(index + 1).padStart(2, '0') + '.png';
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
     image.onerror = () => console.error('[Kingdom cloud asset] Falha ao carregar ' + asset);
@@ -326,68 +327,68 @@ export function mountGame() {
       atmosphericProfile = next;
     }
   }
-  const tinyFenceTilemap = new Image();
+  const tinyFenceTilemap = trackedImage();
   tinyFenceTilemap.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
   tinyFenceTilemap.src = 'assets/tiny-swords/fences/tileset-fences-1.png';
-  const tinyMeatSprite = new Image();
+  const tinyMeatSprite = trackedImage();
   tinyMeatSprite.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
   tinyMeatSprite.src = 'assets/tiny-swords/meat-resource.png';
   const cropFieldTexture = new Image();
   cropFieldTexture.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
   cropFieldTexture.src = 'assets/kingdom-autotile/rice-field-ground.png';
-  const riceGrowthWindTexture = new Image();
+  const riceGrowthWindTexture = trackedImage();
   riceGrowthWindTexture.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
   riceGrowthWindTexture.src = 'assets/kingdom-autotile/rice-growth-wind.png';
   const healthBarSprites = { track: {}, fills: {} };
   for (const part of ['left', 'center', 'right']) {
-    const image = new Image();
+    const image = trackedImage();
     image.onload = queueAssetRender;
     image.src = 'assets/kingdom-ui/hud-big-track-' + part + '.png';
     healthBarSprites.track[part] = image;
   }
   const personBarSprites = { track: {}, fills: {} };
   for (const part of ['left', 'center', 'right']) {
-    const image = new Image();
+    const image = trackedImage();
     image.onload = queueAssetRender;
     image.src = 'assets/kingdom-ui/hud-small-track-' + part + '.png';
     personBarSprites.track[part] = image;
   }
   for (const color of ['red', 'yellow', 'green']) {
-    const image = new Image();
+    const image = trackedImage();
     image.onload = queueAssetRender;
     image.src = 'assets/kingdom-ui/hud-big-fill-' + color + '.png';
     healthBarSprites.fills[color] = image;
   }
   for (const color of ['red', 'yellow', 'green', 'blue']) {
-    const image = new Image();
+    const image = trackedImage();
     image.onload = queueAssetRender;
     image.src = 'assets/kingdom-ui/hud-small-fill-' + color + '.png';
     personBarSprites.fills[color] = image;
   }
-  const commanderIcon = new Image();
+  const commanderIcon = trackedImage();
   commanderIcon.onload = queueAssetRender;
   commanderIcon.src = 'assets/kingdom-ui/icon-05.png';
   const generalSwordSprites = Object.create(null);
   for (const color of ['black', 'cyan', 'purple', 'red', 'yellow']) {
     generalSwordSprites[color] = {};
     for (const part of ['left', 'center', 'right']) {
-      const image = new Image();
+      const image = trackedImage();
       image.onload = queueAssetRender;
       image.src = 'assets/kingdom-ui/sword-' + color + '-' + part + '.png';
       generalSwordSprites[color][part] = image;
     }
   }
-  const tinyWoodSprite = new Image();
+  const tinyWoodSprite = trackedImage();
   tinyWoodSprite.onload = queueAssetRender;
   tinyWoodSprite.src = 'assets/tiny-swords/wood-resource.png';
   for (let variant = 1; variant <= 4; variant++) {
-    const image = new Image();
+    const image = trackedImage();
     image.onload = queueAssetRender;
     image.src = 'assets/tiny-swords/rocks/rock-' + variant + '.png';
     tinyRockSprites[variant] = image;
   }
   for (let variant = 1; variant <= 6; variant++) {
-    const image = new Image();
+    const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
     image.src = 'assets/tiny-swords/minerals/gold-stone-' + variant + '.png';
     tinyGoldSprites[variant] = image;
@@ -593,23 +594,23 @@ export function mountGame() {
   }
   window.addEventListener('resize', updateMapViewport);
   for (let id = 1; id <= 4; id++) {
-    const image = new Image();
+    const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
     image.src = 'assets/tiny-swords/trees/tree-' + id + '.png';
     tinyTreeSprites[id] = image;
-    const bush = new Image();
+    const bush = trackedImage();
     bush.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
     bush.src = 'assets/tiny-swords/bushes/bush-' + id + '.png';
     tinyBushSprites[id] = bush;
   }
   for (let id = 1; id <= 4; id++) {
-    const image = new Image();
+    const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
     image.src = 'assets/tiny-swords/stumps/stump-' + id + '.png';
     tinyStumpSprites[id] = image;
   }
   for (const [action, file] of Object.entries({ idle: 'sheep_idle.png', move: 'sheep_move.png', grass: 'sheep_grass.png' })) {
-    const image = new Image();
+    const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
     image.src = 'assets/tiny-swords/sheep/' + file;
     tinySheepSprites[action] = image;
@@ -624,7 +625,7 @@ export function mountGame() {
     animationRenderer.load(getUnitAnimation('monge', 'heal-effect', palette)).catch(error => console.warn(error));
     tinyBuildingSprites[palette] = Object.create(null);
     for (const key of ['house1', 'house2', 'house3', 'castle', 'tower', 'barracks', 'archery', 'monastery', 'farmhouse']) {
-      const image = new Image();
+      const image = trackedImage();
       image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
       image.src = 'assets/tiny-swords/buildings/' + palette + '/' + key + '.png';
       tinyBuildingSprites[palette][key] = image;

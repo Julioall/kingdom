@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&amp;family=Patrick+Hand&amp;display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/kingdom-ui/hud.css">
+<style>.loading-screen{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;background:#17231b}.loading-screen[hidden]{display:none!important}.loading-card{width:min(100%,900px);padding:24px;text-align:center}.loading-emblem{display:block;width:min(100%,780px);height:auto;margin:0 auto}</style>
 <script>
   window.FORJA_ASSETS = new Proxy({}, { get: (_, file) => '/assets/kingdom-ui/' + file });
   window.FORJA_ASSET_BASE = '/assets/kingdom-ui/';
@@ -19,11 +20,31 @@
 
 </head>
 <body>
-<main class="app">
+<div class="loading-screen" id="loadingScreen" role="status" aria-live="polite" aria-label="Carregando Kingdom">
+  <div class="loading-card">
+    <p class="loading-kicker">UMA NOVA ERA COMEÇA</p>
+    <img class="loading-emblem" src="/assets/kingdom-ui/kingdom-emblem.png" alt="Kingdom">
+    <p class="loading-subtitle">Reinos vivos, histórias sem roteiro.</p>
+    <div class="loading-progress-copy">
+      <span id="loadingMessage">Preparando o reino para despertar…</span>
+      <span id="loadingPercent">0%</span>
+    </div>
+    <div class="loading-progress-track" id="loadingProgress" role="progressbar" aria-label="Progresso do carregamento" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <span id="loadingProgressFill"></span>
+    </div>
+    <div class="loading-resource-count" id="loadingResourceCount">Preparando os primeiros recursos</div>
+    <p class="loading-error" id="loadingError" role="alert" hidden></p>
+    <button class="loading-retry" id="loadingRetry" type="button" hidden>Recarregar o jogo</button>
+  </div>
+  <div class="loading-footer"><span></span> AS CRÔNICAS DO REINO ESTÃO SENDO ESCRITAS <span></span></div>
+</div>
+<main class="app" inert aria-busy="true">
   <header class="topbar">
     <a class="brand" href="#world" aria-label="Kingdom, voltar ao mundo">
-      <span class="brand-mark" aria-hidden="true">K</span>
-      <span class="brand-text"><small>PRÉVIA EXPERIMENTAL</small><strong>KINGDOM</strong></span>
+      <picture class="brand-art">
+        <source media="(max-width: 760px)" srcset="/assets/kingdom-ui/heraldry-10-coroa.png">
+        <img class="brand-emblem" src="/assets/kingdom-ui/kingdom-emblem.png" alt="">
+      </picture>
     </a>
     <div class="world-metrics" aria-label="Recursos e população globais">
       <span class="metric resource-metric" title="Alimento nos tesouros, mercados e reservas comunitárias. Carne convertida em valor alimentar; não inclui reservas pessoais."><img src="/assets/kingdom-ui/icon-04.png" alt=""><span>Comida<b id="globalFood">0</b></span></span>
