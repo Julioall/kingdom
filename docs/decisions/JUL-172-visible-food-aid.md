@@ -32,9 +32,8 @@ O sinal foodDistress representa uma necessidade observável quando a reserva est
 Esta decisão corrige apenas a escolha local de destinatário e o registro de ajuda efetivamente transferida. Não fecha encontros incompatíveis, pedido/recusa, emergência que interrompe encontro, referência de água, nem adoção integrada a políticas do rei; esses critérios permanecem abertos em JUL-172.
 
 - Teste focal em 26/10/2026: node --test tests/social-aid.test.mjs — 4/4.
-- Suíte completa: npm test — 97/97, 88,97 s.
-- npm run build: typecheck e build passaram; Vite transformou 99 módulos. Permanece o aviso conhecido de bundle acima de 500 kB.
-- Replay social determinístico de 30 dias na seed 42 e seu SHA serão registrados após o commit da fatia.
-- Evidência detalhada e SHA final: docs/verification/JUL-172-visible-food-aid-20261026.md.
-
+- Suíte completa no HEAD 6447ad6e7761041eb763b04293c3c5531891ed26: npm test — 97/97, 59,32 s.
+- npm run build no mesmo HEAD: typecheck e build passaram; Vite transformou 99 módulos. Permanece o aviso conhecido de bundle acima de 500 kB.
+- Replay social de 30 dias na seed 42 repetiu estado e crônica: state SHA 25249d59786d44d382ae5bf9cbaf31d3746e6ae6e4550648a13631d1f5935f5f, chronicle SHA c6a551b98b806f28f377b7d4db8544dc6a712dd79314280266873cbcf1cb7086. O relatório vê duas pessoas com share como última ação, mas não contabiliza transferências de ajuda; portanto, não prova ajuda bem-sucedida em uma execução orgânica.
+- Evidência e critérios ainda abertos: docs/verification/JUL-172-visible-food-aid-20261026.md.
 
