@@ -81,8 +81,12 @@ test('stored food and shelter meat cover the daily need before a herd is harvest
   assert.equal(nearestEmergencyHerdSheep(world, person, community), null);
 
   community.stores.food = 0;
-  community.stores.meat = .16;
-  shelter.meatStored = .16;
+  community.stores.meat = .1;
+  shelter.meatStored = .1;
+  assert.equal(nearestEmergencyHerdSheep(world, person, community), null,
+    '0.1 physical meat units cover the one-day emergency threshold');
+  community.stores.meat = .08;
+  shelter.meatStored = .08;
   assert.equal(nearestEmergencyHerdSheep(world, person, community), sheep[0]);
 
   community.stores.meat = 0;

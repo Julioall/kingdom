@@ -53,4 +53,5 @@ export const COMMUNITY_FOOD_CARRY_CAPACITY = 24;
 
 export const DAILY_FOOD_NEED = 1;
 
-export const MEAT_NUTRITIONAL_VALUE = 2.5;
+// A unit of meat is still a physical good, valued as ten person-days for food planning.
+export const MEAT_NUTRITIONAL_VALUE = 10;

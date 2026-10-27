@@ -39,7 +39,7 @@ test('garrison preserves the civilian floor when community food includes meat', 
   const center = { id: 4, type: 'centro_militar', kingdomId: 1, complete: true, x: 0, y: 0 };
   const kingdom = { id: 1, communityId: 2, memberIds: [1, 2], treasury: { stock: { food: 0 } } };
   const floor = DAILY_FOOD_NEED * 2 / FOOD_DAYS_PER_UNIT;
-  const community = { id: 2, kingdomId: 1, stores: { food: floor, meat: 0.4 } };
+  const community = { id: 2, kingdomId: 1, stores: { food: floor, meat: 0.1 } };
   const world = { people: [soldier, civilian], structures: [center], kingdoms: [kingdom], communities: [community] };
   const received = drawGarrisonRation(world, soldier, center, 10);
   assert.ok(Math.abs(received - FOOD_DAYS_PER_UNIT) < 1e-9);

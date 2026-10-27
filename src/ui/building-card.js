@@ -1,6 +1,6 @@
 import { corralSummary, resourceSummary } from './gameplay-data.js';
 import { towerVitality } from '../simulation/kingdoms/fortifications.js';
-import { PLANTS } from '../config/ecosystem.js';
+import { MEAT_NUTRITIONAL_VALUE, PLANTS } from '../config/ecosystem.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const fmt = n => (Number(n) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
@@ -17,7 +17,7 @@ export function kingdomOverview(world, kingdom) {
     row('Com pouca água / energia', data.thirsty + ' / ' + data.tired) + row('Sem moradia', data.homeless) +
     row('Satisfação do reino', Math.round(data.satisfaction * 100) + '%') +
     row('Nascimentos / mortes', data.births + ' / ' + data.deaths + ' · desde o início') +
-    row('Incidentes de fronteira', incidents) + note('Dias alimentares equivalentes: estoque comunitário, tesouro e mercado; cada unidade de comida vale um dia adulto e uma unidade de carne vale 2,5 dias. Reservas pessoais não entram neste total.') +
+    row('Incidentes de fronteira', incidents) + note('Dias alimentares equivalentes: estoque comunitário, tesouro e mercado; uma unidade de comida vegetal vale um dia e uma unidade física de carne vale 10 dias. Reservas pessoais não entram neste total.') +
     '<details class="gameplay-details"><summary>Construções do reino</summary><div class="building-picker">' + world.structures.filter(s => s.kingdomId === kingdom.id && s.destroyedDay == null).map(s => '<button type="button" data-inspect-structure="' + s.id + '">' + esc(({ centro_militar: 'Centro militar', monasterio: 'Convento', arquearia: 'Arquearia', roça: 'Roça' })[s.type] || s.type.charAt(0).toUpperCase() + s.type.slice(1)) + '</button>').join('') + '</div></details>';
 }
 
@@ -48,7 +48,7 @@ export function buildingCard(world, s) {
     const capacity = Number.isFinite(s.capacity) ? s.capacity : s.type === 'abrigo' ? 13 : 0;
     html = row('Moradores / vagas totais', residents.length + ' / ' + capacity) +
       row('Descansando aqui', living.filter(p => p.restingStructureId === s.id).length) +
-      (s.type === 'abrigo' ? row('Frutos guardados', fmt(s.fruitStored) + ' dias de alimento') + row('Carne guardada', fmt(s.meatStored) + ' un. físicas · 2,5 dias/un.') +
+      (s.type === 'abrigo' ? row('Frutos guardados', fmt(s.fruitStored) + ' dias de alimento') + row('Carne guardada', fmt(s.meatStored) + ' un. · ' + fmt(s.meatStored * MEAT_NUTRITIONAL_VALUE) + ' dias de alimento') +
         note('Os frutos e a carne guardados aqui já fazem parte do estoque comunitário; o abrigo mostra a localização registrada, não comida adicional.') : '') +
       (residents.length ? row('Moradores', residents.map(p => p.name).join(' · ')) : '');
   } else if (s.type === 'roça') {
@@ -70,14 +70,15 @@ export function buildingCard(world, s) {
       (s.captureProgressDays > 0 ? row('Captura inimiga', s.captureProgressDays + ' / 5 dias') : '');
   } else if (s.type === 'mercado' && kingdom) {
     const stock = kingdom.market.stock;
-    html = row('Comida à venda', fmt(stock.food) + ' dias alimentares') + row('Ouro no mercado', fmt(stock.gold)) +
+    html = row('Comida à venda', fmt(stock.food) + ' dias alimentares') +
+      row('Carne no estoque', fmt(stock.meat || 0) + ' un. · ' + fmt((stock.meat || 0) * MEAT_NUTRITIONAL_VALUE) + ' dias alimentares') + row('Ouro no mercado', fmt(stock.gold)) +
       row('Preço da comida', fmt(kingdom.market.prices.food) + ' ouro/dia alimentar') +
       row('Madeira / pedra disponíveis', fmt(stock.wood) + ' / ' + fmt(stock.stone));
   } else if (community) {
     html = row('Comida compartilhada', fmt(community.stores.food) + ' dias alimentares') +
-      row('Carne compartilhada', fmt(community.stores.meat) + ' un. físicas · 2,5 dias/un.') +
+      row('Carne compartilhada', fmt(community.stores.meat) + ' un. · ' + fmt(community.stores.meat * MEAT_NUTRITIONAL_VALUE) + ' dias de alimento') +
       row('Madeira / pedra', fmt(community.stores.wood) + ' / ' + fmt(community.stores.stone)) +
-      note('O saldo alimentar é contado em dias equivalentes de um adulto. Carne é um estoque físico separado e fornece 2,5 dias por unidade.');
+      note('Comida vegetal: 1 unidade = 1 pessoa-dia. Carne: 1 unidade física = 10 pessoa-dias. Os itens ficam em estoques separados; o total converte ambos para a reserva alimentar comum.');
   } else html = note('Nenhuma atividade produtiva registrada nesta construção.');
   if (s.maxHealth) {
     const life = towerVitality(s);

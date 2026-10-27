@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PLANTS } from '../src/config/ecosystem.js';
+import { MEAT_NUTRITIONAL_VALUE, PLANTS } from '../src/config/ecosystem.js';
 import { buildingCard, kingdomOverview } from '../src/ui/building-card.js';
 
 test('farm inspector separates standing crop, historical harvest, and seed reserve from stored food', () => {
@@ -26,19 +26,24 @@ test('farm inspector separates standing crop, historical harvest, and seed reser
   assert.doesNotMatch(card, /Colheita acumulada/);
 });
 
-test('market, shelter and kingdom totals label food in adult-days and meat by physical unit', () => {
+test('market, shelter and kingdom totals show one day per food unit and ten per meat unit', () => {
   const kingdom = { id: 1, memberIds: [], homeIds: [], towerIds: [], treasury: { stock: { food: 300 } },
-    market: { stock: { food: 1000, meat: 0, gold: 10, wood: 4, stone: 3 }, prices: { food: 2 } } };
-  const world = { kingdoms: [kingdom], communities: [], people: [], structures: [], kingdomRelations: {} };
+    market: { stock: { food: 1000, meat: 4, gold: 10, wood: 4, stone: 3 }, prices: { food: 2 } } };
+  const community = { id: 2, stores: { food: 0, meat: 4, wood: 0, stone: 0 }, dissolved: false };
+  const world = { kingdoms: [kingdom], communities: [community], people: [], structures: [], kingdomRelations: {} };
   const market = buildingCard(world, { type: 'mercado', complete: true, kingdomId: kingdom.id });
   const shelter = buildingCard(world, { type: 'abrigo', complete: true, residentIds: [], fruitStored: 12, meatStored: 4 });
+  const sharedStores = buildingCard(world, { type: 'vila', complete: true, communityId: community.id });
   const overview = kingdomOverview(world, kingdom);
 
   assert.match(market, /1\.000 dias alimentares/);
   assert.match(market, /ouro\/dia alimentar/);
   assert.match(shelter, /12 dias de alimento/);
-  assert.match(shelter, /4 un\. físicas · 2,5 dias\/un\./);
+  assert.match(market, /4 un\. · 40 dias alimentares/);
+  assert.match(shelter, /4 un\. · 40 dias de alimento/);
+  assert.match(sharedStores, /4 un\. · 40 dias de alimento/);
   assert.match(shelter, /já fazem parte do estoque comunitário/);
   assert.match(overview, /dias equivalentes/);
-  assert.match(overview, /cada unidade de comida vale um dia adulto/);
+  assert.match(overview, /uma unidade de comida vegetal vale um dia e uma unidade física de carne vale 10 dias/);
+  assert.equal(MEAT_NUTRITIONAL_VALUE, 10);
 });

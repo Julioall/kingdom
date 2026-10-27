@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
-import { DOMESTIC_SHEEP_DAILY_FEED, SHEEP_ADULT_AGE_DAYS } from '../src/config/ecosystem.js';
+import { DOMESTIC_SHEEP_DAILY_FEED, MEAT_NUTRITIONAL_VALUE, SHEEP_ADULT_AGE_DAYS } from '../src/config/ecosystem.js';
 import engine from '../src/simulation/engine.js';
 import { feedCommunalHerds } from '../src/simulation/ecology/animals.js';
 import { attemptHumanHunt, nearestEmergencyHerdSheep } from '../src/simulation/individuals/actions.js';
@@ -102,7 +102,7 @@ function run(seed) {
     communityMeat: Number(community.stores.meat.toFixed(2)),
     shelterMeat: Number(shelter.meatStored.toFixed(2)),
     deliveryState: person.state,
-    dailyFoodNeedFromMeat: Number((meatProduced * 2.5).toFixed(2)),
+    personDaysFromMeat: Number((meatProduced * MEAT_NUTRITIONAL_VALUE).toFixed(2)),
     event: world.events.find(item => /abateu uma ovelha adulta excedente/.test(item.text || ''))?.text || null,
     elapsedSeconds: Number(((performance.now() - startedAt) / 1000).toFixed(3))
   };

@@ -4,9 +4,9 @@ Data: 27/10/2026
 
 ## Decisão
 
-Uma unidade armazenada de comida vegetal representa **um pessoa-dia**: alimento suficiente para uma pessoa por um dia. O consumo diário é 1 para adultos, dependentes e soldados, em paz ou campanha. `foodReserve` passa a ser lido diretamente como dias restantes; por exemplo, 30 significa 30 dias e o teto atual de 100 significa 100 dias.
+Uma unidade de comida vegetal representa **um pessoa-dia**: alimento suficiente para uma pessoa por um dia. O consumo diário é 1 para adultos, dependentes e soldados, em paz ou campanha. `foodReserve` passa a ser lido diretamente como dias restantes; por exemplo, 30 significa 30 dias e o teto atual de 100 significa 100 dias. Uma unidade física de carne rende 10 pessoa-dias, como um produto concentrado separado; o estoque e o transporte continuam registrados em unidades físicas.
 
-Carne continua como estoque físico separado. Sua conversão nutricional existente permanece explícita em 2,5 pessoa-dias por unidade de carne. Sementes, ração animal e biomassa em pé continuam em suas próprias unidades. O potencial da roça é uma estimativa de colheita futura; a comida só entra no estoque quando colhida e entregue. O registro de frutos/carne em abrigo continua sendo subregistro/localização do estoque compartilhado, nunca um saldo adicional.
+Carne continua como item de estoque separado para manejo, transporte e venda. Sementes, ração animal e biomassa em pé continuam em suas próprias unidades. O potencial da roça é uma estimativa de colheita futura; a comida só entra no estoque quando colhida e entregue. O registro de frutos/carne em abrigo continua sendo subregistro/localização do estoque compartilhado, nunca um saldo adicional.
 
 No mercado, quantidade de comida e preço passam a ser lidos em dias de alimento; o preço atual em ouro por unidade permanece, portanto passa a ser ouro por pessoa-dia. O ciclo de sementes, o rendimento físico da roça e o limite de carga não mudam nesta decisão.
 
@@ -22,7 +22,9 @@ O baseline repetido de 253 dias, seed 42, no SHA `bf9ad54ab371ec972a15de442955e6
 
 - **Manter “pontos” e só renomear a interface:** preservaria as fórmulas, mas 1.000 unidades continuariam sem significar 1.000 dias; não atende à escala solicitada.
 - **Manter descontos de crianças e soldados:** exigiria exceções para estimar reservas, mercado e rações. A regra comum de 1 pessoa-dia elimina essas conversões sem dar comida gratuita; cada pessoa continua podendo ficar sem acesso e morrer de fome.
-- **Alterar o valor nutricional da carne:** rejeitado nesta fatia. A conversão 2,5 já existe e pode permanecer como fator separado e visível.
+- **Manter 2,5 pessoa-dias por unidade de carne:** rejeitado na revisão de 27/10/2026 por subestimar o rendimento do abate adulto no jogo.
+- **Usar 5 pessoa-dias por unidade:** alternativa inteira e mais conservadora; deixaria o abate potencial de 33 ovelhas adultas padrão em cerca de 76 dias para 50 pessoas, menos de metade do buffer alvo de 180 dias.
+- **Usar 10 pessoa-dias por unidade:** escolhido. Para a massa média adulta e a fração de carcaça já implementadas, o abate potencial de 33 ovelhas equivale a cerca de 152 dias para 50 pessoas, ainda abaixo de um buffer de 180 dias e de um lote de roça de 10.000 unidades. É uma reserva forte para escassez, mantendo alimento vegetal como fonte regular.
 
 ## Reavaliação puxada pelo replay
 
@@ -44,4 +46,22 @@ A matriz de 730 dias também concluiu no mesmo SHA. Os estoques comunitários fi
 
 ## Validação
 
-Suite completa: **284/284**. A matriz direcionada de estresse passou **67/67**, cobrindo falta de comida, mercado vazio/oferta incompleta, fronteira/rota bloqueada, carga cheia, ausência de trabalhador/seed e guerra sem ração; os nomes e limites de cada cenário estão em `docs/verification/JUL-178-food-stress-matrix-20261027.md`. `npm run build` também passou no SHA de código `1a2a8d6ff8b7c96afa08ae8486c70d1a61cea310`. A interface do navegador mostrou comida como dias equivalentes, separou o texto de reservas pessoais e manteve carne como 2,5 dias/unidade física. Matrizes normais de 253, 365 e 730 dias concluídas nesse SHA; seed 42 repetiu estado e crônica nas três janelas. A matriz de estresse usa fixtures unitárias/de integração, não replays longos de mundo inteiro sob cada choque. Ainda falta demonstrar transporte físico da colheita e acesso individual quando o estoque comunitário é alto; a auditoria JUL-178 não deve ser concluída enquanto esses pontos permanecerem sem evidência. Não há salvamento persistente do mundo para migrar; as únicas referências a `localStorage` neste checkout são preferências de IA e áudio.
+Suite completa: **284/284**. A matriz direcionada de estresse passou **67/67**, cobrindo falta de comida, mercado vazio/oferta incompleta, fronteira/rota bloqueada, carga cheia, ausência de trabalhador/seed e guerra sem ração; os nomes e limites de cada cenário estão em `docs/verification/JUL-178-food-stress-matrix-20261027.md`. `npm run build` também passou no SHA de código `1a2a8d6ff8b7c96afa08ae8486c70d1a61cea310`. Esses replays e resultados são do contrato anterior, com carne a 2,5 dias/unidade, e não validam o ajuste atual. A matriz de estresse usa fixtures unitárias/de integração, não replays longos de mundo inteiro sob cada choque. Ainda falta demonstrar transporte físico da colheita e acesso individual quando o estoque comunitário é alto; a auditoria JUL-178 não deve ser concluída enquanto esses pontos permanecerem sem evidência. Não há salvamento persistente do mundo para migrar; as únicas referências a `localStorage` neste checkout são preferências de IA e áudio.
+
+## Revisão de valor da carne — 27/10/2026
+
+A necessidade permanece simples: **1 unidade de comida por pessoa por dia** para adultos, dependentes e soldados. A carne é item físico próprio, e sua conversão de gameplay passa a ser `MEAT_NUTRITIONAL_VALUE = 10` pessoa-dias por unidade. O rei, o mercado, os abrigos, os totais comunitários, a distribuição e o consumo usam esse mesmo fator.
+
+### Custo e escala no código
+
+- `attemptHumanHunt` produz `clamp(massKg × 0,48, 1,2, 28)` unidades de carne e só permite abater ovelha adulta em emergência, preservando duas adultas para reprodução.
+- Uma ovelha de massa adulta média (48 kg no modelo) rende 23,04 unidades físicas; com o fator 10, são **230,4 pessoa-dias**, ou **4,6 dias para 50 moradores**. Uma ovelha de 67 kg atinge o limite de 28 unidades, equivalendo a 280 pessoa-dias.
+- Um curral comporta 35 animais; preservando duas reprodutoras, o limite teórico de 33 ovelhas adultas médias rende 7.603,2 pessoa-dias, cerca de **152 dias para 50 pessoas**. É um teto de abate, não uma produção contínua: elimina quase todo o plantel disponível.
+- O cordeiro cresce até a idade adulta em 180 dias e consome até 0,12 de ração por dia no modelo: **21,6 unidades de ração por cordeiro** até a maturidade, além da manutenção diária dos reprodutores. Um curral lotado consome 4,2 de ração por dia. Ração e comida têm unidades próprias e não se supõe que sejam nutricionalmente equivalentes.
+- Como referência observável, um lote de 10.000 unidades de roça representa 200 dias para 50 pessoas. O teto do curral com fator 10 fica em 76% desse lote; com fator 5 ficaria em 38%. Assim, 10 dá relevância ao rebanho em escassez sem superar sozinho o lote de referência da roça.
+
+O fator 10 é uma regra de balanceamento do jogo, não uma conversão nutricional científica. SciSpace encontrou Corazzin et al., *Carcass Characteristics and Meat Quality of Sheep and Goat* (2019, [DOI 10.1007/978-3-030-05484-7_6](https://doi.org/10.1007/978-3-030-05484-7_6)); o resumo apresenta rendimento de carcaça de aproximadamente 40–60%, compatível com os 48% usados pelo código, mas não define pessoa-dias por unidade. Também encontrou Sultana et al., *Effects of age on intake, growth, nutrient utilization and carcass characteristics of castrated native sheep* (2011, [DOI 10.3329/BVET.V27I2.7556](https://doi.org/10.3329/BVET.V27I2.7556)): nesse manejo experimental, a conversão alimentar piora com a idade, enquanto rendimento de carcaça aumenta; isso apoia limitar a comparação ao abate maduro e não envelhecer ovelhas indefinidamente, mas os valores físicos não são mapeáveis diretamente às unidades abstratas de ração do jogo.
+
+SciSpace informa o que os resumos dos estudos cobrem, não valida o balanceamento de Kingdom. O Consensus foi consultado e recusou a busca por limite mensal de 30 pesquisas, com reinício em 1/11/2026. A skill Game Studio foi aplicada como orientação de manter a regra determinística na simulação/configuração, refletir a equivalência claramente na interface e validar o loop no jogo.
+
+A validação do fator 10 será registrada no SHA de integração; os replays históricos de 253/365/730 dias acima foram executados com fator 2,5 e não validam esta revisão. JUL-178 continua sem aceite final até repetir os cenários alimentares no valor atual e fechar os critérios restantes da auditoria.
