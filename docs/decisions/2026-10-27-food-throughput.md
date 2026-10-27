@@ -35,5 +35,7 @@ Game Studio recomenda manter simulação e renderização separadas; esta altera
 ## Validação e pendências
 
 - Testes unitários cobrem conservação do lote de 24, persistência e conclusão da ordem ao atingir a reserva alvo, ausência de delegação duplicada para peão ativo e capacidade para populações 49/50/51.
-- Um replay posterior à correção da duração da delegação ainda precisa confirmar alimento entregue, consumo, perdas, exposição a fome e repetibilidade. A meta combinada roça + curral também depende do ciclo de rebanho de JUL-199; compra de sementes no mercado continua em JUL-201.
+- No SHA `c3726204a9c38cd1d3b36848d11cec4c672aa2aa`, replays de 365 dias nas seeds 1/42 tiveram zero mortes humanas por fome e reduziram adultos-dias com reserva abaixo de 20 de 10.310/10.563 para 6.877/6.416. A colheita cultivada subiu de 3.543/5.862 para 6.449/10.876; o estoque final subiu de 0/1,71 para 84,29/16,08. Relatório: `docs/verification/JUL-178-refill-target-365-20261027.json`.
+- Isso é uma melhora, mas não atende a capacidade de 50: os campos medidos produziram aproximadamente 22–27 unidades/dia por roça depois de concluídos, contra 54,17 unidades/dia para 50 adultos. A produção de carne doméstica foi zero nos dois replays. Reservas baixas continuam por milhares de adulto-dias, e apenas duas seeds/um horizonte foram medidos sem repetição pareada.
+- JUL-178 e JUL-224 permanecem abertas. Faltam replays de 253/730 dias, 4 seeds e repetibilidade; o ciclo sustentável de carne depende de JUL-199 e sementes compradas dependem de JUL-201. A produção acessível líquida deverá ser medida de novo após essas dependências.
 - Esta decisão não conclui JUL-178 nem JUL-224 e não declara que uma roça e um curral já sustentam 50 pessoas.
