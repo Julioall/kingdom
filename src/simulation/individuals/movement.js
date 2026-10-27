@@ -158,16 +158,41 @@ function personById(w, id) {
   return (w.people || []).find(person => person.id === id && person.alive);
 }
 
+function ledSheepFor(w, person) {
+  return person.leadingSheepId == null ? null : w.animals.find(animal => animal.id === person.leadingSheepId
+    && animal.alive && animal.beingLedBy === person.id) || null;
+}
+
+function syncLedSheepPosition(w, person) {
+  const sheep = ledSheepFor(w, person);
+  if (!sheep) return;
+  // A passage handoff is part of the handler's actual step, so keep the pair
+  // together before another traveler attempts to occupy the just-cleared tile.
+  sheep.x = person.x + .25;
+  sheep.y = person.y + .15;
+}
+
 function canYieldPassage(w, person, requester) {
-  if (person.role === 'soldier') return person.alive && !person.towerMounted
-    && person.kingdomId === requester.kingdomId && person.campaignId != null
-    && person.campaignId === requester.campaignId
-    && w.day - (person.lastMilitaryAttackDay ?? -Infinity) > 1
-    && person.health >= 28 && person.energy >= 12;
+  if (person.role === 'soldier') {
+    const healthyAndReady = person.alive && !person.towerMounted
+      && w.day - (person.lastMilitaryAttackDay ?? -Infinity) > 1
+      && person.health >= 28 && person.energy >= 12;
+    const sameCampaign = person.kingdomId === requester.kingdomId && person.campaignId != null
+      && person.campaignId === requester.campaignId;
+    // Local shepherds may pass a healthy guard on friendly ground; active
+    // combat, tower duty and recently attacked soldiers remain in position.
+    const friendlyShepherdPass = ledSheepFor(w, requester) && person.kingdomId != null
+      && person.kingdomId === requester.kingdomId
+      && cellAt(w, Math.round(person.x), Math.round(person.y))?.kingdomId === person.kingdomId;
+    return healthyAndReady && (sameCampaign || friendlyShepherdPass);
+  }
+  const ledSheep = ledSheepFor(w, person);
   const assignment = person.assignment;
+  const activeAssignment = assignment && (assignment.expiresDay == null || assignment.expiresDay >= w.day) && !assignment.pauseReason;
+  const shepherdCanYield = ledSheep && person.brain?.lastAction === 'lead_sheep';
   return person.alive && person.role !== 'soldier'
-    && !(assignment && (assignment.expiresDay == null || assignment.expiresDay >= w.day) && !assignment.pauseReason)
-    && !PASSAGE_BUSY_ACTIONS.has(person.brain?.lastAction)
+    && (!activeAssignment || shepherdCanYield)
+    && (!PASSAGE_BUSY_ACTIONS.has(person.brain?.lastAction) || shepherdCanYield)
     && !(Number.isFinite(person.health) && person.health < 30)
     && !(Number.isFinite(person.energy) && person.energy < 12);
 }
@@ -437,6 +462,7 @@ export function moveOne(w, agent, target, aquatic, movementOptions = null) {
       agent.headingX = next.x - agent.x; agent.headingY = next.y - agent.y;
       agent.x = next.x; agent.y = next.y;
       w.peopleSpatialIndex?.move(agent);
+      if (agent.speciesId == null && agent.leadingSheepId != null) syncLedSheepPosition(w, agent);
       markTerritoryStep(w, agent, next);
       recordFootstep(next, agent, w.day);
     }
