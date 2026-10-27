@@ -49,5 +49,26 @@ Consensus: cota de busca indisponível até 01/11/2026. A ferramenta de notas do
 * `npm run typecheck`: passou.
 * `npm run build`: passou; 108 módulos transformados e 489 PNGs convertidos em WebP sem perdas (8,03 MiB → 5,27 MiB).
 * `git diff --check`: passou.
-* Replays seed 42/253 e quatro seeds/365 ainda pendentes nesta nota; atualizar com SHA, hashes, mortes por ator/causa, reservas, colheita e comida disponível antes de encerrar JUL-204.
+* Replays no SHA `c2eef7a0bd695cc3d8871a6afbc6635855a0fd6a`: seed 42 por 253 dias e seeds 1, 42, 987 e 2026 por 365 dias; a seed 42 repetida foi determinística em ambos.
+* Resultados anuais:
+
+  | Seed | Pessoas vivas ao fim | Nascimentos | Mortes totais | Mortes humanas (causa) | Ovelhas selvagens mortas de fome | Colheita de plantas / roça | Biomassa alimentar final | Pessoa-dias adultas com reserva <20 |
+  | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: |
+  | 1 | 100 | 12 | 18 | 0 | 18 | 13347,59 / 6660,06 | 135539,49 | 9789 |
+  | 42 | 96 | 14 | 7 | 4 (3 invasão, 1 combate) | 3 | 10473,99 / 0 | 128592,08 | 12576 |
+  | 987 | 99 | 13 | 13 | 2 (1 invasão, 1 combate) | 11 | 14575,95 / 8811,65 | 136134,32 | 8934 |
+  | 2026 | 100 | 10 | 19 | 1 invasão | 18 | 12460,81 / 3711,63 | 122414,89 | 10295 |
+
+  Não houve morte humana por fome ou sede nesses quatro replays; as mortes agregadas por fome foram de ovelhas selvagens. Isso demonstra que a ecologia permite mortalidade animal, mas não prova que a população humana morrerá de fome em condições mais severas. A quantidade de pessoa-dias com reserva baixa mostra pressão alimentar persistente e permanece um problema de JUL-178/JUL-201. O relatório `docs/verification/JUL-204-food-365-multiseed-20261027.json` contém estoques, campanhas, reservas e os demais campos por seed.
+* Estoques finais anuais: o mercado, tesouro e estoque comunitário estavam zerados nas seeds 1, 42 e 2026; a seed 987 terminou com 9,49 no comunitário e zero no mercado/tesouro. Reservas pessoais finais: 2530,79; 1522; 2527,25; 2028,30, respectivamente. Os relatórios também confirmam que os ledgers logísticos de campanha fecharam sem divergências. A seed 42/253 colheu 3710,83 de alimento silvestre e nenhuma raiz cultivada; terminou com 1890,37 de reserva pessoal e zero no mercado, tesouro e comunidade. Isso sustenta que a preocupação de acesso/fluxo da roça segue aberta em JUL-178/JUL-201, sem atribuir a falha à remoção da sazonalidade.
+* Hashes anuais (estado / crônica):
+
+  | Seed | SHA-256 do estado | SHA-256 da crônica |
+  | ---: | --- | --- |
+  | 1 | `47d9bbaccac53f05ed16d0d1c4794fdea90b2720e3ab0a96a888cdf928788e5e` | `339e9255875a3dfeb1cd704305b98df6bee1c07e2a257859e0e03524c580a17b` |
+  | 42 | `bc6c30241495ade900999eb9e27d9a7c0cf18e30cccb485384c6a884d3a1793a` | `972d8b364b3ae14f60bd87479d2f54534550bf10273f67d00a87e43fd387d9e5` |
+  | 987 | `a4e94ad8ecaedcf251540120c4d139d123399ce2c1a6ce792d8e80261fc81030` | `2ddc88099f49744108ce3b85eac3e5ac987cdb70d1631ced12341ebb3b1daf35` |
+  | 2026 | `75ce926bd73d30fe340903b33467c22c289e502fc99115d4d8c5b572b8f08290` | `b55eae3c6c1cf9a19119f03e59d27a861a1db3ce153f4370f7d40b0a4cc4d981` |
+
+* Replay de 253 dias, seed 42: estado `17d93c589c1de6a958782654e05b5b0e0dc020cedbc44bd0462c71576572911c`; crônica `2d20c4b5a4c1b668a97009f54a77d92a5100bd6d12ad21de8e8b39cac9db4813`; repetição determinística; 99 pessoas vivas, 10 nascimentos, 4 mortes (3 ovelhas selvagens por fome e 1 pessoa em combate), biomassa alimentar 122149,31 e 4215 pessoa-dias adultas com reserva <20. Evidência completa em `docs/verification/JUL-204-food-253-seed42-repeat-20261027.json`.
 * A interface e as paletas sazonais não foram alteradas, então não foi necessária captura de playtest visual nesta fatia. `tests/render-optimization.test.mjs` continua cobrindo invalidação de tiles por mudança de estação.
