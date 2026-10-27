@@ -14,6 +14,7 @@
     "preview": "node scripts/run-local.mjs --preview",
     "ai:prepare": "node scripts/prepare-ai-models.mjs",
     "ai:serve": "node src/ai/ollama-service.mjs",
+    "bench:ai": "node scripts/benchmark-ai-models.mjs",
     "typecheck": "tsc --noEmit",
     "bench:simulation": "node scripts/benchmark-simulation.mjs",
     "verify:images": "node scripts/verify-build-images.mjs"
