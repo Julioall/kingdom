@@ -2,6 +2,7 @@ import { chooseRearCorralSite } from './rear-sites.js';
 import { initializeTowerHealth } from './fortifications.js';
 import { transferInventory, transferStoresToInventory, spendInventory } from '../economy/inventories.js';
 import { DOMESTIC_SHEEP_DAILY_FEED, HEIGHT, WIDTH } from '../../config/ecosystem.js';
+import { formatWholeMeasure } from '../../config/whole-measures.js';
 import { log } from '../core/events.js';
 import { cellAt } from '../world/spatial.js';
 import { recomputeKingdomTerritories, TERRITORY_RULES } from './territories.js';
@@ -185,7 +186,7 @@ function collectKingdomTax(world, kingdom, day, dailyFoodDemand, population) {
   kingdom.taxLedger.history.push(record);
   if (kingdom.taxLedger.history.length > 24) kingdom.taxLedger.history.shift();
   const message = total > .01
-    ? kingdom.name + ' recolheu tributos de ' + Object.entries(tax).map(([resource, amount]) => Number(amount.toFixed(2)) + ' ' + resource).join(', ') + ' no dia ' + day + '.'
+    ? kingdom.name + ' recolheu tributos de ' + Object.entries(tax).map(([resource, amount]) => formatWholeMeasure(amount) + ' ' + resource).join(', ') + ' no dia ' + day + '.'
     : kingdom.name + ' não recolheu tributo no dia ' + day + ': os estoques comunitários ficaram dentro das reservas protegidas.';
   community.history.push(message);
   log(world, message);

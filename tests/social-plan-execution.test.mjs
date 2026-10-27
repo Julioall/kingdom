@@ -98,6 +98,22 @@ test('a builder interrupts its assignment, walks to the same helper and finishes
   assert.ok(final.updatedDay <= final.dueDay);
 });
 
+test('an assigned food-field builder keeps a social aid plan suspended while personal food is sufficient', () => {
+  const { world, person, helper } = fixture('resident');
+  person.assignment = { action: 'build', goal: 'invest-in-cultivated-food', communityId: null,
+    assignedBy: helper.id, expiresDay: 100, source: 'kingdom-strategy' };
+  person.perception = { people: [{ id: helper.id, visible: true, distance: 1,
+    visibleSignals: { foodSurplus: true } }] };
+  const { intention } = ensureFoodAidPlan(world, person, helper);
+  assert.ok(intention);
+
+  const selected = selectSocialPlanAction(world, person, { constructionDuty: true });
+
+  assert.equal(selected, null);
+  assert.equal(person.socialIntentions[0].status, 'suspended');
+  assert.ok(person.socialIntentions[0].blockers.includes('community_duty'));
+});
+
 test('military duty and emergencies suspend a plan, recovery resumes the same ID', () => {
   const { world, person, helper } = fixture('resident');
   person.perception = { people: [{ id: helper.id, visible: true, distance: 1, visibleSignals: { foodSurplus: true } }] };

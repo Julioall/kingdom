@@ -1,3 +1,5 @@
+import { formatWholeMeasure } from '../config/whole-measures.js';
+
 const SOCIAL_EVENT_LABELS = Object.freeze({
   social_meeting: 'conversa presencial',
   water_source_indicated: 'indicação de água',
@@ -91,7 +93,7 @@ export function renderSocialInspectorSections(person, world) {
   const commitments = openFirst((world.socialEvidence?.commitments || []).map(item => item.record)
     .filter(record => record?.parties?.includes(String(person.id))), ['proposed', 'accepted']);
   const commitmentRows = commitments.map(commitment => {
-    const amount = formatNumber(commitment.deliveredQuantity || 0, 1) + '/' + formatNumber(commitment.quantity, 1);
+    const amount = formatWholeMeasure(commitment.deliveredQuantity || 0) + '/' + formatWholeMeasure(commitment.quantity);
     const due = Number.isSafeInteger(commitment.dueDay) ? ' · prazo dia ' + commitment.dueDay : '';
     const others = (commitment.parties || []).filter(id => String(id) !== String(person.id))
       .map(id => (world.people || []).find(candidate => String(candidate.id) === String(id))?.name || 'pessoa ' + id);
@@ -109,9 +111,9 @@ export function renderSocialInspectorSections(person, world) {
       ? 'Relato recebido de ' + (sourcePerson?.name || 'pessoa ' + memory.sourcePersonId)
       : 'Observado diretamente';
     const outcome = fact?.outcome?.resource === 'food' && Number.isFinite(fact.outcome.amount)
-      ? ' · ' + formatNumber(fact.outcome.amount, 1) + ' dias de alimento'
+      ? ' · ' + formatWholeMeasure(fact.outcome.amount) + ' dias de alimento'
       : fact?.outcome?.resource === 'gold' && Number.isFinite(fact.outcome.amount)
-        ? ' · ' + formatNumber(fact.outcome.amount, 1) + ' ouro' : '';
+        ? ' · ' + formatWholeMeasure(fact.outcome.amount) + ' ouro' : '';
     const meetingResult = fact?.type === 'social_meeting' && fact.outcome?.result === 'conversation_completed'
       ? ' · resultado confirmado' : '';
     const waterResult = fact?.type === 'water_source_indicated' && fact.outcome?.result === 'reference_received'
@@ -121,8 +123,8 @@ export function renderSocialInspectorSections(person, world) {
         ? ' · pedido recusado' : '';
     const commitmentResult = fact?.type === 'social_commitment_accepted'
       ? ' · aceito por ' + ((world.people || []).find(candidate => String(candidate.id) === String(fact.outcome?.acceptedBy))?.name || 'outra parte')
-      : fact?.type === 'social_commitment_fulfilled' ? ' · quantidade entregue ' + formatNumber(fact.outcome?.deliveredQuantity, 1)
-        : fact?.type === 'social_commitment_breached' ? ' · faltou ' + formatNumber(fact.outcome?.remainingQuantity, 1)
+      : fact?.type === 'social_commitment_fulfilled' ? ' · quantidade entregue ' + formatWholeMeasure(fact.outcome?.deliveredQuantity)
+        : fact?.type === 'social_commitment_breached' ? ' · faltou ' + formatWholeMeasure(fact.outcome?.remainingQuantity)
           : '';
     const intentionResult = fact?.type === 'social_intention_resolved'
       ? fact.outcome?.status === 'completed' ? ' · concluído'
@@ -130,7 +132,7 @@ export function renderSocialInspectorSections(person, world) {
       : '';
     const serviceResult = fact?.type === 'military_service_evaluated'
       ? Number(fact.outcome?.outstandingArrears) > .001
-        ? ' · soldo pendente ' + formatNumber(fact.outcome.outstandingArrears, 1) + ' ouro'
+        ? ' · soldo pendente ' + formatWholeMeasure(fact.outcome.outstandingArrears) + ' ouro'
         : ' · soldo em dia' : '';
     const progressResult = fact?.type === 'social_intention_progressed'
       ? ' · ' + escapeHtml(detailLabel(fact.outcome?.type || 'plano'))

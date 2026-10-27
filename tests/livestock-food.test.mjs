@@ -30,7 +30,7 @@ test('emergency herd harvest creates carried meat from a sheep and preserves two
 
   assert.equal(sheep[0].alive, false);
   assert.deepEqual(sheep.slice(1).map(animal => animal.alive), [true, true]);
-  assert.ok(Math.abs(person.carriedMeat - 23.04) < 1e-9);
+  assert.equal(person.carriedMeat, 23);
   assert.equal(world.deaths, 1);
   assert.equal(world.deathsByCause.harvest, 1);
   assert.equal(world.harvests.livestock, 1);

@@ -28,10 +28,15 @@ export const SHEEP_ADULT_AGE_DAYS = 180;
 export const SHEEP_NEWBORN_MASS_RATIO = .24;
 export const SHEEP_JUVENILE_MIN_SCALE = .68;
 
-// A small daily ration sustains a domesticated sheep without making the flock
-// compete with people for the same edible plants.
+// Internal feed amount for one daily ration portion. Player and ruler-facing
+// values use whole portions: one portion feeds one sheep for one day.
 export const DOMESTIC_SHEEP_DAILY_FEED = .12;
+export const DOMESTIC_SHEEP_DAILY_RATION_PORTIONS = 1;
 export const DOMESTIC_SHEEP_ENERGY_PER_FEED = 8;
+
+export function feedRationPortions(internalFeedAmount) {
+  return Math.round((Number(internalFeedAmount) || 0) / DOMESTIC_SHEEP_DAILY_FEED * DOMESTIC_SHEEP_DAILY_RATION_PORTIONS);
+}
 
 export const HUMAN_NAMES = ['Aru', 'Bela', 'Caí', 'Dara', 'Eni', 'Iara', 'Jaci', 'Kai', 'Luma', 'Nilo', 'Oru', 'Tainá', 'Uira', 'Yara', 'Zuri', 'Ayo', 'Cora', 'Davi', 'Ema', 'Ivo', 'Lina', 'Mira', 'Noa', 'Ravi'];
 

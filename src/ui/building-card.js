@@ -1,9 +1,10 @@
 import { corralSummary, resourceSummary } from './gameplay-data.js';
 import { towerVitality } from '../simulation/kingdoms/fortifications.js';
-import { MEAT_NUTRITIONAL_VALUE, PLANTS } from '../config/ecosystem.js';
+import { DOMESTIC_SHEEP_DAILY_FEED, MEAT_NUTRITIONAL_VALUE, PLANTS } from '../config/ecosystem.js';
+import { formatWholeMeasure } from './whole-measures.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const fmt = n => (Number(n) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+const fmt = formatWholeMeasure;
 export const row = (label, value) => `<div class="data-row"><span>${esc(label)}</span><b>${esc(value)}</b></div>`;
 const note = text => `<p class="quiet">${esc(text)}</p>`;
 
@@ -35,8 +36,8 @@ export function buildingCard(world, s) {
   }
   if (s.type === 'curral') {
     const data = corralSummary(world, s);
-    html = row('Ovelhas neste curral', data.sheep + ' / ' + data.capacity) + row('Ração disponível', fmt(data.feed) + ' un. · reserva compartilhada') +
-      row('Consumo previsto de ração', fmt(data.dailyFeed) + ' un./dia') +
+    html = row('Ovelhas neste curral', data.sheep + ' / ' + data.capacity) + row('Ração disponível', fmt(data.feed / DOMESTIC_SHEEP_DAILY_FEED) + ' porções · reserva compartilhada') +
+      row('Consumo previsto de ração', fmt(data.dailyRationPortions) + ' porções/dia') +
       row('Duração da ração', data.feedDays == null ? 'Sem rebanho' : fmt(data.feedDays) + ' dias') +
       row('Comida produzida', '0 un./dia') + note('O curral mantém e reproduz o rebanho. Ainda não existe produção de leite nem abate de ovelhas domesticadas.') +
       row('Nascimentos neste curral', data.births) + row('Último nascimento', data.lastBirthDay == null ? 'Nenhum registrado' : 'Dia ' + data.lastBirthDay) +

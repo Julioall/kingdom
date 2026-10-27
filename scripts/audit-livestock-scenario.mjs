@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
-import { DOMESTIC_SHEEP_DAILY_FEED, MEAT_NUTRITIONAL_VALUE, SHEEP_ADULT_AGE_DAYS } from '../src/config/ecosystem.js';
+import { DOMESTIC_SHEEP_DAILY_FEED, feedRationPortions, MEAT_NUTRITIONAL_VALUE, SHEEP_ADULT_AGE_DAYS } from '../src/config/ecosystem.js';
 import engine from '../src/simulation/engine.js';
 import { feedCommunalHerds } from '../src/simulation/ecology/animals.js';
 import { attemptHumanHunt, nearestEmergencyHerdSheep } from '../src/simulation/individuals/actions.js';
@@ -81,34 +81,34 @@ function run(seed) {
   engine.modules.SocietyExperiment.updatePeople(world);
 
   const adultHerdAfter = herd.filter(animal => animal.alive && animal.ageDays >= SHEEP_ADULT_AGE_DAYS).length;
-  const meatProduced = Number(world.harvests.livestockMeat.toFixed(2));
+  const meatProduced = Math.round(world.harvests.livestockMeat);
   const result = {
     seed,
     day: world.day,
     scenario: 'low-community-food-visible-domestic-herd-delivery',
     initialCommunityFood: 0,
-    initialCommunityFeed: Number(feedStart.toFixed(2)),
+    initialCommunityRationPortions: feedRationPortions(feedStart),
     adultHerdBefore: herd.length,
-    feedStart: Number(feedStart.toFixed(2)),
-    feedConsumed: Number(feedConsumed.toFixed(2)),
-    feedRemaining: Number(community.stores.feed.toFixed(2)),
-    communityFoodAfterAction: Number(community.stores.food.toFixed(2)),
-    communityFeedAfterAction: Number(community.stores.feed.toFixed(2)),
-    livestockFeedLedger: Number(world.ecologyFlows.livestockFeedConsumed.toFixed(2)),
+    feedStartRationPortions: feedRationPortions(feedStart),
+    feedConsumedRationPortions: feedRationPortions(feedConsumed),
+    feedRemainingRationPortions: feedRationPortions(community.stores.feed),
+    communityFoodAfterAction: Math.round(community.stores.food),
+    communityRationPortionsAfterAction: feedRationPortions(community.stores.feed),
+    livestockFeedLedgerRationPortions: feedRationPortions(world.ecologyFlows.livestockFeedConsumed),
     harvestedAnimals: world.harvests.livestock,
     adultHerdAfter,
     meatProduced,
-    meatCarried: Number(person.carriedMeat.toFixed(2)),
-    communityMeat: Number(community.stores.meat.toFixed(2)),
-    shelterMeat: Number(shelter.meatStored.toFixed(2)),
+    meatCarried: Math.round(person.carriedMeat),
+    communityMeat: Math.round(community.stores.meat),
+    shelterMeat: Math.round(shelter.meatStored),
     deliveryState: person.state,
-    personDaysFromMeat: Number((meatProduced * MEAT_NUTRITIONAL_VALUE).toFixed(2)),
+    personDaysFromMeat: Math.round(meatProduced * MEAT_NUTRITIONAL_VALUE),
     event: world.events.find(item => /abateu uma ovelha adulta excedente/.test(item.text || ''))?.text || null,
     elapsedSeconds: Number(((performance.now() - startedAt) / 1000).toFixed(3))
   };
 
   if (Math.abs(feedConsumed - feedStart) > 1e-9 || community.stores.feed < -1e-9
-      || result.livestockFeedLedger !== result.feedConsumed || result.harvestedAnimals !== 1
+      || feedRationPortions(world.ecologyFlows.livestockFeedConsumed) !== feedRationPortions(feedConsumed) || result.harvestedAnimals !== 1
       || adultHerdAfter !== 2 || Math.abs(person.carriedMeat) > 1e-9
       || Math.abs(community.stores.meat - meatProduced) > 1e-9
       || Math.abs(shelter.meatStored - meatProduced) > 1e-9

@@ -5,6 +5,7 @@ import { communityFoodStock, consumeFoodReserve, spendInventory, spendStoreInven
 import { cellAt, cellsWithin } from '../world/spatial.js';
 import { collectCommunityFieldSeeds, plantBiomass, sowCommunityField } from '../ecology/plants.js';
 import { PLANTS } from '../../config/ecosystem.js';
+import { formatWholeMeasure } from '../../config/whole-measures.js';
 import { localNameFeature } from '../society/communities.js';
 import { log } from '../core/events.js';
 import { moveOne, reachableAreaAround } from '../individuals/movement.js';
@@ -398,7 +399,7 @@ export function workOnReplantingField(w, person, community, fieldId = person?.as
   if (person.assignment) person.assignment.replantSowedDay = w.day;
   person.state = 'semeando a roça';
   person.lastLesson = 'O morador debitou sementes reservadas e replantou a área existente; o crescimento começa em um novo lote finito.';
-  community.history.push('Replantou a roça com ' + planted.toFixed(2) + ' unidades de sementes reservadas no estoque comum.');
-  log(w, community.name + ' replantou uma roça com ' + planted.toFixed(2) + ' unidades de sementes; novo lote iniciado.', w.day + 1);
+  community.history.push('Replantou a roça com ' + formatWholeMeasure(planted) + ' unidades de sementes reservadas no estoque comum.');
+  log(w, community.name + ' replantou uma roça com ' + formatWholeMeasure(planted) + ' unidades de sementes; novo lote iniciado.', w.day + 1);
   return true;
 }

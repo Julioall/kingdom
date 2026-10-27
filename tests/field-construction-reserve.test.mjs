@@ -63,10 +63,13 @@ test('a kingdom prioritizes its first field and reserves one gatherer while food
   const members = world.people.filter(person => person.alive && person.communityId === community.id);
   const leader = members.find(person => person.id === kingdom.rulerId) || members[0];
   const worker = members.find(person => person.id !== leader.id && person.role !== 'soldier' && person.ageDays >= 12 * 365);
+  community.stores.food = members.length * 5;
+  kingdom.market.stock.food = 0;
 
   assert.equal(nextCommunityStructure(world, community, members.length, communityStructures(world, community)).type, 'roça');
   const report = observeKingdomStrategy(world, kingdom.id);
   assert.equal(report.community.buildPlan.type, 'roça');
+  assert.equal(report.community.foodBufferDays, 5);
   assert.equal(planKingdomStrategy(report).goal, 'prepare-cultivated-field');
   assert.ok(kingdomStrategyChoices(report).some(choice => choice.goal === 'prepare-cultivated-field'));
 
