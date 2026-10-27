@@ -27,6 +27,7 @@ for (let day = 1; day <= days; day++) {
   const campaign = world.campaigns.find(item => item.id === person.campaignId);
   const side = [campaign?.attacker, campaign?.defender].find(item => item?.kingdomId === person.kingdomId);
   const community = world.communities.find(item => item.id === person.communityId);
+  const kingdom = world.kingdoms.find(item => item.id === person.kingdomId);
   samples.push({
     day: world.day, alive: person.alive, deathCause: person.deathCause ?? null,
     x: person.x, y: person.y, energy: person.energy, foodReserve: person.foodReserve,
@@ -37,7 +38,11 @@ for (let day = 1; day <= days; day++) {
     restTarget: (person.role === 'soldier' ? person.militaryRestTargetId : person.homeRestTargetId) ?? null,
     restingStructureId: person.restingStructureId ?? null,
     campaignId: person.campaignId ?? null, campaignStatus: campaign?.status ?? null,
-    campaignFood: side?.supply?.stock?.food ?? null, communityFood: community?.stores?.food ?? null
+    campaignReturnedHome: person.campaignReturnedHome ?? false,
+    sideContainsPerson: side ? side.troopIds.includes(person.id) : null,
+    campaignFood: side?.supply?.stock?.food ?? null, communityFood: community?.stores?.food ?? null,
+    treasuryFood: kingdom?.treasury?.stock?.food ?? null, marketFood: kingdom?.market?.stock?.food ?? null,
+    walletGold: person.militaryWallet?.stock?.gold ?? null
   });
 }
 const report = {
