@@ -152,6 +152,19 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
     const fields = desired.action === 'forage' ? w.structures.filter(s => s.communityId === community.id
       && s.type === 'roça' && s.complete && s.destroyedDay == null && s.integrity !== 0
       && s.cropCycleState === 'ready' && (!(s.fieldTileIndices || []).length || cultivatedFieldStandingBiomass(w, s) > .01)) : [];
+    if (fields.length && desired.goal === 'secure-shared-food' && desired.source === 'kingdom-strategy') {
+      for (const person of workers) {
+        const assignment = person.assignment;
+        if (!assignment || assignment.action !== 'forage' || assignment.goal !== 'secure-shared-food'
+          || assignment.source !== 'kingdom-strategy' || assignment.expiresDay == null || assignment.expiresDay < w.day) continue;
+        const carriesFood = (person.carriedFood || 0) + (person.carriedFruit || 0) + (person.carriedMeat || 0) > .01;
+        if (carriesFood) continue;
+        const assignedField = fields.find(field => field.id === assignment.foodFieldId);
+        if (assignedField) continue;
+        assignment.foodFieldId = fields.slice()
+          .sort((a, b) => distance(person, a) - distance(person, b) || a.id - b.id)[0].id;
+      }
+    }
     const cropInvestment = desired.action === 'build' && desired.goal === 'invest-in-cultivated-food';
     const cropReplant = desired.action === 'build' && desired.goal === 'replant-cultivated-food';
     const replantField = cropReplant ? structures.filter(structure => structure.type === 'roça' && structure.complete

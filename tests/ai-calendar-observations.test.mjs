@@ -311,6 +311,28 @@ test('food support assigns harvesters alongside a separate active field builder'
     'a second support pass does not duplicate active food assignments');
 });
 
+test('food support redirects an existing forager to a newly ready field after their current load is delivered', () => {
+  for (const carried of [false, true]) {
+    const leader = { id: 1, alive: true, communityId: 3, ageDays: 40 * 365, foodReserve: 80, skills: { forage: .5 } };
+    const worker = { id: 2, alive: true, communityId: 3, ageDays: 30 * 365, role: 'resident',
+      hydration: 100, energy: 100, health: 100, foodReserve: 80, skills: { forage: .5 },
+      carriedFood: carried ? 3 : 0, carriedFruit: 0, carriedMeat: 0,
+      assignment: { source: 'kingdom-strategy', action: 'forage', goal: 'secure-shared-food',
+        communityId: 3, assignedDay: -2, expiresDay: 9 } };
+    const members = [leader, worker];
+    const community = { id: 3, kingdomId: 4, isKingdomGroup: true, leaderId: leader.id,
+      memberIds: members.map(person => person.id), assignments: [], history: [], stores: { food: 0 } };
+    const field = { id: 7, type: 'roça', complete: true, communityId: 3, cropCycleState: 'ready', cropYieldTarget: 10_000 };
+    const world = { day: 1, people: members, structures: [field], communities: [community], kingdoms: [] };
+
+    assignKingdomFoodSupportTasks(world, community, leader, members);
+
+    assert.equal(worker.assignment.foodFieldId, carried ? undefined : field.id,
+      carried ? 'a worker finishes delivering existing food before changing harvest target'
+        : 'a forager waiting on wild food is redirected to the mature crop');
+  }
+});
+
 function generalRequest(day) {
   const world = engine.createWorld(42);
   world.day = day;
