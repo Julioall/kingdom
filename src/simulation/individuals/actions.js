@@ -1063,14 +1063,15 @@ function updatePeopleCore(w) {
         : null;
       const healthRelatedWaterRisk = p.health <= 5 && p.hydration <= 14 && !!(waterTarget || waterCue);
       const urgentWaterNeed = p.hydration <= 9 || healthRelatedWaterRisk;
-      const emergencyFoodOpportunity = p.foodReserve <= DAILY_FOOD_NEED && food
+      const emergencyFoodOpportunity = p.role !== 'soldier' && p.foodReserve <= DAILY_FOOD_NEED && food
         && (!waterHere || distance(p, waterHere) > 1.5)
         && canHarvestFoodAt(w, p, food);
       const survivalAction = urgentWaterNeed
         ? emergencyFoodOpportunity ? 'forage'
           : waterTarget ? 'drink' : (waterCue || bestHabitatCell(w, p) ? 'migrate' : null)
         : p.foodReserve <= 8
-          ? (canDeliverEdibleCargo ? 'deliver'
+          ? p.role === 'soldier' ? null
+            : (canDeliverEdibleCargo ? 'deliver'
             : droppedLoot && distance(p, droppedLoot) <= 1.6 && ((droppedLoot.resources.food || 0) + (droppedLoot.resources.meat || 0)) > 0 ? 'collect_loot'
               : food ? 'forage' : (shelter && (preyNearby || herdPrey || huntGround) ? 'hunt' : (bestHabitatCell(w, p) ? 'migrate' : null)))
           : null;

@@ -12,7 +12,8 @@ function starvingPeacetimeSoldierFixture(garrisonFood = 0) {
   const soldier = world.people.find(person => person.alive && person.role === 'soldier');
   assert.ok(soldier, 'seed 42 includes a peacetime soldier');
   soldier.perception = Senses.observe(world, soldier, 'person', PLANTS);
-  assert.ok(bestPeopleFoodCell(world, soldier, 8), 'a reachable food target is visible nearby');
+  const foodTile = bestPeopleFoodCell(world, soldier, 8);
+  assert.ok(foodTile, 'a reachable food target is visible nearby');
 
   const community = world.communities.find(item => item.id === soldier.communityId);
   const kingdom = world.kingdoms.find(item => item.id === soldier.kingdomId);
@@ -37,18 +38,20 @@ function starvingPeacetimeSoldierFixture(garrisonFood = 0) {
     carriedFruit: 0,
     carriedMeat: 0
   });
-  return { world, soldier };
+  return { world, soldier, foodTile };
 }
 
-test('peacetime soldiers forage under critical food pressure even when recovery would force rest', () => {
-  const { world, soldier } = starvingPeacetimeSoldierFixture();
+test('peacetime soldiers do not forage under critical food pressure even when food is visible', () => {
+  const { world, soldier, foodTile } = starvingPeacetimeSoldierFixture();
+  const biomassBefore = foodTile.plants.slice();
   for (let day = 1; day <= 2; day++) {
     world.day = day;
     engine.modules.SocietyExperiment.updatePeople(world);
   }
 
-  assert.equal(soldier.lastDecision.action, 'forage');
-  assert.ok(soldier.foodReserve > 0, 'the available finite biomass becomes the soldier\'s own ration');
+  assert.notEqual(soldier.lastDecision.action, 'forage');
+  assert.equal(soldier.foodReserve, 0, 'empty garrison and community stores do not create a ration');
+  assert.deepEqual(foodTile.plants, biomassBefore, 'the soldier leaves civilian food sources untouched');
 });
 
 test('a hungry peacetime soldier returns to a stocked garrison before foraging', () => {
