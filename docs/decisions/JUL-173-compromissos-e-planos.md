@@ -24,7 +24,7 @@ Uma fatia seguinte conecta atraso de soldo ao plano `evaluate_service`: o evento
 1. Adicionar um planejador BDI geral ou mais chamadas a LLM. Rejeitada nesta etapa: aumentaria superfície e latência antes de testar o ciclo mínimo, e não é requisito para passos determinísticos reutilizarem ações existentes.
 2. Reservar recursos ao propor ou aceitar uma promessa. Rejeitada: a obrigação não deve criar nem duplicar alimento; o saldo só muda na transferência efetiva, e cancelamento/quebra não pode perder recurso reservado.
 3. Alterar pesos, observações ou recompensas da rede neural individual para “ensinar” os planos. Rejeitada: mistura planejamento com aprendizagem e impediria atribuir o resultado a uma causa; a issue exige experimento separado.
-4. Implementar de uma vez ajuda, avaliação de serviço e migração. Adiada: são três domínios com condições e rotas distintas. Ajuda e revisão de remuneração agora têm executores pequenos; preparação de migração ainda não tem executor próprio, então JUL-173 permanece aberta.
+4. Implementar de uma vez ajuda, avaliação de serviço e migração. Adiada: são três domínios com condições e rotas distintas. Ajuda e revisão de remuneração já têm executores pequenos; a migração ganhou um executor delimitado, que retoma a rota registrada sem alterar a política neural.
 
 ## Verificação
 
@@ -41,5 +41,24 @@ Playtest visual do browser no build local, seed 42, dia 76: carregamento, pausa/
 ## Limites da fatia em 2026-10-26
 
 * Ajuda alimentar percorre uma rota social existente; uma rota sem avanço registra `route_infeasible`, mantém o progresso anterior e pode ser tentada de novo quando o alvo voltar a estar visível.
-* A revisão de remuneração verifica o saldo e os fatos de folha, mas ainda não altera retenção, recrutamento ou resposta política a soldo atrasado. Preparação de migração segue sem executor de rota, provisões, acolhimento ou entrada comunitária. Não tratar JUL-173 como concluída.
+* A revisão de remuneração verifica o saldo e os fatos de folha, mas ainda não altera retenção, recrutamento ou resposta política a soldo atrasado. O plano de migração mantém e executa uma rota individual; provisões, acolhimento e entrada comunitária continuam fora desta fatia.
 * A evidência do inspetor mostra até seis fatos recentes para conservar a cadeia curta de pedido, aceite, transferência e resolução sem ocultar os eventos do plano.
+
+## Execução do plano de migração — 27/10/2026
+
+A ação `migrate` agora cria ou retoma uma intenção `prepare_migration` com destino determinístico, dois passos (`select_viable_destination`, `reach_destination`), prazo de 14 dias e condição explícita de encerramento. Cada tentativa de movimento atualiza progresso e evidencia destino; rota fechada mantém `route_infeasible`, e fome crítica/ataque recente são impedimentos físicos registrados pela mesma função usada na manutenção diária. Quando a rota abre e os impedimentos desaparecem, a mesma intenção continua. A chegada fecha o plano com fato verificável. Não há tarefa de movimento paralela que possa ficar órfã.
+
+A coordenada de destino foi adicionada ao contrato versionado da intenção como campo opcional para compatibilidade com registros antigos. O inspetor do indivíduo agora mostra até quatro planos e compromissos, incluindo estado, progresso, prazo, destino, próximo passo e impedimento. A seleção continua no motor atual; não adiciona entrada, recompensa, observação ou atualização à rede neural individual.
+
+Teste integrado em seed 42 cobre migração forçada e preservação do vetor neural de 18 entradas; outra execução fecha a rota com um anel de terreno intransitável, confirma os impedimentos `route_infeasible`, `critical_hunger` e `recent_attack`, abre o corredor e recupera a fome, e então verifica retomada do mesmo ID/destino com deslocamento. A integração também usa `enlistSoldier` para confirmar persistência de carteira, intenção e compromisso durante a mudança real de papel. Testes direcionados dos planos, inspetor, ajuda e soldo passaram 25/25:
+
+```text
+node --test tests/social-plans.test.mjs tests/social-inspector.test.mjs tests/migration-plans-runtime.test.mjs tests/social-aid.test.mjs tests/military-pay-social.test.mjs
+25 passed, 0 failed
+```
+
+Game Studio orientou manter o plano no estado determinístico do Worker, validar o fluxo no jogo e apresentar a progressão no inspetor. As fontes SciSpace já registradas acima apoiam separar deliberação e execução, mas não calibram prazo nem destino. Consensus continua indisponível pela cota e `linear_get_agent_context` continua retornando `Tool get_agent_context not found`; não foram usadas como evidência de comportamento.
+
+### Decisão revista
+
+Agora há execução para os três contratos desta issue: ajuda, avaliação de serviço militar e preparação de migração. O destino fixo do plano foi escolhido em vez de recalculá-lo sem registro todos os dias, pois isso preserva o objetivo e torna tentativas/impedimentos auditáveis. Um planejador geral ou novo estado neural continua adiado. O encerramento de JUL-173 ainda depende dos gates gerais e evidência visual do inspetor no navegador; testes de unidade não substituem esses critérios.

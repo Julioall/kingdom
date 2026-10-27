@@ -615,6 +615,7 @@ export function defineSocialIntention(world, ownerId, input = {}) {
   }
   const dueDay = input.dueDay ?? world.day + 30;
   if (!Number.isSafeInteger(dueDay) || dueDay < world.day) fail('dueDay da intenção não pode anteceder a criação.');
+  const destination = input.destination == null ? null : normalizeIntentionDestination(input.destination);
   if (!Array.isArray(input.steps) || input.steps.some(step => !step || typeof step.action !== 'string' || !step.action.trim())) {
     fail('steps deve listar ações não vazias.');
   }
@@ -649,6 +650,7 @@ export function defineSocialIntention(world, ownerId, input = {}) {
     priority,
     targetId,
     commitmentId,
+    destination,
     steps,
     progress,
     blockers: blockers.map(item => item.trim()),
@@ -685,6 +687,8 @@ export function advanceSocialIntention(world, ownerId, intentionId, update = {})
   if (status === 'completed' && progress !== current.steps.length) fail('a intenção só termina após o último passo.');
   const commitmentId = update.commitmentId === undefined ? current.commitmentId : update.commitmentId == null
     ? null : idKey(update.commitmentId, 'commitmentId');
+  const destination = update.destination === undefined ? current.destination ?? null
+    : update.destination == null ? null : normalizeIntentionDestination(update.destination);
   if (commitmentId !== null) {
     const linkedCommitment = getSocialCommitment(world, commitmentId);
     if (!linkedCommitment || !linkedCommitment.parties.includes(String(person.id))) {
@@ -700,26 +704,35 @@ export function advanceSocialIntention(world, ownerId, intentionId, update = {})
   const changed = progress !== current.progress || status !== current.status
     || JSON.stringify(blockers) !== JSON.stringify(current.blockers)
     || JSON.stringify(evidenceIds) !== JSON.stringify(current.evidenceIds || [])
-    || terminationReason !== current.terminationReason;
+    || terminationReason !== current.terminationReason
+    || JSON.stringify(destination) !== JSON.stringify(current.destination ?? null);
   if (!changed) return current;
   const type = ['completed', 'abandoned'].includes(status) ? 'social_intention_resolved' : 'social_intention_progressed';
-  const keyState = JSON.stringify({ progress, status, blockers, evidenceIds, terminationReason });
+  const keyState = JSON.stringify({ progress, status, blockers, evidenceIds, destination, terminationReason });
   const fact = recordSocialFact(world, {
     idempotencyKey: 'social-intention:' + current.intentionId + ':' + world.day + ':' + keyState,
     type, participantIds: [person.id], witnessIds: person.alive ? [person.id] : [],
     outcome: { intentionId: current.intentionId, type: current.type, progress, status, blockers,
-      terminationReason: terminationReason ?? null }
+      destination, terminationReason: terminationReason ?? null }
   });
   if (person.alive) rememberSocialFact(world, person.id, fact.eventId, { source: 'direct' });
   const next = freezeRecursively({ ...current, schemaVersion: SOCIAL_RECORD_SCHEMA_VERSIONS.intention,
     progress, blockers, evidenceIds, status, updatedDay: world.day, terminationReason,
-    commitmentId,
+    commitmentId, destination,
     transitionEventIds: [...new Set([...(current.transitionEventIds || []), fact.eventId])] });
   person.socialIntentions[index] = next;
   return next;
 }
 
-function physicalIntentionBlockers(person, currentDay) {
+function normalizeIntentionDestination(destination) {
+  if (!destination || typeof destination !== 'object'
+      || !Number.isFinite(destination.x) || !Number.isFinite(destination.y)) {
+    fail('destination precisa de coordenadas finitas.');
+  }
+  return { x: destination.x, y: destination.y };
+}
+
+export function physicalIntentionBlockers(person, currentDay) {
   const blockers = [];
   if (Number.isFinite(person?.foodReserve) && person.foodReserve <= 8) blockers.push('critical_hunger');
   if (Number.isFinite(person?.hydration) && person.hydration <= 9) blockers.push('critical_thirst');

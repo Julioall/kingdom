@@ -35,7 +35,7 @@ import { resolveSocialMeeting } from '../society/social-meetings.js';
 import { indicateKnownWaterReference } from '../society/water-indication.js';
 import { consumePersonEnergy } from './energy.js';
 import { chooseMilitaryAction, learnMilitaryOutcome, militaryTrainingPairs, trainMilitaryPair } from '../kingdoms/military-learning.js';
-import { advanceSocialIntention, maintainSocialIntentions } from '../society/social-evidence.js';
+import { advanceSocialIntention, defineSocialIntention, maintainSocialIntentions, physicalIntentionBlockers } from '../society/social-evidence.js';
 
 const STARVATION_HEALTH_LOSS_PER_POINT = .035;
 const PERSONAL_FOOD_PRESSURE_THRESHOLD = 42;
@@ -1420,8 +1420,62 @@ function updatePeopleCore(w) {
       } else if (action === 'campaign') {
         performCampaignOrder(w, p, campaignOrder);
       } else {
-        const habitat = bestPeopleMigrationCell(w, p, waterTarget, waterCue);
-        if (habitat) { moveOne(w, p, habitat, false); p.state = p.conflictRisk > .45 ? 'migrando após disputa' : 'migrando para recursos'; }
+        const existingMigrationPlan = action === 'migrate' && (p.socialIntentions || []).find(item =>
+          item.type === 'prepare_migration' && ['active', 'suspended'].includes(item.status));
+        let habitat = existingMigrationPlan?.destination
+          ? cellAt(w, existingMigrationPlan.destination.x, existingMigrationPlan.destination.y) : null;
+        if (!habitat) habitat = bestPeopleMigrationCell(w, p, waterTarget, waterCue);
+        let migrationPlan = existingMigrationPlan || null;
+        if (action === 'migrate' && !migrationPlan
+            && (p.socialIntentions || []).filter(item => !['completed', 'abandoned'].includes(item.status)).length < 3) {
+          const physicalBlockers = physicalIntentionBlockers(p, w.day);
+          migrationPlan = defineSocialIntention(w, p.id, {
+            type: 'prepare_migration', priority: .5, dueDay: w.day + 14,
+            destination: habitat ? { x: habitat.x, y: habitat.y } : null,
+            blockers: [...physicalBlockers, ...(habitat ? [] : ['no_viable_destination'])],
+            steps: [{ action: 'select_viable_destination' }, { action: 'reach_destination' }],
+            endsWhen: 'viable_destination_reached_or_deadline'
+          });
+        }
+        if (habitat) {
+          const moved = moveOne(w, p, habitat, false);
+          if (action === 'migrate' && migrationPlan) {
+            const destination = { x: habitat.x, y: habitat.y };
+            if (distance(p, habitat) <= 1.5) {
+              advanceSocialIntention(w, p.id, migrationPlan.intentionId, {
+                progress: migrationPlan.steps.length, status: 'completed', blockers: [], destination,
+                terminationReason: 'destination_reached'
+              });
+            } else if (moved) {
+              const physicalBlockers = physicalIntentionBlockers(p, w.day);
+              const blockers = [...new Set([
+                ...(migrationPlan.blockers || []).filter(blocker =>
+                  blocker !== 'route_infeasible' && blocker !== 'no_viable_destination'),
+                ...physicalBlockers
+              ])];
+              advanceSocialIntention(w, p.id, migrationPlan.intentionId, {
+                progress: Math.max(1, migrationPlan.progress), status: blockers.length ? 'suspended' : 'active',
+                blockers, destination
+              });
+            } else {
+              const physicalBlockers = physicalIntentionBlockers(p, w.day);
+              advanceSocialIntention(w, p.id, migrationPlan.intentionId, {
+                progress: Math.max(migrationPlan.progress, 1), status: 'suspended',
+                blockers: [...new Set([...(migrationPlan.blockers || []).filter(blocker => blocker !== 'no_viable_destination'),
+                  ...physicalBlockers, 'route_infeasible'])],
+                destination
+              });
+            }
+          }
+          p.state = p.conflictRisk > .45 ? 'migrando após disputa' : 'migrando para recursos';
+        } else if (action === 'migrate' && migrationPlan) {
+          const physicalBlockers = physicalIntentionBlockers(p, w.day);
+          advanceSocialIntention(w, p.id, migrationPlan.intentionId, {
+            status: 'suspended', blockers: [...new Set([...(migrationPlan.blockers || []).filter(blocker => blocker !== 'route_infeasible'),
+              ...physicalBlockers, 'no_viable_destination'])],
+            destination: null
+          });
+        }
         p.lastLesson = 'A migração custa energia, mas pode reduzir exposição a escassez ou disputa.';
       }
 

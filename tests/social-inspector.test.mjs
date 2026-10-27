@@ -33,6 +33,21 @@ test('social inspector distinguishes observed facts, reported facts and personal
   assert.match(sections.beliefSection, /Avaliação 100% · certeza 28%/);
 });
 
+test('social inspector exposes plan progress, deadline, destination and route blocker', () => {
+  const person = {
+    id: 4, socialMemories: [], socialBeliefs: [],
+    socialIntentions: [{ type: 'prepare_migration', status: 'suspended', progress: 1, dueDay: 42,
+      destination: { x: 8, y: 11 }, steps: [{ action: 'select_viable_destination' }, { action: 'reach_destination' }],
+      blockers: ['route_infeasible'] }]
+  };
+  const sections = renderSocialInspectorSections(person, { people: [person], kingdoms: [], socialEvidence: { facts: [], commitments: [] } });
+
+  assert.match(sections.planSection, /Planos individuais/);
+  assert.match(sections.planSection, /prepare migration · suspenso/);
+  assert.match(sections.planSection, /1\/2 · prazo dia 42 · destino \(8, 11\)/);
+  assert.match(sections.planSection, /impedimento: route infeasible/);
+});
+
 test('social inspector shows the confirmed outcome and observed position of a completed meeting', () => {
   const person = {
     id: 1,

@@ -32,6 +32,34 @@ export function renderSocialInspectorSections(person, world) {
   const facts = new Map((world.socialEvidence?.facts || []).map(fact => [fact.eventId, fact]));
   const memories = (person.socialMemories || []).slice(-6).reverse();
   const beliefs = (person.socialBeliefs || []).slice().reverse();
+  const intentionStatusLabels = { active: 'em andamento', suspended: 'suspenso', completed: 'concluído', abandoned: 'abandonado' };
+  const intentions = (person.socialIntentions || []).slice().reverse().slice(0, 4);
+  const intentionRows = intentions.map(intention => {
+    const steps = Array.isArray(intention.steps) ? intention.steps : [];
+    const currentStep = steps[intention.progress]?.action;
+    const progress = Math.min(intention.progress || 0, steps.length) + '/' + steps.length;
+    const destination = intention.destination && Number.isFinite(intention.destination.x) && Number.isFinite(intention.destination.y)
+      ? ' · destino (' + formatNumber(intention.destination.x, 1) + ', ' + formatNumber(intention.destination.y, 1) + ')' : '';
+    const blocker = (intention.blockers || []).length
+      ? ' · impedimento: ' + intention.blockers.map(value => String(value).replaceAll('_', ' ')).join(', ') : '';
+    const due = Number.isSafeInteger(intention.dueDay) ? ' · prazo dia ' + intention.dueDay : '';
+    const next = intention.status === 'active' && currentStep
+      ? ' · próximo passo: ' + String(currentStep).replaceAll('_', ' ') : '';
+    return '<div class="data-row"><span>' + escapeHtml(String(intention.type || 'plano').replaceAll('_', ' '))
+      + ' · ' + escapeHtml(intentionStatusLabels[intention.status] || intention.status) + '</span><b>'
+      + escapeHtml(progress + due + destination + next + blocker) + '</b></div>';
+  }).join('');
+  const commitmentStatusLabels = { proposed: 'proposto', accepted: 'aceito', fulfilled: 'cumprido', breached: 'quebrado',
+    rejected: 'recusado', cancelled: 'cancelado', expired: 'vencido' };
+  const commitments = (world.socialEvidence?.commitments || []).map(item => item.record)
+    .filter(record => record?.parties?.includes(String(person.id))).slice(-4).reverse();
+  const commitmentRows = commitments.map(commitment => {
+    const amount = formatNumber(commitment.deliveredQuantity || 0, 1) + '/' + formatNumber(commitment.quantity, 1);
+    const due = Number.isSafeInteger(commitment.dueDay) ? ' · prazo dia ' + commitment.dueDay : '';
+    return '<div class="data-row"><span>' + escapeHtml(String(commitment.object || 'compromisso'))
+      + ' · ' + escapeHtml(commitmentStatusLabels[commitment.status] || commitment.status) + '</span><b>'
+      + escapeHtml(amount + due) + '</b></div>';
+  }).join('');
 
   const memoryRows = memories.map(memory => {
     const fact = facts.get(memory.rootEventId);
@@ -99,6 +127,10 @@ export function renderSocialInspectorSections(person, world) {
   return {
     memoryRows,
     beliefRows,
+    intentionRows,
+    commitmentRows,
+    planSection: intentionRows ? '<h3>Planos individuais</h3>' + intentionRows : '',
+    commitmentSection: commitmentRows ? '<h3>Compromissos</h3>' + commitmentRows : '',
     memorySection: memoryRows ? '<h3>Fatos e relatos conhecidos</h3>' + memoryRows : '',
     beliefSection: beliefRows ? '<h3>Interpretações pessoais</h3>' + beliefRows : ''
   };

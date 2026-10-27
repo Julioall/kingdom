@@ -6,6 +6,7 @@ import {
   maintainSocialIntentions, proposeSocialCommitment, recordSocialFact,
   rememberSocialFact, rejectSocialCommitment
 } from '../src/simulation/society/social-evidence.js';
+import { enlistSoldier } from '../src/simulation/kingdoms/service.js';
 
 function world() {
   return {
@@ -121,6 +122,33 @@ test('plans keep monotonic progress, suspend on emergencies, resume on recovery 
   assert.equal(resumed.status, 'active');
 });
 
+test('migration plans retain their selected destination, route blocker, progress and resolution evidence', () => {
+  const state = world();
+  const plan = defineSocialIntention(state, 1, {
+    type: 'prepare_migration', dueDay: 24, destination: { x: 8, y: 11 },
+    steps: [{ action: 'select_viable_destination' }, { action: 'reach_destination' }],
+    endsWhen: 'viable_destination_reached_or_deadline'
+  });
+
+  const blocked = advanceSocialIntention(state, 1, plan.intentionId, {
+    progress: 1, status: 'suspended', blockers: ['route_infeasible']
+  });
+  assert.equal(blocked.destination.x, 8);
+  assert.deepEqual(blocked.blockers, ['route_infeasible']);
+  assert.equal(state.socialEvidence.facts.at(-1).outcome.destination.y, 11);
+
+  const resumed = advanceSocialIntention(state, 1, plan.intentionId, {
+    status: 'active', blockers: [], destination: { x: 8, y: 11 }
+  });
+  const completed = advanceSocialIntention(state, 1, plan.intentionId, {
+    progress: 2, status: 'completed', blockers: [], terminationReason: 'destination_reached'
+  });
+  assert.equal(resumed.progress, 1);
+  assert.equal(completed.status, 'completed');
+  assert.equal(completed.destination.x, 8);
+  assert.throws(() => advanceSocialIntention(state, 1, plan.intentionId, { progress: 2 }), /encerrada/);
+});
+
 test('an overdue intention is abandoned with a durable reason and evidence', () => {
   const state = world();
   const plan = defineSocialIntention(state, 1, {
@@ -155,14 +183,25 @@ test('a recovered requester cancels the outstanding aid commitment and closes it
   assert.equal(state.socialEvidence.facts.at(-1).outcome.terminationReason, 'need_satisfied');
 });
 
-test('death abandons open intentions with a social fact and leaves commitments in world evidence', () => {
+test('enlistment preserves plans, commitments and wallet; death abandons plans with evidence', () => {
   const state = world();
   const plan = defineSocialIntention(state, 1, {
     type: 'evaluate_service', dueDay: 14,
     steps: [{ action: 'inspect_payment' }], endsWhen: 'service_evaluated_or_deadline'
   });
   const commitment = propose(state, 'survives-role-change');
-  state.people[0].role = 'soldier';
+  state.people[0].militaryWallet = { stock: { gold: 15 } };
+  const walletBeforeRoleChange = structuredClone(state.people[0].militaryWallet);
+  state.people[0].brain = { pending: null };
+  state.people[0].kingdomId = 3;
+  state.kingdoms.push({ id: 3, treasury: { stock: { gold: 0 } } });
+  const center = { id: 5, type: 'centro_militar', complete: true, kingdomId: 3, soldierIds: [] };
+  state.structures.push(center);
+  enlistSoldier(state, state.people[0], center, state.day);
+  assert.equal(state.people[0].role, 'soldier');
+  assert.equal(state.people[0].socialIntentions[0].intentionId, plan.intentionId);
+  assert.equal(getSocialCommitment(state, commitment.commitmentId).status, 'proposed');
+  assert.deepEqual(state.people[0].militaryWallet, walletBeforeRoleChange);
   assert.equal(state.people[0].socialIntentions[0].intentionId, plan.intentionId);
   assert.equal(getSocialCommitment(state, commitment.commitmentId).status, 'proposed');
   state.people[0].alive = false;
