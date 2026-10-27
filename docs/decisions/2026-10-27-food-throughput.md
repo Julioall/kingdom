@@ -51,3 +51,18 @@ Os testes em `tests/war-trade.test.mjs` cobrem o limite imediatamente abaixo e o
 No commit de implementação `40d689b7887e1c45d4f98942b445734202b8d25f`, o replay de 253 dias da seed 42 e sua repetição tiveram hashes idênticos de estado (`d435994b59de4dc0114b88bacc84bb726c67cd8b751143f1421755d7199f5de5`) e crônica (`ed4fa895923b40a32fa3e3d7bc3d6ee1e8226d47d02034faebd991630787204f`); nenhum estoque foi negativo em qualquer dia dos dois passes. A simulação terminou com 97 pessoas, 2.343 adulto-dias abaixo de reserva 20 e uma morte humana por fome. Registrou 121 trocas com cobertura completa do ledger: 1 compra comunitária de comida, 1 de pedra, 1 de ração, 113 refeições militares e 5 vendas de alimento. As duas roças estavam completas, com 3.350,51 de raiz colhida e 8.999,77 ainda em pé. Relatório integral: `docs/verification/JUL-178-market-opportunity-253-seed42-repeat-20261027.json`.
 
 Este replay demonstra repetibilidade e consistência de estoque para uma seed/horizonte, mas não isola o efeito causal da correção nem fecha o aceite multissemente/horizonte. A morte por fome, adulto-dias com reserva baixa e grande biomassa ainda em pé mostram que a disponibilidade física não prova acesso alimentar. Não demonstra suficiência para 50 pessoas.
+
+## Replay multissemente de JUL-178 — revisão `b79069f`
+
+Repeti 253 dias nas seeds 1, 42, 987 e 2026, além de uma segunda execução da seed 42, na fonte `b79069ffbcfa2de6491d5f92382797f185494e6a`. O relatório integral `docs/verification/JUL-178-market-opportunity-253-multiseed-20261027.json` inclui hashes, transações, cobertura do ledger e saldos finais. O invariante do auditor não encontrou nenhum estoque negativo durante os dias simulados; os ledgers de todas as trocas têm cobertura completa.
+
+| Seed | Pessoas vivas | Mortes por fome (pessoas/animais) | Adulto-dias com reserva <20 | Roças completas/total | Raiz colhida/em pé | Transações |
+|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 96 | 7 / 7 | 2.102 | 1/2 | 2.631,2 / 5.053,3 | 78 |
+| 42 | 97 | 1 / 0 | 2.343 | 2/2 | 3.350,5 / 8.999,8 | 121 |
+| 987 | 101 | 0 / 0 | 2.960 | 1/2 | 1.830,3 / 5.086,5 | 100 |
+| 2026 | 95 | 0 / 0 | 2.518 | 1/2 | 2.014,3 / 4.611,1 | 121 |
+
+A repetição de seed 42 teve os mesmos hashes de estado (`d435994b59de4dc0114b88bacc84bb726c67cd8b751143f1421755d7199f5de5`) e crônica (`ed4fa895923b40a32fa3e3d7bc3d6ee1e8226d47d02034faebd991630787204f`). O número de transações esconde fluxos distintos: seed 1 só registrou 78 refeições militares; seed 42, 113 refeições militares, 1 compra de comida, 1 de pedra, 1 de ração e 5 vendas de comida; seed 987, 97 refeições militares, 1 compra de madeira e 2 vendas de comida; seed 2026, 115 refeições militares, compras de madeira/pedra e 4 vendas de comida. O estoque comunitário final de comida foi 0/37,11/8,44/22,88; o mercado geral e o tesouro de comida terminaram zerados nas quatro seeds.
+
+O dado confirma repetibilidade, cobertura contábil e que as ofertas do mercado não geram saldo negativo. Também mostra fome em duas seeds e reservas baixas por milhares de adulto-dias com biomassa colhível em pé. Este teste de 253 dias não isola causalidade da correção de oferta e ainda não cumpre todos os horizontes/repetições de JUL-178 nem a meta de suprir 50 moradores.
