@@ -24,3 +24,5 @@ Foi considerada uma exceção para fornecer ração da guarnição a pessoas ain
 ## Limites
 
 A guarnição ainda usa a política existente de estoques, cuja proteção da reserva civil requer auditoria própria. Um retorno à guarnição só oferece comida quando há estoque e o soldado tem acesso ao local previsto; escassez e morte permanecem possíveis. A mudança pode alterar a disponibilidade de soldados para outras campanhas após o retorno e precisa de replays de guerra, não apenas testes isolados.
+
+O trace detalhado em `docs/verification/JUL-178-returned-troops-detailed-365-seed42-20261027.json`, executado sobre `02e16566d5a275e3b6fab3bdc4d5b68914e7f6dc`, registra Davi ainda vinculado à campanha 181 no dia 221 e desvinculado no dia 222, quando sua reserva pessoal passou de 41,048 para 54,649. Os saldos agregados de tesouro, mercado e comunidade também mudaram nesse intervalo e não permitem atribuir a origem individual da refeição.
