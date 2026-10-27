@@ -8,7 +8,7 @@ import { plantBiomass } from '../ecology/plants.js';
 import { localNameFeature } from './communities.js';
 import { log } from '../core/events.js';
 import { updateKingdomStrategies } from '../kingdoms/strategy.js';
-import { DAILY_FOOD_NEED, FOOD_RESERVE_PER_UNIT } from '../../config/ecosystem.js';
+import { COMMUNITY_FOOD_CARRY_CAPACITY, DAILY_FOOD_NEED, FOOD_RESERVE_PER_UNIT } from '../../config/ecosystem.js';
 
 const COMMUNITY_WORK_ACTION_LABELS = Object.freeze({
   forage: 'buscar alimento', gather: 'reunir materiais', build: 'construir', rest: 'descansar',
@@ -145,7 +145,8 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
       && s.type === 'roça' && s.complete && s.destroyedDay == null && s.integrity !== 0) : [];
     const cropInvestment = desired.action === 'build' && desired.goal === 'invest-in-cultivated-food';
     const foodWorkers = workers.filter(person => person.id !== leader.id && person.ageDays >= 12 * 365);
-    const harvestPerWorker = foodWorkers.length ? foodWorkers.reduce((sum, person) => sum + 1.8 + person.skills.forage * 3.2, 0) / foodWorkers.length : 1.8;
+    const harvestPerWorker = fields.length ? COMMUNITY_FOOD_CARRY_CAPACITY
+      : foodWorkers.length ? foodWorkers.reduce((sum, person) => sum + 1.8 + person.skills.forage * 3.2, 0) / foodWorkers.length : 1.8;
     const foodCapacity = Math.min(foodWorkers.length, Math.max(1, Math.ceil(members.length * DAILY_FOOD_NEED
       / (harvestPerWorker * FOOD_RESERVE_PER_UNIT))));
     const capacity = desired.action === 'forage' && desired.priority === 'urgent' ? foodCapacity
@@ -446,11 +447,6 @@ export function completeCommunityTask(w, person, action, beforeState, afterState
     else if (task.action === 'lead_sheep' && action === 'lead_sheep') succeeded = beforeState.leadingSheepId && !person.leadingSheepId;
     if (!succeeded) return false;
     const community = w.communities.find(group => group.id === person.communityId && !group.dissolved);
-    if (community && task.source === 'kingdom-strategy' && task.foodFieldId != null
-        && ['forage', 'deliver'].includes(task.action) && communityFoodStock(community) < community.memberIds.length * 2) {
-      task.action = 'forage'; task.supplyPhase = 'communal-collection';
-      return false;
-    }
     const leader = community && w.people.find(member => member.id === community.leaderId && member.alive);
     person.prestige = (person.prestige || 0) + 1;
     if (leader && leader.id !== person.id) leader.prestige = (leader.prestige || 0) + .2;

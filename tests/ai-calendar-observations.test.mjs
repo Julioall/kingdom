@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import engine from '../src/simulation/engine.js';
-import { PLANTS } from '../src/config/ecosystem.js';
+import { DAILY_FOOD_NEED, FOOD_RESERVE_PER_UNIT, PLANTS } from '../src/config/ecosystem.js';
 import { stripAbsoluteCalendarFields } from '../src/ai/observations.js';
 import {
   kingdomStrategyChoices, observeKingdomStrategy, queueKingdomStrategicAiRequests, setStrategicAiEnabled
 } from '../src/simulation/kingdoms/strategy.js';
 import { queueCampaignGeneralAiRequests } from '../src/simulation/kingdoms/campaigns.js';
 import { buildKingdomStrategySystemPrompt } from '../src/ai/kingdom-strategy-prompt.js';
-import { assignCommunityTasks } from '../src/simulation/society/governance.js';
+import { assignCommunityTasks, completeCommunityTask } from '../src/simulation/society/governance.js';
 
 test('absolute date keys are removed recursively while relative durations remain', () => {
   const source = {
@@ -148,6 +148,50 @@ test('kingdom sheep choice can delegate the existing capture-and-lead pawn task'
 
   assert.equal(worker.assignment?.action, 'capture_sheep');
   assert.equal(worker.assignment?.source, 'kingdom-strategy');
+});
+
+test('one harvested field load closes the royal forage order instead of retaining the same pawn', () => {
+  const leader = { id: 1, alive: true, name: 'Rei', prestige: 0 };
+  const worker = { id: 2, alive: true, name: 'Aru', communityId: 3, prestige: 0, assignment: {
+    action: 'deliver', title: 'entregar lote da roça', goal: 'secure-shared-food', foodFieldId: 7,
+    source: 'kingdom-strategy', communityId: 3, expiresDay: 9
+  } };
+  const community = { id: 3, kingdomId: 4, leaderId: 1, memberIds: [1, 2], stores: { food: 24 },
+    history: [], assignments: [{ personId: 2, status: 'delegada' }] };
+  const kingdom = { id: 4, name: 'Valedouro', strategy: { history: [] } };
+  const world = { day: 2, people: [leader, worker], communities: [community], kingdoms: [kingdom], events: [] };
+
+  assert.equal(completeCommunityTask(world, worker, 'deliver',
+    { food: 0, feed: 0, wood: 0, stone: 0, gold: 0 },
+    { food: 24, feed: 0, wood: 0, stone: 0, gold: 0 }), true);
+  assert.equal(worker.assignment, null);
+  assert.equal(community.assignments[0].status, 'concluída');
+  assert.equal(kingdom.strategy.lastOutcome.status, 'completed');
+});
+
+test('a 24-unit crop batch sizes forage assignments for 49, 50, and 51 residents', () => {
+  for (const population of [49, 50, 51]) {
+    const leader = { id: 1, alive: true, name: 'Rei', communityId: 3, ageDays: 40 * 365 };
+    const members = [leader, ...Array.from({ length: population - 1 }, (_, index) => ({
+      id: index + 2, alive: true, name: 'Morador ' + (index + 2), communityId: 3,
+      ageDays: 30 * 365, hydration: 100, energy: 100, health: 100, foodReserve: 100,
+      skills: { forage: .5 }
+    }))];
+    const community = { id: 3, kingdomId: 4, isKingdomGroup: true, leaderId: leader.id,
+      memberIds: members.map(person => person.id), assignments: [], history: [], stores: { food: 0 } };
+    const field = { id: 7, type: 'roça', complete: true, communityId: 3 };
+    const world = { day: 1, people: members, structures: [field], communities: [community], kingdoms: [] };
+
+    assignCommunityTasks(world, community, leader, members, {
+      action: 'forage', title: 'colher a roça', skill: 'forage', goal: 'secure-shared-food',
+      priority: 'urgent', source: 'kingdom-strategy'
+    }, false);
+
+    const assigned = members.filter(person => person.assignment?.goal === 'secure-shared-food');
+    assert.equal(assigned.length, 3, population + ' moradores should need three 24-unit field loads per day');
+    assert.ok(assigned.reduce(total => total + 24 * FOOD_RESERVE_PER_UNIT, 0)
+      >= population * DAILY_FOOD_NEED, 'the assigned load capacity covers the population daily reserve demand');
+  }
 });
 
 function generalRequest(day) {

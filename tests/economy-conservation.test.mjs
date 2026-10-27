@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { FOOD_RESERVE_PER_UNIT, PLANTS } from '../src/config/ecosystem.js';
+import { COMMUNITY_FOOD_CARRY_CAPACITY, FOOD_RESERVE_PER_UNIT, PLANTS } from '../src/config/ecosystem.js';
 import { updateDependent } from '../src/simulation/individuals/lifecycle.js';
 import { collectFoodForCommunity, personalFoodHarvestLimit } from '../src/simulation/individuals/actions.js';
 import { exchangeResources, transferFoodReserve } from '../src/simulation/economy/inventories.js';
@@ -140,6 +140,30 @@ test('community harvest applies remaining carry capacity before removing finite 
   assert.equal(community.stores.food, 24);
   assert.equal(tile.plants[cropIndex] + person.carriedFood + community.stores.food, beforeTotal);
   assert.equal(world.harvests.plantFoodBiomass, 0.5);
+});
+
+test('a delegated field harvest delivers a full 24-unit load in one action', () => {
+  const cropIndex = PLANTS.findIndex(plant => plant.id === 'cultivated-root');
+  const tile = {
+    i: 0, x: 0, y: 0, terrain: 'land', cropFieldId: 7,
+    plants: new Float32Array(PLANTS.length), detritusGPerM2: 0
+  };
+  tile.plants[cropIndex] = 50;
+  const field = { id: 7, type: 'roça', complete: true, communityId: 3, integrity: 1 };
+  const community = { id: 3, dissolved: false, memberIds: [9], stores: { food: 0 } };
+  const person = { id: 9, x: 0, y: 0, communityId: 3, carriedFood: 0,
+    energy: 100, skills: { forage: 0 } };
+  const world = { day: 12, tiles: [tile], structures: [field], communities: [community], people: [person],
+    harvests: {}, ecologyFlows: {} };
+  const initialFood = tile.plants[cropIndex] + person.carriedFood + community.stores.food;
+
+  assert.equal(COMMUNITY_FOOD_CARRY_CAPACITY, 24);
+  assert.equal(collectFoodForCommunity(world, person, tile), 24);
+  assert.equal(community.stores.food, 24);
+  assert.equal(person.carriedFood, 0);
+  assert.equal(tile.plants[cropIndex], 26);
+  assert.equal(tile.plants[cropIndex] + person.carriedFood + community.stores.food, initialFood);
+  assert.equal(world.harvests.cultivatedFoodBiomass, 24);
 });
 
 test('food reserve transfer is limited by the source and destination capacity', () => {

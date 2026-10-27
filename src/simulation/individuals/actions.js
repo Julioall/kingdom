@@ -1,5 +1,5 @@
 import { nearestLoot, collectLoot } from '../economy/loot.js';
-import { ANIMALS, DAILY_FOOD_NEED, FOOD_RESERVE_PER_UNIT, HUMAN_FOOD, MEAT_NUTRITIONAL_VALUE, PEOPLE_ACTIONS, PLANTS, SHEEP_ADULT_AGE_DAYS } from '../../config/ecosystem.js';
+import { ANIMALS, COMMUNITY_FOOD_CARRY_CAPACITY, DAILY_FOOD_NEED, FOOD_RESERVE_PER_UNIT, HUMAN_FOOD, MEAT_NUTRITIONAL_VALUE, PEOPLE_ACTIONS, PLANTS, SHEEP_ADULT_AGE_DAYS } from '../../config/ecosystem.js';
 import { clamp, distance, species } from '../core/math.js';
 import { cellAt, cellsWithin, nearby } from '../world/spatial.js';
 import { resourceUsePressure } from '../world/roads.js';
@@ -206,10 +206,13 @@ export function moveTowardFood(w, person, foodTile) {
 export function collectFoodForCommunity(w, person, tile) {
     if (!person || !tile) return 0;
     if (tile.cropFieldId == null && !touchesHarvestBush(w, person, tile, 'berry')) return 0;
-    const capacity = Math.max(0, 24 - (person.carriedFood || 0));
+    const capacity = Math.max(0, COMMUNITY_FOOD_CARRY_CAPACITY - (person.carriedFood || 0));
     if (capacity <= .01) return 0;
-    const harvest = harvestHumanFood(w, tile, Math.min(capacity, clamp(1.8 + person.skills.forage * 3.2, 1.8, 5)));
-    const carried = addResource(person, 'carriedFood', harvest, 24);
+    const harvestLimit = tile.cropFieldId != null
+      ? COMMUNITY_FOOD_CARRY_CAPACITY
+      : clamp(1.8 + person.skills.forage * 3.2, 1.8, 5);
+    const harvest = harvestHumanFood(w, tile, Math.min(capacity, harvestLimit));
+    const carried = addResource(person, 'carriedFood', harvest, COMMUNITY_FOOD_CARRY_CAPACITY);
     if (carried <= .01) return 0;
     if (tile.cropFieldId == null) hideCollectedBush(w, tile, 'berry');
     person.visualActivity = { kind: 'harvest', x: tile.x, y: tile.y, day: w.day + 1,

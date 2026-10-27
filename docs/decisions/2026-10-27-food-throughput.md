@@ -1,0 +1,37 @@
+# Decisão — produção e coleta da roça
+
+## Contexto e evidência
+
+A linha de base foi medida no SHA `ad0f778d7f7c665b832050176976887df7c1acb9`, por 365 dias nas seeds 1 e 42, com `npm run audit:food -- --days 365 --seeds 1,42`. O relatório completo está em `docs/verification/JUL-178-pre-batch-365-20261027.json`.
+
+| Seed | Roças completas | Raiz colhida | Regeneração cultivada | Raiz ainda em pé | Estoque comunitário final | Adulto-dias com reserva abaixo de 20 | Mortes humanas por fome |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 1 (33 células, concluída no dia 130) | 3.543,04 | 7.375,27 | 3.840,23 | 0 | 10.310 | 1 |
+| 42 | 2 (24 e 32 células, concluídas nos dias 126 e 115) | 5.861,96 | 12.357,82 | 6.511,86 | 1,71 | 10.563 | 1 |
+
+Os relatórios mostram biomassa colhida e regenerada, mas o estoque final e as reservas humanas continuam baixos. O total histórico colhido ou a biomassa em pé não prova que o alimento ficou acessível no momento da refeição. A conversão atual é `0,72` ponto de reserva por unidade de alimento; 50 adultos precisam de `39` pontos ou cerca de `54,17` unidades por dia.
+
+## Escolha
+
+1. Uma colheita delegada da roça pode retirar até a capacidade de carga comunitária, 24 unidades por ação. Coletas de frutos silvestres mantêm o limite por habilidade atual.
+2. A capacidade urgente de trabalhadores usa o lote da roça. Para 49, 50 e 51 adultos, três lotes de 24 cobrem a necessidade diária de reserva no limite da carga (`51,84` pontos contra `38,22`, `39` e `39,78`). O campo ainda precisa produzir e estar alcançável para essa capacidade nominal valer.
+3. Uma entrega bem-sucedida encerra a ordem do trabalhador. A política do reino pode pedir novo reforço se o estoque continuar baixo, mas não mantém o mesmo peão coletando até atingir automaticamente duas unidades por morador numa única delegação.
+4. O crescimento médio anual da raiz cultivada passa de `5,625` para `16,875` (3×), restrito à planta do talhão. O crescimento não varia por estação; não foram adicionados biomas nem mecânicas sazonais. O fator 3× é uma calibração experimental: na seed 1, o campo ativo regenerou cerca de 31,4 unidades por dia; na seed 42, os dois campos juntos regeneraram cerca de 51,5 unidades por dia. A suficiência líquida continua pendente de replay pós-mudança.
+
+## Alternativas consideradas
+
+- Aumentar somente o lote de coleta: rejeitado como resposta completa; os dados mostram que a produção e a coleta permanecem limitadas pelo crescimento e pela logística.
+- Injetar alimento do mercado ou tesouro: rejeitado como substituto da produção; isso esconderia a falta de produção e depende de saldos finitos já tratados em JUL-201.
+- Aumentar o crescimento de toda a vegetação ou adicionar estações ecológicas: rejeitado; o ajuste fica somente no cultivo e respeita o escopo ecológico mínimo.
+
+## Pesquisa e limites
+
+SciSpace encontrou o estudo de van Voorn, Hengeveld e Verhagen, *An agent based model representation to assess resilience and efficiency of food supply chains* (2020, PLOS ONE, [DOI 10.1371/journal.pone.0242323](https://doi.org/10.1371/journal.pone.0242323)). O estudo mede a fração da produção entregue e o atendimento da necessidade de consumidores; isso apoia usar alimento efetivamente entregue e reservas como métricas, em vez de contar apenas biomassa. Não fornece parâmetros para este jogo. SciSpace também retornou uma revisão de 2026 sobre modelos multiagente de sistemas mistos de lavoura e rebanho ([DOI 10.3389/fsufs.2026.1674409](https://doi.org/10.3389/fsufs.2026.1674409)); seu resumo destaca realismo comportamental e mecanismos de feedback, sem recomendar valores de rendimento. Consensus recusou novas buscas por limite mensal, com reset informado para 01/11/2026. O conector Linear também falhou ao solicitar as notas de contexto (`get_agent_context` não encontrado).
+
+Game Studio recomenda manter simulação e renderização separadas; esta alteração é somente de simulação e não muda a apresentação, então não exige captura visual. O teste do jogo nesta fatia será o replay determinístico com contabilidade de alimento.
+
+## Validação e pendências
+
+- Testes unitários cobrem conservação do lote de 24, conclusão da ordem após uma entrega e capacidade de atribuições para populações 49/50/51.
+- Replays pós-mudança e suas seeds ainda precisam confirmar alimento entregue, consumo, perdas, exposição a fome e repetibilidade. A meta combinada roça + curral também depende do ciclo de rebanho de JUL-199; compra de sementes no mercado continua em JUL-201.
+- Esta decisão não conclui JUL-178 nem JUL-224 e não declara que uma roça e um curral já sustentam 50 pessoas.
