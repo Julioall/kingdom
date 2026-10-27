@@ -1,7 +1,9 @@
 import { DAILY_FOOD_NEED, FOOD_RESERVE_PER_UNIT } from '../../config/ecosystem.js';
 
 export const DEPENDENT_DAILY_FOOD_NEED = .42;
-export const COMMUNITY_FOOD_BUFFER_DAYS = 14;
+export const COMMUNITY_FOOD_BUFFER_DAYS = 180;
+export const CULTIVATED_FOOD_PER_SEED_UNIT = 1250;
+export const CULTIVATED_FIELD_HARVEST_PER_WORKER = 2500;
 
 export function dailyFoodNeedForMembers(members = []) {
   const dependents = members.filter(person => person.ageDays < 12 * 365).length;

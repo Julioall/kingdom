@@ -8,8 +8,9 @@ import { plantBiomass } from '../ecology/plants.js';
 import { localNameFeature } from './communities.js';
 import { log } from '../core/events.js';
 import { updateKingdomStrategies } from '../kingdoms/strategy.js';
-import { COMMUNITY_FOOD_CARRY_CAPACITY, FOOD_RESERVE_PER_UNIT } from '../../config/ecosystem.js';
-import { communityFoodBufferTarget, dailyFoodNeedForMembers, kingdomFoodDemand } from '../economy/food-policy.js';
+import { FOOD_RESERVE_PER_UNIT } from '../../config/ecosystem.js';
+import { COMMUNITY_FOOD_BUFFER_DAYS, CULTIVATED_FIELD_HARVEST_PER_WORKER, communityFoodBufferTarget, dailyFoodNeedForMembers, kingdomFoodDemand } from '../economy/food-policy.js';
+import { cultivatedFieldStandingBiomass } from '../ecology/plants.js';
 
 const COMMUNITY_WORK_ACTION_LABELS = Object.freeze({
   forage: 'buscar alimento', gather: 'reunir materiais', build: 'construir', rest: 'descansar',
@@ -146,13 +147,18 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
     if (!desired || members.length < 2) return;
     const workers = community.isKingdomGroup ? members.filter(person => person.role !== 'soldier') : members;
     const fields = desired.action === 'forage' ? w.structures.filter(s => s.communityId === community.id
-      && s.type === 'roça' && s.complete && s.destroyedDay == null && s.integrity !== 0) : [];
+      && s.type === 'roça' && s.complete && s.destroyedDay == null && s.integrity !== 0
+      && s.cropCycleState === 'ready' && (!(s.fieldTileIndices || []).length || cultivatedFieldStandingBiomass(w, s) > .01)) : [];
     const cropInvestment = desired.action === 'build' && desired.goal === 'invest-in-cultivated-food';
     const foodWorkers = workers.filter(person => person.id !== leader.id && person.ageDays >= 12 * 365);
-    const harvestPerWorker = fields.length ? COMMUNITY_FOOD_CARRY_CAPACITY
+    const harvestPerWorker = fields.length ? CULTIVATED_FIELD_HARVEST_PER_WORKER
       : foodWorkers.length ? foodWorkers.reduce((sum, person) => sum + 1.8 + person.skills.forage * 3.2, 0) / foodWorkers.length : 1.8;
-    const foodCapacity = Math.min(foodWorkers.length, Math.max(1, Math.ceil(dailyFoodNeedForMembers(members).dailyFoodNeed
-      / (harvestPerWorker * FOOD_RESERVE_PER_UNIT))));
+    const dailyNeed = dailyFoodNeedForMembers(members).dailyFoodNeed;
+    const fieldTeamSize = fields.length ? Math.ceil(Math.max(0,
+      (Number(fields[0].cropYieldTarget) || 0) - (Number(fields[0].cropHarvestedThisCycle) || 0))
+      / CULTIVATED_FIELD_HARVEST_PER_WORKER) : 0;
+    const foodCapacity = Math.min(foodWorkers.length, Math.max(1,
+      Math.ceil(dailyNeed / (harvestPerWorker * FOOD_RESERVE_PER_UNIT)), fieldTeamSize));
     const capacity = desired.action === 'forage' && desired.priority === 'urgent' ? foodCapacity
       : cropInvestment || desired.goal === 'repair-damaged-structures' ? 1 : desired.priority === 'urgent'
       ? Math.min(5, Math.max(1, Math.ceil(workers.length / 3)))
@@ -474,7 +480,10 @@ export function completeCommunityTask(w, person, action, beforeState, afterState
       const kingdom = w.kingdoms.find(item => item.communityId === community.id);
       const members = community.memberIds.map(id => w.people.find(person => person.id === id && person.alive)).filter(Boolean);
       const dailyFoodNeed = kingdom ? kingdomFoodDemand(w, kingdom).dailyFoodNeed : dailyFoodNeedForMembers(members).dailyFoodNeed;
-      if (communityFoodStock(community) < communityFoodBufferTarget(dailyFoodNeed)) {
+      const field = task.foodFieldId == null ? null : (w.structures || []).find(structure => structure.id === task.foodFieldId
+        && structure.type === 'roça' && structure.communityId === community.id);
+      const fieldExhausted = field && field.cropCycleState === 'spent';
+      if (!fieldExhausted && communityFoodStock(community) < communityFoodBufferTarget(dailyFoodNeed, COMMUNITY_FOOD_BUFFER_DAYS)) {
         task.action = 'forage'; task.supplyPhase = 'communal-collection';
         return false;
       }

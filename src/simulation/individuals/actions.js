@@ -7,13 +7,14 @@ import { activeCommunity, localNameFeature, recordCommunityUse, splitCommunities
 import { log } from '../core/events.js';
 import { rand } from '../core/random.js';
 import { addFoodReserve, addHarvestedFood, addResource, carriedResources, communityFoodStock, communityMaterialStock, consumeEdibleCargo, consumeFoodReserve, moveCarriedResource, storeCommunityFruit, transferResource, withdrawCommunityFood } from '../economy/inventories.js';
+import { CULTIVATED_FIELD_HARVEST_PER_WORKER } from '../economy/food-policy.js';
 import { moveOne } from './movement.js';
 import { bushHarvestHitbox, collidesWithWorldAt, hitboxesOverlap, mineralHitbox, npcHitbox, worldCollisionIndex } from '../physics/hitboxes.js';
 import { communityHerd, domesticatedSheep } from '../ecology/animals.js';
 import { communityRelation, completeCommunityTask, updateCommunityGovernance } from '../society/governance.js';
 import { canCommunityBuild, communityBuildUtility, communityBuildingNeed, communityStructures, nextCommunityStructure, workOnCommunityStructure } from '../settlements/construction.js';
 import { availableCommunityPen } from '../ecology/herd.js';
-import { eatPlants, isBushAnchor, plantBiomass } from '../ecology/plants.js';
+import { cultivatedFieldStandingBiomass, eatPlants, isBushAnchor, plantBiomass } from '../ecology/plants.js';
 import { refreshHarvestSuitability } from '../world/queries.js';
 import { changePersonHealth, killPerson, reproducePeople, updateDependent } from './lifecycle.js';
 import Senses from './perception.js';
@@ -94,7 +95,12 @@ function recordPlantFoodBiomass(w, amount, cultivatedAmount = 0, tile = null) {
     if (cultivatedAmount > 0) {
       w.harvests.cultivatedFoodBiomass = (w.harvests.cultivatedFoodBiomass || 0) + cultivatedAmount;
       const field = tile && (w.structures || []).find(structure => structure.id === tile.cropFieldId && structure.type === 'roça');
-      if (field) field.cropHarvested = (field.cropHarvested || 0) + cultivatedAmount;
+      if (field) {
+        field.cropHarvested = (field.cropHarvested || 0) + cultivatedAmount;
+        field.cropHarvestedThisCycle = (field.cropHarvestedThisCycle || 0) + cultivatedAmount;
+        if (field.cropYieldTarget > 0 && field.cropHarvestedThisCycle >= field.cropYieldTarget - .01
+            && cultivatedFieldStandingBiomass(w, field) <= .01) field.cropCycleState = 'spent';
+      }
     }
   }
 
@@ -206,6 +212,34 @@ export function moveTowardFood(w, person, foodTile) {
 export function collectFoodForCommunity(w, person, tile) {
     if (!person || !tile) return 0;
     if (tile.cropFieldId == null && !touchesHarvestBush(w, person, tile, 'berry')) return 0;
+    const field = tile.cropFieldId == null ? null : (w.structures || []).find(structure => structure.id === tile.cropFieldId
+      && structure.type === 'roça' && structure.complete && structure.communityId === person.communityId
+      && structure.destroyedDay == null && structure.integrity !== 0);
+    const community = field && distance(person, tile) <= 1.6 ? activeCommunity(w, person) : null;
+    if (field && community && field.cropCycleState === 'ready') {
+      const remainingTarget = Math.max(0, Number(field.cropYieldTarget) - (Number(field.cropHarvestedThisCycle) || 0));
+      let remaining = Math.min(CULTIVATED_FIELD_HARVEST_PER_WORKER, remainingTarget);
+      if (remaining <= .01) return 0;
+      const fieldTiles = (field.fieldTileIndices || []).map(index => w.tiles[index])
+        .filter(candidate => candidate && candidate.cropFieldId === field.id)
+        .sort((a, b) => plantBiomass(b, ['cultivated-root']) - plantBiomass(a, ['cultivated-root']) || a.i - b.i);
+      let harvested = 0;
+      for (const cropTile of fieldTiles) {
+        if (remaining <= .01) break;
+        const amount = harvestHumanFood(w, cropTile, remaining);
+        harvested += amount;
+        remaining -= amount;
+      }
+      const delivered = storeCommunityFruit(w, community, null, harvested);
+      field.foodDelivered = (field.foodDelivered || 0) + delivered;
+      if (delivered <= .01) return 0;
+      person.visualActivity = { kind: 'harvest', x: tile.x, y: tile.y, day: w.day + 1 };
+      consumePersonEnergy(person, .22);
+      person.skills.forage = clamp(person.skills.forage + .004, 0, 1);
+      person.state = field.cropCycleState === 'spent' ? 'lote da roça colhido' : 'colhendo lote da roça';
+      person.lastLesson = 'A equipe retirou um lote finito de raízes maduras, debitou o talhão e entregou a colheita diretamente ao estoque comunitário.';
+      return delivered;
+    }
     const capacity = Math.max(0, COMMUNITY_FOOD_CARRY_CAPACITY - (person.carriedFood || 0));
     if (capacity <= .01) return 0;
     const harvestLimit = tile.cropFieldId != null
@@ -221,12 +255,9 @@ export function collectFoodForCommunity(w, person, tile) {
     person.skills.forage = clamp(person.skills.forage + .004, 0, 1);
     person.state = 'levando alimento para o reino';
     person.lastLesson = 'A coleta delegada virou carga para o estoque comum; ela só estará disponível depois do transporte.';
-    const field = tile.cropFieldId == null ? null : w.structures.find(s => s.id === tile.cropFieldId
-      && s.type === 'roça' && s.complete && s.communityId === person.communityId
-      && s.destroyedDay == null && s.integrity !== 0);
-    const community = field && distance(person, tile) <= 1.6 ? activeCommunity(w, person) : null;
-    if (community) {
-      const delivered = moveCarriedResource(person, 'carriedFood', community, 'food', person.carriedFood);
+    const fieldCommunity = field && distance(person, tile) <= 1.6 ? activeCommunity(w, person) : null;
+    if (fieldCommunity) {
+      const delivered = moveCarriedResource(person, 'carriedFood', fieldCommunity, 'food', person.carriedFood);
       field.foodDelivered = (field.foodDelivered || 0) + delivered;
       person.state = 'colhendo para a reserva da roça';
       person.lastLesson = 'A colheita foi retirada do talhão e guardada na própria roça para abastecer a comunidade.';

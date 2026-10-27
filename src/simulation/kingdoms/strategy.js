@@ -5,6 +5,7 @@ import {
 } from '../economy/food-policy.js';
 import { canRepairKingdomStructure, damagedKingdomStructures, nextCommunityStructure } from '../settlements/construction.js';
 import { communityHerdPenAssignments, communityNeedsAdditionalPen, DOMESTIC_SHEEP_PER_PEN } from '../ecology/herd.js';
+import { cultivatedFieldStandingBiomass, cultivatedFieldYieldTarget } from '../ecology/plants.js';
 import { calendarDate } from '../ecology/climate.js';
 import { log } from '../core/events.js';
 import { recruitKingdomSoldier, SOLDIER_COST } from './commands.js';
@@ -138,6 +139,22 @@ export function observeKingdomStrategy(world, kingdomId) {
     standingCropBiomass: Number(standingCropBiomass.toFixed(1)),
     harvestableCropPotential: Number(harvestableCropPotential.toFixed(1)),
     harvestedCropToDate: Number(fieldStructures.reduce((sum, field) => sum + Math.max(0, finite(field.cropHarvested)), 0).toFixed(1)),
+    fields: fieldStructures.filter(field => field.complete).map(field => {
+      const plantedTileCount = (field.fieldTileIndices || []).filter(index => world.tiles?.[index]?.cropFieldId === field.id).length;
+      const standingBiomass = cultivatedFieldStandingBiomass(world, field);
+      const seedMass = Math.max(0, finite(field.cropSeededBiomass, finite(field.seedMass)));
+      return {
+        id: field.id,
+        plantedTileCount,
+        seedMass,
+        yieldTarget: finite(field.cropYieldTarget, cultivatedFieldYieldTarget(seedMass, plantedTileCount)),
+        growthGenerated: finite(field.cropGrowthGenerated),
+        harvestedThisCycle: finite(field.cropHarvestedThisCycle),
+        standingBiomass: Number(standingBiomass.toFixed(1)),
+        foodDelivered: finite(field.foodDelivered),
+        cycleState: field.cropCycleState || (standingBiomass > 0 ? 'growing' : 'unplanted')
+      };
+    }),
     activeProjectType: activeFoodProjectType,
     nextBuildType: nextFoodStructureType,
     nextBuildReady: !!nextFoodStructureType && constructionReady && safeBuilderAvailable,
@@ -151,7 +168,7 @@ export function observeKingdomStrategy(world, kingdomId) {
     feedStock,
     feedTarget,
     benefits: {
-      roça: 'Após obra concluída, usa sementes finitas do local para semear raízes; forage colhe e a entrega abastece a reserva comum.',
+      roça: 'Cada lote depende da quantidade de sementes e da área plantada; o alvo é limitado por sementes e células, a colheita é finita e limpa as plantas do campo. Não conta biomassa em pé como estoque.',
       curral: 'Cada curral acomoda até ' + DOMESTIC_SHEEP_PER_PEN + ' ovelhas; rebanho precisa de ração e só vira carne pelo abate registrado.',
       abrigo: 'Oferece um ponto seguro para repouso e pode habilitar caça local; não adiciona alimento por si só.'
     }

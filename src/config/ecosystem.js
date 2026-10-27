@@ -9,7 +9,7 @@ export const COLORS = ['#d47c51', '#718c56', '#647ca1', '#b2934f', '#8a6b91', '#
 export const PLANTS = [
     { id: 'grass', name: 'Gramíneas', guild: 'Herbácea', color: '#91a74e', water: [.12, .82], temp: [-4, 39], max: 140, growth: .24, edible: 1, canopy: 0, habitat: 'land' },
     { id: 'berry', name: 'Arbusto de frutos', guild: 'Lenhosa baixa', color: '#76854a', water: [.28, .92], temp: [2, 36], max: 180, growth: .22, edible: .78, canopy: .12, habitat: 'land', foodFor: 'people' },
-    { id: 'cultivated-root', name: 'Raízes cultivadas', guild: 'Cultivo comunitário', color: '#b4a353', water: [.18, .9], temp: [4, 36], max: 180, growth: 45, edible: 1, canopy: .04, habitat: 'land', foodFor: 'people', cultivatedOnly: true, rootReserve: 1.2 },
+    { id: 'cultivated-root', name: 'Raízes cultivadas', guild: 'Cultivo comunitário', color: '#b4a353', water: [.18, .9], temp: [4, 36], max: 420, growth: 180, edible: 1, canopy: .04, habitat: 'land', foodFor: 'people', cultivatedOnly: true, rootReserve: 0 },
     { id: 'browse', name: 'Arbusto de brotos', guild: 'Lenhosa baixa', color: '#667d45', water: [.2, .86], temp: [-2, 38], max: 160, growth: .1215, edible: .62, canopy: .16, habitat: 'land', foodFor: 'sheep' },
     { id: 'broadleaf', name: 'Árvore de folhas largas', guild: 'Lenhosa', color: '#557543', water: [.32, .88], temp: [1, 35], max: 1200, growth: .42, edible: .08, canopy: .52, habitat: 'land' },
     { id: 'conifer', name: 'Conífera', guild: 'Lenhosa', color: '#355f4c', water: [.18, .76], temp: [-9, 27], max: 1100, growth: .34, edible: .03, canopy: .46, habitat: 'land' },
