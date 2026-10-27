@@ -210,7 +210,9 @@ export function rememberSocialFact(world, personId, eventId, options = {}) {
     sourcePersonId
   });
   person.socialMemories.push(memory);
-  if (!options.deferPrune) pruneSocialEvidence(world);
+  // Keep the just-delivered fact present while callers share it with any
+  // other witnesses or attach beliefs, relationships, and plan references.
+  if (!options.deferPrune) pruneSocialEvidence(world, world.day, [fact.eventId]);
   return memory;
 }
 

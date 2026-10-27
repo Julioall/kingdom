@@ -114,6 +114,14 @@ test('commitment deadline shares its transition fact before pruning a full pinne
     });
   }
   assert.equal(state.socialEvidence.facts.length, SOCIAL_FACT_LIMIT);
+  const share = recordSocialFact(state, {
+    idempotencyKey: 'food-share-after-full-ledger', type: 'food_aid_transferred',
+    participantIds: [1, 2], witnessIds: [1, 2], outcome: { amount: 1 }
+  });
+  rememberSocialFact(state, 1, share.eventId, { source: 'direct' });
+  rememberSocialFact(state, 2, share.eventId, { source: 'direct' });
+  assert.ok(state.socialEvidence.facts.some(fact => fact.eventId === share.eventId),
+    'the next witness can receive a fact even when the first witness has no unpinned memory slot');
   state.day = commitment.dueDay + 1;
 
   assert.equal(advanceSocialCommitmentDeadlines(state), 1);
