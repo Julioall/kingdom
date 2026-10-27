@@ -40,4 +40,12 @@ A branch de teste foi criada a partir de `kingdom/main` após `git fetch kingdom
 
 ## Estado
 
-Decisões iniciais, sujeitas a ajuste quando o código e os replays contradisserem as hipóteses. A base deste documento ainda não foi validada; resultados de testes e SHAs de implementação serão acrescentados nas seções correspondentes.
+Decisões iniciais, sujeitas a ajuste quando o código e os replays contradisserem as hipóteses. A revalidação operacional de 27/10/2026 está registrada abaixo; resultados de cada implementação seguem nas decisões e issues correspondentes.
+
+## Revalidação da branch e do PR — 27/10/2026
+
+Após `git fetch kingdom`, `kingdom/main` estava em `b36727648370ac52a02707b86fbcfcb5a9315d10`. Esse commit já é ancestral de `test/kingdom-autonomous`; a branch remota `kingdom/test/kingdom-autonomous` também é ancestral da ponta local. A branch já contém a atualização da `main`, portanto não foi necessário integrar novamente nem reescrever histórico. `git rev-list --left-right --count kingdom/main...HEAD` retornou `0 110`, e a branch de teste remota está dois commits atrás da ponta local. O worktree tinha mudanças locais de JUL-173 e relatórios não rastreados; todos foram preservados e serão separados por issue.
+
+A PR [#5](https://github.com/Julioall/kingdom/pull/5) está aberta como draft, base `main`, head remoto `588e0670e838ce2b866a11d29256fc14dc14e895`, com 108 commits e 158 arquivos. O endpoint de diff da GitHub recusou a resposta por ultrapassar 20.000 linhas; isso não é uma revisão do conteúdo. A PR permanece não finalizada até a inspeção dos arquivos por fatia e os gates no SHA final. Nenhum merge ou force-push foi executado.
+
+A tentativa de carregar as notas do agente Linear nesta execução voltou a responder `Tool get_agent_context not found`; a consulta de issues, os documentos locais, os testes e o código seguem como fontes disponíveis.
