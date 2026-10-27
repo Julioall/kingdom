@@ -31,3 +31,13 @@ Alternativas consideradas:
 - Pixabay Content License Summary: https://pixabay.com/service/license-summary/
 - Pixabay Terms of Service: https://pixabay.com/service/terms/
 - As URLs individuais dos 15 assets estão registradas no manifest.json (cada recorte aponta à sua fonte).
+
+## Revisão de game audio e pesquisa
+
+Data: 27/10/2026
+
+- Aplicada a skill Game Studio `game-playtest`: para uma mudança puramente sonora, screenshot não comprova mix ou sincronização. O aceite audível ainda precisa testar acerto em armadura, acerto sem armadura, erro, defesa e grunhido, incluindo duplicação, volume e alinhamento com contato.
+- A busca do SciSpace para estudos de feedback auditivo encontrou `Synchronization in games sound: an audiovisual study on player experience and performance` (2022, DOI https://doi.org/10.1145/3534085.3534342) e `Good Feedback for bad Players? A preliminary Study of ‘juicy’ Interface feedback` (2016). Os resumos indexados apontam que dessincronização pode piorar experiência/desempenho e que feedback redundante pode ter custo de desempenho; a evidência é contextual e não comprova benefício neste jogo. A tentativa de abrir as páginas do editor ACM retornou 403, então tratamos esses resultados como orientação de desenho, não como validação independente.
+- Decisão de desenho: manter somente sinais de evento que correspondem ao resultado real do golpe/defesa e preservar o agendamento junto ao contato; não adicionar camadas redundantes. A validação final continua sendo playtest audível do jogo.
+- Consensus não pôde ser consultado: a cota gratuita informou 30 buscas mensais esgotadas, com reset em 1º/11/2026. Nenhuma conclusão foi inferida dessa indisponibilidade.
+- Alternativas: manter os efeitos como draft para playtest interno; remover os arquivos até a revisão; ou substituir por gravações próprias/CC0 se o empacotamento dos recortes não for aceito. A opção de draft foi mantida, sem promoção a produção.
