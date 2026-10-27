@@ -39,7 +39,16 @@ O teste automatizado cobre limites independentes de sementes/área, colheita int
 
 ## Implementação desta fatia
 
-- SHA: preencher após o commit e replays.
-- Testes direcionados: `tests/cultivated-field-batch.test.mjs`, `tests/ai-calendar-observations.test.mjs`, `tests/food-survival.test.mjs`, `tests/food-audit-metrics.test.mjs`.
-- Build: `npm run build`.
-- Replay anual e hash determinístico: pendente após commit.
+- Commit de implementação: `2b66d1c86e7e74899aa874afc42688f78cf2b3e2`.
+- Testes direcionados no checkout isolado desse SHA: 28/28 passaram (`tests/cultivated-field-batch.test.mjs`, `tests/ai-calendar-observations.test.mjs`, `tests/food-survival.test.mjs`, `tests/food-audit-metrics.test.mjs`).
+- `npm run build` no checkout isolado: typecheck, build Vite e otimização de imagens concluídos.
+- Replay limpo do motor por 365 dias nas seeds 1 e 42, com repetição da seed 42. A repetição teve estado `6497dbed1d502dc17af3af3ba3d27eac79430b6d29e1a2a74ef6b587b1ff4356` e crônica `d4c0ad2b47b329cf996700237e1602db16868afc48f73c63b862a8af210f2d4a`, idênticos. Relatório: `docs/verification/JUL-178-seed-area-yield-365-multiseed-20261027.json`.
+
+| Seed | Roças completas | Estado ao fim | Raiz colhida/entregue | Dias abaixo de 300, por comunidade | Adulto-dias com reserva <20 |
+|---:|---:|---|---:|---:|---:|
+| 1 | 0/1 | 32/34 | 0/0 | 227–228 | 11.485 |
+| 42 | 0/2 | 33/34 e 0/34 | 0/0 | 223–230 | 12.139 |
+
+As duas seeds terminaram com estoque comunitário, tesouro e mercado de comida iguais a zero. Portanto, o lote variável por área/semente não pode ser avaliado em replay de produção: as roças não chegaram a ser semeadas. Isso **reprova** a meta de recuperar as reservas no primeiro ano e desloca o próximo diagnóstico para o bloqueio de obra sob escassez. Não se conclui JUL-178 nem JUL-224.
+
+Uma execução inicial no diretório compartilhado também terminou, mas havia alterações locais não commitadas de outra fatia social; seu relatório foi preservado em `docs/verification/JUL-178-seed-area-yield-365-mixed-worktree-20261027.json` e marcado inválido para atribuição ao SHA. A tabela acima vem do replay no checkout isolado do commit.
