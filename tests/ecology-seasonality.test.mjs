@@ -48,11 +48,11 @@ function regrowthAt(day) {
   return [rootTile.plants[rootIndex], browseTile.plants[browseIndex]];
 }
 
-test('root and sheep-browse regrowth use annual mean rates in every season', () => {
+test('root and sheep-browse regrowth use the same flat rates in every season', () => {
   const results = seasonDays.map(regrowthAt);
   for (const result of results.slice(1)) assert.deepEqual(result, results[0]);
 
-  assert.equal(PLANTS.find(plant => plant.id === 'cultivated-root').growth, 16.875);
+  assert.equal(PLANTS.find(plant => plant.id === 'cultivated-root').growth, 180);
   assert.equal(PLANTS.find(plant => plant.id === 'browse').growth, .1215);
   assert.equal('seasonalGrowth' in PLANTS.find(plant => plant.id === 'cultivated-root'), false);
   assert.equal('seasonalGrowth' in PLANTS.find(plant => plant.id === 'browse'), false);

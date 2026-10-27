@@ -127,7 +127,7 @@ test('community AI continues seeking sheep past the former four-animal limit whi
   const wild = { id: 999, speciesId: 'sheep', alive: true, x: 12, y: 10,
     herdCommunityId: null, herdPenId: null, beingLedBy: null };
   world.animals.push(wild);
-  world.community.stores.food = 100;
+  world.community.stores.food = 1_000;
   world.community.stores.feed = 100;
   world.person.ageDays = 20 * 365;
   world.person.foodReserve = 80;
