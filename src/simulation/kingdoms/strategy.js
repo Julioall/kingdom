@@ -1,15 +1,16 @@
-import { DOMESTIC_SHEEP_DAILY_FEED, MEAT_NUTRITIONAL_VALUE } from '../../config/ecosystem.js';
+import { DOMESTIC_SHEEP_DAILY_FEED, MEAT_NUTRITIONAL_VALUE, PLANTS } from '../../config/ecosystem.js';
 import { communityFoodStock, transferInventoryToStores } from '../economy/inventories.js';
 import { kingdomFoodDemand } from '../economy/food-policy.js';
 import { canRepairKingdomStructure, damagedKingdomStructures, nextCommunityStructure } from '../settlements/construction.js';
-import { communityNeedsAdditionalPen } from '../ecology/herd.js';
+import { communityHerdPenAssignments, communityNeedsAdditionalPen, DOMESTIC_SHEEP_PER_PEN } from '../ecology/herd.js';
 import { calendarDate } from '../ecology/climate.js';
 import { log } from '../core/events.js';
 import { recruitKingdomSoldier, SOLDIER_COST } from './commands.js';
 import { AI_DECISION_CONTRACT_VERSION, validateDecisionAction, validateDecisionResult } from '../../ai/contracts.js';
 import { stripAbsoluteCalendarFields } from '../../ai/observations.js';
+import { KINGDOM_STRATEGY_DECISION_GUIDANCE } from '../../ai/kingdom-strategy-prompt.js';
 
-const COMMUNITY_TASKS = new Set(['forage', 'trade', 'collect_feed', 'gather', 'build']);
+const COMMUNITY_TASKS = new Set(['forage', 'trade', 'collect_feed', 'gather', 'build', 'capture_sheep']);
 const COMMUNITY_BUILDING_TYPES = new Set(['abrigo', 'roça', 'curral', 'posto de coleta', 'acampamento']);
 const KINGDOM_AI_INTERVAL_DAYS = 24;
 const KINGDOM_AI_REQUEST_TTL_DAYS = 48;
@@ -18,8 +19,14 @@ const TASK_DETAILS = Object.freeze({
   forage: { title: 'repor a reserva comum de alimento', skill: 'forage' },
   trade: { title: 'trocar excedentes por alimento no mercado', skill: 'diplomacy' },
   collect_feed: { title: 'repor a ração da guarnição animal', skill: 'care' },
+  capture_sheep: { title: 'procurar e conduzir uma ovelha visível ao curral', skill: 'care' },
   gather: { title: 'reunir materiais para a próxima obra', skill: 'gather' },
   build: { title: 'concluir a próxima obra comunitária', skill: 'build' }
+});
+const ROYAL_BUILD_DETAILS = Object.freeze({
+  'prepare-food-access': { title: 'construir abrigo para apoiar coleta e caça', skill: 'build' },
+  'invest-in-cultivated-food': { title: 'construir e semear uma roça', skill: 'build' },
+  'invest-in-herd-capacity': { title: 'construir um curral para ampliar o rebanho', skill: 'build' }
 });
 
 function finite(value, fallback = 0) {
@@ -50,9 +57,10 @@ export function observeKingdomStrategy(world, kingdomId) {
     && (finite(communityStock.gold) >= 6
       || (finite(communityStock.wood) >= 26 && finite(marketStock.wood) + 8 <= 260)
       || (finite(communityStock.stone) >= 18 && finite(marketStock.stone) + 6 <= 260));
-  const sheepCount = community
-    ? world.animals.filter(animal => animal.alive && animal.speciesId === 'sheep' && animal.herdCommunityId === community.id).length
-    : 0;
+  const herdSummary = community
+    ? communityHerdPenAssignments(world, community.id)
+    : { pens: [], animals: [], counts: new Map() };
+  const sheepCount = herdSummary.animals.length;
   const feedStock = finite(community && community.stores && community.stores.feed);
   const feedTarget = Math.max(8, sheepCount * 5);
   const feedReserveDays = sheepCount > 0 ? feedStock / (sheepCount * DOMESTIC_SHEEP_DAILY_FEED) : null;
@@ -78,6 +86,91 @@ export function observeKingdomStrategy(world, kingdomId) {
   const constructionMaterialNeed = buildPlan && buildPlan.type !== 'ongoing'
     ? Math.max(0, buildPlan.woodCost - woodStock) + Math.max(0, buildPlan.stoneCost - stoneStock)
     : 0;
+  const openPenSlots = herdSummary.pens.reduce((sum, pen) => sum
+    + Math.max(0, DOMESTIC_SHEEP_PER_PEN - (herdSummary.counts.get(pen.id) || 0)), 0);
+  const visibleWildSheep = new Set();
+  if (community && openPenSlots > 0) {
+    const animalsById = new Map((world.animals || []).map(animal => [animal.id, animal]));
+    for (const person of world.people || []) {
+      if (!person.alive || person.communityId !== community.id || person.role === 'soldier') continue;
+      for (const sighting of person.perception?.animals || []) {
+        if (sighting.speciesId !== 'sheep' || !sighting.visible || finite(sighting.distance, 99) > 5.5) continue;
+        const animal = animalsById.get(sighting.id);
+        if (animal && (!animal.alive || animal.speciesId !== 'sheep' || animal.herdCommunityId != null || animal.beingLedBy)) continue;
+        if (animal) visibleWildSheep.add(animal.id);
+      }
+    }
+  }
+  const fieldStructures = communityStructures.filter(structure => structure.type === 'roça');
+  const cropIndex = PLANTS.findIndex(plant => plant.id === 'cultivated-root');
+  const cropRootReserve = cropIndex >= 0 ? Math.max(0, finite(PLANTS[cropIndex].rootReserve)) : 0;
+  let standingCropBiomass = 0, harvestableCropPotential = 0;
+  for (const field of fieldStructures.filter(structure => structure.complete)) {
+    for (const index of field.fieldTileIndices || []) {
+      const tile = world.tiles?.[index];
+      if (!tile || tile.cropFieldId !== field.id) continue;
+      const amount = cropIndex >= 0 ? Math.max(0, finite(tile.plants?.[cropIndex])) : 0;
+      standingCropBiomass += amount;
+      harvestableCropPotential += Math.max(0, amount - cropRootReserve);
+    }
+  }
+  const activeFoodProjectType = communityStructures.find(structure => !structure.complete)?.type || null;
+  const nextFoodStructureType = activeFoodProjectType
+    || (['abrigo', 'roça', 'curral'].includes(buildPlan?.type) ? buildPlan.type : null);
+  const foodInfrastructure = {
+    completedFields: fieldStructures.filter(structure => structure.complete).length,
+    activeFieldProject: fieldStructures.some(structure => !structure.complete),
+    plantedFieldCount: fieldStructures.filter(field => field.complete && (field.fieldTileIndices || [])
+      .some(index => world.tiles?.[index]?.cropFieldId === field.id)).length,
+    standingCropBiomass: Number(standingCropBiomass.toFixed(1)),
+    harvestableCropPotential: Number(harvestableCropPotential.toFixed(1)),
+    harvestedCropToDate: Number(fieldStructures.reduce((sum, field) => sum + Math.max(0, finite(field.cropHarvested)), 0).toFixed(1)),
+    activeProjectType: activeFoodProjectType,
+    nextBuildType: nextFoodStructureType,
+    nextBuildReady: !!nextFoodStructureType && constructionReady && safeBuilderAvailable,
+    buildSitePrevalidated: false,
+    buildSiteRequirement: 'O construtor precisa encontrar área válida e alcançável; prontidão de materiais não confirma o local.',
+    completedCorrals: herdSummary.pens.length,
+    sheepCapacity: herdSummary.pens.length * DOMESTIC_SHEEP_PER_PEN,
+    sheepCount,
+    openPenSlots,
+    visibleWildSheepCount: visibleWildSheep.size,
+    feedStock,
+    feedTarget,
+    benefits: {
+      roça: 'Após obra concluída, usa sementes finitas do local para semear raízes; forage colhe e a entrega abastece a reserva comum.',
+      curral: 'Cada curral acomoda até ' + DOMESTIC_SHEEP_PER_PEN + ' ovelhas; rebanho precisa de ração e só vira carne pelo abate registrado.',
+      abrigo: 'Oferece um ponto seguro para repouso e pode habilitar caça local; não adiciona alimento por si só.'
+    }
+  };
+  const activeRoyalAssignments = (world.people || []).filter(person => person.alive
+    && community?.memberIds.includes(person.id) && person.assignment?.source === 'kingdom-strategy'
+    && person.assignment.communityId === community.id && person.assignment.expiresDay >= world.day);
+  const activeRoyalOrders = Array.from(activeRoyalAssignments.reduce((groups, person) => {
+    const assignment = person.assignment;
+    const key = String(assignment.goal || 'sem-objetivo') + ':' + assignment.action;
+    const order = groups.get(key) || { goal: assignment.goal || null, action: assignment.action, workers: 0,
+      pausedWorkers: 0, longestActiveDays: 0, phases: [] };
+    order.workers++;
+    if (assignment.pauseReason) order.pausedWorkers++;
+    order.longestActiveDays = Math.max(order.longestActiveDays, world.day - finite(assignment.assignedDay, world.day));
+    const phase = assignment.supplyPhase || assignment.pauseReason || assignment.action;
+    if (!order.phases.includes(phase)) order.phases.push(phase);
+    groups.set(key, order);
+    return groups;
+  }, new Map()).values());
+  const lastRoyalOutcome = kingdom.strategy?.lastOutcome ? {
+    status: kingdom.strategy.lastOutcome.status || null,
+    goal: kingdom.strategy.lastOutcome.goal || null,
+    action: kingdom.strategy.lastOutcome.action || null,
+    daysAgo: Math.max(0, world.day - finite(kingdom.strategy.lastOutcome.day, world.day)),
+    reason: String(kingdom.strategy.lastOutcome.reason || '').slice(0, 180)
+  } : null;
+  const recentRoyalOutcomes = (kingdom.strategy?.history || []).slice(-4).map(item => ({
+    status: item.status || null, goal: item.goal || null, action: item.action || null,
+    daysAgo: Math.max(0, world.day - finite(item.day, world.day)),
+    reason: String(item.reason || '').slice(0, 140)
+  }));
   const date = calendarDate(world.day);
   const militaryCenters = (kingdom.militaryCenterIds || []).map(id => world.structures.find(structure => structure.id === id && structure.complete)).filter(Boolean);
   const garrisonSize = militaryCenters.reduce((count, center) => count + (center.soldierIds || []).length, 0);
@@ -142,6 +235,10 @@ export function observeKingdomStrategy(world, kingdomId) {
       safeBuilderAvailable,
       activeCropProject,
       constructionMaterialNeed,
+      foodInfrastructure,
+      activeRoyalOrders,
+      lastRoyalOutcome,
+      recentRoyalOutcomes,
       repairs
     },
     treasury: {
@@ -377,6 +474,11 @@ function normalizePlan(proposal, report) {
   if (proposal.action === 'collect_feed' && (!report.community.sheepCount || report.community.feedStock >= report.community.feedTarget)) {
     return { valid: false, reason: 'A comunidade não tem rebanho ou a ração observada já cobre a meta.' };
   }
+  if (proposal.action === 'capture_sheep' && (!report.community.foodInfrastructure
+      || report.community.foodInfrastructure.openPenSlots <= 0
+      || report.community.foodInfrastructure.visibleWildSheepCount <= 0)) {
+    return { valid: false, reason: 'Não há ovelha selvagem visível ou vaga observada no curral.' };
+  }
   if (proposal.action === 'build' && proposal.goal === 'repair-damaged-structures' && !report.community.repairs?.repairReady) {
     return { valid: false, reason: 'Não há construção danificada ou materiais suficientes no tesouro para repará-la.' };
   }
@@ -390,7 +492,8 @@ function normalizePlan(proposal, report) {
     return { valid: false, reason: 'O relatório não mostra alimento de mercado acessível com ouro ou excedentes para troca.' };
   }
   const details = proposal.goal === 'repair-damaged-structures'
-    ? { title: 'reparar construções danificadas', skill: 'build' } : TASK_DETAILS[proposal.action];
+    ? { title: 'reparar construções danificadas', skill: 'build' }
+    : ROYAL_BUILD_DETAILS[proposal.goal] || TASK_DETAILS[proposal.action];
   const priority = proposal.priority === 'urgent' ? 'urgent' : 'normal';
   return {
     valid: true,
@@ -406,6 +509,34 @@ function normalizePlan(proposal, report) {
 function kingdomAiChoice(id, label, proposal, report) {
   const normalized = normalizePlan(proposal, report);
   return normalized.valid ? { id, label, ...normalized.plan } : null;
+}
+
+function addFoodCapacityChoices(report, add) {
+  const infrastructure = report.community.foodInfrastructure;
+  const buildings = {
+    abrigo: {
+      id: 'prepare_food_shelter', label: 'Construir abrigo para apoiar coleta e caça', goal: 'prepare-food-access',
+      reason: 'O abrigo apoia o repouso e pode habilitar caça local; não gera alimento sozinho.'
+    },
+    roça: {
+      id: 'build_food_field', label: 'Construir e semear roça', goal: 'invest-in-cultivated-food',
+      reason: 'A obra concluída semeia raízes com sementes finitas; moradores podem colher o campo e entregar a produção.'
+    },
+    curral: {
+      id: 'build_food_corral', label: 'Ampliar o curral do rebanho', goal: 'invest-in-herd-capacity',
+      reason: 'O curral oferece até 35 vagas; requer ração e ovelhas e não cria carne automaticamente.'
+    }
+  };
+  const building = infrastructure && infrastructure.nextBuildReady && buildings[infrastructure.nextBuildType];
+  if (building) add(building.id, building.label, {
+    goal: building.goal, action: 'build', priority: 'normal', reason: building.reason
+  });
+  if (infrastructure?.openPenSlots > 0 && infrastructure.visibleWildSheepCount > 0) add(
+    'capture_sheep', 'Procurar e conduzir ovelhas visíveis ao curral', {
+      goal: 'expand-managed-herd', action: 'capture_sheep', priority: 'normal',
+      reason: 'Há ovelhas selvagens observadas e vagas físicas no curral; o rebanho exige ração e não é estoque de carne.'
+    }
+  );
 }
 
 export function kingdomStrategyChoices(report) {
@@ -432,6 +563,7 @@ export function kingdomStrategyChoices(report) {
       goal: 'secure-shared-food', action: 'forage', priority: report.community.foodPerResident < 2 ? 'urgent' : 'normal',
       reason: 'O estoque compartilhado está baixo para o número de moradores.'
     });
+    addFoodCapacityChoices(report, add);
     if (report.community.repairs?.repairReady && report.community.repairs.criticalStructureCount > 0) add(
       'repair_damaged_structures', 'Reparar uma construção crítica', {
         goal: 'repair-damaged-structures', action: 'build', priority: 'urgent',
@@ -453,6 +585,7 @@ export function kingdomStrategyChoices(report) {
       goal: 'secure-herd-feed', action: 'collect_feed', priority: 'normal', reason: 'A reserva de ração está abaixo da meta observada.'
     });
   }
+  addFoodCapacityChoices(report, add);
   if (report.community.constructionReady) {
     const cropProject = report.community.buildPlan && report.community.buildPlan.type === 'roça'
       || report.community.activeCropProject;
@@ -594,8 +727,10 @@ export function queueKingdomStrategicAiRequests(world) {
         garrisonMode: kingdom.strategy.garrisonMode, reason: kingdom.strategy.reason
       } : null,
       recentDecisions: (kingdom.strategy && kingdom.strategy.aiHistory || []).slice(-4),
-      choices: choices.map(({ id: optionId, label, goal, action, priority, garrisonMode }) => ({
-        id: optionId, label, goal, action, priority, garrisonMode
+      decisionGuidance: KINGDOM_STRATEGY_DECISION_GUIDANCE,
+      choices: choices.map(({ id: optionId, label, goal, action, priority, garrisonMode, reason }) => ({
+        id: optionId, label, goal, action, priority, garrisonMode,
+        reason: reason || ''
       }))
     });
     const requestId = 'king:' + id + ':' + ai.nextRequestSequence++;

@@ -123,10 +123,14 @@
         </section>
         <section class="block local-ai-block" aria-label="Inteligência artificial estratégica local">
           <div class="block-title"><h3>Inteligência artificial</h3><span id="localAiState">desligada</span></div>
-          <p class="quiet">A IA local propõe ordens para reis e generais. Inicie o Ollama e prepare os modelos com <code>npm run ai:prepare -- --check</code>. Os moradores continuam com suas redes individuais.</p>
+          <p class="quiet">A IA propõe ordens para reis e generais dentro deste navegador. Na primeira ativação, baixa cerca de 580 MB e guarda o modelo neste navegador. Não precisa de Ollama; a inferência usa WebGPU ou CPU/WASM. Os moradores continuam com suas redes individuais.</p>
           <button id="localAiToggle" type="button">Ativar IA local</button>
           <progress id="localAiProgress" max="1" value="0" aria-label="Progresso do carregamento do modelo" hidden></progress>
-          <p id="localAiStatus" class="quiet" aria-live="polite">Ao ativar, a IA local orienta reis e generais. Regras determinísticas continuam como contingência.</p>
+          <p id="localAiStatus" class="quiet" aria-live="polite">Ao ativar, o navegador prepara o modelo e orienta reis e generais. Regras determinísticas continuam como contingência.</p>
+          <div class="local-ai-history">
+            <h4>Histórico breve de decisões do modelo</h4>
+            <ol id="localAiHistoryList"><li class="quiet">Nenhuma decisão registrada nesta partida.</li></ol>
+          </div>
         </section>
       </div>
     </aside>
