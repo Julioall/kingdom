@@ -43,9 +43,41 @@ test('social inspector exposes plan progress, deadline, destination and route bl
   const sections = renderSocialInspectorSections(person, { people: [person], kingdoms: [], socialEvidence: { facts: [], commitments: [] } });
 
   assert.match(sections.planSection, /Planos individuais/);
-  assert.match(sections.planSection, /prepare migration · suspenso/);
+  assert.match(sections.planSection, /preparar migração · suspenso/);
   assert.match(sections.planSection, /1\/2 · prazo dia 42 · destino \(8, 11\)/);
-  assert.match(sections.planSection, /impedimento: route infeasible/);
+  assert.match(sections.planSection, /impedimento: rota inviável/);
+});
+
+test('social inspector keeps old open plans and all open commitments ahead of closed history', () => {
+  const person = { id: 4, socialIntentions: [
+    { type: 'seek_food_aid', status: 'active', progress: 1, steps: [{ action: 'approach_helper' }, { action: 'request_food' }] },
+    ...Array.from({ length: 5 }, () => ({ type: 'prepare_migration', status: 'abandoned',
+      terminationReason: 'deadline_expired', progress: 1, steps: [{ action: 'reach_destination' }] }))
+  ] };
+  const open = Array.from({ length: 5 }, () => ({ record: { parties: ['4', '2'],
+    object: 'food', status: 'accepted', quantity: 3, deliveredQuantity: 1 } }));
+  const closed = Array.from({ length: 5 }, () => ({ record: { parties: ['4', '2'],
+    object: 'gold', status: 'fulfilled', quantity: 2, deliveredQuantity: 2 } }));
+  const sections = renderSocialInspectorSections(person, {
+    socialEvidence: { facts: [], commitments: [...open, ...closed] }
+  });
+  assert.match(sections.planSection, /buscar ajuda alimentar · em andamento/);
+  assert.match(sections.planSection, /próximo passo: pedir alimento/);
+  assert.match(sections.planSection, /motivo: prazo vencido/);
+  assert.ok(sections.planSection.indexOf('buscar ajuda alimentar') < sections.planSection.indexOf('preparar migração'));
+  assert.equal((sections.intentionRows.match(/class="data-row"/g) || []).length, 4);
+  assert.equal((sections.commitmentRows.match(/alimento · aceito/g) || []).length, 5);
+  assert.doesNotMatch(sections.commitmentRows, /ouro/);
+  assert.equal(person.socialIntentions[0].status, 'active');
+});
+
+test('social inspector escapes a custom plan termination reason in known facts', () => {
+  const sections = renderSocialInspectorSections({ id: 1, socialMemories: [
+    { rootEventId: 'resolved', eventType: 'social_intention_resolved', source: 'direct', eventDay: 5 }
+  ] }, { socialEvidence: { facts: [{ eventId: 'resolved', type: 'social_intention_resolved', day: 5,
+    outcome: { status: 'abandoned', terminationReason: '<custom_reason>' } }] } });
+  assert.match(sections.memorySection, /motivo: &lt;custom reason&gt;/);
+  assert.doesNotMatch(sections.memorySection, /<custom/);
 });
 
 test('social inspector shows the confirmed outcome and observed position of a completed meeting', () => {

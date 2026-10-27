@@ -1,5 +1,6 @@
 import { consumePersonEnergy } from '../individuals/energy.js';
 import { recordSocialFact, rememberSocialFact, updateDirectedSocialRelationship } from './social-evidence.js';
+import { shareFoodAidKnowledge } from './plan-execution.js';
 
 export const SOCIAL_MEETING_REACH = 2.1;
 
@@ -49,5 +50,6 @@ export function resolveSocialMeeting(world, initiator, target, participantsToday
   rememberSocialFact(world, target.id, fact.eventId, { source: 'direct' });
   updateDirectedSocialRelationship(world, initiator.id, target.id, { eventId: fact.eventId, familiarityDelta: .02 });
   updateDirectedSocialRelationship(world, target.id, initiator.id, { eventId: fact.eventId, familiarityDelta: .02 });
-  return { completed: true, reason: 'completed', fact };
+  const report = shareFoodAidKnowledge(world, initiator, target) || shareFoodAidKnowledge(world, target, initiator);
+  return { completed: true, reason: 'completed', fact, report };
 }
