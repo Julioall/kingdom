@@ -447,6 +447,11 @@ export function completeCommunityTask(w, person, action, beforeState, afterState
     else if (task.action === 'lead_sheep' && action === 'lead_sheep') succeeded = beforeState.leadingSheepId && !person.leadingSheepId;
     if (!succeeded) return false;
     const community = w.communities.find(group => group.id === person.communityId && !group.dissolved);
+    if (community && task.source === 'kingdom-strategy' && task.foodFieldId != null
+        && ['forage', 'deliver'].includes(task.action) && communityFoodStock(community) < community.memberIds.length * 2) {
+      task.action = 'forage'; task.supplyPhase = 'communal-collection';
+      return false;
+    }
     const leader = community && w.people.find(member => member.id === community.leaderId && member.alive);
     person.prestige = (person.prestige || 0) + 1;
     if (leader && leader.id !== person.id) leader.prestige = (leader.prestige || 0) + .2;

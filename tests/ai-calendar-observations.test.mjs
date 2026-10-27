@@ -150,20 +150,27 @@ test('kingdom sheep choice can delegate the existing capture-and-lead pawn task'
   assert.equal(worker.assignment?.source, 'kingdom-strategy');
 });
 
-test('one harvested field load closes the royal forage order instead of retaining the same pawn', () => {
+test('one royal field assignment stays active until the shared stock reaches its per-resident target', () => {
   const leader = { id: 1, alive: true, name: 'Rei', prestige: 0 };
   const worker = { id: 2, alive: true, name: 'Aru', communityId: 3, prestige: 0, assignment: {
     action: 'deliver', title: 'entregar lote da roça', goal: 'secure-shared-food', foodFieldId: 7,
     source: 'kingdom-strategy', communityId: 3, expiresDay: 9
   } };
-  const community = { id: 3, kingdomId: 4, leaderId: 1, memberIds: [1, 2], stores: { food: 24 },
+  const community = { id: 3, kingdomId: 4, leaderId: 1, memberIds: Array.from({ length: 50 }, (_, index) => index + 1), stores: { food: 24 },
     history: [], assignments: [{ personId: 2, status: 'delegada' }] };
   const kingdom = { id: 4, name: 'Valedouro', strategy: { history: [] } };
   const world = { day: 2, people: [leader, worker], communities: [community], kingdoms: [kingdom], events: [] };
 
   assert.equal(completeCommunityTask(world, worker, 'deliver',
     { food: 0, feed: 0, wood: 0, stone: 0, gold: 0 },
-    { food: 24, feed: 0, wood: 0, stone: 0, gold: 0 }), true);
+    { food: 24, feed: 0, wood: 0, stone: 0, gold: 0 }), false);
+  assert.equal(worker.assignment.action, 'forage');
+  assert.equal(community.assignments[0].status, 'delegada');
+
+  community.stores.food = 100;
+  assert.equal(completeCommunityTask(world, worker, 'deliver',
+    { food: 24, feed: 0, wood: 0, stone: 0, gold: 0 },
+    { food: 100, feed: 0, wood: 0, stone: 0, gold: 0 }), true);
   assert.equal(worker.assignment, null);
   assert.equal(community.assignments[0].status, 'concluída');
   assert.equal(kingdom.strategy.lastOutcome.status, 'completed');
@@ -180,6 +187,8 @@ test('a 24-unit crop batch sizes forage assignments for 49, 50, and 51 residents
     const community = { id: 3, kingdomId: 4, isKingdomGroup: true, leaderId: leader.id,
       memberIds: members.map(person => person.id), assignments: [], history: [], stores: { food: 0 } };
     const field = { id: 7, type: 'roça', complete: true, communityId: 3 };
+    members[1].assignment = { action: 'forage', title: 'colher a roça', goal: 'secure-shared-food',
+      source: 'kingdom-strategy', priority: 'urgent', communityId: 3, assignedDay: -2, expiresDay: 9, foodFieldId: 7 };
     const world = { day: 1, people: members, structures: [field], communities: [community], kingdoms: [] };
 
     assignCommunityTasks(world, community, leader, members, {
@@ -189,6 +198,8 @@ test('a 24-unit crop batch sizes forage assignments for 49, 50, and 51 residents
 
     const assigned = members.filter(person => person.assignment?.goal === 'secure-shared-food');
     assert.equal(assigned.length, 3, population + ' moradores should need three 24-unit field loads per day');
+    assert.equal(members[1].assignment.assignedDay, -2, 'an active pawn order is retained instead of duplicated');
+    assert.equal(community.assignments.some(record => record.personId === members[1].id), false);
     assert.ok(assigned.reduce(total => total + 24 * FOOD_RESERVE_PER_UNIT, 0)
       >= population * DAILY_FOOD_NEED, 'the assigned load capacity covers the population daily reserve demand');
   }
