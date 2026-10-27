@@ -44,6 +44,72 @@ export function summarizeCultivatedFields(world) {
   };
 }
 
+export function summarizeTradeActivity(world) {
+  const owners = [
+    ...(world?.communities || []),
+    ...(world?.kingdoms || []).flatMap(kingdom => [kingdom, kingdom?.market]),
+    world?.market
+  ].filter(Boolean);
+  const byId = new Map();
+  let anonymousRecordCount = 0;
+  let duplicateLedgerRows = 0;
+  for (const owner of new Set(owners)) for (const record of owner.tradeLedger?.history || []) {
+    const key = Number.isInteger(record?.id) ? 'id:' + record.id : 'anonymous:' + anonymousRecordCount++;
+    if (byId.has(key)) { duplicateLedgerRows++; continue; }
+    byId.set(key, record);
+  }
+  const records = [...byId.values()];
+  const marketRecords = records.filter(record => record?.kind === 'market');
+  const totalTradeRecords = Math.max(0, Number(world?.trades) || 0);
+  const marketOwners = [
+    ...(world?.kingdoms || []).map(kingdom => kingdom?.market),
+    world?.market
+  ].filter(Boolean);
+  const uniqueMarketOwners = [...new Set(marketOwners)];
+  const marketTransactions = uniqueMarketOwners.reduce((sum, owner) => sum + (Number(owner.transactions) || 0), 0);
+  const sumDeltas = (target, delta = {}) => {
+    for (const [resource, amount] of Object.entries(delta)) {
+      if (!Number.isFinite(Number(amount))) continue;
+      target[resource] = Number(((target[resource] || 0) + Number(amount)).toFixed(4));
+    }
+  };
+  const byAction = new Map();
+  const byOwner = new Map();
+  for (const record of marketRecords) {
+    const action = record.action || 'unclassified';
+    const actionStats = byAction.get(action) || { action, count: 0, marketDelta: {} };
+    actionStats.count++;
+    sumDeltas(actionStats.marketDelta, record.market?.delta);
+    byAction.set(action, actionStats);
+
+    const ownerType = record.market?.ownerType || 'unknown-market';
+    const ownerId = record.market?.ownerId ?? null;
+    const ownerKey = ownerType + ':' + (ownerId ?? 'none');
+    const ownerStats = byOwner.get(ownerKey) || { ownerType, ownerId, count: 0, marketDelta: {} };
+    ownerStats.count++;
+    sumDeltas(ownerStats.marketDelta, record.market?.delta);
+    byOwner.set(ownerKey, ownerStats);
+  }
+  const clean = stats => {
+    for (const key of ['marketDelta']) {
+      for (const resource of Object.keys(stats[key])) if (Math.abs(stats[key][resource]) <= .0001) delete stats[key][resource];
+    }
+    return stats;
+  };
+  return {
+    totalTradeRecords,
+    retainedTradeRecords: records.length,
+    duplicateLedgerRows,
+    tradeRecordCoverageComplete: records.length === totalTradeRecords,
+    marketTransactions,
+    marketTransactionsRecorded: marketRecords.length,
+    marketTransactionCoverageComplete: marketTransactions === marketRecords.length,
+    otherTradeRecords: records.filter(record => record?.kind !== 'market').length,
+    byAction: [...byAction.values()].map(clean).sort((a, b) => a.action.localeCompare(b.action)),
+    byMarket: [...byOwner.values()].map(clean).sort((a, b) => a.ownerType.localeCompare(b.ownerType) || (a.ownerId ?? 0) - (b.ownerId ?? 0))
+  };
+}
+
 export function summarizeFoodDeaths(world) {
   const deadPeople = (world?.people || []).filter(person => person?.alive === false);
   const deadAnimals = (world?.animals || []).filter(animal => animal?.alive === false);

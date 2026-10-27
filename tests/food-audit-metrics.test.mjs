@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { summarizeCampaignFoodLogistics, summarizeCultivatedFields, summarizeFoodDeaths } from '../scripts/food-audit-metrics.mjs';
+import { summarizeCampaignFoodLogistics, summarizeCultivatedFields, summarizeFoodDeaths, summarizeTradeActivity } from '../scripts/food-audit-metrics.mjs';
 import { recordAnimalDeath } from '../src/simulation/ecology/animals.js';
 import { PLANTS } from '../src/config/ecosystem.js';
 
@@ -82,6 +82,53 @@ test('food audit reports zero field stock instead of treating missing fields as 
     fieldCount: 0, completeFieldCount: 0, totalFieldTiles: 0, standingBiomass: 0,
     cropSeedStored: 0, cropSeededBiomass: 0, cropHarvested: 0, fields: []
   });
+});
+
+test('trade audit separates actual market purchases from community barter and deduplicates shared ledgers', () => {
+  const purchase = {
+    id: 1, day: 9, kind: 'market', action: 'comprou alimento',
+    participants: [{ communityId: 2, delta: { food: 12, gold: -6 } }],
+    market: { ownerType: 'kingdom-market', ownerId: 4, delta: { food: -12, gold: 6 } }
+  };
+  const barter = {
+    id: 2, day: 10, kind: 'community-barter', action: 'barter',
+    participants: [{ communityId: 2, delta: { food: -5 } }, { communityId: 3, delta: { food: 5 } }],
+    market: null
+  };
+  const community = { id: 2, tradeLedger: { count: 2, history: [purchase, barter] } };
+  const partner = { id: 3, tradeLedger: { count: 1, history: [barter] } };
+  const market = { ownerType: 'kingdom-market', ownerId: 4, transactions: 1,
+    tradeLedger: { count: 1, history: [purchase] } };
+  const summary = summarizeTradeActivity({ trades: 2, communities: [community, partner],
+    kingdoms: [{ id: 4, market }], market: { transactions: 0, tradeLedger: { count: 0, history: [] } } });
+
+  assert.equal(summary.totalTradeRecords, 2);
+  assert.equal(summary.retainedTradeRecords, 2);
+  assert.equal(summary.duplicateLedgerRows, 2);
+  assert.equal(summary.tradeRecordCoverageComplete, true);
+  assert.equal(summary.marketTransactions, 1);
+  assert.equal(summary.marketTransactionsRecorded, 1);
+  assert.equal(summary.marketTransactionCoverageComplete, true);
+  assert.equal(summary.otherTradeRecords, 1);
+  assert.deepEqual(summary.byAction, [{ action: 'comprou alimento', count: 1, marketDelta: { food: -12, gold: 6 } }]);
+  assert.deepEqual(summary.byMarket, [{ ownerType: 'kingdom-market', ownerId: 4, count: 1,
+    marketDelta: { food: -12, gold: 6 } }]);
+});
+
+test('trade audit marks truncated ledgers and missing market transaction records', () => {
+  const entry = { id: 1, kind: 'market', action: 'comprou madeira',
+    market: { ownerType: 'kingdom-market', ownerId: 1, delta: { wood: -10, gold: 6 } } };
+  const summary = summarizeTradeActivity({ trades: 4,
+    communities: [{ tradeLedger: { count: 4, history: [entry] } }],
+    kingdoms: [{ market: { ownerType: 'kingdom-market', ownerId: 1, transactions: 2,
+      tradeLedger: { count: 2, history: [entry] } } }] });
+
+  assert.equal(summary.totalTradeRecords, 4);
+  assert.equal(summary.retainedTradeRecords, 1);
+  assert.equal(summary.tradeRecordCoverageComplete, false);
+  assert.equal(summary.marketTransactions, 2);
+  assert.equal(summary.marketTransactionsRecorded, 1);
+  assert.equal(summary.marketTransactionCoverageComplete, false);
 });
 
 test('campaign food audit reconciles field stock and distinguishes treasury, community, and personal rations', () => {

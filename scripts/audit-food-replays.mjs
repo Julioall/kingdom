@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
 import engine from '../src/simulation/engine.js';
-import { summarizeCampaignFoodLogistics, summarizeCultivatedFields, summarizeFoodDeaths } from './food-audit-metrics.mjs';
+import { summarizeCampaignFoodLogistics, summarizeCultivatedFields, summarizeFoodDeaths, summarizeTradeActivity } from './food-audit-metrics.mjs';
 
 const args = new Map();
 for (let index = 2; index < process.argv.length; index++) {
@@ -108,6 +108,7 @@ function run(seed) {
       && person.foodReserve < 20).length;
   }
   const final = engine.snapshot(world);
+  const tradeActivity = summarizeTradeActivity(world);
   const stateParts = Object.fromEntries(['day', 'year', 'season', 'seed', 'rngState', 'nextId', 'tiles', 'regions', 'animals', 'people', 'communities', 'kingdoms',
     'settlements', 'structures', 'wars', 'campaigns', 'conflicts', 'territoryClaims', 'treaties', 'socialLinks', 'events',
     'chronicle', 'harvests', 'ecologyFlows', 'deathsByCause', 'tradeRecords'].map(key => [key, hash(canonical(world[key]))]));
@@ -129,7 +130,9 @@ function run(seed) {
     foodBiomass: Number((final.humanFoodBiomass || 0).toFixed(2)),
     activeCampaigns: final.activeCampaigns || 0,
     campaignBattles: final.campaignBattles || 0,
-    marketTransactions: world.trades || 0,
+    marketTransactions: tradeActivity.marketTransactions,
+    tradeRecords: tradeActivity.totalTradeRecords,
+    tradeActivity,
     stocks: summarizeStocks(world)
   };
 }
@@ -161,10 +164,12 @@ if (outputPath) {
   const summary = { sourceRevision: report.sourceRevision, days, seeds, repeatSeed,
     results: results.map(({ seed, elapsedSeconds, stateSha256, chronicleSha256, determinismVerified,
       determinismDiff, livingPeople, adultDaysFoodReserveBelow20, deathsByCause, births, deaths,
-      deathsByActor, campaignLogistics, cultivatedFields, foodBiomass, activeCampaigns, campaignBattles, marketTransactions, stocks }) => ({ seed, elapsedSeconds,
+      deathsByActor, campaignLogistics, cultivatedFields, foodBiomass, activeCampaigns, campaignBattles, marketTransactions,
+      tradeRecords, tradeActivity, stocks }) => ({ seed, elapsedSeconds,
       stateSha256, chronicleSha256, determinismVerified, determinismDiff, livingPeople,
       adultDaysFoodReserveBelow20, deathsByCause, births, deaths, foodBiomass,
-      deathsByActor, campaignLogistics, cultivatedFields, activeCampaigns, campaignBattles, marketTransactions, stocks })) };
+      deathsByActor, campaignLogistics, cultivatedFields, activeCampaigns, campaignBattles,
+      marketTransactions, tradeRecords, tradeActivity, stocks })) };
   process.stdout.write(JSON.stringify(summary, null, 2) + '\n');
 } else process.stdout.write(output);
 if (repeatSeed !== null && !results.at(-1).determinismVerified) process.exitCode = 1;
