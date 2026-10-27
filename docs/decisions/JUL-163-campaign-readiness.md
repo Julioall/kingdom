@@ -20,7 +20,7 @@ Essas são regras existentes de `src/simulation/kingdoms/campaigns.js`; esta fat
 | Manter indefinidamente a guerra sem efetivo/ração | Cria estado terminal sem ação útil; o armistício preserva as fronteiras e registra o custo da espera. |
 | Criar comida para satisfazer a mobilização | Viola os estoques finitos e confunde política militar com produção ecológica. |
 
-As referências já consultadas para M4 incluem Sheeba e Ghose, “A resource based game theoretical model for military conflicts” (2007), sobre alocação temporal/espacial de recursos sob conflito. A evidência é metodológica e não calibra os 18/180 dias do Kingdom; essa calibração é contrato de gameplay coberto por teste, não resultado acadêmico. Ver também [a decisão de escambo e fronteira](JUL-163-border-trade.md), que registra os limites de SciSpace, Consensus e Game Studio.
+SciSpace não confirmou a referência anteriormente descrita como “A resource based game theoretical model for military conflicts” (2007); a citação sem DOI foi retirada para não atribuir um título não verificado. A busca identificou Sheeba e Ghose, “Optimal resource allocation and redistribution strategy in military conflicts with Lanchester square law attrition” (2008), DOI [10.1002/NAV.20303](https://doi.org/10.1002/NAV.20303). O artigo trata de alocação de forças defensoras sob um modelo de atrito; serve apenas como contexto metodológico e não calibra os 18/180 dias do Kingdom, que são contrato de gameplay coberto por teste. Ver também [a decisão de escambo e fronteira](JUL-163-border-trade.md), que registra os limites de SciSpace, Consensus e Game Studio.
 
 ## Evidência
 
