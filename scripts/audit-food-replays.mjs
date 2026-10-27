@@ -127,6 +127,10 @@ function foodReserveTrackers(world) {
       endingPersonalReserveRawEquivalent: personalReservePoints / FOOD_RESERVE_PER_UNIT,
       endingAveragePersonalReservePoints: people.length ? personalReservePoints / people.length : 0,
       endingResidentsBelow20: people.filter(person => person.foodReserve < 20).length,
+      royalFoodSupportWorkerDays: 0,
+      royalFieldWorkerDays: 0,
+      maximumConcurrentRoyalFoodWorkers: 0,
+      maximumConcurrentRoyalFieldWorkers: 0,
       endingPopulation: demand.members?.length ?? (world.people || []).filter(person =>
         person.alive && community.memberIds.includes(person.id)).length,
       endingDailyDemandRawUnits: dailyFoodUnits,
@@ -153,6 +157,9 @@ function updateFoodReserveTrackers(world, trackers) {
     const dailyFoodUnits = dailyFoodNeed / FOOD_RESERVE_PER_UNIT;
     const combinedReserveDays = dailyFoodUnits > 0
       ? (stock + personalReservePoints / FOOD_RESERVE_PER_UNIT) / dailyFoodUnits : Infinity;
+    const royalFoodWorkers = members.filter(person => person.assignment?.source === 'kingdom-strategy'
+      && person.assignment.goal === 'secure-shared-food' && person.assignment.expiresDay >= world.day);
+    const royalFieldWorkers = royalFoodWorkers.filter(person => person.assignment.foodFieldId != null);
     tracker.minimumFood = Math.min(tracker.minimumFood, stock);
     tracker.maximumFood = Math.max(tracker.maximumFood, stock);
     tracker.endingFood = stock;
@@ -165,6 +172,10 @@ function updateFoodReserveTrackers(world, trackers) {
     tracker.endingPersonalReserveRawEquivalent = personalReservePoints / FOOD_RESERVE_PER_UNIT;
     tracker.endingAveragePersonalReservePoints = members.length ? personalReservePoints / members.length : 0;
     tracker.endingResidentsBelow20 = members.filter(person => person.foodReserve < 20).length;
+    tracker.royalFoodSupportWorkerDays += royalFoodWorkers.length;
+    tracker.royalFieldWorkerDays += royalFieldWorkers.length;
+    tracker.maximumConcurrentRoyalFoodWorkers = Math.max(tracker.maximumConcurrentRoyalFoodWorkers, royalFoodWorkers.length);
+    tracker.maximumConcurrentRoyalFieldWorkers = Math.max(tracker.maximumConcurrentRoyalFieldWorkers, royalFieldWorkers.length);
     tracker.endingPopulation = members.length;
     tracker.endingDailyDemandRawUnits = dailyFoodNeed / FOOD_RESERVE_PER_UNIT;
     tracker.endingDemandBufferTarget = communityFoodBufferTarget(dailyFoodNeed);

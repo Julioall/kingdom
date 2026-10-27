@@ -8,7 +8,7 @@ import {
 } from '../src/simulation/kingdoms/strategy.js';
 import { queueCampaignGeneralAiRequests } from '../src/simulation/kingdoms/campaigns.js';
 import { buildKingdomStrategySystemPrompt } from '../src/ai/kingdom-strategy-prompt.js';
-import { assignCommunityTasks, completeCommunityTask } from '../src/simulation/society/governance.js';
+import { assignCommunityTasks, assignKingdomFoodSupportTasks, completeCommunityTask } from '../src/simulation/society/governance.js';
 import { communityFoodBufferDays, communityFoodBufferTarget, foodUnitsPerDay } from '../src/simulation/economy/food-policy.js';
 
 test('absolute date keys are removed recursively while relative durations remain', () => {
@@ -230,6 +230,31 @@ test('a 24-unit crop batch sizes forage assignments for 49, 50, and 51 residents
     assert.ok(assigned.reduce(total => total + 24 * FOOD_RESERVE_PER_UNIT, 0)
       >= population * DAILY_FOOD_NEED, 'the assigned load capacity covers the population daily reserve demand');
   }
+});
+
+test('food support assigns harvesters alongside a separate active field builder', () => {
+  const members = Array.from({ length: 50 }, (_, index) => ({
+    id: index + 1, alive: true, communityId: 3, ageDays: 30 * 365, role: 'resident',
+    hydration: 100, energy: 100, health: 100, foodReserve: 80, skills: { forage: .5 }
+  }));
+  const leader = members[0];
+  const builder = members[1];
+  builder.assignment = { source: 'kingdom-strategy', goal: 'invest-in-cultivated-food', action: 'build',
+    communityId: 3, expiresDay: 8 };
+  const community = { id: 3, kingdomId: 4, isKingdomGroup: true, leaderId: leader.id,
+    memberIds: members.map(person => person.id), assignments: [], history: [], stores: { food: 0 } };
+  const field = { id: 7, type: 'roça', complete: true, communityId: 3 };
+  const world = { day: 1, people: members, structures: [field], communities: [community], kingdoms: [] };
+
+  const addedFoodWorkers = assignKingdomFoodSupportTasks(world, community, leader, members);
+  const foodWorkers = members.filter(person => person.assignment?.goal === 'secure-shared-food');
+
+  assert.equal(addedFoodWorkers, 2, 'the three-worker food capacity reserves one slot for the active builder');
+  assert.equal(foodWorkers.length, 2);
+  assert.equal(builder.assignment.goal, 'invest-in-cultivated-food');
+  assert.ok(foodWorkers.every(person => person.assignment.foodFieldId === field.id));
+  assert.equal(assignKingdomFoodSupportTasks(world, community, leader, members), 0,
+    'a second support pass does not duplicate active food assignments');
 });
 
 function generalRequest(day) {

@@ -230,6 +230,23 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
     }
   }
 
+export function assignKingdomFoodSupportTasks(w, community, leader, members) {
+    if (!community?.isKingdomGroup || !leader || !Array.isArray(members) || members.length < 2) return 0;
+    const dailyFoodNeed = dailyFoodNeedForMembers(members).dailyFoodNeed;
+    const foodTarget = communityFoodBufferTarget(dailyFoodNeed);
+    const peopleNeedFood = members.some(person => person.foodReserve < 42);
+    if (communityFoodStock(community) >= foodTarget && !peopleNeedFood) return 0;
+    const before = members.filter(person => person.assignment?.source === 'kingdom-strategy'
+      && person.assignment.goal === 'secure-shared-food' && person.assignment.expiresDay >= w.day).length;
+    assignCommunityTasks(w, community, leader, members, {
+      action: 'forage', title: 'repor a reserva alimentar sem interromper a obra', skill: 'forage',
+      goal: 'secure-shared-food', priority: 'urgent', source: 'kingdom-strategy'
+    }, false);
+    const after = members.filter(person => person.assignment?.source === 'kingdom-strategy'
+      && person.assignment.goal === 'secure-shared-food' && person.assignment.expiresDay >= w.day).length;
+    return Math.max(0, after - before);
+  }
+
 function recordProjectWorkStatus(w, project, status, reason, details = {}) {
   project.workStatus = {
     status,
@@ -387,6 +404,7 @@ export function updateCommunityGovernance(w, kingdomPlanner) {
         community.satisfaction = communitySatisfaction(w, community);
         if (w.day - community.lastGovernanceDay >= 8) {
           assignCommunityTasks(w, community, leader, members, kingdom && kingdom.strategy && kingdom.strategy.order, false);
+          assignKingdomFoodSupportTasks(w, community, leader, members);
           community.lastGovernanceDay = w.day;
         }
         assignSafeOngoingBuilder(w, community, leader, members);
