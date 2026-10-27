@@ -68,6 +68,17 @@ export function createCombatAction(world, actor, target, day, options = {}) {
   return action;
 }
 
+export function isCombatTargetEligible(world, attacker, target, day = world?.day) {
+  if (!attacker || !target || target.alive === false || target.restingStructureId != null
+      || attacker.id === target.id || attacker.kingdomId != null && target.kingdomId === attacker.kingdomId) return false;
+  // Geometry-only callers may use lightweight target records; runtime people always have a role.
+  if (target.role == null || target.role === 'soldier') return true;
+  const currentDay = Number.isFinite(day) ? day : 0;
+  return (world?.people || []).some(victim => victim.alive && victim.kingdomId === attacker.kingdomId
+    && victim.lastAttackedById === target.id && Number.isFinite(victim.lastAttackedDay)
+    && victim.lastAttackedDay <= currentDay && currentDay - victim.lastAttackedDay <= 2);
+}
+
 export function combatWeaponPoint(action, elapsed) {
   if (action.weapon === 'arqueiro') {
     const t = Math.min(1, Math.max(0, (elapsed - action.windupMs) / action.flightMs));
@@ -165,6 +176,7 @@ export function resolveCombatAction(world, actor, action, candidates, applyDamag
     for (const target of candidates) {
       if ((structure ? target.destroyedDay != null : !target.alive || target.restingStructureId != null)
         || target.kingdomId === actor.kingdomId || action.hitTargets.includes(target.id)) continue;
+      if (!structure && !isCombatTargetEligible(world, actor, target, action.day)) continue;
       if (!structure && action.weapon !== 'arqueiro' && !!target.towerMounted !== !!actor.towerMounted) continue;
       const radius = structure ? (options.targetRadius ?? .8) : BODY_RADIUS;
       const fromHeight = sourceHeight;

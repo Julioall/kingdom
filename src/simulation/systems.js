@@ -13,7 +13,7 @@ import { killPerson } from './individuals/lifecycle.js';
 import { updateRoadWear } from './world/roads.js';
 import { maintainKingdomFortifications, prepareKingdomCampaigns, resolveKingdomCampaigns } from './kingdoms/campaigns.js';
 import { advanceKingdomProjects } from './kingdoms/projects.js';
-import { updateClericHealing, fightBattlefieldSkirmishes } from './kingdoms/military.js';
+import { updateClericHealing, fightBattlefieldSkirmishes, respondToLocalThreats } from './kingdoms/military.js';
 import { payMilitarySalaries } from './kingdoms/service.js';
 import { observeMilitaryFrontiers } from './kingdoms/frontier-intelligence.js';
 import { recordRoyalSitingOutcomes } from './kingdoms/royal-siting.js';
@@ -142,6 +142,7 @@ export function stepDay(world, options = null) {
   fightBattlefieldSkirmishes(world, nextDay);
   resolveKingdomCampaigns(world, nextDay);
   defendTowers(world, nextDay);
+  respondToLocalThreats(world, nextDay);
 
   // 5. Loose materials decay; market prices and fortification upkeep refresh monthly.
   updateResourcesAndMarkets(world, nextDay);

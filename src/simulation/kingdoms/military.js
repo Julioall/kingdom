@@ -8,11 +8,12 @@ import { moveOne } from '../individuals/movement.js';
 import { log } from '../core/events.js';
 import { updateServiceGrades } from './frontier-intelligence.js';
 import { clearMilitaryCommand } from './military-identity.js';
-import { createCombatAction, resolveCombatAction, frontGuard } from './combat-contact.js';
+import { createCombatAction, resolveCombatAction, frontGuard, isCombatTargetEligible } from './combat-contact.js';
 import { cellAt } from '../world/spatial.js';
 import { canTraverseElevation } from '../world/island-terrain.js';
 import { collidesWithWorldPositionAt, worldCollisionIndex } from '../physics/hitboxes.js';
 import { peopleNear } from '../individuals/spatial-index.js';
+import { TERRITORY_AVOIDANCE_DAYS } from './territories.js';
 
 export const MILITARY_CLASSES = Object.freeze({
   guerreiro: { label: 'Infantaria', vitality: 360, range: 1.8, damage: 18, dodge: .12, block: .42 },
@@ -201,6 +202,69 @@ export function battlefieldOpponents(world, campaign, kingdomId) {
     && distance(p, campaign.target) <= 16);
 }
 
+function rememberHostileDamage(world, victim, aggressor, day) {
+  const tile = cellAt(world, victim.x, victim.y);
+  const owner = tile?.kingdomId == null ? null : world.kingdoms.find(kingdom => kingdom.id === tile.kingdomId);
+  victim.lastHostileEncounter = {
+    sourcePersonId: aggressor.id, sourceKingdomId: aggressor.kingdomId,
+    day, location: { x: victim.x, y: victim.y }, territoryId: tile?.kingdomId ?? null
+  };
+  victim.lastLesson = aggressor.kingdomId != null && victim.kingdomId !== aggressor.kingdomId
+    ? aggressor.name + ' do reino ' + (world.kingdoms.find(kingdom => kingdom.id === aggressor.kingdomId)?.name || 'rival')
+      + ' causou dano direto. Evite a ameaça e peça ajuda a aliados.'
+    : 'Você sofreu dano direto em combate; procure abrigo e avise aliados.';
+  victim.conflictRisk = Math.max(Number(victim.conflictRisk) || 0, .55);
+  if (!owner || owner.id === victim.kingdomId) return;
+  victim.territoryAwareness = { ownerId: owner.id, name: owner.name, warning: true, caught: true,
+    harmed: true, day, aggressorId: aggressor.id };
+  victim.territoryWarnings ||= {};
+  victim.territoryWarnings[owner.id] = Math.max(victim.territoryWarnings[owner.id] || 0,
+    day + TERRITORY_AVOIDANCE_DAYS);
+}
+
+export function respondToLocalThreats(world, day = world.day + 1) {
+  const people = world.people || [];
+  const responders = people.filter(person => person.alive && person.role === 'soldier'
+    && person.kingdomId != null && person.health >= 28 && person.restingStructureId == null
+    && person.militaryRestTargetId == null && !isCombatDisarmed(person, day)
+    && (person.stamina ?? 100) >= 16)
+    .sort((a, b) => a.id - b.id);
+  const responses = [];
+  for (const soldier of responders) {
+    const homeTile = cellAt(world, soldier.x, soldier.y);
+    if (homeTile?.kingdomId !== soldier.kingdomId) continue;
+    const threats = people.filter(candidate => candidate.alive && candidate.kingdomId !== soldier.kingdomId
+      && candidate.restingStructureId == null
+      && isCombatTargetEligible(world, soldier, candidate, day)
+      && cellAt(world, candidate.x, candidate.y)?.kingdomId === soldier.kingdomId
+      && distance(soldier, candidate) <= 12)
+      .sort((a, b) => Number(isCombatTargetEligible(world, soldier, b, day) && b.role !== 'soldier')
+        - Number(isCombatTargetEligible(world, soldier, a, day) && a.role !== 'soldier')
+        || distance(soldier, a) - distance(soldier, b) || a.id - b.id);
+    const threat = threats[0];
+    if (!threat) continue;
+    const range = (MILITARY_CLASSES[soldier.militaryClass]?.range || 0) + (soldier.towerMounted ? 6 : 0);
+    if (distance(soldier, threat) > range) {
+      if (soldier.towerMounted) continue;
+      if (moveOne(world, soldier, threat, false, {
+        allowedTile: tile => tile.kingdomId === soldier.kingdomId,
+        preferRoads: true
+      })) {
+        soldier.state = 'interceptando invasor no território';
+        soldier.lastLesson = 'A patrulha observou uma ameaça dentro do reino e avançou sem cruzar a fronteira.';
+        responses.push({ soldierId: soldier.id, targetId: threat.id, action: 'intercept' });
+      }
+      continue;
+    }
+    const healthBefore = threat.health;
+    fightTacticalRound(world, [soldier], [threat], day);
+    if (threat.health < healthBefore || !threat.alive) {
+      responses.push({ soldierId: soldier.id, targetId: threat.id, action: 'engage' });
+    }
+  }
+  return responses;
+}
+
 export function fightBattlefieldSkirmishes(world, day) {
   for (const campaign of world.campaigns || []) {
     if (!['marching', 'engaged', 'contested'].includes(campaign.status)) continue;
@@ -229,7 +293,8 @@ export function fightTacticalRound(world, allies, enemies, day, objective = null
     }
     const spec = MILITARY_CLASSES[person.militaryClass] || MILITARY_CLASSES.lanceiro;
     const threats = enemies.filter(p => p.alive && p.restingStructureId == null
-      && (person.kingdomId == null || p.kingdomId !== person.kingdomId));
+      && (person.kingdomId == null || p.kingdomId !== person.kingdomId)
+      && isCombatTargetEligible(world, person, p, day));
     const threatenedAlly = allies.filter(ally => ally.alive && ally.id !== person.id
       && ally.health <= 75 && day - (ally.lastAttackedDay ?? -Infinity) <= 1
       && distance(person, ally) <= 6)
@@ -319,6 +384,7 @@ export function fightTacticalRound(world, allies, enemies, day, objective = null
       const damage = appliedHealth * vitality / 100;
       victim.lastAttackedDay = day; victim.lastAttackedById = person.id;
       victim.injury = clamp((victim.injury || 0) + damage / 120, 0, 10);
+      if (appliedHealth > 0) rememberHostileDamage(world, victim, person, day);
       person.militaryMerit = (person.militaryMerit || 0) + damage / 30;
       person.combatDamageDealt = (person.combatDamageDealt || 0) + damage;
       if (victim.health <= 0) {
