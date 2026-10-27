@@ -81,3 +81,26 @@ test('a kingdom prioritizes its first field and reserves one gatherer while food
   assert.equal(worker.assignment.goal, 'prepare-cultivated-field');
   assert.equal(canGatherFoodFieldMaterialsWithReserve(worker, worker.assignment), true);
 });
+
+test('a kingdom with no eligible civilian worker cannot assign field preparation or spend materials', () => {
+  const world = engine.createWorld(42);
+  const community = world.communities[0];
+  const members = world.people.filter(person => person.alive && person.communityId === community.id);
+  const leader = members[0];
+  assert.ok(members.length >= 2);
+  for (const person of members) {
+    person.role = 'soldier';
+    person.assignment = null;
+  }
+  Object.assign(community.stores, { wood: 0, stone: 0, food: 0, seeds: 0 });
+  assert.equal(nextCommunityStructure(world, community, members.length, communityStructures(world, community)).type, 'roça');
+  const stocksBefore = structuredClone(community.stores);
+  const structuresBefore = world.structures.length;
+
+  const assigned = assignKingdomFieldPreparationTasks(world, community, leader, members);
+
+  assert.equal(assigned, 0);
+  assert.equal(world.structures.length, structuresBefore);
+  assert.deepEqual(community.stores, stocksBefore);
+  assert.ok(members.every(person => person.assignment?.goal !== 'prepare-cultivated-field'));
+});

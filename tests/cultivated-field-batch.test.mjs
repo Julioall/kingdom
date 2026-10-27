@@ -15,6 +15,25 @@ test('a field batch is bounded by both planted seed mass and occupied area', () 
   assert.equal(cultivatedFieldYieldTarget(0, 24), 0);
 });
 
+test('a field with no seed reserve stays unplanted and creates no food', () => {
+  const world = engine.createWorld(42);
+  const community = world.communities[0];
+  community.stores.food = 0;
+  const tiles = world.tiles.filter(tile => tile.terrain === 'land' && tile.cropFieldId == null).slice(0, 24);
+  const tileStateBefore = tiles.map(tile => ({ cropFieldId: tile.cropFieldId, plants: Array.from(tile.plants) }));
+  const field = { id: 99500, type: 'roça', communityId: community.id, complete: true,
+    fieldTileIndices: tiles.map(tile => tile.i), seedMass: 8, cropSeedStored: 0, cropCycleState: 'spent' };
+  world.structures.push(field);
+
+  assert.equal(sowCommunityField(world, field), 0);
+
+  assert.equal(community.stores.food, 0);
+  assert.equal(field.cropCycleState, 'spent');
+  assert.equal(field.cropYieldTarget, undefined);
+  assert.equal(field.cropGrowthGenerated, undefined);
+  assert.deepEqual(tiles.map(tile => ({ cropFieldId: tile.cropFieldId, plants: Array.from(tile.plants) })), tileStateBefore);
+});
+
 test('a mature field can be collected as one finite batch and stays visually empty afterward', () => {
   const world = engine.createWorld(42);
   const community = world.communities[0];
