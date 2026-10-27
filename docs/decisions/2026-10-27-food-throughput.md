@@ -11,6 +11,8 @@ A linha de base foi medida no SHA `ad0f778d7f7c665b832050176976887df7c1acb9`, po
 
 Os relatórios mostram biomassa colhida e regenerada, mas o estoque final e as reservas humanas continuam baixos. O total histórico colhido ou a biomassa em pé não prova que o alimento ficou acessível no momento da refeição. A conversão atual é `0,72` ponto de reserva por unidade de alimento; 50 adultos precisam de `39` pontos ou cerca de `54,17` unidades por dia.
 
+O primeiro replay pós-mudança, no SHA `43db0047e19f595d1d8a677b9b1aeb5908c400b1`, **não melhorou** o resultado: nas seeds 1/42, a colheita cultivada caiu para 3.011,95/3.030,19, enquanto a biomassa em pé subiu para 5.460,02/9.540,17 e a reserva comunitária terminou em zero nas duas. Houve 10.540/12.187 adultos-dias abaixo de 20 pontos e 3/1 mortes humanas por fome. O relatório completo é `docs/verification/JUL-178-post-batch-365-20261027.json`. A inspeção encontrou que a capacidade de 24 unidades só era usada por ordens `kingdom-strategy`; ordens locais da governança, que também carregam `foodFieldId`, continuavam no limite pessoal de 5. A mudança seguinte aplica o lote comunitário a qualquer ordem de colheita explicitamente vinculada à roça. O crescimento 3× permanece experimental até novo replay.
+
 ## Escolha
 
 1. Uma colheita delegada da roça pode retirar até a capacidade de carga comunitária, 24 unidades por ação. Coletas de frutos silvestres mantêm o limite por habilidade atual.
@@ -33,5 +35,5 @@ Game Studio recomenda manter simulação e renderização separadas; esta altera
 ## Validação e pendências
 
 - Testes unitários cobrem conservação do lote de 24, conclusão da ordem após uma entrega e capacidade de atribuições para populações 49/50/51.
-- Replays pós-mudança e suas seeds ainda precisam confirmar alimento entregue, consumo, perdas, exposição a fome e repetibilidade. A meta combinada roça + curral também depende do ciclo de rebanho de JUL-199; compra de sementes no mercado continua em JUL-201.
+- Um replay posterior à correção do caminho de coleta ainda precisa confirmar alimento entregue, consumo, perdas, exposição a fome e repetibilidade. A meta combinada roça + curral também depende do ciclo de rebanho de JUL-199; compra de sementes no mercado continua em JUL-201.
 - Esta decisão não conclui JUL-178 nem JUL-224 e não declara que uma roça e um curral já sustentam 50 pessoas.

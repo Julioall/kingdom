@@ -1194,8 +1194,8 @@ function updatePeopleCore(w) {
             p.lastLesson = 'Perdeu o acesso à mancha disputada, sofreu ferimento e gastou energia; negociar ou migrar pode evitar nova perda.';
           } else {
             p.foodTarget = null;
-            const communityFoodWorker = assignment && assignment.source === 'kingdom-strategy'
-              && assignment.action === 'forage' && p.foodReserve > 35 && carrierMaintenanceAction !== 'forage';
+            const communityFoodWorker = assignment && assignment.action === 'forage'
+              && assignment.foodFieldId != null && p.foodReserve > 35 && carrierMaintenanceAction !== 'forage';
             if (communityFoodWorker) {
               if (collectFoodForCommunity(w, p, food) <= .01) {
                 p.state = 'carga de alimento sem espaço';
