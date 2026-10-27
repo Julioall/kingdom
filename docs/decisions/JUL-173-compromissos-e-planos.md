@@ -61,4 +61,12 @@ Game Studio orientou manter o plano no estado determinístico do Worker, validar
 
 ### Decisão revista
 
-Agora há execução para os três contratos desta issue: ajuda, avaliação de serviço militar e preparação de migração. O destino fixo do plano foi escolhido em vez de recalculá-lo sem registro todos os dias, pois isso preserva o objetivo e torna tentativas/impedimentos auditáveis. Um planejador geral ou novo estado neural continua adiado. O encerramento de JUL-173 ainda depende dos gates gerais e evidência visual do inspetor no navegador; testes de unidade não substituem esses critérios.
+Agora há execução para os três contratos desta issue: ajuda, avaliação de serviço militar e preparação de migração. O destino fixo do plano foi escolhido em vez de recalculá-lo sem registro todos os dias, pois isso preserva o objetivo e torna tentativas/impedimentos auditáveis. Um planejador geral ou novo estado neural continua adiado.
+
+### Gates e playtest final — SHA `10e375ef6ffc0787cb994cec8b787e39a1b11d76`
+
+No SHA final desta fatia, `npm test` passou 180/180, `npm run typecheck` passou, `npm run build` passou com 107 módulos e 489 PNGs otimizados para WebP (8,03 MiB → 5,27 MiB), e `git diff --check` passou. Os testes direcionados passaram 25/25; após adicionar a asserção explícita de que migração forçada preserva `actionValues`, `updates` e `rewardMean`, `node --test tests/migration-plans-runtime.test.mjs` passou 2/2.
+
+Playtest no navegador: `http://127.0.0.1:4173/?seed=42&paused=1`, simulação avançada a 3× até o dia 238, selecionado Ivo J e painel do indivíduo rolado até “Planos individuais”. O painel tornou visíveis estado terminal, passos, prazo e `deadline expired`; compromissos vencidos e fatos associados aparecem logo abaixo. A captura completa, com o mapa preservado ao fundo, foi anexada ao comentário de JUL-173. A leitura de logs do navegador não encontrou erros. Isso demonstra apresentação e rastreabilidade na UI; a retomada e as condições do plano são demonstradas pelo teste integrado no Worker.
+
+Com esses critérios demonstrados, JUL-173 está pronta para Done. O limite permanece: a migração guarda/executa uma rota individual; provisões, acolhimento e entrada comunitária ficam para outra fatia.
