@@ -6,7 +6,7 @@ import { resourceUsePressure } from '../world/roads.js';
 import { activeCommunity, localNameFeature, recordCommunityUse, splitCommunities, updateCommunityStages, updateSocialLinks } from '../society/communities.js';
 import { log } from '../core/events.js';
 import { rand } from '../core/random.js';
-import { addFoodReserve, addHarvestedFood, addResource, carriedResources, communityFoodStock, communityMaterialStock, consumeEdibleCargo, consumeFoodReserve, moveCarriedResource, storeCommunityFruit, transferResource, withdrawCommunityFood } from '../economy/inventories.js';
+import { addFoodReserve, addHarvestedFood, addResource, carriedResources, communityFoodStock, communityMaterialStock, consumeEdibleCargo, consumeFoodReserve, harvestedFoodCapacity, moveCarriedResource, storeCommunityFruit, transferResource, withdrawCommunityFood } from '../economy/inventories.js';
 import { CULTIVATED_FIELD_HARVEST_PER_WORKER, dailyFoodNeedForMembers, foodUnitsPerDay } from '../economy/food-policy.js';
 import { moveOne } from './movement.js';
 import { bushHarvestHitbox, collidesWithWorldAt, hitboxesOverlap, mineralHitbox, npcHitbox, worldCollisionIndex } from '../physics/hitboxes.js';
@@ -497,6 +497,11 @@ export function attemptHumanHunt(w, person, prey, community) {
 
 export function attemptHumanFishing(w, person, fish, community) {
     if (!fish || !fish.alive) return false;
+    const meat = clamp(fish.massKg * 7.5, 1.2, 4.5);
+    if (!Number.isFinite(meat) || harvestedFoodCapacity(person, community) + 1e-9 < meat) {
+      person.state = 'sem espaço para guardar pescado';
+      return false;
+    }
     person.visualActivity = { kind: 'fish', x: fish.x, y: fish.y, day: w.day + 1 };
     const tile = cellAt(w, Math.round(fish.x), Math.round(fish.y));
     const support = humanHarvestSupport(w, person, community);
@@ -512,7 +517,6 @@ export function attemptHumanFishing(w, person, fish, community) {
     fish.alive = false; w.deaths++; w.deathsByCause.harvest++;
     w.harvests.fishing++;
     if (tile) tile.detritusGPerM2 += fish.massKg * 4;
-    const meat = clamp(fish.massKg * 7.5, 1.2, 4.5);
     const foodResult = addHarvestedFood(person, community, meat);
     person.skills.fish = clamp(person.skills.fish + .012, 0, 1);
     person.state = 'pescando';

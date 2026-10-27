@@ -162,15 +162,28 @@ export function transferInventoryToStores(source, destination, resource, amount,
     return moved;
   }
 
+export function harvestedFoodCapacity(person, community) {
+    if (!person || !Number.isFinite(person.foodReserve) || person.foodReserve < 0
+        || !Number.isFinite(person.carriedFood ?? 0) || (person.carriedFood ?? 0) < 0) return 0;
+    const personal = Math.max(0, (90 - person.foodReserve) / FOOD_RESERVE_PER_UNIT);
+    if (community && distance(person, community) <= 6 && storesOf(community)
+        && Number.isFinite(currentAmount(community.stores, 'food')) && currentAmount(community.stores, 'food') >= 0) return Infinity;
+    return personal + Math.max(0, 24 - (person.carriedFood ?? 0));
+  }
+
 export function addHarvestedFood(person, community, amount) {
+    if (!Number.isFinite(amount) || amount <= 0 || amount > harvestedFoodCapacity(person, community) + 1e-9) {
+      return { eaten: 0, surplus: 0 };
+    }
     const needed = Math.max(0, (90 - person.foodReserve) / FOOD_RESERVE_PER_UNIT);
     const eaten = Math.min(amount, needed);
     addFoodReserve(person, eaten * FOOD_RESERVE_PER_UNIT, 'personal-harvest');
     person.energy = clamp(person.energy + eaten * .12, 0, 100);
     const surplus = Math.max(0, amount - eaten);
-    if (community && distance(person, community) <= 6) addCommunityStore(community, 'food', surplus);
-    else addResource(person, 'carriedFood', surplus, 24);
-    return { eaten, surplus };
+    const stored = community && distance(person, community) <= 6 && storesOf(community)
+      && Number.isFinite(currentAmount(community.stores, 'food')) && currentAmount(community.stores, 'food') >= 0
+      ? addCommunityStore(community, 'food', surplus) : addResource(person, 'carriedFood', surplus, 24);
+    return { eaten, surplus: stored };
   }
 
 export function storeCommunityFruit(w, community, shelter, amount) {
