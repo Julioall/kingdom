@@ -2,9 +2,9 @@ name: Kingdom CI
 
 on:
   push:
-    branches: [main, test/kingdom-autonomous, "codex/**"]
+    branches: [dev, "codex/**"]
   pull_request:
-    branches: [main, test/kingdom-autonomous]
+    branches: [dev]
   workflow_dispatch:
 
 permissions:

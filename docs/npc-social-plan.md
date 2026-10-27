@@ -126,6 +126,14 @@ Reutilizar serviço, isolamento de contexto, época, validade e deduplicação e
 
 O uso social do SmolLM2-135M é um experimento novo e não altera sua escolha como general. Avaliar português, fundamentação, repetição e custo antes de torná-lo padrão. A bibliografia abaixo não valida esse modelo para esse papel.
 
+## Conversa direta entre jogador e NPCs (futura)
+
+Planejar uma interação em que o jogador possa conversar em linguagem natural com NPCs e receber respostas coerentes com a identidade, as memórias, o conhecimento e as relações daquele personagem. Ela será o próximo marco após implementar e validar a interação jogador–NPC no M11.2; está registrada como [JUL-225 — M12.0](https://linear.app/julio-alves/issue/JUL-225/m120-adicionar-motor-de-respostas-de-ia-as-interacoes-entre-jogador-e) e ainda não está implementada.
+
+O objetivo do M12 é adicionar um motor de respostas de IA usando como modelo indicado o [Supertonic 3](https://huggingface.co/Supertone/supertonic-3). A resposta deve usar somente o contexto que o NPC realmente conhece. O Worker continua validando ações e efeitos do jogo; texto gerado não cria conhecimento, recursos, compromissos ou mudanças de estado por conta própria.
+
+O gate do marco precisa validar a capacidade de resposta contextual em português e a integração real. A página pública do Supertonic 3 o classifica como TTS (texto para fala), com ONNX Runtime e português entre os idiomas suportados; portanto, confirmar que ele gera o conteúdo semântico esperado. Se apenas vocalizar texto fornecido, registrar essa limitação e escolher/compor o componente conversacional necessário, mantendo o Supertonic 3 como voz opcional. Medir integração com o navegador, latência, qualidade e licença. A interação deve manter uma resposta textual ou por template se o modelo falhar.
+
 ## Persistência, escala e inspeção
 
 * Salvar estruturas sociais serializáveis junto ao estado do mundo, com migração de esquema. Evitar um banco ou arquivo separado por NPC.

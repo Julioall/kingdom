@@ -115,8 +115,12 @@ function personById(world, value) {
   return (world.people || []).find(person => String(person.id) === key) || null;
 }
 
-export function recordSocialFact(world, input = {}) {
+export function recordSocialFact(world, input = {}, options = {}) {
   const evidence = ensureEvidence(world);
+  if (options.preserveEventIds !== undefined && !Array.isArray(options.preserveEventIds)) {
+    fail('preserveEventIds deve ser uma lista.');
+  }
+  const preserveEventIds = (options.preserveEventIds || []).map(value => idKey(value, 'preserveEventIds'));
   const type = typeof input.type === 'string' ? input.type.trim() : '';
   if (!/^[a-z][a-z0-9_]{1,63}$/.test(type)) fail('type deve ser um identificador estável em snake_case.');
   const day = input.day === undefined ? world.day : input.day;
@@ -166,7 +170,7 @@ export function recordSocialFact(world, input = {}) {
   const fact = freezeRecursively({ ...factData, sequence, eventId });
   evidence.facts.push(fact);
   evidence.idempotency[idempotencyKey] = { eventId, fingerprint };
-  pruneSocialEvidence(world, world.day, [eventId]);
+  pruneSocialEvidence(world, world.day, [eventId, ...preserveEventIds]);
   return fact;
 }
 
@@ -484,7 +488,12 @@ export function getSocialCommitment(world, commitmentId) {
 
 function commitmentTransition(world, entry, { status, type, outcome, details = {} }) {
   const current = entry.record;
-  const witnessIds = current.parties.filter(partyId => personById(world, partyId)?.alive);
+  const linkedEvidenceIds = [...new Set([...(current.evidenceEventIds || []), ...(current.transitionEventIds || []),
+    ...(current.deliveryEventIds || []), ...(details.evidenceEventIds || []), ...(details.transitionEventIds || []),
+    ...(details.deliveryEventIds || [])].filter(Boolean).map(String))];
+  const witnessIds = current.parties.filter(partyId => personById(world, partyId)?.alive
+    && (current.status !== 'proposed' || !['social_commitment_expired', 'social_commitment_cancelled'].includes(type)
+      || partyId === current.proposedBy));
   const fact = recordSocialFact(world, {
     idempotencyKey: 'social-commitment:' + current.commitmentId + ':' + type + ':' + world.day + ':' + JSON.stringify(outcome),
     type,
@@ -492,7 +501,7 @@ function commitmentTransition(world, entry, { status, type, outcome, details = {
     witnessIds,
     outcome: { commitmentId: current.commitmentId, object: current.object,
       quantity: current.quantity, result: status, ...outcome }
-  });
+  }, { preserveEventIds: linkedEvidenceIds });
   // A transition fact must remain available until every living party has
   // received it. Pruning after the first memory can evict an unreferenced new
   // fact when the global ledger and both parties' pinned memories are full.
@@ -502,7 +511,7 @@ function commitmentTransition(world, entry, { status, type, outcome, details = {
   entry.record = freezeRecursively({ ...current, ...details, status, updatedDay: world.day,
     transitionEventIds: [...new Set([...(current.transitionEventIds || []), fact.eventId])],
     lastTransitionEventId: fact.eventId });
-  pruneSocialEvidence(world, world.day, [fact.eventId]);
+  pruneSocialEvidence(world, world.day, [fact.eventId, ...linkedEvidenceIds]);
   return entry.record;
 }
 
@@ -722,13 +731,14 @@ export function advanceSocialIntention(world, ownerId, intentionId, update = {})
     type, participantIds: [person.id], witnessIds: person.alive ? [person.id] : [],
     outcome: { intentionId: current.intentionId, type: current.type, progress, status, blockers,
       destination, terminationReason: terminationReason ?? null }
-  });
-  if (person.alive) rememberSocialFact(world, person.id, fact.eventId, { source: 'direct' });
+  }, { preserveEventIds: evidenceIds });
+  if (person.alive) rememberSocialFact(world, person.id, fact.eventId, { source: 'direct', deferPrune: true });
   const next = freezeRecursively({ ...current, schemaVersion: SOCIAL_RECORD_SCHEMA_VERSIONS.intention,
     progress, blockers, evidenceIds, status, updatedDay: world.day, terminationReason,
     commitmentId, destination,
     transitionEventIds: [...new Set([...(current.transitionEventIds || []), fact.eventId])] });
   person.socialIntentions[index] = next;
+  pruneSocialEvidence(world, world.day, [fact.eventId, ...evidenceIds]);
   return next;
 }
 
@@ -750,6 +760,14 @@ export function physicalIntentionBlockers(person, currentDay) {
   return blockers;
 }
 
+function cancelIntentionCommitment(world, person, intention) {
+  const commitment = getSocialCommitment(world, intention.commitmentId);
+  if (commitment && ['proposed', 'accepted'].includes(commitment.status)
+      && commitment.parties.includes(String(person.id))) {
+    cancelSocialCommitment(world, person.id, commitment.commitmentId);
+  }
+}
+
 export function maintainSocialIntentions(world, person) {
   if (!person || !Array.isArray(person.socialIntentions)) return 0;
   let changes = 0;
@@ -763,6 +781,7 @@ export function maintainSocialIntentions(world, person) {
       continue;
     }
     if (!person.alive) {
+      cancelIntentionCommitment(world, person, current);
       advanceSocialIntention(world, person.id, current.intentionId, { status: 'abandoned',
         blockers: ['owner_dead'], terminationReason: 'owner_dead' });
       changes++;
@@ -786,6 +805,7 @@ export function maintainSocialIntentions(world, person) {
     if (current.type === 'seek_food_aid' && current.targetId != null) {
       const target = personById(world, current.targetId);
       if (!target?.alive) {
+        cancelIntentionCommitment(world, person, current);
         advanceSocialIntention(world, person.id, current.intentionId, { status: 'abandoned',
           blockers: ['target_unavailable'], terminationReason: 'target_unavailable' });
         changes++;
@@ -840,6 +860,7 @@ export function abandonSocialIntentionsForPerson(world, person, reason = 'owner_
   let abandoned = 0;
   for (const current of person.socialIntentions.slice()) {
     if (TERMINAL_INTENTION_STATUSES.has(current.status)) continue;
+    cancelIntentionCommitment(world, person, current);
     advanceSocialIntention(world, person.id, current.intentionId, { status: 'abandoned',
       blockers: [reason], terminationReason: reason });
     abandoned++;

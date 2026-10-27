@@ -321,9 +321,11 @@ function decisionLabel(request, decision) {
             const detail = describeError(error);
             await failKingdomAiRequest(request, { reason: detail, provider: AI_MODEL_MANIFEST.provider, model: requestModel?.model || MODEL_ID });
             console.warn('[Kingdom IA local] resposta estratégica inválida; o fallback determinístico assumiu:', detail);
-            if (error?.name === 'TimeoutError' && enabled) {
+            if (['TimeoutError', 'InferenceBackendError'].includes(error?.name) && enabled) {
               disable();
-              report('error', 'A inferência excedeu o limite; as regras determinísticas assumiram. Reative a IA para tentar novamente.', 0);
+              report('error', (error.name === 'TimeoutError' ? 'A inferência excedeu o limite.'
+                : 'A GPU falhou e a recuperação em CPU não foi concluída.')
+                + ' As regras determinísticas assumiram. Reative a IA para tentar novamente.', 0);
             } else if (enabled) report('ready', 'A decisão de ' + (request.role === 'general' ? 'campanha' : 'estratégia do rei')
               + ' falhou; as regras determinísticas assumiram. Detalhe: ' + detail, 1);
             return false;

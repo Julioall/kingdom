@@ -28,12 +28,46 @@ function formatNumber(value, digits = 0) {
   return Number(value || 0).toLocaleString('pt-BR', { maximumFractionDigits: digits });
 }
 
+const SOCIAL_DETAIL_LABELS = Object.freeze({
+  seek_food_aid: 'buscar ajuda alimentar', evaluate_service: 'avaliar serviço militar',
+  prepare_migration: 'preparar migração', food: 'alimento', gold: 'ouro',
+  approach_helper: 'aproximar-se de quem pode ajudar', request_food: 'pedir alimento',
+  receive_food: 'receber alimento', review_pay_history: 'revisar histórico do soldo',
+  evaluate_outstanding_compensation: 'avaliar soldo pendente',
+  select_viable_destination: 'escolher destino viável', reach_destination: 'chegar ao destino',
+  route_infeasible: 'rota inviável', no_viable_destination: 'sem destino viável',
+  critical_hunger: 'fome crítica', critical_thirst: 'sede crítica',
+  critical_health: 'saúde crítica', critical_energy: 'exaustão', recent_attack: 'ataque recente',
+  deadline_expired: 'prazo vencido', owner_dead: 'falecimento do titular',
+  target_unavailable: 'pessoa indisponível', target_not_visible: 'pessoa fora de vista',
+  helper_without_visible_surplus: 'sem excedente visível para ajudar',
+  aid_temporarily_unavailable: 'ajuda temporariamente indisponível',
+  need_satisfied: 'necessidade atendida', aid_delivered: 'alimento entregue',
+  aid_refused: 'ajuda recusada', destination_reached: 'destino alcançado',
+  remuneration_evaluated: 'revisão do soldo concluída',
+  military_duty: 'ordem militar prioritária', urgent_needs: 'necessidade urgente',
+  rest_required: 'recuperação necessária', cargo_delivery: 'entrega de carga prioritária',
+  garrison_resupply: 'abastecimento na guarnição', participant_busy: 'participante ocupado'
+});
+
+function detailLabel(value) {
+  return SOCIAL_DETAIL_LABELS[value] || String(value).replaceAll('_', ' ');
+}
+
+// Keep every open obligation visible; fill the remaining preview with recent history.
+function openFirst(records, openStatuses) {
+  const recent = records.slice().reverse();
+  const open = recent.filter(record => openStatuses.includes(record.status));
+  return open.concat(recent.filter(record => !openStatuses.includes(record.status))
+    .slice(0, Math.max(0, 4 - open.length)));
+}
+
 export function renderSocialInspectorSections(person, world) {
   const facts = new Map((world.socialEvidence?.facts || []).map(fact => [fact.eventId, fact]));
   const memories = (person.socialMemories || []).slice(-6).reverse();
   const beliefs = (person.socialBeliefs || []).slice().reverse();
   const intentionStatusLabels = { active: 'em andamento', suspended: 'suspenso', completed: 'concluído', abandoned: 'abandonado' };
-  const intentions = (person.socialIntentions || []).slice().reverse().slice(0, 4);
+  const intentions = openFirst(person.socialIntentions || [], ['active', 'suspended']);
   const intentionRows = intentions.map(intention => {
     const steps = Array.isArray(intention.steps) ? intention.steps : [];
     const currentStep = steps[intention.progress]?.action;
@@ -41,24 +75,29 @@ export function renderSocialInspectorSections(person, world) {
     const destination = intention.destination && Number.isFinite(intention.destination.x) && Number.isFinite(intention.destination.y)
       ? ' · destino (' + formatNumber(intention.destination.x, 1) + ', ' + formatNumber(intention.destination.y, 1) + ')' : '';
     const blocker = (intention.blockers || []).length
-      ? ' · impedimento: ' + intention.blockers.map(value => String(value).replaceAll('_', ' ')).join(', ') : '';
+      ? ' · impedimento: ' + intention.blockers.map(detailLabel).join(', ') : '';
     const due = Number.isSafeInteger(intention.dueDay) ? ' · prazo dia ' + intention.dueDay : '';
     const next = intention.status === 'active' && currentStep
-      ? ' · próximo passo: ' + String(currentStep).replaceAll('_', ' ') : '';
-    return '<div class="data-row"><span>' + escapeHtml(String(intention.type || 'plano').replaceAll('_', ' '))
+      ? ' · próximo passo: ' + detailLabel(currentStep) : '';
+    const resolution = intention.terminationReason ? ' · motivo: ' + detailLabel(intention.terminationReason) : '';
+    const targetPerson = (world.people || []).find(candidate => String(candidate.id) === String(intention.targetId));
+    const target = targetPerson ? ' · com ' + targetPerson.name : '';
+    return '<div class="data-row"><span>' + escapeHtml(detailLabel(intention.type || 'plano'))
       + ' · ' + escapeHtml(intentionStatusLabels[intention.status] || intention.status) + '</span><b>'
-      + escapeHtml(progress + due + destination + next + blocker) + '</b></div>';
+      + escapeHtml(progress + due + target + destination + next + blocker + resolution) + '</b></div>';
   }).join('');
   const commitmentStatusLabels = { proposed: 'proposto', accepted: 'aceito', fulfilled: 'cumprido', breached: 'quebrado',
     rejected: 'recusado', cancelled: 'cancelado', expired: 'vencido' };
-  const commitments = (world.socialEvidence?.commitments || []).map(item => item.record)
-    .filter(record => record?.parties?.includes(String(person.id))).slice(-4).reverse();
+  const commitments = openFirst((world.socialEvidence?.commitments || []).map(item => item.record)
+    .filter(record => record?.parties?.includes(String(person.id))), ['proposed', 'accepted']);
   const commitmentRows = commitments.map(commitment => {
     const amount = formatNumber(commitment.deliveredQuantity || 0, 1) + '/' + formatNumber(commitment.quantity, 1);
     const due = Number.isSafeInteger(commitment.dueDay) ? ' · prazo dia ' + commitment.dueDay : '';
-    return '<div class="data-row"><span>' + escapeHtml(String(commitment.object || 'compromisso'))
+    const others = (commitment.parties || []).filter(id => String(id) !== String(person.id))
+      .map(id => (world.people || []).find(candidate => String(candidate.id) === String(id))?.name || 'pessoa ' + id);
+    return '<div class="data-row"><span>' + escapeHtml(detailLabel(commitment.object || 'compromisso'))
       + ' · ' + escapeHtml(commitmentStatusLabels[commitment.status] || commitment.status) + '</span><b>'
-      + escapeHtml(amount + due) + '</b></div>';
+      + escapeHtml(amount + due + (others.length ? ' · com ' + others.join(', ') : '')) + '</b></div>';
   }).join('');
 
   const memoryRows = memories.map(memory => {
@@ -87,12 +126,17 @@ export function renderSocialInspectorSections(person, world) {
           : '';
     const intentionResult = fact?.type === 'social_intention_resolved'
       ? fact.outcome?.status === 'completed' ? ' · concluído'
-        : fact.outcome?.terminationReason ? ' · motivo: ' + String(fact.outcome.terminationReason).replaceAll('_', ' ') : ' · abandonado'
+        : fact.outcome?.terminationReason ? ' · motivo: ' + escapeHtml(detailLabel(fact.outcome.terminationReason)) : ' · abandonado'
       : '';
     const serviceResult = fact?.type === 'military_service_evaluated'
       ? Number(fact.outcome?.outstandingArrears) > .001
         ? ' · soldo pendente ' + formatNumber(fact.outcome.outstandingArrears, 1) + ' ouro'
         : ' · soldo em dia' : '';
+    const progressResult = fact?.type === 'social_intention_progressed'
+      ? ' · ' + escapeHtml(detailLabel(fact.outcome?.type || 'plano'))
+        + ' · passos realizados: ' + formatNumber(fact.outcome?.progress)
+        + ((fact.outcome?.blockers || []).length ? ' · impedimento: '
+          + escapeHtml(fact.outcome.blockers.map(detailLabel).join(', ')) : '') : '';
     const meetingLocation = ['social_meeting', 'water_source_indicated'].includes(fact?.type) && fact.location
       ? ' · posição (' + formatNumber(fact.location.x, 1) + ', ' + formatNumber(fact.location.y, 1) + ')' : '';
     const eventDay = Number.isSafeInteger(fact?.outcome?.paymentDay)
@@ -103,7 +147,7 @@ export function renderSocialInspectorSections(person, world) {
       ? ' · recebido no dia ' + memory.acquiredDay : '';
     return '<div class="note-card"><b>' + escapeHtml(provenance) + '</b><span>Dia ' + eventDay + ': '
       + escapeHtml(eventLabel) + outcome + dueDay + receivedDay + meetingResult + waterResult + aidRequestResult
-      + commitmentResult + intentionResult + serviceResult + meetingLocation + '</span></div>';
+      + commitmentResult + intentionResult + serviceResult + progressResult + meetingLocation + '</span></div>';
   }).join('');
 
   const beliefRows = beliefs.map(belief => {
