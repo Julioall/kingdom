@@ -1,7 +1,8 @@
 # JUL-163 — prontidão e evidência de campanha
 
-**Data:** 26/10/2026  
-**SHA da implementação testada:** `cb4a06c546c9ae117ae107ffdd5dbd84bb440504`  
+**Data:** 26/10/2026
+
+**SHA da implementação testada:** `cb4a06c546c9ae117ae107ffdd5dbd84bb440504`
 **Status da fatia:** regressões de prontidão adicionadas; M4 permanece In Progress.
 
 ## Decisão
