@@ -53,9 +53,9 @@ export function buildingCard(world, s) {
   } else if (s.type === 'roça') {
     const cropIndex = PLANTS.findIndex(p => p.id === 'cultivated-root');
     const tiles = (s.fieldTileIndices || []).map(i => world.tiles[i]).filter(Boolean);
-    html = row('Disponível para colher', fmt(tiles.reduce((n, t) => n + Math.max(0, (t.plants[cropIndex] || 0) - 1.2), 0)) + ' un.') +
-      row('Colheita acumulada', fmt(s.cropHarvested) + ' un.') + row('Área cultivada', tiles.length + ' células') +
-      row('Sementes em estoque', fmt(s.cropSeedStored) + ' un.') + note('A produção varia com o solo, água e trabalho; a colheita é acumulada desde o plantio.');
+    html = row('Comida potencial no campo', fmt(tiles.reduce((n, t) => n + Math.max(0, (t.plants[cropIndex] || 0) - 1.2), 0)) + ' un.') +
+      row('Colhido até hoje (histórico)', fmt(s.cropHarvested) + ' un.') + row('Área cultivada', tiles.length + ' células') +
+      row('Sementes reservadas para plantio', fmt(s.cropSeedStored) + ' un.') + note('Comida potencial ainda está no campo, não no estoque. Colhido até hoje é histórico, não inventário; o estoque muda quando a colheita é entregue.');
   } else if (['centro_militar', 'arquearia', 'monasterio'].includes(s.type)) {
     const units = living.filter(p => p.kingdomId === s.kingdomId && p.role === 'soldier' &&
       (s.type === 'centro_militar' ? (s.soldierIds || []).includes(p.id) : p.militaryClass === (s.type === 'arquearia' ? 'arqueiro' : 'monge')));
