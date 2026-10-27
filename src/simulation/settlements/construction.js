@@ -16,6 +16,25 @@ import { communityNeedsAdditionalPen } from '../ecology/herd.js';
 const COMMUNITY_BUILDING_TYPES = new Set(['abrigo', 'roça', 'curral', 'posto de coleta', 'acampamento']);
 const KINGDOM_REPAIR_COST = Object.freeze({ wood: 3, stone: 2 });
 const CONSTRUCTION_OBSTACLE_NAMES = Object.freeze({ tree: 'árvore', stone: 'pedra', gold: 'minério de ouro' });
+export const FIELD_CONSTRUCTION_MIN_FOOD_RESERVE = 8;
+
+export function isFoodFieldConstructionAssignment(world, assignment) {
+  if (!assignment || assignment.action !== 'build') return false;
+  if (assignment.goal === 'invest-in-cultivated-food') return true;
+  const structure = (world.structures || []).find(item => item.id === assignment.structureId);
+  return structure?.type === 'roça' && !structure.complete;
+}
+
+export function canWorkOnFoodFieldWithReserve(person, assignment, world) {
+  return isFoodFieldConstructionAssignment(world, assignment)
+    && person.foodReserve > FIELD_CONSTRUCTION_MIN_FOOD_RESERVE;
+}
+
+export function hasConstructionFoodReserve(person, structure) {
+  return structure?.type === 'roça'
+    ? person.foodReserve > FIELD_CONSTRUCTION_MIN_FOOD_RESERVE
+    : person.foodReserve >= 24;
+}
 
 function constructionObstacleDescription(kinds) {
   return kinds.map(kind => CONSTRUCTION_OBSTACLE_NAMES[kind] || 'recurso').join(' e ');

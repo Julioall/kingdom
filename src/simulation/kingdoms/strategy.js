@@ -3,7 +3,7 @@ import { communityFoodStock, transferInventoryToStores } from '../economy/invent
 import {
   COMMUNITY_FOOD_BUFFER_DAYS, communityFoodBufferDays, communityFoodBufferTarget, foodUnitsPerDay, kingdomFoodDemand
 } from '../economy/food-policy.js';
-import { canRepairKingdomStructure, damagedKingdomStructures, nextCommunityStructure } from '../settlements/construction.js';
+import { canRepairKingdomStructure, damagedKingdomStructures, nextCommunityStructure, FIELD_CONSTRUCTION_MIN_FOOD_RESERVE } from '../settlements/construction.js';
 import { communityHerdPenAssignments, communityNeedsAdditionalPen, DOMESTIC_SHEEP_PER_PEN } from '../ecology/herd.js';
 import { cultivatedFieldStandingBiomass, cultivatedFieldYieldTarget } from '../ecology/plants.js';
 import { calendarDate } from '../ecology/climate.js';
@@ -58,8 +58,6 @@ export function observeKingdomStrategy(world, kingdomId) {
   const population = foodDemand.members.length;
   const dailyFoodNeed = foodDemand.dailyFoodNeed;
   const memberIds = new Set(kingdom.memberIds || []);
-  const safeBuilderAvailable = world.people.some(person => person.alive && memberIds.has(person.id) && person.role !== 'soldier'
-    && person.ageDays >= 12 * 365 && person.energy > 27 && person.hydration > 18 && person.health > 28 && person.foodReserve > 16);
   const reportedDemand = finite(market.demand && market.demand.food);
   const foodStock = communityFoodStock(community);
   const foodPerResident = foodStock / Math.max(1, population);
@@ -83,6 +81,10 @@ export function observeKingdomStrategy(world, kingdomId) {
       && structure.integrity !== 0 && (!structure.kingdomProject || structure.complete))
     : [];
   const activeCropProject = communityStructures.some(structure => structure.type === 'roça' && !structure.complete);
+  const safeBuilderFoodFloor = activeCropProject ? FIELD_CONSTRUCTION_MIN_FOOD_RESERVE : 16;
+  const safeBuilderAvailable = world.people.some(person => person.alive && memberIds.has(person.id) && person.role !== 'soldier'
+    && person.ageDays >= 12 * 365 && person.energy > 27 && person.hydration > 18 && person.health > 28
+    && person.foodReserve > safeBuilderFoodFloor);
   const activeFoodProject = communityStructures.some(structure => ['abrigo', 'roça'].includes(structure.type) && !structure.complete);
   const size = community ? community.memberIds.length : population;
   const buildPlan = community ? nextCommunityStructure(world, community, size, communityStructures) : null;
