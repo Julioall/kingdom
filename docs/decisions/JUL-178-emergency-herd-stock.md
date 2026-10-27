@@ -1,0 +1,9 @@
+# JUL-178 — estoque real na decisão de abate emergencial
+
+Data: 27/10/2026
+
+A decisão de abater uma ovelha excedente para enfrentar fome comparava o estoque físico com a necessidade em pontos de reserva pessoal. Também somava carne registrada apenas no abrigo mesmo sem saldo correspondente na comunidade. Como `meatStored` é subregistro do estoque comunitário, esse valor adicional não constitui alimento disponível para retirada. Isso podia bloquear o uso do rebanho diante de um saldo aparente inexistente e de uma necessidade diária subestimada.
+
+A decisão agora considera somente o estoque comunitário, com carne convertida ao equivalente nutricional existente, e converte a necessidade diária de adultos e dependentes para a mesma unidade de alimento. As condições já existentes de acesso local, fome, abrigo e preservação de dois reprodutores maduros continuam em vigor. Não se cria carne: a produção depende do abate e da entrega efetivos. Uma alternativa seria contar o subregistro divergente como saldo independente; foi rejeitada porque contradiz a propriedade e a retirada reais e poderia duplicar alimento.
+
+O teste reproduziu a falha antes da alteração com carne registrada somente no abrigo; também verifica que uma unidade de alimento representa apenas 0,72 ponto pessoal, abaixo da demanda diária de um adulto. Os testes de rebanho verificam a proteção dos reprodutores e a conversão real de ovelha em carga. Essa fatia não repara subregistros divergentes nem demonstra acesso individual ou reconciliação integral. Replays integrados e matriz da JUL-178 continuam necessários. Fontes: código de inventário e demanda, critérios da JUL-178 e testes; Consensus indisponível por cota até 01/11/2026. Consultas anteriores ao Game Studio e SciSpace estão registradas nas demais decisões da issue.

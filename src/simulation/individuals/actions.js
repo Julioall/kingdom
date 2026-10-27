@@ -7,7 +7,7 @@ import { activeCommunity, localNameFeature, recordCommunityUse, splitCommunities
 import { log } from '../core/events.js';
 import { rand } from '../core/random.js';
 import { addFoodReserve, addHarvestedFood, addResource, carriedResources, communityFoodStock, communityMaterialStock, consumeEdibleCargo, consumeFoodReserve, moveCarriedResource, storeCommunityFruit, transferResource, withdrawCommunityFood } from '../economy/inventories.js';
-import { CULTIVATED_FIELD_HARVEST_PER_WORKER } from '../economy/food-policy.js';
+import { CULTIVATED_FIELD_HARVEST_PER_WORKER, dailyFoodNeedForMembers, foodUnitsPerDay } from '../economy/food-policy.js';
 import { moveOne } from './movement.js';
 import { bushHarvestHitbox, collidesWithWorldAt, hitboxesOverlap, mineralHitbox, npcHitbox, worldCollisionIndex } from '../physics/hitboxes.js';
 import { communityHerd, domesticatedSheep } from '../ecology/animals.js';
@@ -387,11 +387,8 @@ export function nearestEmergencyHerdSheep(w, person, community, radius = 2.25) {
       .filter(sighting => sighting.visible && sighting.speciesId === 'sheep').map(sighting => sighting.id));
     if (!visibleHerd.size) return null;
     const residents = (w.people || []).filter(item => item.alive && item.communityId === community.id);
-    const dailyDemand = residents.reduce((total, item) => total + (item.ageDays >= 12 * 365 ? DAILY_FOOD_NEED : .42), 0);
-    const storedShelterMeat = (w.structures || []).filter(shelter => usableShelter(shelter) && shelter.communityId === community.id)
-      .reduce((total, shelter) => total + Math.max(0, Number(shelter.meatStored) || 0), 0);
-    const unregisteredShelterMeat = Math.max(0, storedShelterMeat - Math.max(0, Number(community.stores.meat) || 0));
-    if (communityFoodStock(community) + unregisteredShelterMeat * MEAT_NUTRITIONAL_VALUE + .001 >= dailyDemand) return null;
+    const dailyDemand = foodUnitsPerDay(dailyFoodNeedForMembers(residents).dailyFoodNeed);
+    if (communityFoodStock(community) + .001 >= dailyDemand) return null;
     return adults.filter(animal => visibleHerd.has(animal.id) && distance(person, animal) <= radius)
       .sort((a, b) => distance(person, a) - distance(person, b) || a.id - b.id)[0] || null;
   }

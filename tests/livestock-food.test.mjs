@@ -76,7 +76,7 @@ test('a maximum yield is collected when the whole load fits', () => {
 
 test('stored food and shelter meat cover the daily need before a herd is harvested', () => {
   const { world, community, person, sheep, shelter } = herdFixture();
-  community.stores.food = .8;
+  community.stores.food = .78 / .72;
 
   assert.equal(nearestEmergencyHerdSheep(world, person, community), null);
 
@@ -87,7 +87,7 @@ test('stored food and shelter meat cover the daily need before a herd is harvest
 
   community.stores.meat = 0;
   shelter.meatStored = .32;
-  assert.equal(nearestEmergencyHerdSheep(world, person, community), null);
+  assert.equal(nearestEmergencyHerdSheep(world, person, community), sheep[0]);
   assert.equal(sheep.every(animal => animal.alive), true);
 });
 
@@ -173,4 +173,15 @@ test('a residual fraction of meat can be delivered before a full-yield hunt', ()
   assert.equal(person.carriedMeat, 0);
   assert.equal(community.stores.meat, .01);
   assert.equal(shelter.meatStored, .01);
+});
+
+test('emergency herd decision ignores unregistered shelter subrecords and compares units correctly', () => {
+  const { world, community, person, sheep, shelter } = herdFixture();
+  shelter.meatStored = 100;
+  assert.equal(nearestEmergencyHerdSheep(world, person, community), sheep[0],
+    'shelter metadata is not edible stock without a community balance');
+  shelter.meatStored = 0;
+  community.stores.food = 1;
+  assert.equal(nearestEmergencyHerdSheep(world, person, community), sheep[0],
+    'one food unit supplies only .72 reserve points, less than daily demand');
 });
