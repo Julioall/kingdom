@@ -651,6 +651,11 @@ export function attemptRaid(w, person, community, target) {
     }
     const targetGroup = target.community, relation = communityRelation(w, community, targetGroup);
     const availableFood = communityFoodStock(targetGroup);
+    const meatCapacity = Math.max(0, 28 - (person.carriedMeat || 0));
+    const fruitCapacity = Math.max(0, 24 - (person.carriedFruit || 0));
+    const carriableFood = Math.min(Math.max(0, Number(targetGroup.stores.meat) || 0), meatCapacity) * MEAT_NUTRITIONAL_VALUE
+      + Math.min(Math.max(0, Number(targetGroup.stores.food) || 0), fruitCapacity);
+    if (carriableFood <= .01) { person.state = 'sem espaço para saque'; return false; }
     if (availableFood <= .1 || (relation.tension < .28 && relation.trust >= .06)) {
       person.state = 'armazém sem alimento acessível'; return false;
     }
@@ -671,8 +676,8 @@ export function attemptRaid(w, person, community, target) {
       community.history.push(message); targetGroup.history.push(message); log(w, message);
       return false;
     }
-    const loot = Math.min(8 + attackers.length * 2, availableFood * .3, 18);
-    const stolen = withdrawCommunityFood(w, targetGroup, loot, 'raid-loss');
+    const loot = Math.min(8 + attackers.length * 2, availableFood * .3, 18, carriableFood);
+    const stolen = withdrawCommunityFood(w, targetGroup, loot, 'raid-loss', { meatCapacity, fruitCapacity });
     w.raidAttempts++; w.successfulRaids++;
     const store = target.shelter;
     store.raidLoss = (store.raidLoss || 0) + stolen.nutrition;

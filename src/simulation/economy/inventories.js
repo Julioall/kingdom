@@ -224,10 +224,11 @@ export function carriedResources(person) {
       + (person.carriedStone || 0) + (person.carriedGold || 0) + (person.carriedFood || 0) + (person.carriedFruit || 0) + (person.carriedMaterial || 0);
   }
 
-export function withdrawCommunityFood(w, community, amount, category = 'resident-food-consumption') {
+export function withdrawCommunityFood(w, community, amount, category = 'resident-food-consumption',
+    { meatCapacity = Infinity, fruitCapacity = Infinity } = {}) {
     if (!community || amount <= 0) return { meat: 0, fruit: 0, nutrition: 0 };
     let remainingNutrition = amount;
-    const meat = Math.min(community.stores.meat || 0, remainingNutrition / MEAT_NUTRITIONAL_VALUE);
+    const meat = Math.min(community.stores.meat || 0, remainingNutrition / MEAT_NUTRITIONAL_VALUE, Math.max(0, meatCapacity));
     consumeStoreInventory(community, { meat }, category);
     remainingNutrition -= meat * MEAT_NUTRITIONAL_VALUE;
     let storedMeat = meat;
@@ -237,7 +238,7 @@ export function withdrawCommunityFood(w, community, amount, category = 'resident
       storedMeat -= take;
       if (storedMeat <= .001) break;
     }
-    const plantFood = Math.min(community.stores.food || 0, remainingNutrition);
+    const plantFood = Math.min(community.stores.food || 0, remainingNutrition, Math.max(0, fruitCapacity));
     consumeStoreInventory(community, { food: plantFood }, category);
     removeStoredFruit(w, community, plantFood);
     return { meat, fruit: plantFood, nutrition: meat * MEAT_NUTRITIONAL_VALUE + plantFood };
