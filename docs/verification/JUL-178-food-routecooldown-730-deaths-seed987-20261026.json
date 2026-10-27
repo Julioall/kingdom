@@ -1,0 +1,443 @@
+{
+  "sourceRevision": "adbad1a2138da80e84dddbb4f35b9c2752502f7f",
+  "seed": 987,
+  "requestedDays": 730,
+  "observedThroughDay": 666,
+  "starvationDeaths": 4,
+  "deathsCaptured": 1,
+  "firstDeaths": [
+    {
+      "day": 666,
+      "id": 157,
+      "name": "Ema E",
+      "role": "soldier",
+      "ageDays": 10349.614363148808,
+      "deathDetails": {
+        "day": 666,
+        "cause": "starvation",
+        "ageDays": 10349.614363148808,
+        "health": 0,
+        "foodReserve": 0,
+        "hydration": 33.92269147332361,
+        "injury": 0,
+        "carriedFood": 0,
+        "recentHealth": {
+          "days": 30,
+          "losses": {
+            "starvation": 3.56
+          },
+          "recovery": {}
+        }
+      },
+      "state": "procurando alimento",
+      "lastLesson": "Deslocar-se até um ponto livre ao lado do arbusto custa energia; a colheita começa ao alcançar a área de interação.",
+      "x": 86,
+      "y": 37,
+      "communityId": 28,
+      "kingdomId": 26,
+      "homeId": 57,
+      "guardianId": null,
+      "parents": [],
+      "assignment": null,
+      "campaignId": null,
+      "militaryCenterId": 52,
+      "towerDutyId": null,
+      "towerRecovering": false,
+      "preDeathState": {
+        "day": 665,
+        "x": 85,
+        "y": 37,
+        "health": 0.19678925284414278,
+        "foodReserve": 0,
+        "hydration": 34.22269147332361,
+        "energy": 0,
+        "state": "procurando alimento",
+        "action": "forage",
+        "foodTarget": {
+          "x": 87,
+          "y": 38
+        },
+        "movementCooldown": 0
+      },
+      "recentHistory": [
+        {
+          "day": 652,
+          "x": 80,
+          "y": 36,
+          "health": 1.2576640537404198,
+          "foodReserve": 0.17511718235778884,
+          "hydration": 38.12269147332357,
+          "energy": 0,
+          "state": "procurando alimento",
+          "action": "forage",
+          "foodTarget": {
+            "x": 81,
+            "y": 34
+          },
+          "movementCooldown": 0
+        },
+        {
+          "day": 653,
+          "x": 81,
+          "y": 35,
+          "health": 0.9862422765932737,
+          "foodReserve": 0,
+          "hydration": 37.82269147332357,
+          "energy": 0,
+          "state": "procurando alimento",
+          "action": "forage",
+          "foodTarget": {
+            "x": 81,
+            "y": 34
+          },
+          "movementCooldown": 0
+        },
+        {
+          "day": 654,
+          "x": 81,
+          "y": 35,
+          "health": 0.6362422765932736,
+          "foodReserve": 2.524333182357789,
+          "hydration": 37.522691473323576,
+          "energy": 0.5100832955894472,
+          "state": "coletando alimento",
+          "action": "forage",
+          "foodTarget": null,
+          "movementCooldown": 0
+        },
+        {
+          "day": 655,
+          "x": 82,
+          "y": 34,
+          "health": 0.6362422765932736,
+          "foodReserve": 1.7443331823577888,
+          "hydration": 37.22269147332358,
+          "energy": 0,
+          "state": "procurando alimento",
+          "action": "forage",
+          "foodTarget": {
+            "x": 83,
+            "y": 34
+          },
+          "movementCooldown": 0
+        },
+        {
+          "day": 656,
+          "x": 82,
+          "y": 34,
+          "health": 0.6362422765932736,
+          "foodReserve": 3.4978823647155775,
+          "hydration": 36.92269147332358,
+          "energy": 0.5123872955894472,
+          "state": "coletando alimento",
+          "action": "forage",
+          "foodTarget": null,
+          "movementCooldown": 0
+        },
+        {
+          "day": 657,
+          "x": 81,
+          "y": 34,
+          "health": 0.6362422765932736,
+          "foodReserve": 2.717882364715577,
+          "hydration": 36.622691473323584,
+          "energy": 0,
+          "state": "procurando alimento",
+          "action": "forage",
+          "foodTarget": {
+            "x": 81,
+            "y": 32
+          },
+          "movementCooldown": 0
+        },
+        {
+          "day": 658,
+          "x": 81,
+          "y": 33,
+          "health": 0.6362422765932736,
+          "foodReserve": 1.9378823647155772,
+          "hydration": 36.32269147332359,
+          "energy": 0,
+          "state": "procurando alimento",
+          "action": "forage",
+          "foodTarget": {
+            "x": 81,
+            "y": 32
+          },
+          "movementCooldown": 0
+        },
+        {
+          "day": 659,
+          "x": 81,
+          "y": 33,
+          "health": 0.6362422765932736,
+          "foodReserve": 3.700647547073366,
+          "hydration": 36.02269147332359,
+          "energy": 0.5146912955894473,
+          "state": "coletando alimento",
+          "action": "forage",
+          "foodTarget": null,
+          "movementCooldown": 0
+        },
+        {
+          "day": 660,
+          "x": 81,
+          "y": 34,
+          "health": 0.6362422765932736,
+          "foodReserve": 2.920647547073366,
+          "hydration": 35.72269147332359,
+          "energy": 0,
+          "state": "procurando alimento",
+          "action": "forage",
+          "foodTarget": {
+            "x": 87,
+            "y": 34
+          },
+          "movementCooldown": 0
+        },
+        {
+          "day": 661,
+          "x": 82,
+          "y": 34,
+          "health": 0.6362422765932736,
+          "foodReserve": 2.1406475470733657,
+          "hydration": 35.422691473323596,
+          "energy": 0,
+          "state": "procurando alimento",
+          "action": "forage",
+          "foodTarget": {
+            "x": 87,
+            "y": 34
+          },
+          "movementCooldown": 0
+        },
+        {
+          "day": 662,
+          "x": 82,
+          "y": 35,
+          "health": 0.6362422765932736,
+          "foodReserve": 1.3606475470733657,
+          "hydration": 35.1226914733236,
+          "energy": 0,
+          "state": "procurando alimento",
+          "action": "forage",
+          "foodTarget": {
+            "x": 87,
+            "y": 38
+          },
+          "movementCooldown": 0
+        },
+        {
+          "day": 663,
+          "x": 83,
+          "y": 36,
+          "health": 0.6362422765932736,
+          "foodReserve": 0.5806475470733656,
+          "hydration": 34.8226914733236,
+          "energy": 0,
+          "state": "procurando alimento",
+          "action": "forage",
+          "foodTarget": {
+            "x": 82,
+            "y": 41
+          },
+          "movementCooldown": 0
+        },
+        {
+          "day": 664,
+          "x": 84,
+          "y": 37,
+          "health": 0.5467892528441428,
+          "foodReserve": 0,
+          "hydration": 34.522691473323604,
+          "energy": 0,
+          "state": "procurando alimento",
+          "action": "forage",
+          "foodTarget": {
+            "x": 82,
+            "y": 41
+          },
+          "movementCooldown": 0
+        },
+        {
+          "day": 665,
+          "x": 85,
+          "y": 37,
+          "health": 0.19678925284414278,
+          "foodReserve": 0,
+          "hydration": 34.22269147332361,
+          "energy": 0,
+          "state": "procurando alimento",
+          "action": "forage",
+          "foodTarget": {
+            "x": 87,
+            "y": 38
+          },
+          "movementCooldown": 0
+        }
+      ],
+      "foodTarget": {
+        "x": 87,
+        "y": 38
+      },
+      "selectedFoodTarget": {
+        "x": 87,
+        "y": 38
+      },
+      "lastDecision": {
+        "action": "forage",
+        "scores": null,
+        "inputs": [
+          1,
+          0.5153901218096627,
+          1,
+          1,
+          0.552786404500042,
+          1,
+          0,
+          0.28556619430034796,
+          0.8,
+          0,
+          0.4380011223630852,
+          0,
+          0,
+          0.7195011562771267,
+          0,
+          0.19684507853027133,
+          0,
+          0
+        ],
+        "day": 665
+      },
+      "communityFood": 0,
+      "nearestAdults": [
+        {
+          "id": 145,
+          "name": "Davi M",
+          "distance": 5.8309518948453,
+          "role": "soldier",
+          "ageDays": 11550.942302899435,
+          "foodReserve": 4.961155457405095,
+          "state": "coletando alimento",
+          "campaignId": null,
+          "communityId": 28
+        },
+        {
+          "id": 159,
+          "name": "Ema R",
+          "distance": 31.40063693621516,
+          "role": "soldier",
+          "ageDays": 12776.603252612054,
+          "foodReserve": 5.744865326087953,
+          "state": "coletando alimento",
+          "campaignId": null,
+          "communityId": 28
+        },
+        {
+          "id": 155,
+          "name": "Oru R",
+          "distance": 31.780497164141405,
+          "role": "soldier",
+          "ageDays": 10481.743694035336,
+          "foodReserve": 2.8713120254859934,
+          "state": "coletando alimento",
+          "campaignId": null,
+          "communityId": 28
+        }
+      ],
+      "nearestFood": [
+        {
+          "x": 87,
+          "y": 38,
+          "distance": 1.4142135623730951,
+          "edibleBiomass": 78.33382415771484,
+          "berryAnchor": true,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 2.23606797749979,
+            "biomass": {
+              "grass": 74.1344223022461,
+              "berry": 78.33382415771484,
+              "browse": 55.657867431640625
+            },
+            "harvestableBiomass": {
+              "grass": 74.1344223022461,
+              "berry": 78.33382415771484,
+              "browse": 55.657867431640625
+            }
+          }
+        },
+        {
+          "x": 86,
+          "y": 39,
+          "distance": 2,
+          "edibleBiomass": 77.84452819824219,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 2.23606797749979,
+            "biomass": {
+              "grass": 76.35770416259766,
+              "berry": 77.84452819824219,
+              "browse": 52.05120086669922
+            },
+            "harvestableBiomass": {
+              "grass": 76.35770416259766,
+              "berry": 77.84452819824219,
+              "browse": 52.05120086669922
+            }
+          }
+        },
+        {
+          "x": 87,
+          "y": 35,
+          "distance": 2.23606797749979,
+          "edibleBiomass": 69.60388946533203,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 2.8284271247461903,
+            "biomass": {
+              "grass": 67.69039154052734,
+              "berry": 69.60388946533203
+            },
+            "harvestableBiomass": {
+              "grass": 67.69039154052734,
+              "berry": 69.60388946533203
+            }
+          }
+        },
+        {
+          "x": 84,
+          "y": 38,
+          "distance": 2.23606797749979,
+          "edibleBiomass": 59.906700134277344,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": null
+        },
+        {
+          "x": 88,
+          "y": 39,
+          "distance": 2.8284271247461903,
+          "edibleBiomass": 75.31763458251953,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 3.6055512754639896,
+            "biomass": {
+              "grass": 59.88391876220703,
+              "berry": 75.31763458251953,
+              "browse": 57.18232727050781
+            },
+            "harvestableBiomass": {
+              "grass": 59.88391876220703,
+              "berry": 75.31763458251953,
+              "browse": 57.18232727050781
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
