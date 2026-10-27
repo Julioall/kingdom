@@ -59,7 +59,7 @@ O ciclo agrícola pedido pelo jogador — comprar sementes no mercado, levar à 
 - Para a regra residencial, foram conferidos `lifecycle.js`, `construction.js`, `residency.js`, `inventories.js`, `building-card.js` e o registro existente de capacidade 13 das casas.
 - Os bloqueios e retomadas são eventos de crônica; a inspeção da pessoa mostra a fonte ausente/recuperada e os treinamentos pendentes mostram a causa da pausa.
 - Testes cobrem as quatro classes, fontes alternativas, bloqueio sem custo, pausa de graduação, treinamento pendente sem nova cobrança, centro substituto e repetição determinística do mesmo cenário.
-- Teste residencial: `tests/residential-birth-capacity.test.mjs` cobre casa, abrigo, vaga cheia/inativa, transferência das 12 unidades alimentares e liberação de vaga após morte; suíte direcionada final: 12/12.
+- Teste residencial: `tests/residential-birth-capacity.test.mjs` cobre casa, abrigo comunitário sem reino, vaga cheia/inativa, transferência das 12 unidades alimentares, custo de energia/hidratação, cooldown de 280 dias e liberação de vaga após morte; suíte direcionada final: 12/12.
 - Suíte completa: 201/201 testes passaram; `npm run build` passou com `tsc --noEmit` e produção Vite. O build converteu 489 PNGs em WebP sem perdas (8,03 MiB → 5,27 MiB).
 - Playtest no navegador: cartão do abrigo mostrou `Moradores / vagas totais: 0 / 13` no dia 242, sem erro de console; screenshot anexado à JUL-200.
 - `linear_get_agent_context` foi tentada nesta etapa, mas o servidor respondeu `Tool get_agent_context not found`. As instruções da issue, o código e as evidências locais foram usados.

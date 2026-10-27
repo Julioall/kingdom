@@ -50,6 +50,10 @@ test('a birth reserves one operational house vacancy and transfers the existing 
   const home = configureHouseSlots(world, kingdom, 1, new Set([mother.id, father.id]));
   const motherFood = mother.foodReserve;
   const fatherFood = father.foodReserve;
+  const motherEnergy = mother.energy;
+  const fatherEnergy = father.energy;
+  const motherHydration = mother.hydration;
+  const fatherHydration = father.hydration;
   const treasury = structuredClone(kingdom.treasury.stock);
 
   reproducePeople(world);
@@ -63,6 +67,12 @@ test('a birth reserves one operational house vacancy and transfers the existing 
   const secondParent = mother.id < father.id ? father : mother;
   assert.equal(firstParent.foodReserve, (firstParent === mother ? motherFood : fatherFood) - 7);
   assert.equal(secondParent.foodReserve, (secondParent === mother ? motherFood : fatherFood) - 5);
+  assert.equal(firstParent.energy, (firstParent === mother ? motherEnergy : fatherEnergy) - 11 * .55);
+  assert.equal(secondParent.energy, (secondParent === mother ? motherEnergy : fatherEnergy) - 8 * .55);
+  assert.equal(mother.hydration, motherHydration - 2);
+  assert.equal(father.hydration, fatherHydration - 2);
+  assert.equal(mother.birthCooldown, 280);
+  assert.equal(father.birthCooldown, 280);
   assert.equal(baby.foodReserve, 12);
   assert.deepEqual(kingdom.treasury.stock, treasury, 'birth does not create a second charge after the house was paid for');
   assert.equal(world.birthsByKind.people, 1);
@@ -75,8 +85,12 @@ test('a completed community shelter can provide the birth residence when houses 
   const world = engine.createWorld(42);
   const { kingdom, mother, father } = makeParents(world);
   for (const home of world.structures.filter(structure => structure.type === 'casa')) home.complete = false;
+  mother.kingdomId = null;
+  father.kingdomId = null;
+  mother.communityId = kingdom.communityId;
+  father.communityId = kingdom.communityId;
   const shelter = {
-    id: world.nextId++, type: 'abrigo', kingdomId: kingdom.id, communityId: kingdom.communityId,
+    id: world.nextId++, type: 'abrigo', communityId: kingdom.communityId,
     x: kingdom.x + 2, y: kingdom.y, complete: true, integrity: 1, capacity: 13, residentIds: []
   };
   world.structures.push(shelter);
@@ -85,6 +99,7 @@ test('a completed community shelter can provide the birth residence when houses 
 
   const baby = world.people.find(person => person.alive && person.parents?.includes(mother.id));
   assert.ok(baby);
+  assert.equal(baby.kingdomId, null);
   assert.equal(baby.homeId, shelter.id);
   assert.deepEqual(shelter.residentIds, [baby.id]);
   assert.equal(baby.communityId, kingdom.communityId);

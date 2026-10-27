@@ -33,6 +33,14 @@ test('every military class resolves only to its operational source and an altern
     assert.equal(militaryClassSource(world, kingdom.id, militaryClass), null,
       militaryClass + ' loses eligibility when its only source is destroyed');
 
+    const alternate = { ...source, id: world.nextId++, complete: true, destroyedDay: null, integrity: 1, health: 1 };
+    world.structures.push(alternate);
+    assert.equal(militaryClassSource(world, kingdom.id, militaryClass).id, alternate.id,
+      militaryClass + ' remains available through an alternate operational source');
+    disableSource(alternate);
+    assert.equal(militaryClassSource(world, kingdom.id, militaryClass), null,
+      militaryClass + ' pauses after its final alternate source is destroyed');
+
     const replacement = restoreSource(world, source);
     assert.equal(militaryClassSource(world, kingdom.id, militaryClass).id, replacement.id);
   }

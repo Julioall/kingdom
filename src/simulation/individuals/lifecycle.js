@@ -337,8 +337,9 @@ export function reproducePeople(w) {
       if (p.communityId !== q.communityId && p.communityId !== null && q.communityId !== null) continue;
       const score = link.trust + Math.min(p.energy, q.energy) * .002 + Math.min(p.foodReserve, q.foodReserve) * .003;
       const kingdomId = p.kingdomId === q.kingdomId ? p.kingdomId : (p.kingdomId ?? q.kingdomId);
-      const communityId = kingdomId == null ? null
-        : w.kingdoms.find(kingdom => kingdom.id === kingdomId)?.communityId || null;
+      const relatedCommunityId = p.communityId === q.communityId ? p.communityId : (p.communityId ?? q.communityId);
+      const communityId = w.kingdoms.find(kingdom => kingdom.id === kingdomId)?.communityId
+        ?? relatedCommunityId ?? null;
       candidates.push({ p, q, score, kingdomId, communityId, location: {
         x: (p.x + q.x) / 2, y: (p.y + q.y) / 2
       } });
