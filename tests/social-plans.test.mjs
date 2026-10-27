@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  acceptSocialCommitment, advanceSocialCommitmentDeadlines, advanceSocialIntention,
+  acceptSocialCommitment, advanceSocialCommitmentDeadlines, advanceSocialIntention, defineSocialBelief,
   abandonSocialIntentionsForPerson, defineSocialIntention, fulfillSocialCommitment, getSocialCommitment,
-  maintainSocialIntentions, proposeSocialCommitment, recordSocialFact,
+  maintainSocialIntentions, proposeSocialCommitment, recordSocialFact, SOCIAL_FACT_LIMIT,
   rememberSocialFact, rejectSocialCommitment
 } from '../src/simulation/society/social-evidence.js';
 import { enlistSoldier } from '../src/simulation/kingdoms/service.js';
@@ -91,6 +91,36 @@ test('deadlines distinguish an unanswered proposal from an accepted promise that
   assert.equal(getSocialCommitment(state, unanswered.commitmentId).status, 'expired');
   assert.equal(getSocialCommitment(state, accepted.commitmentId).status, 'breached');
   assert.equal(advanceSocialCommitmentDeadlines(state), 0);
+});
+
+test('commitment deadline shares its transition fact before pruning a full pinned evidence ledger', () => {
+  const state = world();
+  const commitment = propose(state, 'full-evidence-ledger', 1);
+  acceptSocialCommitment(state, 2, commitment.commitmentId);
+  const factIds = state.socialEvidence.facts.map(fact => fact.eventId);
+  const additionalFacts = SOCIAL_FACT_LIMIT - state.socialEvidence.facts.length;
+  for (let index = 0; index < additionalFacts; index++) {
+    const fact = recordSocialFact(state, {
+      idempotencyKey: 'pinned-fact-' + index, type: 'shared_fact', participantIds: [1, 2], witnessIds: [1, 2],
+      outcome: { index }
+    });
+    factIds.push(fact.eventId);
+  }
+  for (const personId of [1, 2]) {
+    for (const eventId of factIds) rememberSocialFact(state, personId, eventId, { source: 'direct', deferPrune: true });
+    defineSocialBelief(state, personId, {
+      topic: 'full_evidence_ledger', evaluation: 1, certainty: .5,
+      supportingEventIds: factIds
+    });
+  }
+  assert.equal(state.socialEvidence.facts.length, SOCIAL_FACT_LIMIT);
+  state.day = commitment.dueDay + 1;
+
+  assert.equal(advanceSocialCommitmentDeadlines(state), 1);
+  const breached = getSocialCommitment(state, commitment.commitmentId);
+  assert.equal(breached.status, 'breached');
+  assert.ok(state.socialEvidence.facts.some(fact => fact.eventId === breached.lastTransitionEventId),
+    'the terminal transition remains available while its commitment record is within the retention window');
 });
 
 test('plans keep monotonic progress, suspend on emergencies, resume on recovery and retain unknown route blockers', () => {

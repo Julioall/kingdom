@@ -491,10 +491,16 @@ function commitmentTransition(world, entry, { status, type, outcome, details = {
     outcome: { commitmentId: current.commitmentId, object: current.object,
       quantity: current.quantity, result: status, ...outcome }
   });
-  for (const partyId of witnessIds) rememberSocialFact(world, partyId, fact.eventId, { source: 'direct' });
+  // A transition fact must remain available until every living party has
+  // received it. Pruning after the first memory can evict an unreferenced new
+  // fact when the global ledger and both parties' pinned memories are full.
+  for (const partyId of witnessIds) {
+    rememberSocialFact(world, partyId, fact.eventId, { source: 'direct', deferPrune: true });
+  }
   entry.record = freezeRecursively({ ...current, ...details, status, updatedDay: world.day,
     transitionEventIds: [...new Set([...(current.transitionEventIds || []), fact.eventId])],
     lastTransitionEventId: fact.eventId });
+  pruneSocialEvidence(world, world.day, [fact.eventId]);
   return entry.record;
 }
 
@@ -861,12 +867,19 @@ export function pruneSocialEvidence(world, currentDay = world.day, preserveEvent
       if (!TERMINAL_INTENTION_STATUSES.has(intention.status)) protect(person, intention.evidenceIds || []);
     }
   }
+  const commitmentEventIds = new Set();
   for (const item of evidence.commitments || []) {
     const commitment = item.record;
-    if (!commitment || TERMINAL_COMMITMENT_STATUSES.has(commitment.status)) continue;
+    if (!commitment) continue;
+    const isOpen = !TERMINAL_COMMITMENT_STATUSES.has(commitment.status);
+    const hasRecentTransition = Number.isSafeInteger(commitment.updatedDay) && commitment.updatedDay >= cutoff;
+    if (!isOpen && !hasRecentTransition) continue;
+    const eventIds = [...(commitment.evidenceEventIds || []), ...(commitment.transitionEventIds || []),
+      ...(commitment.deliveryEventIds || []), commitment.resolutionEventId].filter(Boolean).map(String);
+    for (const eventId of eventIds) commitmentEventIds.add(eventId);
     for (const partyId of commitment.parties || []) {
       const party = personById(world, partyId);
-      protect(party, commitment.evidenceEventIds || []);
+      protect(party, eventIds);
     }
   }
   for (const person of world.people || []) {
@@ -884,6 +897,7 @@ export function pruneSocialEvidence(world, currentDay = world.day, preserveEvent
   }
   const referenced = new Set((world.people || []).flatMap(person =>
     (person.socialMemories || []).map(memory => memory.rootEventId)));
+  for (const eventId of commitmentEventIds) referenced.add(eventId);
   evidence.facts = evidence.facts.filter(fact => fact.day >= cutoff || referenced.has(fact.eventId)
     || pendingEvents.has(fact.eventId));
   evidence.facts.sort((a, b) => a.day - b.day || a.sequence - b.sequence);
