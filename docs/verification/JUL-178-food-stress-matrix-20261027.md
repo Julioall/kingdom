@@ -1,6 +1,6 @@
 # JUL-178 — Matriz de estresse alimentar
 
-Data: 27/10/2026  
+Data: 27/10/2026
 Código de simulação validado: `1a2a8d6ff8b7c96afa08ae8486c70d1a61cea310`
 
 ## Execução
