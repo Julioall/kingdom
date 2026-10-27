@@ -24,7 +24,7 @@ test('a funded field project can keep one builder working above the critical foo
     person.assignment = null;
     person.foodReserve = 0;
   }
-  Object.assign(worker, { foodReserve: 9, hydration: 80, energy: 90, health: 100, buildCooldown: 0 });
+  Object.assign(worker, { foodReserve: 9, hydration: 80, energy: 25, health: 100, buildCooldown: 0 });
 
   const task = taskForCommunity(world, community, members);
   assert.equal(task?.goal, 'invest-in-cultivated-food');
@@ -37,6 +37,10 @@ test('a funded field project can keep one builder working above the critical foo
   assert.equal(canWorkOnFoodFieldWithReserve(worker, worker.assignment, world), false,
     'critical hunger still interrupts construction for immediate survival');
   assert.equal(hasConstructionFoodReserve(worker, field), false);
+  worker.foodReserve = 9;
+  worker.energy = 24;
+  assert.equal(taskForCommunity(world, community, members)?.action, 'forage',
+    'the policy lets the builder rest once energy reaches the recovery threshold');
 });
 
 test('the low-reserve construction exception does not apply to other buildings', () => {

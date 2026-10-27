@@ -17,6 +17,7 @@ const COMMUNITY_BUILDING_TYPES = new Set(['abrigo', 'roça', 'curral', 'posto de
 const KINGDOM_REPAIR_COST = Object.freeze({ wood: 3, stone: 2 });
 const CONSTRUCTION_OBSTACLE_NAMES = Object.freeze({ tree: 'árvore', stone: 'pedra', gold: 'minério de ouro' });
 export const FIELD_CONSTRUCTION_MIN_FOOD_RESERVE = 8;
+export const FIELD_CONSTRUCTION_MIN_ENERGY = 24;
 
 export function isFoodFieldConstructionAssignment(world, assignment) {
   if (!assignment || assignment.action !== 'build') return false;
@@ -34,6 +35,10 @@ export function hasConstructionFoodReserve(person, structure) {
   return structure?.type === 'roça'
     ? person.foodReserve > FIELD_CONSTRUCTION_MIN_FOOD_RESERVE
     : person.foodReserve >= 24;
+}
+
+export function hasConstructionEnergy(person, structure) {
+  return person.energy > (structure?.type === 'roça' ? FIELD_CONSTRUCTION_MIN_ENERGY : 27);
 }
 
 function constructionObstacleDescription(kinds) {

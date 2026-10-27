@@ -3,7 +3,7 @@ import { communityFoodStock, spendStoreInventory } from '../economy/inventories.
 import { domesticatedSheep } from '../ecology/animals.js';
 import { availableCommunityPen } from '../ecology/herd.js';
 import { canCommunityBuild, canRepairKingdomStructure, communityBuildingNeed, communityStructures, nextCommunityStructure,
-  FIELD_CONSTRUCTION_MIN_FOOD_RESERVE, hasConstructionFoodReserve } from '../settlements/construction.js';
+  FIELD_CONSTRUCTION_MIN_ENERGY, FIELD_CONSTRUCTION_MIN_FOOD_RESERVE, hasConstructionEnergy, hasConstructionFoodReserve } from '../settlements/construction.js';
 import { bestPeopleFoodCell } from '../individuals/actions.js';
 import { plantBiomass } from '../ecology/plants.js';
 import { localNameFeature } from './communities.js';
@@ -71,7 +71,7 @@ export function taskForCommunity(w, community, members) {
     const activeFarm = structures.some(structure => structure.type === 'roça' && !structure.complete);
     const farmInvestmentReady = (activeFarm || (farmPlan && farmPlan.type === 'roça' && canCommunityBuild(w, community, size)))
       && members.some(person => person.role !== 'soldier' && person.ageDays >= 12 * 365
-        && person.hydration > 18 && person.energy > 27 && person.health > 28
+        && person.hydration > 18 && person.energy > (activeFarm ? FIELD_CONSTRUCTION_MIN_ENERGY : 27) && person.health > 28
         && person.foodReserve > (activeFarm ? FIELD_CONSTRUCTION_MIN_FOOD_RESERVE : 16));
     // Protect the people before investing labor in livestock or buildings. A common
     // reserve is a buffer; one safe worker may establish the first crop field while
@@ -156,6 +156,7 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
     const activeFieldProject = structures.some(structure => structure.type === 'roça' && !structure.complete);
     const fieldBuilderReserveFloor = cropInvestment && activeFieldProject ? FIELD_CONSTRUCTION_MIN_FOOD_RESERVE : 14;
     const fieldBuildFoodFloor = cropInvestment && activeFieldProject ? FIELD_CONSTRUCTION_MIN_FOOD_RESERVE : 16;
+    const fieldBuildEnergyFloor = cropInvestment && activeFieldProject ? FIELD_CONSTRUCTION_MIN_ENERGY : 27;
     const foodWorkers = workers.filter(person => person.id !== leader.id && person.ageDays >= 12 * 365);
     const harvestPerWorker = fields.length ? CULTIVATED_FIELD_HARVEST_PER_WORKER
       : foodWorkers.length ? foodWorkers.reduce((sum, person) => sum + 1.8 + person.skills.forage * 3.2, 0) / foodWorkers.length : 1.8;
@@ -183,7 +184,7 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
         if (desired.action === 'forage') {
           return person.energy > 8 && (!!bestPeopleFoodCell(w, person, 5) || fields.length > 0);
         }
-        if (desired.action === 'build') return person.energy > 27 && person.hydration > 18 && person.foodReserve > fieldBuildFoodFloor
+        if (desired.action === 'build') return person.energy > fieldBuildEnergyFloor && person.hydration > 18 && person.foodReserve > fieldBuildFoodFloor
           // Governance runs after today's actions. Movement toward a site sets a
           // two-day cooldown, which ticks down before each next individual action.
           && person.buildCooldown <= 2 && (desired.goal === 'repair-damaged-structures'
@@ -287,7 +288,7 @@ function assignSafeOngoingBuilder(w, community, leader, members) {
 
   const activeBuilder = projectAssignments.find(person => person.assignment.structureId === project.id
     && person.assignment.expiresDay >= w.day && hasConstructionFoodReserve(person, project)
-    && person.hydration >= 22 && person.energy > 27 && person.health >= 28
+    && person.hydration >= 22 && hasConstructionEnergy(person, project) && person.health >= 28
     && !person.constructionRetreating && person.homeRestTargetId == null && !person.restingOutdoors);
   if (activeBuilder) {
     activeBuilder.assignment.expiresDay = w.day + 15;
@@ -326,7 +327,7 @@ function assignSafeOngoingBuilder(w, community, leader, members) {
   // gathers food. Requiring a full food reserve here deadlocks the first
   // shelter and farm precisely when the kingdom needs cultivated food most.
   const safeWorkers = nearbyWorkers.filter(person => hasConstructionFoodReserve(person, project) && person.hydration >= 22
-    && person.energy > 27 && person.health >= 28 && !person.constructionRetreating
+    && hasConstructionEnergy(person, project) && person.health >= 28 && !person.constructionRetreating
     && person.homeRestTargetId == null && !person.restingOutdoors && person.buildCooldown <= 2);
   const candidate = safeWorkers
     .sort((a, b) => distance(a, project) - distance(b, project)
