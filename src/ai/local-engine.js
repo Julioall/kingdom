@@ -293,11 +293,13 @@ function decisionLabel(request, decision) {
             const result = await answerRequest(request, activeAbortController.signal);
             if (enabled && token === generation && currentEpoch === getWorldEpoch()) {
               const label = decisionLabel(request, result.decision);
-              if (result.accepted) report('ready', request.role === 'general'
+              const decisionSummary = request.role === 'general'
                 ? 'O general de ' + (request.context.kingdom?.name || 'um reino') + ' definiu: ' + label + '.'
-                : 'O rei de ' + request.context.kingdom.name + ' escolheu: ' + label + '.'
-                  + (result.providerMetadata?.elapsedMs ? ' · ' + (result.providerMetadata.elapsedMs / 1000).toFixed(1) + ' s' : '')
-                  + (result.providerMetadata?.device ? ' · ' + result.providerMetadata.device : ''), 1);
+                : 'O rei de ' + request.context.kingdom.name + ' escolheu: ' + label + '.';
+              const latency = result.providerMetadata?.elapsedMs
+                ? ' · ' + (result.providerMetadata.elapsedMs / 1000).toFixed(1) + ' s' : '';
+              const device = result.providerMetadata?.device ? ' · ' + result.providerMetadata.device : '';
+              if (result.accepted) report('ready', decisionSummary + latency + device, 1);
               else report('ready', 'Resposta descartada: a opção não está mais válida para ' + (request.context.kingdom?.name || 'a campanha') + '.', 1);
             }
             return result.accepted;

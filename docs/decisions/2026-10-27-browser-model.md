@@ -1,8 +1,16 @@
 # Decisão: modelo estratégico no navegador — 27/10/2026
 
-## Decisão
+## Estado atual do experimento (27/10/2026)
 
-Usar **Qwen3 0.6B ONNX quantizado em Q4F16 como candidato provisório** para as propostas estratégicas do rei e do general no navegador. A escolha é limitada ao conjunto testado diretamente em WebGPU. Não demonstra que Qwen3 seja o melhor modelo geral do Kingdom nem conclui JUL-221: ainda falta avaliação de general, diálogos, p95 e classes de hardware.
+A escolha operacional anterior de Qwen3 0.6B foi **substituída como configuração de teste atual** pela preferência explícita do usuário por `qwen3.5:0.8b` e execução direta no navegador. Qwen3.5 continua `experimental`; ainda não foi demonstrado como melhor modelo nem promovido a M9/produção.
+
+Playtest direto em `docs/verification/JUL-221-browser-qwen35-20261027.md`: a combinação embeddings FP16/decoder Q4F16/encoder visual FP16 gerou e teve aceitas duas ordens do general via WebGPU, em 16,1 s e 15,8 s. O teste dividiu recursos com a comparação Ollama e não mede p95; a amostra é curta e excede o limite operacional pré-registrado de 15 s. Q4 em embeddings ou em todos os componentes continua incompatível com esta execução; o operador `GatherBlockQuantized` consta na lista oficial de ONNX Runtime WebGPU, portanto falha específica do grafo/dtype não deve ser generalizada para todos os modelos. O resultado prova que o modelo pode gerar sem Ollama nesta máquina, não que seja a melhor opção.
+
+O restante deste documento preserva as observações anteriores dos candidatos e seus limites; leia a decisão acima como estado vigente, não como prova de qualidade.
+
+## Decisão provisória anterior — superada
+
+O registro abaixo documenta a escolha operacional anterior de Qwen3 0.6B como candidato provisório. A seleção de teste vigente é Qwen3.5 0.8B no manifesto, a pedido do usuário. Nenhum dos dois está promovido; o comparativo Ollama e gates seguintes permanecem necessários.
 
 O app baixa os pesos sob demanda, usa o cache do navegador e não exige Ollama. WebGPU é a rota observada nesta máquina; CPU/WASM continua como fallback de carregamento. Uma inferência que exceder 30 s encerra o Worker, aplica o plano determinístico e deixa a IA desativada até o jogador reativá-la.
 
@@ -16,7 +24,7 @@ O app baixa os pesos sob demanda, usa o cache do navegador e não exige Ollama. 
 
 Os três foram carregados pelo mesmo adapter Transformers.js/Worker, em WebGPU, e sob o mesmo contrato. Qwen3 e SmolLM2 usaram o mesmo seed inicial `3620835298` no teste pareado; Qwen3.5 também começou desse seed. A sequência do mundo divergiu depois das primeiras ordens, então não trate decisões posteriores como respostas ao mesmo prompt. Não foram medidos tokens/s, TTFT, CPU/RAM de processo, VRAM, temperatura, prompt tokens, p95 ou o perfil sem WebGPU. Não comparar diretamente estes números com GGUF/Ollama.
 
-## Por que esta escolha
+## Por que a escolha operacional anterior foi feita (histórico)
 
 Qwen3 0.6B fica como candidato provisório por apresentar respostas mais rápidas e consistentes no contrato nos ensaios curtos, com download menor que Qwen3.5. Qwen3.5 0.8B mostrou decisões mais variadas (abrigo, ovelha e avanço do general), uma vantagem potencial para a estratégia; a resposta JSON incompleta, a proposta desatualizada e a lentidão observada impedem promovê-lo sem rubrica de qualidade e replay com prompts controlados. Qwen3 repetiu busca de alimento quatro vezes, que também não pode ser chamada de boa estratégia sem confirmar a necessidade e a viabilidade das demais ações no instante de cada pedido. A seleção é operacional, não um veredito de qualidade. O model card do [Qwen3 0.6B ONNX](https://huggingface.co/onnx-community/Qwen3-0.6B-ONNX/tree/58ca03a5e7b354b480b1a82b34de8dc7b854cc0) documenta uso por Transformers.js e inclui `model_q4f16.onnx` de 570 MB; o [Qwen3.5 0.8B ONNX OPT](https://huggingface.co/onnx-community/Qwen3.5-0.8B-ONNX-OPT/tree/9a4c21d8f724176b0a7edaaed36303044451886e) também é compatível com esse runtime.
 
