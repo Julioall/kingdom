@@ -371,11 +371,21 @@ export function prepareKingdomCampaigns(world, day = world.day + 1) {
     }
     if (campaign.status === 'withdrawing') {
       for (const side of [campaign.attacker, campaign.defender]) {
+        const returnedIds = [];
         const fieldRationPoints = Math.max(0, Number(side.supply.stock.food) || 0) * FOOD_RESERVE_PER_UNIT;
         for (const id of side.troopIds.slice()) {
-          const person = world.people.find(item => item.id === id && item.alive);
-          if (!person || person.campaignReturnedHome || !side.home || distance(person, side.home) <= 2.2
-              || fieldRationPoints + .001 >= DAILY_FOOD_NEED
+          const person = world.people.find(item => item.id === id && item.alive
+            && item.role === 'soldier' && item.campaignId === campaign.id);
+          if (!person) continue;
+          if (person.campaignReturnedHome || side.home && distance(person, side.home) <= 2.2) {
+            releaseCampaignTroop(world, side, person, true);
+            person.militaryReturningHome = false;
+            person.campaignReturnedHome = false;
+            person.fieldCommand = null;
+            returnedIds.push(person.id);
+            continue;
+          }
+          if (!side.home || fieldRationPoints + .001 >= DAILY_FOOD_NEED
               || (Number(person.foodReserve) || 0) > DAILY_FOOD_NEED * 2) continue;
           const remainingReserve = Number((person.foodReserve || 0).toFixed(2));
           const kingdom = releaseCampaignTroop(world, side, person, true);
@@ -386,6 +396,10 @@ export function prepareKingdomCampaigns(world, day = world.day + 1) {
           { kingdomId: side.kingdomId, personId: person.id, reason: 'withdrawal-out-of-rations',
             remainingReserve, fieldRationPoints: Number(fieldRationPoints.toFixed(2)) });
         }
+        if (returnedIds.length) recordCampaignEvent(world, campaign, day, 'returned-to-garrison',
+          returnedIds.length === 1 ? 'Um soldado regressou e retomou o serviço na guarnição.'
+            : returnedIds.length + ' soldados regressaram e retomaram o serviço na guarnição.',
+          { kingdomId: side.kingdomId, personIds: returnedIds });
       }
     }
     if (day >= campaign.readyDay && campaign.status === 'mobilizing') {
