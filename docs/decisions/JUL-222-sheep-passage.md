@@ -1,7 +1,7 @@
 # JUL-222 — passagem do condutor de ovelha
 
 Data: 27/10/2026  
-Estado: correção implementada e coberta; pronta para validação final de CI antes do fechamento da issue.  
+Estado: implementação commitada; a issue só será fechada após CI remoto no SHA integrado.  
 Issue: [Bug — soldado fica bloqueado por peão conduzindo ovelha](https://linear.app/julio-alves/issue/JUL-222/bug-soldado-fica-bloqueado-por-peao-conduzindo-ovelha)
 
 ## Reprodução registrada
@@ -46,7 +46,7 @@ Nos dois casos compartilhados, os testes verificam limites de deslocamento por p
 
 O playtest em navegador importa os módulos reais de movimento e colisão do projeto. Os três cenários passaram em `6`, `10` e `7` passos. A captura completa está em [reports/JUL-222-passage-playtest-20261027.png](../../reports/JUL-222-passage-playtest-20261027.png) e também será anexada à issue.
 
-Validação local na revisão: `node --test tests/movement-passage.test.mjs` passou (`4/4`); `npm test` passou (`233/233`); `npm run build` passou com typecheck e produção Vite. O SHA de implementação e o status do CI serão acrescentados após o commit e o push deste slice.
+Commit de implementação: `0abec55` (`fix(JUL-222): yield passage to shepherds`). Validação local na revisão: `node --test tests/movement-passage.test.mjs` passou (`4/4`); `npm test` passou (`233/233`); `npm run build` passou com typecheck e produção Vite. O status do CI remoto será registrado depois que este commit for integrado à branch da PR.
 
 ## Limites
 
