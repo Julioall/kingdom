@@ -46,3 +46,22 @@ Isso combina compromisso curto com replanejamento por evidência. O código já 
 - Replay de 800 dias na seed 42 no SHA commitado: pendente. O trace histórico da seed 42 registra a primeira morte humana por fome no dia 795, então esse horizonte cobre a falha original.
 
 JUL-178 permanece aberta. Os critérios multissemente, horizontes de 365/730 dias, choques controlados, reconciliação completa e avaliação de reservas de campanha ainda precisam de evidência atualizada.
+
+## Replays atuais de 730 dias e diagnóstico da roça
+
+Foi executado `npm run audit:food -- --days 730 --seeds 1,42,987,2026 --repeat-seed 42` no commit de simulação `74fa34f7be7e416abf2608eac667272106c747d1`. O código de simulação permaneceu igual no commit `49f37ea` que acrescentou métricas de estado do campo. Relatório versionado: `docs/verification/JUL-178-food-current-730-20261027.json`.
+
+| Seed | Pessoas vivas no final | Mortes humanas | Adultos-dia com reserva <20 | Colheita cultivada acumulada | Regrowth cultivado | Ovelhas selvagens mortas de fome | Comida comunitária no fim |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| 1 | 100 | nenhuma | 34.694 | 15.057,27 | 24.442,24 | 22 | 0 |
+| 42 | 90 | 9 invasões, 1 combate | 37.933 | 0 | 0 | 4 | 0 |
+| 987 | 100 | 2 invasões, 1 combate | 26.694 | 29.549,30 | 33.698,29 | 25 | 15,53 |
+| 2026 | 101 | 3 invasões | 31.741 | 13.310,15 | 16.413,39 | 24 | 121,13 |
+
+O replay repetido da seed 42 gerou o mesmo SHA de estado (`b81c68cf31a0c97882df0e0a437d597a2a32471c1da9f63b6f1e6f115c0c14b3`) e o mesmo SHA de crônica (`9a1103d3033d7d2e61e1dcf13cfc6ae1a8cf8ac6b9ca9b078826f4f1d6314b25`). Os ledgers de campanha ficaram balanceados em todas as seeds. Nenhuma morte humana foi atribuída a fome; isso não demonstra que a população esteja bem alimentada: houve 26.694–37.933 adultos-dia com reserva abaixo de 20, e a comida comunitária terminou quase sempre zerada. Animais selvagens morreram de fome.
+
+Os replays registraram 68–78 transações de mercado por seed em 730 dias, mas o relatório não discrimina mercadoria, ator nem motivo. Esse contador não prova que a venda de colheita ou a compra de alimento estejam funcionando para os moradores.
+
+Um replay separado de 365 dias/seed 42, com instrumentação de campo no commit `49f37ea7eb8e75d2982d997b928c90fb619adad`, encontrou duas roças incompletas no dia 365 (32/34 e 19/34), cada uma com 8 unidades de sementes atribuídas e nenhuma biomassa cultivada semeada, em pé ou colhida. Estado: `bc6c30241495ade900999eb9e27d9a7c0cf18e30cccb485384c6a884d3a1793a`; crônica: `972d8b364b3ae14f60bd87479d2f54534550bf10273f67d00a87e43fd387d9e5`. Evidência completa: `docs/verification/JUL-178-food-fields-seed42-365-20261027.json`.
+
+Conclusão limitada: conservar biomassa vegetal no mapa é necessário, mas ela não comprova comida colhida, armazenada ou comprável. A seed 42 também mostra um gargalo de construção antes de qualquer ciclo de cultivo. A proposta de compra de sementes no mercado está detalhada em `docs/decisions/JUL-178-market-seed-cycle.md` e foi adicionada ao escopo de JUL-201; a auditoria JUL-178 segue aberta enquanto faltarem a reprodução mais ampla, a distinção de transações e o fechamento da cadeia de acesso.
