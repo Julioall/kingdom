@@ -8,7 +8,8 @@ import { plantBiomass } from '../ecology/plants.js';
 import { localNameFeature } from './communities.js';
 import { log } from '../core/events.js';
 import { updateKingdomStrategies } from '../kingdoms/strategy.js';
-import { COMMUNITY_FOOD_CARRY_CAPACITY, DAILY_FOOD_NEED, FOOD_RESERVE_PER_UNIT } from '../../config/ecosystem.js';
+import { COMMUNITY_FOOD_CARRY_CAPACITY, FOOD_RESERVE_PER_UNIT } from '../../config/ecosystem.js';
+import { communityFoodBufferTarget, dailyFoodNeedForMembers, kingdomFoodDemand } from '../economy/food-policy.js';
 
 const COMMUNITY_WORK_ACTION_LABELS = Object.freeze({
   forage: 'buscar alimento', gather: 'reunir materiais', build: 'construir', rest: 'descansar',
@@ -56,7 +57,10 @@ export function communitySatisfaction(w, community) {
   }
 
 export function taskForCommunity(w, community, members) {
-    const size = members.length, foodPerMember = communityFoodStock(community) / Math.max(1, size);
+    const size = members.length;
+    const dailyFoodNeed = dailyFoodNeedForMembers(members).dailyFoodNeed;
+    const foodTarget = communityFoodBufferTarget(dailyFoodNeed);
+    const sharedFood = communityFoodStock(community);
     const herd = domesticatedSheep(w, community);
     const hasPen = w.structures.some(structure => structure.complete && structure.type === 'curral' && structure.communityId === community.id);
     const peopleNeedFood = members.some(person => person.foodReserve < 42);
@@ -69,7 +73,7 @@ export function taskForCommunity(w, community, members) {
     // Protect the people before investing labor in livestock or buildings. A common
     // reserve is a buffer; one safe worker may establish the first crop field while
     // the remaining residents continue collecting food for immediate needs.
-    if ((foodPerMember < 8 || peopleNeedFood) && !farmInvestmentReady) return {
+    if ((sharedFood < foodTarget || peopleNeedFood) && !farmInvestmentReady) return {
       action: 'forage', title: 'buscar alimento para o reino', skill: 'forage', priority: 'urgent'
     };
     if (farmInvestmentReady) return { action: 'build', title: 'construir uma roça e semear raízes', skill: 'build', goal: 'invest-in-cultivated-food' };
@@ -147,7 +151,7 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
     const foodWorkers = workers.filter(person => person.id !== leader.id && person.ageDays >= 12 * 365);
     const harvestPerWorker = fields.length ? COMMUNITY_FOOD_CARRY_CAPACITY
       : foodWorkers.length ? foodWorkers.reduce((sum, person) => sum + 1.8 + person.skills.forage * 3.2, 0) / foodWorkers.length : 1.8;
-    const foodCapacity = Math.min(foodWorkers.length, Math.max(1, Math.ceil(members.length * DAILY_FOOD_NEED
+    const foodCapacity = Math.min(foodWorkers.length, Math.max(1, Math.ceil(dailyFoodNeedForMembers(members).dailyFoodNeed
       / (harvestPerWorker * FOOD_RESERVE_PER_UNIT))));
     const capacity = desired.action === 'forage' && desired.priority === 'urgent' ? foodCapacity
       : cropInvestment || desired.goal === 'repair-damaged-structures' ? 1 : desired.priority === 'urgent'
@@ -448,9 +452,14 @@ export function completeCommunityTask(w, person, action, beforeState, afterState
     if (!succeeded) return false;
     const community = w.communities.find(group => group.id === person.communityId && !group.dissolved);
     if (community && task.source === 'kingdom-strategy' && task.foodFieldId != null
-        && ['forage', 'deliver'].includes(task.action) && communityFoodStock(community) < community.memberIds.length * 2) {
-      task.action = 'forage'; task.supplyPhase = 'communal-collection';
-      return false;
+        && ['forage', 'deliver'].includes(task.action)) {
+      const kingdom = w.kingdoms.find(item => item.communityId === community.id);
+      const members = community.memberIds.map(id => w.people.find(person => person.id === id && person.alive)).filter(Boolean);
+      const dailyFoodNeed = kingdom ? kingdomFoodDemand(w, kingdom).dailyFoodNeed : dailyFoodNeedForMembers(members).dailyFoodNeed;
+      if (communityFoodStock(community) < communityFoodBufferTarget(dailyFoodNeed)) {
+        task.action = 'forage'; task.supplyPhase = 'communal-collection';
+        return false;
+      }
     }
     const leader = community && w.people.find(member => member.id === community.leaderId && member.alive);
     person.prestige = (person.prestige || 0) + 1;

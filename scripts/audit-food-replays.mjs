@@ -2,6 +2,9 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
 import engine from '../src/simulation/engine.js';
+import { FOOD_RESERVE_PER_UNIT } from '../src/config/ecosystem.js';
+import { communityFoodStock } from '../src/simulation/economy/inventories.js';
+import { communityFoodBufferTarget, dailyFoodNeedForMembers, kingdomFoodDemand } from '../src/simulation/economy/food-policy.js';
 import { summarizeCampaignFoodLogistics, summarizeCultivatedFields, summarizeFoodDeaths, summarizeTradeActivity } from './food-audit-metrics.mjs';
 
 const args = new Map();
@@ -97,15 +100,77 @@ function summarizeStocks(world) {
   };
 }
 
+function foodReserveTrackers(world) {
+  return (world.communities || []).filter(community => !community.dissolved).map(community => {
+    const kingdom = (world.kingdoms || []).find(item => item.communityId === community.id);
+    const demand = kingdom ? kingdomFoodDemand(world, kingdom) : dailyFoodNeedForMembers(
+      (world.people || []).filter(person => person.alive && community.memberIds.includes(person.id)));
+    const stock = communityFoodStock(community);
+    return {
+      communityId: community.id,
+      kingdomId: kingdom?.id ?? community.kingdomId ?? null,
+      name: kingdom?.name ?? community.name ?? null,
+      initialFood: Number(stock.toFixed(2)),
+      minimumFood: stock,
+      maximumFood: stock,
+      daysBelow300: 0,
+      daysBelowDemandBuffer: 0,
+      firstDayBelow300: null,
+      endingFood: stock,
+      endingPopulation: demand.members?.length ?? (world.people || []).filter(person =>
+        person.alive && community.memberIds.includes(person.id)).length,
+      endingDailyDemandRawUnits: demand.dailyFoodNeed / FOOD_RESERVE_PER_UNIT,
+      endingDemandBufferTarget: communityFoodBufferTarget(demand.dailyFoodNeed)
+    };
+  });
+}
+
+function updateFoodReserveTrackers(world, trackers) {
+  for (const tracker of trackers) {
+    const community = (world.communities || []).find(item => item.id === tracker.communityId && !item.dissolved);
+    if (!community) continue;
+    const kingdom = (world.kingdoms || []).find(item => item.communityId === community.id);
+    const members = kingdom ? kingdomFoodDemand(world, kingdom).members
+      : (world.people || []).filter(person => person.alive && community.memberIds.includes(person.id));
+    const dailyFoodNeed = dailyFoodNeedForMembers(members).dailyFoodNeed;
+    const stock = communityFoodStock(community);
+    tracker.minimumFood = Math.min(tracker.minimumFood, stock);
+    tracker.maximumFood = Math.max(tracker.maximumFood, stock);
+    tracker.endingFood = stock;
+    tracker.endingPopulation = members.length;
+    tracker.endingDailyDemandRawUnits = dailyFoodNeed / FOOD_RESERVE_PER_UNIT;
+    tracker.endingDemandBufferTarget = communityFoodBufferTarget(dailyFoodNeed);
+    if (stock < 300) {
+      tracker.daysBelow300++;
+      tracker.firstDayBelow300 ??= world.day;
+    }
+    if (stock + 1e-7 < tracker.endingDemandBufferTarget) tracker.daysBelowDemandBuffer++;
+  }
+}
+
+function finalizeFoodReserveTrackers(trackers) {
+  return trackers.map(tracker => ({
+    ...tracker,
+    minimumFood: Number(tracker.minimumFood.toFixed(2)),
+    maximumFood: Number(tracker.maximumFood.toFixed(2)),
+    endingFood: Number(tracker.endingFood.toFixed(2)),
+    endingDailyDemandRawUnits: Number(tracker.endingDailyDemandRawUnits.toFixed(2)),
+    endingDemandBufferTarget: Number(tracker.endingDemandBufferTarget.toFixed(2)),
+    recoveredAbove300AtEnd: tracker.endingFood >= 300
+  }));
+}
+
 function run(seed) {
   const startedAt = performance.now();
   const world = engine.createWorld(seed);
   // Trade diagnostics are opt-in so normal simulation ticks do not pay for audit counters.
   world.tradeDiagnostics = {};
+  const reserveTrackers = foodReserveTrackers(world);
   let adultDaysFoodReserveBelow20 = 0;
   for (let day = 1; day <= days; day++) {
     engine.stepDay(world, { includeSnapshot: false });
     assertNonnegativeStocks(world, seed, day);
+    updateFoodReserveTrackers(world, reserveTrackers);
     adultDaysFoodReserveBelow20 += (world.people || []).filter(person => person.alive && person.ageDays >= 12 * 365
       && person.foodReserve < 20).length;
   }
@@ -135,7 +200,8 @@ function run(seed) {
     marketTransactions: tradeActivity.marketTransactions,
     tradeRecords: tradeActivity.totalTradeRecords,
     tradeActivity,
-    stocks: summarizeStocks(world)
+    stocks: summarizeStocks(world),
+    foodReserveByCommunity: finalizeFoodReserveTrackers(reserveTrackers)
   };
 }
 
@@ -167,11 +233,11 @@ if (outputPath) {
     results: results.map(({ seed, elapsedSeconds, stateSha256, chronicleSha256, determinismVerified,
       determinismDiff, livingPeople, adultDaysFoodReserveBelow20, deathsByCause, births, deaths,
       deathsByActor, campaignLogistics, cultivatedFields, foodBiomass, activeCampaigns, campaignBattles, marketTransactions,
-      tradeRecords, tradeActivity, stocks }) => ({ seed, elapsedSeconds,
+      tradeRecords, tradeActivity, stocks, foodReserveByCommunity }) => ({ seed, elapsedSeconds,
       stateSha256, chronicleSha256, determinismVerified, determinismDiff, livingPeople,
       adultDaysFoodReserveBelow20, deathsByCause, births, deaths, foodBiomass,
       deathsByActor, campaignLogistics, cultivatedFields, activeCampaigns, campaignBattles,
-      marketTransactions, tradeRecords, tradeActivity, stocks })) };
+      marketTransactions, tradeRecords, tradeActivity, stocks, foodReserveByCommunity })) };
   process.stdout.write(JSON.stringify(summary, null, 2) + '\n');
 } else process.stdout.write(output);
 if (repeatSeed !== null && !results.at(-1).determinismVerified) process.exitCode = 1;

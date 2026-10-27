@@ -1,5 +1,6 @@
 const COMMUNITY_FIELDS = [
-  'sharedFood', 'foodPerResident', 'dailyFoodNeed', 'feedStock', 'feedTarget', 'feedReserveDays',
+  'sharedFood', 'foodPerResident', 'dailyFoodNeed', 'foodBufferDays', 'foodBufferTarget', 'foodBufferTargetDays',
+  'feedStock', 'feedTarget', 'feedReserveDays',
   'sheepCount', 'woodStock', 'stoneStock', 'goldStock', 'marketFoodTradeable', 'buildPlan',
   'constructionReady', 'safeBuilderAvailable', 'activeCropProject', 'constructionMaterialNeed'
 ];

@@ -9,6 +9,7 @@ import {
 import { queueCampaignGeneralAiRequests } from '../src/simulation/kingdoms/campaigns.js';
 import { buildKingdomStrategySystemPrompt } from '../src/ai/kingdom-strategy-prompt.js';
 import { assignCommunityTasks, completeCommunityTask } from '../src/simulation/society/governance.js';
+import { communityFoodBufferDays, communityFoodBufferTarget, foodUnitsPerDay } from '../src/simulation/economy/food-policy.js';
 
 test('absolute date keys are removed recursively while relative durations remain', () => {
   const source = {
@@ -59,6 +60,31 @@ test('kingdom strategy prompt is season-invariant but request expiry metadata st
   assert.ok(spring.request.context.decisionGuidance.some(rule => rule.includes('Roça')));
   assert.equal(spring.request.context.report.community.foodInfrastructure.completedCorrals, 1);
   assert.equal(spring.request.context.report.community.foodInfrastructure.sheepCapacity, 35);
+  assert.equal(spring.rawReport.community.foodBufferTargetDays, 14);
+  assert.equal(spring.rawReport.community.foodBufferTarget,
+    communityFoodBufferTarget(spring.rawReport.community.dailyFoodNeed));
+  assert.equal(spring.request.context.report.community.foodBufferDays, spring.rawReport.community.foodBufferDays);
+});
+
+test('food reserves use raw stock units and a demand-based fourteen-day buffer', () => {
+  const dailyReservePoints = 50 * DAILY_FOOD_NEED;
+  const dailyRawUnits = foodUnitsPerDay(dailyReservePoints);
+  const target = communityFoodBufferTarget(dailyReservePoints);
+
+  assert.equal(dailyRawUnits, dailyReservePoints / FOOD_RESERVE_PER_UNIT);
+  assert.ok(target > 300, 'the target has useful slack above the observed 300-unit failure threshold');
+  assert.equal(communityFoodBufferDays(300, dailyReservePoints), 300 / dailyRawUnits);
+  assert.equal(communityFoodBufferDays(target, dailyReservePoints), 14);
+});
+
+test('kingdom forage policy stops repeating once the observed fourteen-day buffer is reached', () => {
+  const { rawReport } = strategicRequest(91);
+  rawReport.community.marketFoodTradeable = false;
+  rawReport.community.foodBufferDays = 13.99;
+  assert.ok(kingdomStrategyChoices(rawReport).some(choice => choice.id === 'forage_for_food'));
+
+  rawReport.community.foodBufferDays = 14;
+  assert.ok(!kingdomStrategyChoices(rawReport).some(choice => choice.id === 'forage_for_food'));
 });
 
 test('kingdom AI keeps feasible food-production options available during a shortage', () => {
@@ -123,6 +149,7 @@ test('kingdom model prompt explains farm, corral, and blocked-order constraints'
   assert.match(prompt, /biomassa em pé e colheita histórica não são estoque/i);
   assert.match(prompt, /até 35 ovelhas/i);
   assert.match(prompt, /tarefa bloqueada/i);
+  assert.match(prompt, /buffer de 14 dias/i);
   assert.match(prompt, /pode colher raízes maduras/i);
   assert.match(prompt, /forage_for_food, build_food_field, capture_sheep/);
 });
@@ -167,7 +194,7 @@ test('one royal field assignment stays active until the shared stock reaches its
   assert.equal(worker.assignment.action, 'forage');
   assert.equal(community.assignments[0].status, 'delegada');
 
-  community.stores.food = 100;
+  community.stores.food = 400;
   assert.equal(completeCommunityTask(world, worker, 'deliver',
     { food: 24, feed: 0, wood: 0, stone: 0, gold: 0 },
     { food: 100, feed: 0, wood: 0, stone: 0, gold: 0 }), true);

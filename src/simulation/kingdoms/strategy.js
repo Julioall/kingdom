@@ -1,6 +1,8 @@
 import { DOMESTIC_SHEEP_DAILY_FEED, MEAT_NUTRITIONAL_VALUE, PLANTS } from '../../config/ecosystem.js';
 import { communityFoodStock, transferInventoryToStores } from '../economy/inventories.js';
-import { kingdomFoodDemand } from '../economy/food-policy.js';
+import {
+  COMMUNITY_FOOD_BUFFER_DAYS, communityFoodBufferDays, communityFoodBufferTarget, foodUnitsPerDay, kingdomFoodDemand
+} from '../economy/food-policy.js';
 import { canRepairKingdomStructure, damagedKingdomStructures, nextCommunityStructure } from '../settlements/construction.js';
 import { communityHerdPenAssignments, communityNeedsAdditionalPen, DOMESTIC_SHEEP_PER_PEN } from '../ecology/herd.js';
 import { calendarDate } from '../ecology/climate.js';
@@ -33,6 +35,15 @@ function finite(value, fallback = 0) {
   return Number.isFinite(value) ? value : fallback;
 }
 
+function foodBufferDaysForReport(community) {
+  if (Number.isFinite(community.foodBufferDays)) return Math.max(0, community.foodBufferDays);
+  if (Number.isFinite(community.sharedFood) && Number.isFinite(community.dailyFoodNeed)) {
+    return communityFoodBufferDays(community.sharedFood, community.dailyFoodNeed);
+  }
+  // Older persisted reports only carried the per-resident stock value.
+  return Number.isFinite(community.foodPerResident) && community.foodPerResident < 8 ? 0 : Infinity;
+}
+
 /**
  * Build the ruler's compact, aggregate report. It deliberately omits people,
  * person IDs, individual needs, and individual perceptions.
@@ -51,9 +62,11 @@ export function observeKingdomStrategy(world, kingdomId) {
   const reportedDemand = finite(market.demand && market.demand.food);
   const foodStock = communityFoodStock(community);
   const foodPerResident = foodStock / Math.max(1, population);
+  const foodBufferTarget = communityFoodBufferTarget(dailyFoodNeed);
+  const foodBufferDays = communityFoodBufferDays(foodStock, dailyFoodNeed);
   const communityStock = community && community.stores || {};
   const marketStock = market.stock || {};
-  const marketFoodTradeable = foodStock < 32 && finite(marketStock.food) >= 12
+  const marketFoodTradeable = foodStock < foodBufferTarget && finite(marketStock.food) >= 12
     && (finite(communityStock.gold) >= 6
       || (finite(communityStock.wood) >= 26 && finite(marketStock.wood) + 8 <= 260)
       || (finite(communityStock.stone) >= 18 && finite(marketStock.stone) + 6 <= 260));
@@ -222,6 +235,9 @@ export function observeKingdomStrategy(world, kingdomId) {
       activeFoodProject,
       foodPerResident,
       dailyFoodNeed,
+      foodBufferTarget,
+      foodBufferDays,
+      foodBufferTargetDays: COMMUNITY_FOOD_BUFFER_DAYS,
       feedStock,
       feedTarget,
       feedReserveDays,
@@ -289,21 +305,23 @@ function dispatchKingdomReserves(world, kingdom, day = world.day + 1) {
   const stock = kingdom.treasury && kingdom.treasury.stock;
   if (!stock) return null;
 
-  // Refill the shared store to two days of food after today's needs resolve.
+  // Keep a two-week shared reserve so workers can leave food collection once
+  // the store has room for routine consumption and nearby population growth.
   // If its remaining stock is below one day's need, release the treasury floor
   // so tomorrow's ration can be buffered. The configured drought reserve is a
   // ceiling on protected treasury stock, not a guarantee that it is funded.
   // Every delivered unit is debited in full.
   const dailyFoodNeed = foodDemand.dailyFoodNeed;
-  const foodTarget = dailyFoodNeed * 2;
+  const dailyFoodUnits = foodUnitsPerDay(dailyFoodNeed);
+  const foodTarget = communityFoodBufferTarget(dailyFoodNeed);
   const reserveDays = Math.min(90, Math.max(0, finite(kingdom.policy && kingdom.policy.droughtReserveDays)));
   const communityFoodBefore = communityFoodStock(community);
   const communityFeedBefore = community.stores.feed || 0;
   const treasuryFoodBefore = stock.food || 0;
   const treasuryFeedBefore = stock.feed || 0;
-  const emergencyFoodRelease = communityFoodBefore < dailyFoodNeed;
+  const emergencyFoodRelease = communityFoodBefore < dailyFoodUnits;
   const treasuryFoodFloor = emergencyFoodRelease
-    ? 0 : Math.min(stock.food || 0, dailyFoodNeed * reserveDays);
+    ? 0 : Math.min(stock.food || 0, dailyFoodUnits * reserveDays);
   const foodAvailable = Math.max(0, (stock.food || 0) - treasuryFoodFloor);
   const foodGap = Math.max(0, foodTarget - communityFoodBefore);
   const foodMoved = transferInventoryToStores(kingdom.treasury, community, 'food', Math.min(foodGap, foodAvailable), 'community-reserve-delivery');
@@ -326,7 +344,7 @@ function dispatchKingdomReserves(world, kingdom, day = world.day + 1) {
     destination: 'community',
     destinationId: community.id,
     foodReason: foodMoved > .01
-      ? emergencyFoodRelease ? 'emergency-community-below-one-day' : 'restore-two-day-community-buffer'
+      ? emergencyFoodRelease ? 'emergency-community-below-one-day' : 'restore-fourteen-day-community-buffer'
       : null,
     feedReason: feedMoved > .01 ? 'restore-herd-feed-buffer' : null,
     food: foodMoved,
@@ -342,6 +360,7 @@ function dispatchKingdomReserves(world, kingdom, day = world.day + 1) {
     protectedFoodFloor: treasuryFoodFloor,
     droughtReserveDays: reserveDays,
     dailyFoodNeed,
+    dailyFoodUnits,
     communityFoodTarget: foodTarget
   };
   kingdom.reserveTransfers ||= [];
@@ -353,7 +372,7 @@ function dispatchKingdomReserves(world, kingdom, day = world.day + 1) {
   const reasons = [
     delivery.foodReason === 'emergency-community-below-one-day'
       ? 'a reserva comum estava abaixo de um dia de consumo e o piso de seca foi liberado'
-      : delivery.foodReason === 'restore-two-day-community-buffer' ? 'reposição do buffer comunitário de dois dias' : null,
+      : delivery.foodReason === 'restore-fourteen-day-community-buffer' ? 'reposição do buffer alimentar comunitário de quatorze dias' : null,
     delivery.feedReason ? 'reposição do buffer de ração do rebanho' : null
   ].filter(Boolean).join(' e ');
   const message = kingdom.name + ' transferiu ' + movement + ' do tesouro para o estoque comunitário no dia ' + day
@@ -370,7 +389,7 @@ function recruitForPendingForce(world, kingdom, report) {
   const request = report.military.pendingForceRequests[0];
   if (!request || report.military.availableSoldiers > 0 || report.military.recruitment.trainingOrders > 0
       || !report.military.recruitment.available
-      || report.community.sharedFood < report.community.dailyFoodNeed) return false;
+      || report.community.sharedFood < foodUnitsPerDay(report.community.dailyFoodNeed)) return false;
 
   const result = recruitKingdomSoldier(world, kingdom.id, { startedDay: world.day + 1 });
   if (!result.ok) return false;
@@ -398,8 +417,8 @@ export function planKingdomStrategy(report) {
     return { goal: 'maintain-autonomy', action: null, priority: 'normal', garrisonMode: 'standby', reason: 'Não há comunidade registrada para receber uma delegação.' };
   }
   const garrisonMode = report.garrisonSize > 0 && !report.military?.activeCampaign ? 'patrol' : 'standby';
-  const sharedFoodPerResident = finite(report.community.foodPerResident);
-  if (sharedFoodPerResident < 8 && report.community.marketFoodTradeable) {
+  const sharedFoodBufferDays = foodBufferDaysForReport(report.community);
+  if (sharedFoodBufferDays < COMMUNITY_FOOD_BUFFER_DAYS && report.community.marketFoodTradeable) {
     return {
       goal: 'trade-for-shared-food', action: 'trade', priority: 'urgent', garrisonMode,
       reason: 'A reserva comum está baixa e o mercado tem alimento disponível para troca com ouro ou excedentes observados.'
@@ -413,11 +432,12 @@ export function planKingdomStrategy(report) {
       reason: 'Os materiais permitem preparar abrigo ou roça para abastecimento; há um trabalhador seguro e o cultivo usa sementes reais do talhão.'
     };
   }
-  if (sharedFoodPerResident < 8) {
-    const urgency = sharedFoodPerResident < 2 ? 'urgent' : 'normal';
+  if (sharedFoodBufferDays < COMMUNITY_FOOD_BUFFER_DAYS) {
+    const urgency = sharedFoodBufferDays < 2 ? 'urgent' : 'normal';
     return {
       goal: 'secure-shared-food', action: 'forage', priority: urgency, garrisonMode,
-      reason: 'O estoque compartilhado está em ' + sharedFoodPerResident.toFixed(1) + ' unidades por morador.'
+      reason: 'A reserva compartilhada cobre ' + sharedFoodBufferDays.toFixed(1)
+        + ' dias; a meta é ' + COMMUNITY_FOOD_BUFFER_DAYS + ' dias de consumo observado.'
     };
   }
 
@@ -555,12 +575,13 @@ export function kingdomStrategyChoices(report) {
     return choices;
   }
 
-  if (report.community.foodPerResident < 8) {
+  const sharedFoodBufferDays = foodBufferDaysForReport(report.community);
+  if (sharedFoodBufferDays < COMMUNITY_FOOD_BUFFER_DAYS) {
     if (report.community.marketFoodTradeable) add('trade_for_food', 'Trocar excedentes por alimento', {
       goal: 'trade-for-shared-food', action: 'trade', priority: 'urgent', reason: 'A reserva comum está baixa e há alimento acessível no mercado.'
     });
     add('forage_for_food', 'Buscar alimento para a reserva comum', {
-      goal: 'secure-shared-food', action: 'forage', priority: report.community.foodPerResident < 2 ? 'urgent' : 'normal',
+      goal: 'secure-shared-food', action: 'forage', priority: sharedFoodBufferDays < 2 ? 'urgent' : 'normal',
       reason: 'O estoque compartilhado está baixo para o número de moradores.'
     });
     addFoodCapacityChoices(report, add);
@@ -620,10 +641,16 @@ export function kingdomStrategyChoices(report) {
 }
 
 function evidenceFor(report) {
+  const foodBufferDays = foodBufferDaysForReport(report.community);
+  const foodBufferTarget = Number.isFinite(report.community.foodBufferTarget)
+    ? report.community.foodBufferTarget
+    : communityFoodBufferTarget(report.community.dailyFoodNeed);
   return {
     population: report.population,
     sharedFood: Number(report.community.sharedFood.toFixed(1)),
     foodPerResident: Number(report.community.foodPerResident.toFixed(2)),
+    foodBufferDays: Number.isFinite(foodBufferDays) ? Number(foodBufferDays.toFixed(2)) : null,
+    foodBufferTarget: Number(foodBufferTarget.toFixed(1)),
     feedStock: Number(report.community.feedStock.toFixed(1)),
     feedTarget: Number(report.community.feedTarget.toFixed(1)),
     feedReserveDays: report.community.feedReserveDays == null ? null : Number(report.community.feedReserveDays.toFixed(1)),
@@ -1000,7 +1027,9 @@ export function updateKingdomStrategies(world, planner = planKingdomStrategy) {
 
 export function fundFoodInfrastructure(world, kingdom) {
   const community = world.communities.find(item => item.id === kingdom.communityId && !item.dissolved);
-  if (!community || community.memberIds.length < 6 || communityFoodStock(community) >= community.memberIds.length * 8) return null;
+  const dailyFoodNeed = kingdomFoodDemand(world, kingdom).dailyFoodNeed;
+  if (!community || community.memberIds.length < 6
+      || communityFoodStock(community) >= communityFoodBufferTarget(dailyFoodNeed)) return null;
   const structures = world.structures.filter(s => s.communityId === community.id && s.destroyedDay == null
     && s.integrity !== 0 && (!s.kingdomProject || s.complete));
   if (structures.some(s => s.type === 'roça' && s.complete)) return null;
