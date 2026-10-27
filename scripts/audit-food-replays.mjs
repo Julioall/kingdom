@@ -225,7 +225,7 @@ function run(seed) {
   const startedAt = performance.now();
   const world = engine.createWorld(seed);
   // Trade diagnostics are opt-in so normal simulation ticks do not pay for audit counters.
-  world.tradeDiagnostics = {};
+  world.tradeDiagnostics = { retainFullTradeHistory: true };
   const reserveTrackers = foodReserveTrackers(world);
   let adultDaysFoodReserveBelow20 = 0;
   for (let day = 1; day <= days; day++) {

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { summarizeCampaignFoodLogistics, summarizeCultivatedFields, summarizeFoodDeaths, summarizeTradeActivity } from '../scripts/food-audit-metrics.mjs';
 import { recordAnimalDeath } from '../src/simulation/ecology/animals.js';
+import { recordTrade } from '../src/simulation/economy/trade-ledger.js';
 import { PLANTS } from '../src/config/ecosystem.js';
 
 test('animal death records cause and day once, including predation', () => {
@@ -150,6 +151,20 @@ test('trade audit marks truncated ledgers and missing market transaction records
   assert.equal(summary.marketTransactions, 2);
   assert.equal(summary.marketTransactionsRecorded, 1);
   assert.equal(summary.marketTransactionCoverageComplete, false);
+});
+
+test('trade ledger keeps its game cap but retains every entry when a full audit is requested', () => {
+  const normalWorld = { day: 0, trades: 0 };
+  const normalOwner = {};
+  for (let index = 0; index < 121; index++) recordTrade(normalWorld, { action: 'normal' }, [normalOwner]);
+  assert.equal(normalOwner.tradeLedger.count, 121);
+  assert.equal(normalOwner.tradeLedger.history.length, 120);
+
+  const auditWorld = { day: 0, trades: 0, tradeDiagnostics: { retainFullTradeHistory: true } };
+  const auditOwner = {};
+  for (let index = 0; index < 121; index++) recordTrade(auditWorld, { action: 'audit' }, [auditOwner]);
+  assert.equal(auditOwner.tradeLedger.count, 121);
+  assert.equal(auditOwner.tradeLedger.history.length, 121);
 });
 
 test('campaign food audit reconciles field stock and distinguishes treasury, community, and personal rations', () => {
