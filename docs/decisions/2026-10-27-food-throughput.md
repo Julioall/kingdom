@@ -66,3 +66,18 @@ Repeti 253 dias nas seeds 1, 42, 987 e 2026, além de uma segunda execução da 
 A repetição de seed 42 teve os mesmos hashes de estado (`d435994b59de4dc0114b88bacc84bb726c67cd8b751143f1421755d7199f5de5`) e crônica (`ed4fa895923b40a32fa3e3d7bc3d6ee1e8226d47d02034faebd991630787204f`). O número de transações esconde fluxos distintos: seed 1 só registrou 78 refeições militares; seed 42, 113 refeições militares, 1 compra de comida, 1 de pedra, 1 de ração e 5 vendas de comida; seed 987, 97 refeições militares, 1 compra de madeira e 2 vendas de comida; seed 2026, 115 refeições militares, compras de madeira/pedra e 4 vendas de comida. O estoque comunitário final de comida foi 0/37,11/8,44/22,88; o mercado geral e o tesouro de comida terminaram zerados nas quatro seeds.
 
 O dado confirma repetibilidade, cobertura contábil e que as ofertas do mercado não geram saldo negativo. Também mostra fome em duas seeds e reservas baixas por milhares de adulto-dias com biomassa colhível em pé. Este teste de 253 dias não isola causalidade da correção de oferta e ainda não cumpre todos os horizontes/repetições de JUL-178 nem a meta de suprir 50 moradores.
+
+## Replay multissemente de 730 dias — suficiência alimentar segue reprovada (JUL-178/JUL-195)
+
+Na revisão `6067e6e59f24ee3252596548ca2723d9ce282a67`, rodei o motor de produção por 730 dias nas seeds 1, 42, 987 e 2026 e repeti a seed 42. O artefato integral `docs/verification/JUL-178-market-opportunity-730-multiseed-20261027.json` guarda hashes por estado, ledger, colheita, campanhas, estoques e causas de morte. A seed 42 repetida é idêntica: estado `1ebe15bc671f7f3944073febc7a0611830cc5e3c68149e40fa3518e10878afb` e crônica `80162070ab4427c0cd0d579f11c9a1aa80ab0df63e481a96281a2756cad2256f` (confirmar com o relatório antes de publicação).
+
+| Seed | Vivos ao fim | Mortes humanas por fome | Adulto-dias com reserva <20 | Roças completas/total | Cultivo colhido | Cultivo em pé | Estoque comunitário final |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 89 | 15 | 20.301 | 1/2 | 17.508,89 | 4.985,54 | 41,57 |
+| 42 | 92 | 12 | 20.951 | 2/2 | 27.134,05 | 8.769,05 | 18,67 |
+| 987 | 97 | 10 | 25.323 | 2/2 | 18.686,64 | 9.257,20 | 72,61 |
+| 2026 | 91 | 12 | 20.991 | 1/2 | 16.350,82 | 4.823,78 | 10,01 |
+
+Somente 4 das 8 roças concluíram a construção. Mesmo nas duas roças completas, milhares de unidades cultivadas ficaram em pé no fim, enquanto as pessoas acumularam **87.566 adulto-dias** com reserva abaixo de 20 e **49 mortes humanas por fome** (deduplicada a repetição de seed 42). A produção bruta não é garantia de distribuição: ainda existe uma falha entre concluir o campo, colher o cultivo e disponibilizar alimento às pessoas/estoque no momento necessário. Mercados e tesouros terminaram sem alimento; a trilha de trocas continua dominada por refeições militares, não por compra de comida para moradores.
+
+A repetição de seed 42 confirma determinismo, mas não reduz a fome. Quatro seeds e um horizonte de 730 dias são evidência exploratória, não cobrem todos os estados possíveis nem demonstram capacidade para 50 moradores. A conclusão prática é manter JUL-178/JUL-195 abertas e priorizar a cadeia de acesso (conclusão da roça, compra/plantio de sementes, colheita entregue, armazenamento e consumo) e disponibilidade de currais; não aumentar somente produção nominal nem declarar a meta de 50 atendida.
