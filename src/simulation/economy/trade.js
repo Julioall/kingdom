@@ -27,6 +27,34 @@ const RESOURCE_LABELS = Object.freeze({
   feed: ['unidade de ração', 'unidades de ração']
 });
 const TRADE_RESOURCES = Object.freeze(['food', 'meat', 'wood', 'stone', 'gold', 'feed', 'sheep']);
+const MARKET_PURCHASES = Object.freeze({
+  food: Object.freeze({ amount: 12, gold: 6, reserve: 32 }),
+  wood: Object.freeze({ amount: 10, gold: 6, reserve: 18 }),
+  stone: Object.freeze({ amount: 8, gold: 7, reserve: 12 }),
+  feed: Object.freeze({ amount: 10, gold: 4, reserve: 18 }),
+  sheep: Object.freeze({ amount: 1, gold: 38 })
+});
+const MARKET_SALES = Object.freeze([
+  Object.freeze({ resource: 'food', amount: 10, gold: 4, reserve: 44, capacity: 260 }),
+  Object.freeze({ resource: 'wood', amount: 8, gold: 4, reserve: 28, capacity: 260 }),
+  Object.freeze({ resource: 'stone', amount: 6, gold: 5, reserve: 24, capacity: 260 }),
+  Object.freeze({ resource: 'feed', amount: 10, gold: 3, reserve: 30, capacity: 260 })
+]);
+
+function accountAmount(account, resource) {
+  const amount = account?.[resource] ?? 0;
+  return Number.isFinite(amount) && amount >= 0 ? amount : null;
+}
+
+function canSpend(account, resource, amount) {
+  const available = accountAmount(account, resource);
+  return available !== null && available >= amount;
+}
+
+function canReceiveUpTo(account, resource, amount, capacity) {
+  const available = accountAmount(account, resource);
+  return available !== null && available + amount <= capacity;
+}
 
 function countTradeDiagnostic(world, field, reason = null) {
   const diagnostics = world?.tradeDiagnostics;
@@ -111,17 +139,38 @@ export function marketHasTradeOpportunity(w, community) {
     const marketOwner = kingdom && kingdom.market || w.market || {};
     const market = marketOwner.stock || marketOwner;
     const store = community.stores;
-    const needsMarketFood = (store.food || 0) + (store.meat || 0) * MEAT_NUTRITIONAL_VALUE < 32;
-    const canBarterFood = needsMarketFood && (market.food || 0) >= 12
-      && ((store.gold || 0) >= 6
-        || ((store.wood || 0) >= 26 && (market.wood || 0) + 8 <= 260)
-        || ((store.stone || 0) >= 18 && (market.stone || 0) + 6 <= 260));
-    const hasSurplus = (store.food || 0) > 45 || (store.wood || 0) > 28 || (store.stone || 0) > 24 || (store.feed || 0) > 30
-      || canBarterFood;
+    const food = accountAmount(store, 'food'), meat = accountAmount(store, 'meat');
+    const edibleFood = food === null || meat === null ? Infinity : food + meat * MEAT_NUTRITIONAL_VALUE;
+    const needsMarketFood = edibleFood < MARKET_PURCHASES.food.reserve;
+    const canBuyFood = needsMarketFood
+      && canSpend(store, 'gold', MARKET_PURCHASES.food.gold)
+      && canSpend(market, 'food', MARKET_PURCHASES.food.amount);
+    const canBuyWood = accountAmount(store, 'wood') !== null
+      && accountAmount(store, 'wood') < MARKET_PURCHASES.wood.reserve
+      && canSpend(store, 'gold', MARKET_PURCHASES.wood.gold)
+      && canSpend(market, 'wood', MARKET_PURCHASES.wood.amount);
+    const canBuyStone = accountAmount(store, 'stone') !== null
+      && accountAmount(store, 'stone') < MARKET_PURCHASES.stone.reserve
+      && canSpend(store, 'gold', MARKET_PURCHASES.stone.gold)
+      && canSpend(market, 'stone', MARKET_PURCHASES.stone.amount);
     const pen = availableCommunityPen(w, community.id);
-    const hasDemand = (store.gold || 0) >= 4 && ((market.food || 0) >= 8 || (market.wood || 0) >= 8
-      || (market.stone || 0) >= 6 || (market.feed || 0) >= 8 || (pen && (market.sheep || 0) > 0));
-    return hasSurplus || hasDemand;
+    const herd = domesticatedSheep(w, community).length;
+    const canBuyFeed = !!pen && herd > 0
+      && accountAmount(store, 'feed') !== null
+      && accountAmount(store, 'feed') < MARKET_PURCHASES.feed.reserve
+      && canSpend(store, 'gold', MARKET_PURCHASES.feed.gold)
+      && canSpend(market, 'feed', MARKET_PURCHASES.feed.amount);
+    const canBuySheep = !!pen
+      && canSpend(store, 'gold', MARKET_PURCHASES.sheep.gold)
+      && canSpend(market, 'sheep', MARKET_PURCHASES.sheep.amount);
+    const canBarterFood = needsMarketFood && canSpend(market, 'food', MARKET_PURCHASES.food.amount)
+      && ((canSpend(store, 'wood', 26) && canReceiveUpTo(market, 'wood', 8, 260))
+        || (canSpend(store, 'stone', 18) && canReceiveUpTo(market, 'stone', 6, 260)));
+    const canSell = MARKET_SALES.some(({ resource, amount, reserve, capacity }) =>
+      accountAmount(store, resource) !== null
+        && accountAmount(store, resource) >= reserve + amount
+        && canReceiveUpTo(market, resource, amount, capacity));
+    return canBuyFood || canBuyWood || canBuyStone || canBuyFeed || canBuySheep || canBarterFood || canSell;
   }
 
 function recordFoodAidExperience(w, giver, recipient, amount, method) {
@@ -379,11 +428,13 @@ export function performTrade(w, person, community, partner) {
       const availablePen = availableCommunityPen(w, community.id, person);
       const herd = domesticatedSheep(w, community).length;
       let transaction = null;
-      if (availablePen && market.sheep > 0 && store.gold >= 38) {
+      if (availablePen && canSpend(market, 'sheep', MARKET_PURCHASES.sheep.amount)
+          && canSpend(store, 'gold', MARKET_PURCHASES.sheep.gold)) {
         const candidates = cellsWithin(w, availablePen.x, availablePen.y, (availablePen.radius || 4) - .7, t => t.terrain === 'land' && t.slope < .5)
           .sort((a, b) => distance(a, availablePen) - distance(b, availablePen));
         const tile = candidates.find(t => !w.animals.some(a => a.alive && distance(a, t) < 1.2));
-        if (tile && exchangeResources(store, { gold: 38 }, market, { sheep: 1 })) {
+        if (tile && exchangeResources(store, { gold: MARKET_PURCHASES.sheep.gold }, market,
+          { sheep: MARKET_PURCHASES.sheep.amount })) {
           // The structured trade ledger already includes this store debit as
           // part of the market exchange; do not count it a second time as use.
           consumeStoreInventory(community, { sheep: 1 }, null);
@@ -394,23 +445,36 @@ export function performTrade(w, person, community, partner) {
           transaction = 'comprou uma ovelha';
         }
       }
-      if (!transaction && (store.food + (store.meat || 0) * MEAT_NUTRITIONAL_VALUE) < 32
-          && market.food >= 10 && store.gold >= 6 && exchangeResources(store, { gold: 6 }, market, { food: 12 })) {
+      if (!transaction && (store.food + (store.meat || 0) * MEAT_NUTRITIONAL_VALUE) < MARKET_PURCHASES.food.reserve
+          && canSpend(market, 'food', MARKET_PURCHASES.food.amount)
+          && canSpend(store, 'gold', MARKET_PURCHASES.food.gold)
+          && exchangeResources(store, { gold: MARKET_PURCHASES.food.gold }, market,
+            { food: MARKET_PURCHASES.food.amount })) {
         transaction = 'comprou alimento';
       }
-      if (!transaction && store.wood < 18 && market.wood >= 8 && store.gold >= 6
-          && exchangeResources(store, { gold: 6 }, market, { wood: 10 })) {
+      if (!transaction && store.wood < MARKET_PURCHASES.wood.reserve
+          && canSpend(market, 'wood', MARKET_PURCHASES.wood.amount)
+          && canSpend(store, 'gold', MARKET_PURCHASES.wood.gold)
+          && exchangeResources(store, { gold: MARKET_PURCHASES.wood.gold }, market,
+            { wood: MARKET_PURCHASES.wood.amount })) {
         transaction = 'comprou madeira';
       }
-      if (!transaction && store.stone < 12 && market.stone >= 6 && store.gold >= 7
-          && exchangeResources(store, { gold: 7 }, market, { stone: 8 })) {
+      if (!transaction && store.stone < MARKET_PURCHASES.stone.reserve
+          && canSpend(market, 'stone', MARKET_PURCHASES.stone.amount)
+          && canSpend(store, 'gold', MARKET_PURCHASES.stone.gold)
+          && exchangeResources(store, { gold: MARKET_PURCHASES.stone.gold }, market,
+            { stone: MARKET_PURCHASES.stone.amount })) {
         transaction = 'comprou pedra';
       }
-      if (!transaction && pen && herd && store.feed < 18 && market.feed >= 8 && store.gold >= 4
-          && exchangeResources(store, { gold: 4 }, market, { feed: 10 })) {
+      if (!transaction && pen && herd && store.feed < MARKET_PURCHASES.feed.reserve
+          && canSpend(market, 'feed', MARKET_PURCHASES.feed.amount)
+          && canSpend(store, 'gold', MARKET_PURCHASES.feed.gold)
+          && exchangeResources(store, { gold: MARKET_PURCHASES.feed.gold }, market,
+            { feed: MARKET_PURCHASES.feed.amount })) {
         transaction = 'comprou ração';
       }
-      if (!transaction && (store.food + (store.meat || 0) * MEAT_NUTRITIONAL_VALUE) < 32 && market.food >= 12) {
+      if (!transaction && (store.food + (store.meat || 0) * MEAT_NUTRITIONAL_VALUE) < MARKET_PURCHASES.food.reserve
+          && canSpend(market, 'food', MARKET_PURCHASES.food.amount)) {
         if ((store.wood || 0) >= 26 && (market.wood || 0) + 8 <= 260
             && exchangeResources(store, { wood: 8 }, market, { food: 12 })) {
           transaction = 'trocou madeira por alimento';
@@ -419,15 +483,12 @@ export function performTrade(w, person, community, partner) {
           transaction = 'trocou pedra por alimento';
         }
       }
-      const sales = [
-        ['food', 'food', 10, 4, 44], ['wood', 'wood', 8, 4, 28],
-        ['stone', 'stone', 6, 5, 24], ['feed', 'feed', 10, 3, 30]
-      ];
-      if (!transaction) for (const [stockKey, marketKey, amount, payment, reserve] of sales) {
-        if ((store[stockKey] || 0) - reserve >= amount && (market[marketKey] || 0) + amount <= 260
-            && exchangeResources(store, { [stockKey]: amount }, market, { gold: payment })) {
-          if (stockKey === 'food') removeStoredFruit(w, community, amount);
-          transaction = 'vendeu ' + (stockKey === 'food' ? 'alimento' : stockKey === 'wood' ? 'madeira' : stockKey === 'stone' ? 'pedra' : 'ração');
+      if (!transaction) for (const { resource, amount, gold, reserve, capacity } of MARKET_SALES) {
+        if (canSpend(store, resource, reserve + amount)
+            && canReceiveUpTo(market, resource, amount, capacity)
+            && exchangeResources(store, { [resource]: amount }, market, { gold })) {
+          if (resource === 'food') removeStoredFruit(w, community, amount);
+          transaction = 'vendeu ' + (resource === 'food' ? 'alimento' : resource === 'wood' ? 'madeira' : resource === 'stone' ? 'pedra' : 'ração');
           break;
         }
       }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { findTradePartner, performTrade } from '../src/simulation/economy/trade.js';
+import { findTradePartner, marketHasTradeOpportunity, performTrade } from '../src/simulation/economy/trade.js';
 import { summarizeTradeActivity } from '../scripts/food-audit-metrics.mjs';
 
 function tradeFixture(status = 'peace', borderClosed = false) {
@@ -101,4 +101,67 @@ test('market opportunity and failed attempt expose why no trade happened', () =>
   assert.equal(world.tradeDiagnostics.marketAttempts, 1);
   assert.deepEqual(world.tradeDiagnostics.marketBlocked, { 'no-executable-exchange': 1 });
   assert.equal(world.tradeDiagnostics.marketCompleted ?? 0, 0);
+});
+
+test('market opportunity requires the full purchasable lot for each resource', () => {
+  const cases = [
+    { resource: 'food', gold: 6, below: 11, enough: 12 },
+    { resource: 'wood', gold: 6, below: 9, enough: 10 },
+    { resource: 'stone', gold: 7, below: 7, enough: 8 }
+  ];
+
+  for (const { resource, gold, below, enough } of cases) {
+    const { world, home } = tradeFixture();
+    home.stores = { food: 0, meat: 0, wood: 0, stone: 0, gold, feed: 0 };
+    world.market = { stock: { food: 0, wood: 0, stone: 0, feed: 0, sheep: 0 } };
+    world.market.stock[resource] = below;
+
+    assert.equal(marketHasTradeOpportunity(world, home), false,
+      resource + ' is not an offer while the market has only ' + below + ' units');
+    world.market.stock[resource] = enough;
+    assert.equal(marketHasTradeOpportunity(world, home), true,
+      resource + ' becomes an offer at the exact purchasable lot of ' + enough);
+  }
+});
+
+test('market opportunity preserves protected household stock before selling', () => {
+  const cases = [
+    { resource: 'food', reserve: 44, amount: 10 },
+    { resource: 'wood', reserve: 28, amount: 8 },
+    { resource: 'stone', reserve: 24, amount: 6 },
+    { resource: 'feed', reserve: 30, amount: 10 }
+  ];
+
+  for (const { resource, reserve, amount } of cases) {
+    const { world, home } = tradeFixture();
+    home.stores = { food: 0, meat: 0, wood: 0, stone: 0, gold: 0, feed: 0 };
+    world.market = { stock: { food: 0, wood: 0, stone: 0, feed: 0, sheep: 0 } };
+    home.stores[resource] = reserve + amount - 1;
+
+    assert.equal(marketHasTradeOpportunity(world, home), false,
+      resource + ' cannot be sold until the reserve plus lot is available');
+    home.stores[resource]++;
+    assert.equal(marketHasTradeOpportunity(world, home), true,
+      resource + ' becomes a sale at its exact reserve plus lot');
+  }
+});
+
+test('a pawn is not sent to a market for an offer smaller than its food purchase lot', () => {
+  const { world, home, trader } = tradeFixture();
+  world.tradeDiagnostics = {};
+  home.stores = { food: 0, meat: 0, wood: 0, stone: 0, gold: 6, feed: 0 };
+  world.market = { stock: { food: 11, wood: 0, stone: 0, feed: 0, sheep: 0 } };
+  trader.perception.people = [];
+  world.structures.push({ id: 31, type: 'posto de coleta', communityId: home.id, complete: true, x: 21, y: 20 });
+
+  assert.equal(findTradePartner(world, home, trader), null);
+  assert.deepEqual(world.tradeDiagnostics.marketOpportunityBlocked, { 'no-exchange-offer': 1 });
+
+  world.market.stock.food = 12;
+  const partner = findTradePartner(world, home, trader);
+  assert.equal(partner?.isMarket, true);
+  assert.equal(performTrade(world, trader, home, partner), true);
+  assert.equal(home.stores.food, 12);
+  assert.equal(home.stores.gold, 0);
+  assert.equal(world.market.stock.food, 0);
 });
