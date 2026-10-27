@@ -31,6 +31,11 @@ test('forced migration records a persistent destination without adding neural in
   person.injury = 0;
   person.lastAttackedDay = -100;
   person.socialIntentions = [];
+  const neuralPolicyBefore = {
+    actionValues: Array.from(person.brain.actionValues),
+    updates: person.brain.updates,
+    rewardMean: person.brain.rewardMean
+  };
 
   world.day = 1;
   engine.modules.SocietyExperiment.updatePeople(world);
@@ -42,6 +47,9 @@ test('forced migration records a persistent destination without adding neural in
   assert.equal(person.lastDecision.action, 'migrate');
   assert.equal(person.lastDecision.scores, null, 'forced survival migration does not query network action scores');
   assert.equal(person.lastDecision.inputs.length, 18, 'the individual network observation vector remains unchanged');
+  assert.deepEqual(Array.from(person.brain.actionValues), neuralPolicyBefore.actionValues);
+  assert.equal(person.brain.updates, neuralPolicyBefore.updates);
+  assert.equal(person.brain.rewardMean, neuralPolicyBefore.rewardMean);
 
   const initialPlanId = migration.intentionId;
   world.day = 2;
