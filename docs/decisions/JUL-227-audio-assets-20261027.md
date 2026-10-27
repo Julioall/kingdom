@@ -41,3 +41,7 @@ Data: 27/10/2026
 - Decisão de desenho: manter somente sinais de evento que correspondem ao resultado real do golpe/defesa e preservar o agendamento junto ao contato; não adicionar camadas redundantes. A validação final continua sendo playtest audível do jogo.
 - Consensus não pôde ser consultado: a cota gratuita informou 30 buscas mensais esgotadas, com reset em 1º/11/2026. Nenhuma conclusão foi inferida dessa indisponibilidade.
 - Alternativas: manter os efeitos como draft para playtest interno; remover os arquivos até a revisão; ou substituir por gravações próprias/CC0 se o empacotamento dos recortes não for aceito. A opção de draft foi mantida, sem promoção a produção.
+
+## Browser smoke checkpoint — 27/10/2026
+
+No SHA de código `a04d053` (PR final após complemento documental: `e1e4494`), o jogo abriu em `http://127.0.0.1:4176/` e avançou do dia 4 ao dia 217 a 3×. Os controles mostraram áudio ligado e o status “Efeitos sonoros e vento prontos”; não houve erro nem aviso no console. As crônicas registraram combates nos dias 93, 105 e 119 e armistício no dia 196, com as campanhas retornando. Isso demonstra que o runtime e a cadeia de áudio inicializaram durante uma sessão com combate. Não confirma a audibilidade, mix ou sincronização de cada efeito; esses cinco casos seguem como aceite pendente. O wrapper `npm run dev` encontrou a porta local do serviço de IA já ocupada, então o smoke usou Vite diretamente em 4176 sem interromper o processo existente.
