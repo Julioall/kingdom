@@ -54,6 +54,33 @@ test('peacetime soldiers do not forage under critical food pressure even when fo
   assert.deepEqual(foodTile.plants, biomassBefore, 'the soldier leaves civilian food sources untouched');
 });
 
+test('a peacetime soldier buys a finite garrison ration with salary when shared supply is empty', () => {
+  const { world, soldier, foodTile } = starvingPeacetimeSoldierFixture();
+  const kingdom = world.kingdoms.find(item => item.id === soldier.kingdomId);
+  const walletGold = 5;
+  soldier.militaryWallet ||= { stock: { gold: 0 } };
+  soldier.militaryWallet.stock.gold = walletGold;
+  kingdom.market.stock.food = 100;
+  kingdom.market.prices.food = 1;
+  soldier.health = 100;
+  soldier.energy = 100;
+  const marketFoodBefore = kingdom.market.stock.food;
+  const biomassBefore = foodTile.plants.slice();
+
+  engine.modules.SocietyExperiment.updatePeople(world);
+
+  const foodPurchased = marketFoodBefore - kingdom.market.stock.food;
+  assert.ok(foodPurchased > 0, 'salary buys food from the kingdom market');
+  assert.ok(foodPurchased <= walletGold / kingdom.market.prices.food, 'the purchase cannot exceed the real wallet');
+  assert.ok(soldier.militaryWallet.stock.gold < walletGold, 'the market debits the soldier wallet');
+  assert.ok(soldier.foodReserve > 0, 'the purchased ration reaches the soldier after daily consumption');
+  assert.equal(kingdom.market.transactions, 1);
+  assert.equal(kingdom.treasury.stock.food, 0);
+  assert.equal(world.communities.find(item => item.id === soldier.communityId).stores.food, 0);
+  assert.notEqual(soldier.lastDecision.action, 'forage');
+  assert.deepEqual(foodTile.plants, biomassBefore, 'the soldier still leaves civilian food sources untouched');
+});
+
 test('a hungry peacetime soldier returns to a stocked garrison before foraging', () => {
   const { world, soldier } = starvingPeacetimeSoldierFixture(20);
   const center = world.structures.find(structure => structure.id === soldier.militaryCenterId);

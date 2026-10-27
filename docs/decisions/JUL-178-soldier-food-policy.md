@@ -10,13 +10,15 @@ O jogador observou soldados procurando alimento e pediu que eles não façam col
 
 No código atual, soldados em paz podem receber ração do tesouro/comunidade quando chegam à guarnição, mas a política de sobrevivência crítica ainda escolhia `forage` quando não havia ração e existia alimento visível. Essa precedência desviava militar de sua função e permitia colher campo/arbusto como se fosse um morador. A regra passa a excluir soldados das rotas de emergência `forage` e `hunt`. A reposição disponível continua sendo finita e contabilizada pela rotina de guarnição; sem suprimento, a pessoa não recebe alimento implícito.
 
-As compras com salário e o financiamento do reino continuam nas dependências JUL-201/JUL-202. Esta alteração não declara a folha militar satisfeita: os testes de provisão observam a reserva existente e a política de campo, não a futura economia de soldos.
+Quando a ração da guarnição não cobre o buffer militar, o soldado pode usar sua carteira real para comprar a quantidade faltante do estoque finito do mercado do reino. A transação reutiliza `buyMilitaryMeal` e o ledger existente: ouro sai da carteira, comida sai do mercado e entra na reserva pessoal. Não coleta nem debita o estoque civil. Esta compra militar é uma provisão econômica do mercado abstrato do reino, não um novo comportamento de deslocamento até a construção física do mercado; JUL-201/JUL-202 ainda precisam fechar o comércio de excedentes dos moradores, acesso físico e demais métricas de compra/venda.
 
 ## Alternativas
 
 * Reduzir a necessidade diária militar ou restaurar reserva automaticamente: rejeitado porque cria disponibilidade ou oculta escassez.
 * Permitir que soldados trabalhem no campo durante fome crítica: rejeitado conforme o pedido do jogador; mistura serviço militar e coleta civil.
-* Usar somente a ração finita já presente na guarnição e deixar a falta de suprimento observável: escolhido para esta fatia; mortes por fome continuam possíveis e serão avaliadas nos replays.
+* Restaurar automaticamente a reserva do soldado ou emitir comida sem débito: rejeitado porque oculta escassez.
+* Permitir coleta civil por soldados: rejeitado conforme o pedido do jogador; mistura serviço militar e trabalho civil.
+* Comprar apenas o que o saldo real permite depois de usar a ração acessível da guarnição: escolhido; estoque de mercado ou carteira vazios ainda podem resultar em fome e morte.
 
 ## Pesquisa e limite
 
@@ -27,5 +29,14 @@ As compras com salário e o financiamento do reino continuam nas dependências J
 ## Validação
 
 * O teste anterior provava a regressão: soldado com reserva zero, sem estoque de guarnição/comunidade e alimento visível escolhia `forage`.
-* Após a mudança, `tests/food-survival.test.mjs` deve provar que ele não colhe a fonte civil e mantém reserva zero; o teste de retorno à guarnição abastecida permanece para proteger o caso válido.
-* Registrar aqui e em JUL-178 os resultados de testes e replays no SHA do commit. A matriz longa deve separar mortes humanas por fome, mortes militares e adulto-dias sob reserva baixa.
+* `tests/food-survival.test.mjs` prova que sem guarnição, carteira ou mercado o soldado não coleta comida civil nem recebe alimento; o teste de retorno à guarnição abastecida continua cobrindo o ressuprimento válido.
+* Novo teste prova compra de uma quantidade limitada por carteira e estoque, com débito do ouro e do mercado e crédito na reserva, sem coleta civil.
+* A matriz longa no SHA do commit deve comparar compras militares, mortes de soldados por fome e adulto-dias com reserva baixa; ainda não está executada para esta alteração.
+
+## Decisão sobre compra de refeição militar — 27/10/2026
+
+**Achado no código vigente:** `buyMilitaryMeal` já debita a carteira militar e o mercado e credita a reserva do soldado, mas `updatePeopleCore` fixava `purchasedRation = 0` para todo soldado em paz. A ração era tentada da guarnição, porém um saldo zero deixava o soldado sem usar salário mesmo quando havia ouro e alimento comprável. No replay pós-política de não-coleta em `0d12418`, as mortes humanas por fome observadas na seed 42 eram todas de soldados; a mudança de comportamento civil, isoladamente, não fechou a provisão.
+
+**Decisão:** primeiro debitar a ração finita disponível da guarnição. Depois, se o buffer militar continuar abaixo de 55 pontos de reserva, tentar a compra pelo mercado existente usando somente a carteira do próprio soldado e o estoque real. O contrato de `buyMilitaryMeal` já limita quantidade por dinheiro, mercado e capacidade pessoal e registra a troca; a coleta por forrageio/caça continua proibida para o soldado em paz. Nenhuma comida ou ouro é criado. Se ambos os canais estiverem vazios, reserva zero, fome e morte continuam resultados válidos.
+
+**Pendências:** confirmar em replay a redução de mortes e o efeito sobre o estoque finito dos mercados; testar seeds/horizontes/choques de JUL-178. O serviço de compra usado aqui é abstrato do reino e não prova proximidade ou rota física até a construção `mercado`; essa lacuna pertence à conclusão da política geral de acesso de JUL-201.

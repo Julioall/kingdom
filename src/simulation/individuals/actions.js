@@ -886,8 +886,11 @@ function updatePeopleCore(w) {
       p.hydration = clamp(p.hydration - .3, 0, 100);
       const campaignRation = drawCampaignRation(w, p, dailyFoodNeed);
       if (campaignRation > .01) addFoodReserve(p, campaignRation, 'campaign-ration');
-      const purchasedRation = peacetimeSoldier ? 0 : buyMilitaryMeal(w, p, Math.max(0, dailyFoodNeed - campaignRation));
       if (peacetimeSoldier) drawGarrisonRation(w, p, militaryCenter, GARRISON_RATION_TARGET);
+      const marketRationNeed = peacetimeSoldier
+        ? Math.max(0, GARRISON_RATION_TARGET - p.foodReserve)
+        : Math.max(0, dailyFoodNeed - campaignRation);
+      const purchasedRation = buyMilitaryMeal(w, p, marketRationNeed);
       const communityRationNeed = p.role === 'soldier' || p.foodReserve >= PERSONAL_FOOD_PRESSURE_THRESHOLD
         ? 0 : Math.max(0, dailyFoodNeed - campaignRation - purchasedRation);
       const onFriendlySupplyGround = !campaignOrder || cellAt(w, Math.round(p.x), Math.round(p.y))?.kingdomId === p.kingdomId;
