@@ -30,6 +30,8 @@ O resultado demonstra que a nova ordem alcança e colhe os talhões, inclusive c
 
 O replay de dois anos `npm run audit:food -- --days 730 --seeds 2026` também passou nesse mesmo código, relatório `docs/verification/JUL-178-replant-retarget-730-seed2026-20261027.json`. As duas roças completaram 5 e 4 semeaduras, respectivamente; 77.739,50 unidades foram colhidas e 75.161,15 entregues. Ao dia 730, Valedouro tinha 18.539,28 para demanda de 47,17/dia e Corvânia 9.870,00 para demanda de 54,83/dia (o alvo de 180 dias). Ambos mantiveram estoque comum >=300 em todos os dias, não tiveram mortes humanas por fome e tiveram ledger balanceado nos seis lados de campanha. A reserva combinada mínima foi de 106,52/104,65 dias. O alvo completo ficou abaixo em 308/205 dias no período de formação, mas, no fim do replay, os dois reinos o haviam recuperado; 12 moradores de Valedouro e 21 de Corvânia ainda tinham reserva pessoal <20. As 25 mortes por fome novamente foram de animais silvestres. Esta execução isolada não é repetição determinística de 2026; a matriz e o repeat da seed 42 seguem necessários para JUL-178.
 
+Os números de `daysBelow300` observam o estoque após cada passo diário; o estoque comum inicial era zero, antes do primeiro passo. `minimumCombinedReserveDays` soma estoque comum e reservas pessoais convertidas em unidades brutas: é uma métrica agregada, não prova que cada morador consiga acessar a soma ou receber alimento por uma rota válida. A auditoria de acesso e os balanços por proprietário e dia permanecem pendentes.
+
 ## Fontes e limites
 
 - Issue e discussão JUL-178: https://linear.app/julio-alves/issue/JUL-178/auditar-conservacao-e-logistica-de-alimentos-coleta-cultivo-caca-civis

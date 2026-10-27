@@ -408,21 +408,21 @@ export function nearestKnownStorage(w, person, community) {
     }
     const sightings = person.perception && person.perception.knownStorages || [];
     for (const sighting of sightings.slice().sort((a, b) =>
-      ((person.carriedMeat || 0) > .01 ? Number(b.kind === 'shelter') - Number(a.kind === 'shelter') : 0)
+      ((person.carriedMeat || 0) > 0 ? Number(b.kind === 'shelter') - Number(a.kind === 'shelter') : 0)
         || a.distance - b.distance)) {
       const owner = w.communities.find(c => c.id === sighting.communityId && !c.dissolved);
       if (!owner) continue;
       const shelter = sighting.kind === 'shelter'
         ? w.structures.find(s => s.id === sighting.id && s.communityId === owner.id && usableShelter(s)) || null
         : null;
-      if (sighting.kind === 'shelter' && !shelter || (person.carriedMeat || 0) > .01 && !shelter) continue;
+      if (sighting.kind === 'shelter' && !shelter || (person.carriedMeat || 0) > 0 && !shelter) continue;
       return { community: owner, shelter, pen: null, destination: shelter || owner };
     }
     return { community: null, shelter: null, pen: null, destination: null };
   }
 
 export function cargoDeliveryPlan(w, person, community, storage = nearestKnownStorage(w, person, community)) {
-    const meat = (person.carriedMeat || 0) > .01;
+    const meat = (person.carriedMeat || 0) > 0;
     const feedOnly = (person.carriedFeed || 0) > .01 && !meat
       && !(person.carriedFruit > .01) && !(person.carriedFood > .01);
     const destination = meat ? storage.shelter : feedOnly ? storage.pen || storage.destination : storage.destination;
@@ -458,6 +458,13 @@ export function attemptHumanHunt(w, person, prey, community) {
       person.lastLesson = 'Sem um abrigo, a caça não pode ser guardada; procurar alimento ou migrar evita insistir sem retorno.';
       return false;
     }
+    const meat = clamp(prey.massKg * .48, 1.2, 28);
+    const carriedMeat = person.carriedMeat ?? 0;
+    if (!Number.isFinite(meat) || !Number.isFinite(carriedMeat) || carriedMeat < 0 || meat > 28 - carriedMeat) {
+      person.state = 'sem espaço para carregar a caça';
+      person.lastLesson = 'A carga atual precisa ser entregue antes de levar toda a carne da presa.';
+      return false;
+    }
     const tile = cellAt(w, Math.round(prey.x), Math.round(prey.y));
     const profile = species(prey.speciesId, ANIMALS);
     const support = humanHarvestSupport(w, person, community);
@@ -472,7 +479,6 @@ export function attemptHumanHunt(w, person, prey, community) {
       person.lastLesson = 'A presa escapou; perseguir custou energia e hidratação. Uma área com mais presas ou ajuda de outros membros melhora a próxima tentativa.';
       return false;
     }
-    const meat = clamp(prey.massKg * .48, 1.2, 28);
     const meatAdded = addResource(person, 'carriedMeat', meat, 28);
     if (meatAdded + .001 < meat) return false;
     prey.alive = false; w.deaths++; w.deathsByCause.harvest++;
@@ -1045,8 +1051,8 @@ function updatePeopleCore(w) {
       const storage = nearestKnownStorage(w, p, community);
       const delivery = cargoDeliveryPlan(w, p, community, storage);
       const deliveryNeed = clamp(carriedResources(p) / 24, 0, 1);
-      const canDeliverEdibleCargo = !!delivery
-        && (p.carriedFood || 0) + (p.carriedFruit || 0) + (p.carriedMeat || 0) > .01;
+      const canDeliverEdibleCargo = !!delivery && ((p.carriedMeat || 0) > 0
+        || (p.carriedFood || 0) + (p.carriedFruit || 0) > .01);
       const looseLog = nearestKnownLog(p, 7);
       const droppedLoot = nearestLoot(w, p, 7);
       const herd = community ? domesticatedSheep(w, community) : [];
@@ -1145,7 +1151,7 @@ function updatePeopleCore(w) {
           ? 'sede crítica' : survivalAction === 'rest' ? 'energia crítica' : 'fome crítica');
         assignment.lastPausedDay = w.day;
       }
-      const carryingGoods = carriedResources(p) > .01;
+      const carryingGoods = carriedResources(p) > .01 || (p.carriedMeat || 0) > 0;
       const carrierMaintenanceAction = carryingGoods && !peacetimeSoldier && !campaignOrder
         ? p.hydration < 40 && waterTarget ? 'drink'
           : p.foodReserve < 24 && food && !canDeliverEdibleCargo ? 'forage'
@@ -1302,7 +1308,7 @@ function updatePeopleCore(w) {
       } else if (action === 'hunt') {
         huntForFood(w, p, community);
       } else if (action === 'deliver') {
-        const carryingMeat = (p.carriedMeat || 0) > .01;
+        const carryingMeat = (p.carriedMeat || 0) > 0;
         const carryingFruit = (p.carriedFruit || 0) > .01;
         const carryingFeed = (p.carriedFeed || 0) > .01;
         const carryingFood = (p.carriedFood || 0) > .01;
@@ -1314,9 +1320,9 @@ function updatePeopleCore(w) {
           p.lastLesson = 'A carga continua com quem a transporta até um local comunitário adequado ficar disponível.';
         } else if (distance(p, destination) <= 1.5) {
           const fruitInShelter = carryingFruit && !!receivingShelter;
-          if (p.carriedMeat > .01) {
+          if (p.carriedMeat > 0) {
             const amount = moveCarriedResource(p, 'carriedMeat', receivingCommunity, 'meat', p.carriedMeat);
-            if (amount > .01) addResource(receivingShelter, 'meatStored', amount);
+            if (amount > 0) addResource(receivingShelter, 'meatStored', amount);
           }
           if (p.carriedFeed > .01) moveCarriedResource(p, 'carriedFeed', receivingCommunity, 'feed', p.carriedFeed);
           if (p.carriedFruit > .01) {

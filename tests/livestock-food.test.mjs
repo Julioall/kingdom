@@ -49,6 +49,31 @@ test('emergency harvest stops when only the two mature breeding sheep remain', (
   assert.equal(person.carriedMeat, 0);
 });
 
+test('a nearly full meat yield cannot create cargo while leaving the sheep alive', () => {
+  const { world, community, person, sheep } = herdFixture();
+  person.carriedMeat = .01;
+  sheep[0].massKg = 67;
+
+  assert.equal(attemptHumanHunt(world, person, sheep[0], community), false);
+  assert.equal(person.carriedMeat, .01, 'insufficient capacity leaves existing cargo untouched');
+  assert.equal(sheep[0].alive, true);
+  assert.equal(world.deaths, 0);
+  assert.equal(world.harvests.livestock, 0);
+  assert.equal(person.energy, 80);
+  assert.equal(person.hydration, 80);
+  assert.equal(world.rngState, 7);
+});
+
+test('a maximum yield is collected when the whole load fits', () => {
+  const { world, community, person, sheep } = herdFixture();
+  sheep[0].massKg = 67;
+
+  assert.equal(attemptHumanHunt(world, person, sheep[0], community), true);
+  assert.equal(person.carriedMeat, 28);
+  assert.equal(sheep[0].alive, false);
+  assert.equal(world.harvests.livestockMeat, 28);
+});
+
 test('stored food and shelter meat cover the daily need before a herd is harvested', () => {
   const { world, community, person, sheep, shelter } = herdFixture();
   community.stores.food = .8;
@@ -122,4 +147,30 @@ test('resident under food pressure delivers carried meat to a nearby shelter', (
   assert.ok(Math.abs(community.stores.meat - 5.2) < 1e-9);
   assert.ok(Math.abs(shelter.meatStored - 5.2) < 1e-9);
   assert.equal(person.state, 'carne armazenada no abrigo');
+});
+
+test('a residual fraction of meat can be delivered before a full-yield hunt', () => {
+  const world = engine.createWorld(42);
+  const community = world.communities[0];
+  const person = world.people.find(item => item.alive && item.communityId === community.id
+    && item.role !== 'soldier' && item.ageDays >= 12 * 365);
+  const shelter = { id: world.nextId++, type: 'abrigo', complete: true, destroyedDay: null,
+    communityId: community.id, x: person.x, y: person.y, integrity: 100, health: 100, meatStored: 0 };
+  world.structures.push(shelter);
+  world.day = 1;
+  community.stores.meat = 0;
+  person.foodReserve = 80;
+  person.hydration = 80;
+  person.energy = 80;
+  person.carriedMeat = .01;
+  person.carriedFood = 0;
+  person.carriedFruit = 0;
+  world.people = [person];
+  community.memberIds = [person.id];
+
+  engine.modules.SocietyExperiment.updatePeople(world);
+
+  assert.equal(person.carriedMeat, 0);
+  assert.equal(community.stores.meat, .01);
+  assert.equal(shelter.meatStored, .01);
 });
