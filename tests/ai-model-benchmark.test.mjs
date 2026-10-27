@@ -30,10 +30,11 @@ test('Ollama stream reader records TTFT from a final chunk without a newline', a
       controller.close();
     }
   }));
-  const result = await readOllamaNdjsonStream(response);
+  const requestStartedAt = performance.now() - 20;
+  const result = await readOllamaNdjsonStream(response, requestStartedAt);
   assert.equal(result.content, '{"decision":"wait"}');
   assert.equal(result.server.done, true);
-  assert.ok(Number.isFinite(result.firstTokenMs));
+  assert.ok(result.firstTokenMs >= 20);
 });
 
 test('benchmark summary reads the nested source SHA and leaves unavailable TTFT unavailable', () => {

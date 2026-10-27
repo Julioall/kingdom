@@ -207,10 +207,9 @@ async function getJson(path) {
   return response.json();
 }
 
-export async function readOllamaNdjsonStream(response) {
+export async function readOllamaNdjsonStream(response, requestStartedAt = performance.now()) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
-  const startedAt = performance.now();
   let buffered = '';
   let firstTokenMs = null;
   let content = '';
@@ -219,7 +218,7 @@ export async function readOllamaNdjsonStream(response) {
     if (!line.trim()) return;
     const part = JSON.parse(line);
     const fragment = part.message?.content || '';
-    if (fragment && firstTokenMs === null) firstTokenMs = Math.round(performance.now() - startedAt);
+    if (fragment && firstTokenMs === null) firstTokenMs = Math.round(performance.now() - requestStartedAt);
     content += fragment;
     if (part.done) final = part;
   };
@@ -232,7 +231,7 @@ export async function readOllamaNdjsonStream(response) {
     for (const line of lines) consumeLine(line);
   }
   consumeLine(buffered);
-  return { content, firstTokenMs, server: final, clientDurationMs: Math.round(performance.now() - startedAt) };
+  return { content, firstTokenMs, server: final };
 }
 
 async function requestChat({ model, messages, schema, seed, timeoutMs = REQUEST_TIMEOUT_MS }) {
@@ -252,7 +251,7 @@ async function requestChat({ model, messages, schema, seed, timeoutMs = REQUEST_
       const payload = await response.json().catch(() => ({}));
       throw new Error(payload.error || 'Ollama HTTP ' + response.status);
     }
-    const streamed = await readOllamaNdjsonStream(response);
+    const streamed = await readOllamaNdjsonStream(response, startedAt);
     const text = streamed.content;
     let parsed = null;
     let parseError = null;
