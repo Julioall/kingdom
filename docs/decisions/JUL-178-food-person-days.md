@@ -24,6 +24,12 @@ O baseline repetido de 253 dias, seed 42, no SHA `bf9ad54ab371ec972a15de442955e6
 - **Manter descontos de crianças e soldados:** exigiria exceções para estimar reservas, mercado e rações. A regra comum de 1 pessoa-dia elimina essas conversões sem dar comida gratuita; cada pessoa continua podendo ficar sem acesso e morrer de fome.
 - **Alterar o valor nutricional da carne:** rejeitado nesta fatia. A conversão 2,5 já existe e pode permanecer como fator separado e visível.
 
+## Reavaliação puxada pelo replay
+
+O primeiro replay pós-normalização, em 253 dias e seeds 1/42/987/2026 no SHA `79516a9cf88d2b3f32eac12c4edace5244c6581c`, não foi aprovado: houve 1, 2 e 7 mortes humanas por fome nas seeds 42, 987 e 2026. Na seed 1, Valedouro terminou sem estoque, com média de 4,06 dias de reserva pessoal; sua roça tinha 9.945,75 unidades maduras em pé, mas só 54,25 haviam sido colhidas. Corvânia, com colheita contínua, terminou com 22.414,32 unidades. O relatório reprodutível está em `docs/verification/JUL-178-food-unit-post-253-20261027.json`.
+
+A causa confirmada no código tinha duas travas: o piso de 14 dias tornava moradores famintos inelegíveis para tarefas urgentes, e a ação só depositava diretamente a colheita madura no estoque comunitário quando a reserva pessoal passava de 35 dias. Ambas foram removidas apenas do caminho de colheita comunal urgente/designada. Saúde, energia, água, acessibilidade do campo e a reserva civil protegida de campanhas continuam verificadas. Testes cobrem a atribuição com reserva zero e a entrega real de uma roça madura ao estoque comum. A aprovação depende do novo replay das mesmas seeds.
+
 ## Pesquisa e orientação de jogo
 
 - O SciSpace localizou Giedelmann-L, Guerrero e Solano-Charris, *System dynamics approach for food inventory policy assessment in a humanitarian supply chain* (2022), [DOI 10.1016/j.ijdrr.2022.103286](https://doi.org/10.1016/j.ijdrr.2022.103286). O estudo compara políticas centralizadas e descentralizadas de estoque, considerando falta, excesso e distribuição de perecíveis. Ele apoia acompanhar estoque e acesso por localização; não prescreve pessoa-dia como unidade de gameplay.

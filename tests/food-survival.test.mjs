@@ -117,6 +117,39 @@ test('cultivated food delivered at the field is attributed to that field and com
   assert.equal(field.foodDelivered, 24, 'delivered production is separately attributed to its source field');
 });
 
+test('a starving resident assigned to harvest a ready field deposits food into shared stock', () => {
+  const { world, soldier: worker } = starvingPeacetimeSoldierFixture();
+  worker.role = 'resident';
+  worker.militaryCenterId = null;
+  worker.militaryDutyCenterId = null;
+  worker.foodReserve = 0;
+  worker.hydration = 100;
+  worker.energy = 100;
+  worker.health = 100;
+  const community = world.communities.find(item => item.id === worker.communityId);
+  community.stores.food = 0;
+  const cropIndex = PLANTS.findIndex(plant => plant.id === 'cultivated-root');
+  const crop = cellAt(world, Math.round(worker.x), Math.round(worker.y));
+  crop.terrain = 'land';
+  crop.cropFieldId = 99004;
+  crop.plants.fill(0);
+  crop.plants[cropIndex] = 100;
+  crop.plantResourceMask |= 1 << cropIndex;
+  worker.perception.resources = [{ x: crop.x, y: crop.y, distance: 0, terrain: 'land', slope: 0,
+    biomass: { 'cultivated-root': 100 }, harvestableBiomass: { 'cultivated-root': 100 } }];
+  const field = { id: 99004, type: 'roça', communityId: community.id, complete: true,
+    cropCycleState: 'ready', cropYieldTarget: 100, fieldTileIndices: [crop.i] };
+  world.structures.push(field);
+  worker.assignment = { action: 'forage', goal: 'secure-shared-food', source: 'kingdom-strategy',
+    communityId: community.id, foodFieldId: field.id, expiresDay: world.day + 10 };
+
+  engine.modules.SocietyExperiment.updatePeople(world);
+
+  assert.ok(community.stores.food > 0, 'assigned harvest replenishes the shared stock despite empty personal reserves');
+  assert.equal(worker.carriedFood, 0, 'the harvest is stored at the field without a cargo detour');
+  assert.equal(field.foodDelivered, community.stores.food, 'field output is attributed to the matching shared-stock deposit');
+});
+
 test('an adult with critical hunger harvests nearby food while critical water remains out of reach', () => {
   const { world, soldier } = starvingPeacetimeSoldierFixture();
   soldier.role = 'resident';

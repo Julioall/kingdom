@@ -1260,7 +1260,7 @@ function updatePeopleCore(w) {
           } else {
             p.foodTarget = null;
             const communityFoodWorker = assignment && assignment.action === 'forage'
-              && assignment.foodFieldId != null && p.foodReserve > 35 && carrierMaintenanceAction !== 'forage';
+              && assignment.foodFieldId != null && carrierMaintenanceAction !== 'forage';
             if (communityFoodWorker) {
               if (collectFoodForCommunity(w, p, food) <= .01) {
                 p.state = 'carga de alimento sem espaço';
