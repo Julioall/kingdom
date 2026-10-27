@@ -32,7 +32,26 @@ Manter metas e resultados separados por cenário. Não reduzir taxas de mortalid
 
 ## Evidência e limites
 
-Relatórios: `docs/verification/JUL-178-food-routecooldown-730-multiseed-20261026.json` e `docs/verification/JUL-178-food-routecooldown-730-deaths-seed987-20261026.json`. O trace amostra uma seed e não é prova de uma taxa populacional. Literatura de forrageamento registrada na decisão geral de JUL-178 informa o enquadramento de buffers e custo de busca, mas não calibra este cenário nem determina se a morte específica era necessária. A matriz anual de quatro seeds está em execução e deve completar esta análise.
+Relatórios: `docs/verification/JUL-178-food-routecooldown-730-multiseed-20261026.json` e `docs/verification/JUL-178-food-routecooldown-730-deaths-seed987-20261026.json`. O trace amostra uma seed e não é prova de uma taxa populacional. Literatura de forrageamento registrada na decisão geral de JUL-178 informa o enquadramento de buffers e custo de busca, mas não calibra este cenário nem determina se a morte específica era necessária.
+
+Uma busca SciSpace em 27/10/2026 encontrou referências metodológicas sobre validação de modelos multiagentes e avaliação explícita das decisões dos agentes: Fagiolo, Moneta e Windrum, [Confronting Agent-Based Models with Data](https://doi.org/10.1007/3-540-37249-0_18); Anand et al., [Validation of an agent based model using a participatory simulation gaming approach](https://doi.org/10.1016/J.TRC.2016.08.002); e Wijermans et al., [Agent decision-making: The Elephant in the Room](https://doi.org/10.1016/j.envsoft.2023.105850). Esses trabalhos apoiam separar traços de decisão de resultados agregados e justificar se o modelo de decisão serve ao contexto; não determinam a taxa aceitável de mortalidade do Kingdom nem provam a causa da morte da Ema. A regra adotada, portanto, é permitir mortalidade sob escassez finita e auditar cada cadeia causal por reservas, oferta acessível, caminho, energia, cuidado e decisões precedentes. Sobrevivência universal não é meta; ausência de diagnóstico tampouco torna uma morte correta.
+
+Consensus foi tentado novamente em 27/10, mas a cota continua esgotada até 01/11/2026. O conector Game Studio MCP permanece indisponível nesta sessão. Essas limitações não impedem a avaliação causal por testes e replays determinísticos.
+
+## Replay alimentar atual — 365 dias, quatro seeds e repetição pareada — 27/10/2026
+
+No código `7c67efe794cb5aae1b7be5d132f737b77fe806a0`, as seeds 1, 42, 987 e 2026 terminaram 365 dias e a seed 42 foi repetida. Estado completo e crônica coincidiram na repetição. **Nenhuma pessoa morreu por fome** no horizonte: as mortes humanas foram combate/invasão (2, 2, 1 e 2, respectivamente). O campo amplo `deathsByCause.starvation` agrega fauna e pessoas: os registros correspondem a 4/5/3/20 mortes de animais selvagens, sem morte humana por fome e sem morte de animal doméstico.
+
+| Seed | Pessoas no fim | Morte humana por fome | Outras mortes humanas | Adulto-dias com reserva <20 | Mortes de animais selvagens por fome |
+| ---: | ---: | ---: | --- | ---: | ---: |
+| 1 | 101 | 0 | 0 | 7.385 | 4 |
+| 42 | 98 | 0 | 1 combate, 1 invasão | 11.771 | 5 |
+| 987 | 99 | 0 | 1 invasão | 12.014 | 3 |
+| 2026 | 98 | 0 | 2 invasões | 9.895 | 20 |
+
+Os replays registraram 22 campanhas-lado, 236 batalhas e 282 transações de mercado no conjunto; todos os lados de campanha têm ledger completo, sem saldo alimentar desbalanceado. Três seeds terminaram com estoque comunitário, tesouro e mercado em zero, enquanto reservas pessoais continuaram positivas. Isso demonstra uma economia sob pressão e mortalidade animal por falta de oferta, mas não permite inferir morte humana por fome neste horizonte. A exposição a reserva baixa continua relevante para avaliar robustez, embora não seja prova de decisão neural ruim nem, isoladamente, defeito.
+
+Relatório reproduzível: `docs/verification/JUL-178-food-audit-365-multiseed-7c67efe-20261027.json`; comando: `npm run audit:food -- --days 365 --seeds 1,42,987,2026 --repeat-seed 42 --output <arquivo>`. A matriz de 365 dias não substitui o trace de 730 dias de Ema nem prova que toda morte longa seja inevitável; as diferenças entre horizontes e atores devem permanecer explícitas nos relatórios.
 
 ## Revisão da prioridade entre comida e água — 27/10/2026
 
