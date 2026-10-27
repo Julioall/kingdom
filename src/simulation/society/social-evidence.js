@@ -856,7 +856,7 @@ export function pruneSocialEvidence(world, currentDay = world.day, preserveEvent
   const protectedEventsByPerson = new Map();
   const protect = (person, ids) => {
     if (!person || !Array.isArray(ids)) return;
-    const protectedIds = protectedEventsByPerson.get(String(person.id)) || new Set();
+    const protectedIds = new Set([...(protectedEventsByPerson.get(String(person.id)) || []), ...pendingEvents]);
     for (const id of ids) protectedIds.add(id);
     protectedEventsByPerson.set(String(person.id), protectedIds);
   };

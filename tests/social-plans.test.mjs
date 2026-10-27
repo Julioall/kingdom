@@ -4,7 +4,7 @@ import {
   acceptSocialCommitment, advanceSocialCommitmentDeadlines, advanceSocialIntention, defineSocialBelief,
   abandonSocialIntentionsForPerson, defineSocialIntention, fulfillSocialCommitment, getSocialCommitment,
   maintainSocialIntentions, proposeSocialCommitment, recordSocialFact, SOCIAL_FACT_LIMIT,
-  rememberSocialFact, rejectSocialCommitment
+  rememberSocialFact, rejectSocialCommitment, updateDirectedSocialRelationship
 } from '../src/simulation/society/social-evidence.js';
 import { enlistSoldier } from '../src/simulation/kingdoms/service.js';
 
@@ -120,6 +120,8 @@ test('commitment deadline shares its transition fact before pruning a full pinne
   });
   rememberSocialFact(state, 1, share.eventId, { source: 'direct' });
   rememberSocialFact(state, 2, share.eventId, { source: 'direct' });
+  updateDirectedSocialRelationship(state, 1, 2, { eventId: share.eventId, familiarityDelta: .01 });
+  updateDirectedSocialRelationship(state, 2, 1, { eventId: share.eventId, familiarityDelta: .01 });
   assert.ok(state.socialEvidence.facts.some(fact => fact.eventId === share.eventId),
     'the next witness can receive a fact even when the first witness has no unpinned memory slot');
   state.day = commitment.dueDay + 1;
