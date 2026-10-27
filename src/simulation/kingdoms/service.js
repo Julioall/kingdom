@@ -72,13 +72,15 @@ export function militaryDutyCenterFor(world, person) {
     .filter(Boolean).sort((a, b) => distance(person, a) - distance(person, b) || a.id - b.id)[0] || null;
 }
 
-export function drawGarrisonRation(world, person, center = militaryDutyCenterFor(world, person), target = GARRISON_RATION_TARGET) {
+export function drawGarrisonRation(world, person, center = militaryDutyCenterFor(world, person), target = GARRISON_RATION_TARGET,
+  { allowAwayFromCenter = false } = {}) {
   const restingHouse = world.structures.find(structure => structure.id === person?.restingStructureId
     && structure.complete && structure.kingdomId === person.kingdomId
     && structure.destroyedDay == null && structure.integrity !== 0 && distance(person, structure) <= 1.25);
-  if (!person || person.role !== 'soldier' || person.campaignId != null || !center
-      || center.type !== 'centro_militar' || center.kingdomId !== person.kingdomId
-      || !center.complete || distance(person, center) > 2.5 && !restingHouse) return 0;
+  const validCenter = center && center.type === 'centro_militar' && center.kingdomId === person?.kingdomId && center.complete;
+  const canDrawAtCenter = validCenter && (distance(person, center) <= 2.5 || restingHouse);
+  if (!person || person.role !== 'soldier' || person.campaignId != null
+      || !allowAwayFromCenter && !canDrawAtCenter || allowAwayFromCenter && center && !validCenter) return 0;
   const need = Math.min(Math.max(0, target - person.foodReserve), Math.max(0, 100 - person.foodReserve));
   if (need <= .01) return 0;
   const kingdom = world.kingdoms.find(item => item.id === person.kingdomId);

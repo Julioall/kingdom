@@ -937,13 +937,18 @@ function updatePeopleCore(w) {
       const campaignOrder = campaignOrderFor(w, p);
       const peacetimeSoldier = p.role === 'soldier' && p.campaignId == null
         && !campaignOrder?.campaign && !campaignOrder?.returning;
-      const militaryCenter = peacetimeSoldier ? militaryDutyCenterFor(w, p) : null;
-      const garrisonKingdom = peacetimeSoldier ? w.kingdoms.find(item => item.id === p.kingdomId) : null;
+      const militaryCenter = p.role === 'soldier' ? militaryDutyCenterFor(w, p) : null;
+      const garrisonKingdom = p.role === 'soldier' ? w.kingdoms.find(item => item.id === p.kingdomId) : null;
       const garrisonCommunity = garrisonKingdom && w.communities.find(item =>
         item.id === garrisonKingdom.communityId && item.kingdomId === p.kingdomId);
       const garrisonFoodAvailable = Math.max(0, Number(garrisonKingdom?.treasury?.stock?.food) || 0)
         + communityFoodStock(garrisonCommunity);
       const dailyFoodNeed = peacetimeSoldier ? PEACETIME_SOLDIER_FOOD_NEED : DAILY_FOOD_NEED;
+      const currentTerritoryOwner = cellAt(w, Math.round(p.x), Math.round(p.y))?.kingdomId;
+      const onOwnTerritory = currentTerritoryOwner === p.kingdomId;
+      const onFriendlySupplyGround = !campaignOrder || onOwnTerritory;
+      const returnToGarrison = peacetimeSoldier && p.foodReserve < GARRISON_RECOVERY.food
+        && garrisonFoodAvailable > .01 && militaryCenter && distance(p, militaryCenter) > 2;
       const communitySize = community ? (communityCounts.get(community.id) || 0) : 0;
       const sheltered = w.structures.some(s => s.complete && s.type === 'abrigo' && community && p.communityId === s.communityId && distance(p, s) <= 4);
       consumePersonEnergy(p, (peacetimeSoldier ? .18 : sheltered ? .4 : .48) + p.injury * .006);
@@ -951,13 +956,17 @@ function updatePeopleCore(w) {
       const campaignRation = drawCampaignRation(w, p, dailyFoodNeed);
       if (campaignRation > .01) addFoodReserve(p, campaignRation, 'campaign-ration');
       if (peacetimeSoldier) drawGarrisonRation(w, p, militaryCenter, GARRISON_RATION_TARGET);
+      const returningToMilitarySupply = p.role === 'soldier' && p.campaignId == null
+        && (campaignOrder?.returning || p.militaryReturningHome || returnToGarrison);
+      const emergencyGarrisonRation = returningToMilitarySupply && onOwnTerritory
+        && p.foodReserve < dailyFoodNeed && garrisonFoodAvailable > .01
+        ? drawGarrisonRation(w, p, militaryCenter, dailyFoodNeed, { allowAwayFromCenter: true }) : 0;
       const marketRationNeed = peacetimeSoldier
         ? Math.max(0, GARRISON_RATION_TARGET - p.foodReserve)
-        : Math.max(0, dailyFoodNeed - campaignRation);
+        : Math.max(0, dailyFoodNeed - campaignRation - emergencyGarrisonRation);
       const purchasedRation = buyMilitaryMeal(w, p, marketRationNeed);
       const communityRationNeed = p.role === 'soldier' || p.foodReserve >= PERSONAL_FOOD_PRESSURE_THRESHOLD
         ? 0 : Math.max(0, dailyFoodNeed - campaignRation - purchasedRation);
-      const onFriendlySupplyGround = !campaignOrder || cellAt(w, Math.round(p.x), Math.round(p.y))?.kingdomId === p.kingdomId;
       if (community && onFriendlySupplyGround && communityRationNeed > .01 && communityFoodStock(community) > .01) {
         const personalCapacity = Math.max(0, 100 - p.foodReserve) / FOOD_DAYS_PER_UNIT;
         const meal = Math.min(communityRationNeed / FOOD_DAYS_PER_UNIT, communityFoodStock(community), personalCapacity);
@@ -1182,8 +1191,6 @@ function updatePeopleCore(w) {
       const assignedBuildDuty = assignment && assignment.action === 'build' && !assignmentConflict && !survivalAction
         && !homeRest && !carryingGoods && !p.leadingSheepId;
       // Food and water require resupply or drinking, never an endless sleep.
-      const returnToGarrison = peacetimeSoldier && p.foodReserve < GARRISON_RECOVERY.food
-        && garrisonFoodAvailable > .01 && militaryCenter && distance(p, militaryCenter) > 2;
       const planContext = {
         militaryDuty: !!campaignOrder || !!p.towerMounted || !!p.towerDutyId,
         urgentNeeds: !!(survivalAction || carrierMaintenanceAction)
