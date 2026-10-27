@@ -1,307 +1,284 @@
-# Kingdom — GDD: RTS de Reinos Autônomos
+# Kingdom — GDD: Reinos Autônomos e Participação Opcional
 
-**Versão:** 0.1.0  
-**Status:** Proposta para validação  
-**Repositório-alvo:** [Julioall/kingdom](https://github.com/Julioall/kingdom)  
-**Escopo deste documento:** evolução do protótipo Kingdom para um simulador estratégico observacional, inspirado no ciclo de construção e disputa territorial de RTS clássicos.
+**Versão:** 0.2.0  
+**Atualização:** 27/10/2026  
+**Status:** Proposta revisada — para revisão no PR #1; não equivale à aprovação, implementação ou integração à main.  
+**Produto:** [Kingdom — Reinos Autônomos](https://linear.app/julio-alves/project/kingdom-reinos-autonomos-0db1ae2cf728)  
+**Repositório:** [Julioall/kingdom](https://github.com/Julioall/kingdom)  
+**Referências principais:** [JUL-195 — execução ativa](https://linear.app/julio-alves/issue/JUL-195) · [JUL-205 — interação futura](https://linear.app/julio-alves/issue/JUL-205)
 
-> Este documento se refere ao repositório `kingdom`, uma aplicação web. Ele não propõe migrar o projeto para o repositório Genesis nem reutilizar sua stack MonoGame.
+> **Regra de escopo:** Kingdom é hoje uma aplicação web. Este GDD não determina migração para Genesis, MonoGame ou outra engine. O modo autônomo/observacional permanece o baseline demonstrável; o jogador poderá participar opcionalmente em uma evolução incremental, sem eliminar a autonomia das IAs.
 
 ## 1. Visão do produto
 
-**Kingdom** é um simulador de reinos autônomos. Populações, governantes, comunidades e forças de defesa tomam decisões sem um jogador comandando unidades. A pessoa usuária acompanha o mundo, observa as consequências e investiga por que cada reino prospera, entra em conflito, se divide ou desaparece.
+Kingdom simula reinos, moradores, comunidades e exércitos que produzem, negociam, aprendem, disputam território e vivem consequências persistentes. A fantasia central é **acompanhar — e futuramente também participar — de uma história política emergente que não depende do jogador para acontecer**.
 
-A referência a *Age of Empires* é de alto nível: coleta e transformação de recursos, crescimento de assentamentos, construção, defesa, expansão territorial e conflito. Kingdom terá regras, identidade visual e sistemas próprios; não reproduzirá conteúdo, facções, mapas ou assets do jogo de referência.
+Inspirado na dinâmica geral de estratégia e construção de RTS clássicos, mas com sistemas e identidade próprios, o jogo busca decisões compreensíveis, recursos limitados e múltiplas trajetórias possíveis, inclusive fome, deserção, migração, conquista e queda de governos.
 
-### Fantasia central
+**Duas experiências complementares:**
 
-> “Observar uma história política surgir de decisões de sobrevivência, economia, liderança, território e defesa.”
+1. **Modo de observação autônoma (base M0–M6):** mundo avança por conta própria. O jogador inspeciona, pausa, acelera, reproduz seeds e investiga causas; a demonstração anual M5 não admite intervenções para cumprir seus critérios.
+2. **Participação opcional (roadmap M7–M12):** jogador pode selecionar personagens/grupos, emitir ordens e eventualmente assumir rei, general, militar ou peão. Ao devolver o controle, a IA retoma com identidade, recursos, ordens, relações e memórias preservados. Isso é direção futura, não requisito já entregue.
 
-### Posicionamento
-
-- **Gênero:** simulador estratégico e RTS observacional.
-- **Modo inicial:** um mundo, várias facções controladas integralmente por IA.
-- **Papel da pessoa usuária:** observadora e investigadora; não controla um reino ou exército.
-- **Plataforma inicial:** navegador, com foco em desktop.
-- **Estilo atual:** mapa 2D em pixel art, com camadas de inspeção e visualização causal.
+**Plataforma atual:** navegador desktop, Vite e Canvas 2D. Controles, escala ou outras plataformas só mudam com evidências e decisão de produto.
 
 ## 2. Pilares de design
 
-1. **Autonomia:** o mundo continua funcionando sem ordens da pessoa usuária.
-2. **Causalidade:** decisões consomem tempo e recursos, e seus resultados deixam evidências.
-3. **Agentes limitados:** cada pessoa age a partir de necessidades, capacidades, percepção e memória locais; não tem conhecimento perfeito do mapa.
-4. **Reinos como sistemas sociais:** um reino depende de pessoas, alimentos, materiais, confiança, liderança, instituições e defesa; seu tamanho não é apenas uma pontuação.
-5. **Conflito com consequências:** disputas surgem de objetivos e pressões simulados, e produzem custos econômicos, humanos e políticos.
-6. **Histórias legíveis:** acontecimentos importantes podem ser inspecionados sem transformar o simulador em uma sequência roteirizada.
-7. **Equilíbrio não forçado:** falência, divisão, migração, vitória e extinção são resultados possíveis; o sistema não cria recursos para garantir que todos sobrevivam.
+1. **Autonomia verificável:** cada reino age sem comandos humanos. Intervenção opcional não substitui o mundo autônomo.
+2. **Causalidade:** ordens têm origem, validação, custo, duração, consequência e registro.
+3. **Agentes não oniscientes:** pessoas e governantes conhecem apenas observações, relatos e memórias com fonte, idade e incerteza.
+4. **Escassez e propriedade:** recursos, inventários, ouro, capacidade, alimentos, munições e tempo não surgem gratuitamente.
+5. **Sociedade emergente:** relações, confiança, ajuda, lealdade, compromisso, facções e oposição influenciam política e sobrevivência.
+6. **Conflito com consequências:** combates respeitam espaço, linha de visão, defesa, logística, baixas e efeitos econômicos/políticos.
+7. **Histórias explicáveis:** crônica e replay permitem seguir intenção → ordem → execução → resultado.
+8. **Controle seguro e reversível:** humano e IA usam a mesma autoridade de domínio, sem dois motores ou duas versões contraditórias do mundo.
 
-## 3. Experiência de observação
+## 3. Experiência do jogador e modos de interação
 
-No escopo inicial, a pessoa usuária não escolhe ações de trabalhadores, movimenta tropas nem administra um reino. Pode:
+### 3.1 Observação — baseline obrigatório
 
-- iniciar, pausar, avançar um passo e alterar a velocidade da simulação;
-- escolher ou repetir uma semente e um cenário;
-- navegar pelo mapa e alternar camadas de clima, recursos, território, população e conflito;
-- selecionar indivíduos, governantes, assentamentos, edifícios e eventos;
-- consultar necessidades, recursos percebidos, memória recente, intenção, custo e resultado de um agente;
-- acompanhar a crônica do mundo e abrir a cadeia causal de um evento;
-- comparar população, reservas, produção, satisfação, território, baixas e estabilidade entre reinos.
+O jogador pode iniciar, pausar, avançar por passos, ajustar velocidade, usar seeds, explorar mapa, inspecionar indivíduos/reinos/edifícios/campanhas, comparar populações e consultar crônica, recursos, objetivos, decisões e consequências. Um replay de um ano precisa funcionar **sem comandos humanos** para validar M5.
 
-Intervenções da pessoa usuária, como controlar um reino ou emitir comandos, ficam fora do primeiro MVP. Isso preserva a pergunta central: o que as IAs fazem quando precisam governar e sobreviver sem direção humana?
+### 3.2 Participação progressiva — proposta, não implementação concluída
+
+- **M7:** comandos versionados, papéis/autoridade, seleção por mouse, grupos e alvos no mapa; alternativa estável com menu.
+- **M8:** intenções textuais estruturadas, plano curto com condições e orçamento; rei delega a general, que pode aceitar parcialmente, recusar e contrapropor com base em soldados realmente disponíveis.
+- **M9:** comparar menu/mouse, texto e voz (incluindo seleção por voz). Microfone é experimento; voz pode ser rejeitada ou adotada apenas onde agregar valor.
+- **M10:** assumir corpo de militar ou peão para mover, defender, atacar ou trabalhar com regras/custos já existentes.
+- **M11:** integrar comandos, táticas, lembranças, promessas e continuidade entre jogador e NPC.
+- **M12:** motor de respostas de IA nas interações jogador–NPC, **depois** da validação de M11.2.
+
+Em todas as modalidades, o jogo distingue ordem solicitada, aceita, em execução, parcial, concluída, recusada ou cancelada; um comando humano não concede recursos ou conhecimento oculto.
 
 ## 4. Sistemas do mundo
 
-### 4.1 Mundo e ambiente
+### 4.1 Mundo, recursos e ecologia mínima
 
-O mapa fornece terreno, água, clima, vegetação, fauna e recursos minerais. As condições ambientais determinam onde é possível viver, produzir, deslocar-se e construir. As regras ambientais devem continuar separadas da renderização.
+Terreno, água acessível, vegetação colhível e animais sustentam alimentação, rotas, custos de construção e decisões. O objetivo **não** é simular cientificamente clima, hidrologia, solo ou novos biomas.
 
-A fidelidade científica é progressiva: cada processo precisa ter unidades, limites, custos e relações causais claros. O MVP não precisa simular toda a natureza com precisão de pesquisa, mas deve evitar regras que contradigam o próprio estado do mundo.
+- As estações servem principalmente para **troca visual de tiles**. Não desenvolver biomas, clima sazonal completo ou efeitos ecológicos sazonais generalizados.
+- Manter a exceção específica já registrada para a [JUL-199](https://linear.app/julio-alves/issue/JUL-199): menor respawn de ovelhas selvagens no inverno, somente se implementada com limites e testes.
+- Recursos colhíveis e estoques transportados são conceitos diferentes; alimento em pé no campo não é automaticamente alimento disponível ao morador.
+- Qualquer simplificação deve preservar recursos finitos, caminhos acessíveis, necessidade de comida e efeito observável sobre decisões. Ver [JUL-165](https://linear.app/julio-alves/issue/JUL-165), registrada como Done no Linear.
 
-### 4.2 Indivíduos
+### 4.2 Indivíduos, memórias e relações
 
-Cada indivíduo possui, no mínimo:
+Indivíduos têm idade, estado vital, necessidades, saúde, energia, localização, inventário, capacidades, habilidades, moradia, vínculos, percepção, memória e planos. As ações locais consomem tempo e recursos, e passam por validação do domínio.
 
-- necessidades de alimento, água, descanso, saúde e vínculo social;
-- idade, estado vital, capacidades físicas, habilidades e relações;
-- posição, inventário carregado, moradia e vínculo comunitário ou político;
-- percepção local, memória sensorial e memória pessoal recente;
-- uma política comportamental de baixo custo, atualmente uma rede neural pequena com aprendizado por recompensa;
-- custos de ação, como deslocamento, trabalho, risco e consumo de recursos.
+A trilha social [JUL-169](https://linear.app/julio-alves/issue/JUL-169) diferencia:
+- **S0–S3:** contratos sociais, memória/crenças com procedência, encontros/ajuda e compromissos persistentes — registrados como Done, sujeitos a revalidação no SHA corrente.
+- **S4–S6:** impactos sociais na economia/política, avaliação de diálogos por LLM, facções/oposição e testes prolongados — ainda planejados.
 
-As ações devem ser filtradas pelas regras do mundo. A política não pode construir sem materiais, conhecer recursos invisíveis ou ignorar bloqueios, distância e risco.
+Memória persistente de acontecimentos **não significa** treinamento dos pesos de um modelo de linguagem. Conhecimento novo precisa de fonte e canal de comunicação; boatos podem estar errados ou desatualizados.
 
-### 4.3 Comunidades e assentamentos
+### 4.3 Comunidades, assentamentos e edifícios
 
-Comunidades podem cooperar, dividir tarefas, trocar recursos, migrar, crescer, separar-se ou se unir. Casas, abrigos, currais, mercados, oficinas e defesas consomem recursos e espaço. A construção afeta o ambiente e cria dependências de manutenção, acesso e trabalho.
+Casas/abrigos, roças, mercados, currais, castelos, torres, centros militares e monastérios têm custos, capacidade, localização, acessibilidade e manutenção. Construção precisa sobreviver a ameaça, fuga, cancelamento, ocupação de postos e posterior retomada.
 
-### 4.4 Reinos e governança
+A [JUL-198](https://linear.app/julio-alves/issue/JUL-198) está Done para **até 35 ovelhas por curral** e validação de novos locais. Reprodução e manejo etário permanecem propostos em JUL-199.
 
-Cada reino possui população, território, tesouro, reservas, instituições, governante e objetivos. O reino deve:
+A [JUL-200](https://linear.app/julio-alves/issue/JUL-200) vincula recrutamento/evolução ao edifício **operacional** correspondente, sem geração gratuita. A [JUL-203](https://linear.app/julio-alves/issue/JUL-203) planeja alistamento voluntário condicionado a vagas, soldo e risco. O recrutamento não deve converter civis automaticamente apenas para completar uma guarnição.
 
-- equilibrar necessidades imediatas com preparação para estações e crises;
-- delegar tarefas de acordo com capacidade, urgência, distância e disponibilidade;
-- cobrar e gastar recursos com efeitos observáveis sobre a população;
-- manter moradia, produção, armazenamento e defesa;
-- reagir a insatisfação, perda de território, migração e sucessão política.
+### 4.4 Reinos, governo e legitimidade
 
-A substituição do governante deve resultar de regras sociais e políticas observáveis, como apoio, prestígio, recursos, lealdade e controle da força. A simples construção de um edifício não transfere automaticamente o poder.
+Cada reino possui população, território, tesouro, produção, reservas, instituições, força militar e objetivos concorrentes. O rei deve decidir a partir de relatórios **que poderia conhecer**, com orçamento, prazo e reavaliação.
 
-### 4.5 Economia
+A governança envolve arrecadação, serviços, defesa, ajuda à população, migração, satisfação, confiança, lealdade, sucessão, revolta e diplomacia. Apoio político, obediência e medo não são sinônimos. A autoridade de um general é limitada pelo papel e pelas ordens recebidas; ele pode comunicar impossibilidades ou propor alternativa válida.
 
-A economia opera sobre recursos materiais finitos, estoques e fluxos. O ciclo básico é:
+**Exemplo de delegação M8:** rei pede 50 arqueiros, mas o general informa 32 disponíveis, mobiliza apenas o autorizado e apresenta custo, vagas, edifícios, candidatos e tempo necessários para obter os 18 restantes. Nenhum agente inventa arqueiros, estoque ou conhecimento.
 
-**ambiente e trabalho → coleta ou produção → transporte → armazenamento → consumo, troca ou construção → efeitos sobre a população e o ambiente.**
+### 4.5 Economia e sobrevivência
 
-Recursos do MVP: alimento, água, madeira, pedra, ouro e alimento para rebanhos. Preços e decisões de troca respondem à oferta, demanda, localização, risco e reservas. Ouro pode facilitar aquisições, mas não cria recursos do nada.
+Fluxo econômico obrigatório: **produção/coleta → posse e transporte → estoque acessível → venda/troca/consumo/construção → consequências**. A produção histórica de uma roça e sua biomassa em crescimento não são estoque líquido disponível.
 
-### 4.6 Defesa e conflito
+- **JUL-178:** auditar conservação e logística de alimento entre roça, caça, estoque privado/comunitário, mercado, civis e tropas.
+- **JUL-201:** moradores vendem excedentes de comida/madeira/pedra e compram alimento/insumos em mercado, com estoque, preços, proprietários e ouro reais.
+- **JUL-202:** direção proposta de financiar o rei com **impostos em ouro** e compras de bens; sobretaxa de guerra motivada e reversível. **Depende** da operação confiável do mercado (JUL-201).
+- **JUL-224:** calibrar roças e currais contra consumo líquido real da população; referência experimental de uma roça + curral para ~50 moradores, não garantia automática e nem alimento gratuito.
+- **S4 / JUL-174:** ajuda, remuneração, promessas, escassez e impostos podem alterar confiança, adesão e política após validação da economia.
 
-Reinos podem patrulhar, fortificar, recrutar, negociar, competir por recursos, invadir ou recuar. Uma decisão de conflito deve apontar causas observáveis, como:
+Nenhuma transação pode debitar duas vezes, usar estoque inacessível ou permitir que o rei confisque materiais civis como se fossem do tesouro sem uma regra política/econômica explícita.
 
-- disputa por mina, água, passagem, área produtiva ou fronteira;
-- escassez, dívida, pressão demográfica ou oportunidade estratégica;
-- histórico de agressões, alianças, confiança ou quebra de acordos;
-- avaliação de força, abastecimento, distância, terreno e risco.
+### 4.6 Exército, campanhas e combate tático
 
-Combate deve considerar mobilização, suprimento, tempo, terreno, cansaço, dano, baixas, feridos, moral e custo de oportunidade. Resultados probabilísticos podem existir, mas devem usar aleatoriedade com semente e registrar os fatores que contribuíram. Não haverá guerra sem causa apenas para gerar ação.
+A hierarquia militar tem três escalas: **rei** define objetivo, prioridade e orçamento; **general/grupo** decide destacamentos, formação e manobras; **soldado** executa movimento, ataque, defesa e recuperação com condições locais.
 
-## 5. Arquitetura de decisão da IA
+M6 amplia a beta existente sem reimplementar seus sistemas:
+- Construção resiliente e contato de golpes/projéteis (JUL-180/181) foram registrados como Done, mas exigem teste de regressão.
+- Campanhas com grupos simultâneos, suprimentos, retirada, flanco e retorno (JUL-183); ocupação e rodízio de arqueiros em torres (JUL-184).
+- Formações adaptativas (JUL-189) a partir de estudo concluído JUL-182; habilidades de espada/lança (JUL-185), arqueiro (JUL-186), supressão coordenada (JUL-187), escudo/esquiva (JUL-188) e clérigos (JUL-190).
+- Rei multiobjetivo e defesa em camadas (JUL-191); arena militar financiada com ouro e treino headless reproduzível (JUL-192); XP por perícia e generais (JUL-193).
+- Civil desarmado não vira alvo legítimo apenas por ser estrangeiro; reproduzir e corrigir a agressão indevida em JUL-223. Soldados não devem continuar tarefas civis de transporte após promoção (JUL-197).
 
-O simulador deve separar três escalas de decisão:
+Habilidade requer alvo, alcance/colisão, orientação, custo, munição/mana/estamina, cooldown, janela de animação e contrajogo. Formação e ataque devem respeitar gargalos, posições e percepção; sem teleporte, dano fantasma ou informação global secreta.
 
-| Escala | Responsabilidade | Frequência esperada |
+Treino por IA **só conta como aprendizado comprovado** se comparar políticas, seeds de treino e não vistas, resultado real de combate, custo de ouro/tempo e ausência de regressões. Aumentar pontos de treino por dia não basta.
+
+## 5. Arquitetura de decisões e modelos de IA
+
+**Separação de autoridade:**
+
+| Camada | Decide | Não pode fazer |
 |---|---|---|
-| **Estratégia do reino** | Definir prioridades, orçamento, preparação, expansão, diplomacia e defesa. | Diária ou acionada por eventos importantes. |
-| **Delegação e coordenação** | Transformar prioridades em tarefas concretas e distribuí-las a pessoas ou grupos. | Quando muda a prioridade, a disponibilidade ou o estado da tarefa. |
-| **Política individual** | Escolher ações locais usando necessidades, percepção, habilidades e experiência. | Em resposta a necessidades e oportunidades; não precisa rodar uma LLM por indivíduo. |
+| Rei / planejamento estratégico | Intenções, orçamento, objetivos e delegação | Ler estado oculto de adversários ou criar recursos |
+| General / coordenação | Plano executável, tropas reais, alvos, formações e contrapropostas | Ignorar vagas, distâncias, suprimentos ou comando válido |
+| Indivíduo / política local | Trabalho, rota, golpe, defesa e reações percebidas | Ultrapassar regras de domínio, colisões ou custos |
+| Motor / Worker | Deriva fatos, calcula custos, valida e aplica transições | Aceitar texto de LLM como escrita arbitrária de estado |
+| Observador / interface | Apresenta snapshots, crônica e inputs | Alterar estado diretamente por renderização |
 
-A estratégia do reino pode começar determinística e explicável. As redes neurais individuais continuam responsáveis por escolhas locais. O modelo local de linguagem já existente pode permanecer como experiência opcional e de baixa frequência, desde que:
+O **motor calcula** disponibilidade, reservas, capacidades, distâncias, regras, riscos verificáveis e opções legais. Modelos pequenos selecionam objetivos/ações, interpretam texto ou propõem planos **estruturados**, sem fazer contabilidade ou impor estados. Decisões complexas incluem pré-condições, orçamento, data, responsável, etapas, gatilho de revisão e feedback de execução. Fatos desconhecidos permanecem desconhecidos; não devem ser tratados como zero.
 
-- receba contexto limitado e ações candidatas válidas;
-- não seja a fonte de verdade do estado da simulação;
-- decisões sejam validadas por regras e custos;
-- resultados sejam registrados para replay e diagnóstico;
-- falha, latência ou indisponibilidade retornem à política base.
+A [JUL-221](https://linear.app/julio-alves/issue/JUL-221) compara SLMs locais, inclusive **qwen3.5:0.8b**, com baselines, por acerto, ação válida, latência, memória e qualidade da decisão. Não declarar modelo vencedor ou adotado sem teste registrado. Falhas de timeout, indisponibilidade ou baixa confiança usam fallback determinístico, sem travar a simulação. LLM não precisa rodar a cada quadro nem em cada NPC.
 
-A IA não deve controlar diretamente o renderer nem alterar o estado do mundo fora dos comandos válidos do domínio.
+Aprendizado neural e políticas militares devem ser medidos contra heurísticas e versões anteriores, com replays reproduzíveis e seeds de avaliação reservadas. Memória de fatos não equivale a alterar pesos do modelo.
 
-## 6. Ciclo de simulação
+## 6. Ciclo de simulação, observabilidade e desempenho
 
-A simulação deve manter um relógio reproduzível, com níveis de atualização adequados a cada processo:
+O relógio deve ser reproduzível por **seed, versão, configuração e sequência de comandos**. A simulação pertence ao Worker; renderização e interface consomem snapshots/eventos.
 
-1. clima, água, solo e efeitos ecológicos atualizam o estado ambiental;
-2. necessidades, percepção, tarefas e planos dos agentes são avaliados;
-3. indivíduos executam ações viáveis, com custos e resultados registrados;
-4. produção, transporte, consumo, comércio e construção atualizam estoques;
-5. governança, relações, sucessão, território e conflitos resolvem consequências;
-6. o diário causal publica eventos e um snapshot para inspeção e renderização.
+1. Disponibilidade de recursos e ambiente mínimo necessário ao gameplay.
+2. Observações limitadas, necessidades, comunicações, planos e tarefas de agentes.
+3. Validação e execução de trabalho, rotas, construção, comércio e custos.
+4. Decisões de reino, campanhas, táticas e efeitos de combate.
+5. Balanço de estoques, necessidades, legitimidade, baixas e transições políticas.
+6. Crônica, indicadores, snapshots, save/replay e atualização visual.
 
-A proposta de cadência inicial é manter clima, ecologia e economia em passos diários; atualizar mercado e impostos em ciclos mais longos; e resolver movimento, combate e ordens por subpassos ou duração de ação quando o MVP exigir. A cadência exata deve ser validada por testes e benchmark antes de aumentar o custo por agente.
+Processos usam cadências apropriadas e medições reais; não reproduzir sazonalidade ecológica complexa. O jogo deve produzir métricas de throughput, FPS, p50/p95, memória, consumo de recursos, mortalidade, campanhas e causas de falha. Comparações usam mesmos seeds, SHA e configurações. Dados de checkpoints antigos não são benchmarks do HEAD.
 
-## 7. Escopo do MVP
+## 7. Escopo, baseline e limites
 
-### Incluído
+### 7.1 MVP observacional / M0–M5
 
-- mundo procedural reproduzível por semente;
-- dois reinos autônomos no cenário inicial, com possibilidade futura de divisão e formação de novas facções;
-- população, governantes, necessidades, tarefas, memória local e redes neurais individuais;
-- alimentos, água, madeira, pedra e ouro com coleta, transporte, estoque, consumo e troca;
-- assentamentos, casas, castelos, mercados, currais e estruturas defensivas com custos verificáveis;
-- um planejador estratégico por reino que define prioridades e delega trabalho;
-- expansão territorial, tensão de fronteira, defesa e conflitos limitados, com consequências persistentes;
-- observação do mapa, controle de velocidade, crônica e inspeção de indivíduos, reinos e decisões;
-- salvamento/replay determinístico para configuração e semente iguais;
-- execução de cenários fixos em múltiplas sementes para revelar diferenças emergentes.
+Inclui dois reinos autônomos iniciais, recursos finitos, necessidades, assentamentos, estratégia/delegação, conflitos causais, crônica, inspeção, simulação no Worker e replay. **Critério M5:** um ano de jogo com decisões autônomas, múltiplas seeds, resultados auditáveis, sem intervenção humana necessária.
 
-### Referência para o primeiro cenário, não limite final
+### 7.2 M6 — refinamento tático
 
-A branch inspecionada usa atualmente grade de **96 × 96 células**, **10 m por lado** (0,9216 km² de área nominal), 50 pessoas, dois reinos e 24 ovelhas no início. Essa configuração serve como baseline experimental; não define o tamanho final do mapa, a população-alvo ou o número final de facções.
+Campanhas e formações coerentes, habilidades de classes, torres, general/rei, treino e progressão verificados sob testes e simulações. O marco não pode ser declarado concluído apenas pela presença de módulos.
 
-### Fora do MVP
+### 7.3 M7–M12 — evolução opcional
 
-- jogador comandando trabalhadores, economia ou exército;
-- multiplayer, campanha roteirizada ou árvore extensa de missões;
-- LLM por indivíduo ou decisão neural em cada quadro;
-- simulação científica exaustiva de toda a biosfera;
-- port para Unity, MonoGame ou engine 3D sem um requisito e benchmark que justifiquem a migração;
-- equilíbrio artificial que impeça fome, derrota, ruptura ou extinção.
+Comandos humanos, planos e linguagem, voz experimental, controle corporal, memória compartilhada em interações e motor de respostas conversacionais entram por fatias com gates específicos. Não são exigências retroativas para o MVP autônomo.
 
-## 8. Interface de observação
+### 7.4 Fora do escopo vigente
 
-A interface deve tornar o estado do mundo compreensível sem transformar a simulação em uma lista de estatísticas.
+Biomas novos, simulação climática/científica exaustiva, uma LLM por peão, multiplayer, campanha roteirizada, migração automática de engine, criação artificial de recursos, e uso obrigatório de voz. A eventual ampliação do número de reinos ou mapa depende de desempenho e design.
 
-- **Mapa:** biomas, água, recursos, edifícios, fronteiras, rotas, tropas e áreas disputadas.
-- **Painel do reino:** população, governante, reservas, satisfação, produção, tarefas, território e defesa.
-- **Inspetor individual:** necessidades, habilidades, percepção recente, objetivo, ação, custo, memória e resultado.
-- **Crônica:** eventos datados, com ator, alvo, local, recursos envolvidos e causa registrada.
-- **Cadeia causal:** por exemplo, seca → menor disponibilidade de alimento → queda de reservas → migração → perda de trabalhadores → vulnerabilidade defensiva.
-- **Reprodução:** pausar, avançar passo, ajustar velocidade, repetir semente e comparar cenários.
+**Correção de baseline:** o antigo GDD 0.1 registrava **96×96** como checkpoint histórico. A configuração consultada da `main` em 27/10/2026 usa **128×128**; validar dimensões e estatísticas no SHA do teste. Não reciclar como atuais dados de 96×96 nem a antiga suspeita sobre fixture de 192×192.
 
-Os relatos em linguagem natural são explicações derivadas de eventos registrados; não substituem nem alteram o estado que foi simulado.
+## 8. Interface, inspeção e controles
 
-## 9. Critérios de sucesso do produto
+A interface atual prioriza mapa com camadas/tile sazonal, câmera/zoom, indivíduos, reinos, estoques, obras, tropas, crônica, inspeção causal e reprodução de seeds. Indicadores devem distinguir recursos do mundo, propriedade, transporte e estoque realmente acessível.
 
-O primeiro vertical slice é aceito quando:
+Interfaces futuras reutilizam **um catálogo comum de comandos**: selecionar por mouse/menu, indicar destinatário/alvo, escrever intenção textual, e opcionalmente falar. Comparar modalidades sem supor vantagem de voz; zoom não muda silenciosamente destinatários. Se o jogador assumir um corpo, controles de movimento/ataque são executados pelo mesmo motor, sem inferência de LLM por golpe.
 
-1. o mundo executa sem comandos humanos e os reinos continuam tomando decisões;
-2. todo edifício, troca, recrutamento, ataque e deslocamento usa recursos e tempo reais;
-3. ações inválidas são recusadas pelo domínio, independentemente da política que as sugeriu;
-4. o observador consegue explicar por que um reino cresceu, migrou, entrou em conflito ou colapsou;
-5. a mesma semente e versão reproduzem os mesmos eventos dentro do modo determinístico;
-6. decisões locais usam informação que o agente poderia perceber;
-7. ao menos uma execução de um ano pode ser acompanhada e inspecionada em sementes fixas;
-8. build, testes e benchmark têm resultados registrados; a população e o tamanho de mundo suportados são definidos por medição, não presumidos.
+Não apresentar como certeza uma explicação gerada por LLM que contrarie os eventos reais. Guardar origem, confiança e momento de cada relato.
 
-Não há condição de vitória do jogador no MVP. O resultado é avaliado pela autonomia, coerência, legibilidade e desempenho do mundo.
+## 9. Critérios de sucesso e gates de aceitação
 
-## 10. Stack atual e decisão técnica
+- **Domínio:** comida, madeira, pedra, ouro, soldados, vagas e materiais são conservados; ações impossíveis são recusadas.
+- **Autonomia:** reinos continuam produzindo, negociando e reagindo sem comando humano.
+- **Combate:** hits, defesa, munição, posicionamento e alvo legítimo seguem regras e produzem registros verificáveis.
+- **IA:** ações propostas são válidas e úteis; general negocia objetivos inviáveis; modelos não recebem estado onisciente.
+- **Social:** memória, ajuda e compromissos têm fonte e efeitos; diálogo não finge execução.
+- **Reprodução:** repetir seed + SHA + comandos reproduz o comportamento dentro dos contratos declarados; testes 365/730 dias registram estados, custos e falhas.
+- **Interação futura:** entrada mouse/texto/voz é comparada em tarefas reais; troca humano↔IA conserva estado e compromissos.
+- **Engenharia:** build, typecheck, suíte direcionada, CI aplicável, smoke Worker/browser e playtest com evidência. Issues só ficam Done após aceite, não por projeto ou plano.
 
-### O que o repositório usa hoje
+## 10. Stack atual e direção de arquitetura
 
-- Vite e navegador como aplicação de execução;
-- TypeScript junto a módulos JavaScript (`allowJs: true`, `checkJs: false` no `tsconfig.json`);
-- Canvas 2D próprio para o mapa e interface HTML/CSS;
-- módulos de simulação para clima, hidrologia, flora, fauna, indivíduos, sociedades, economia e reinos;
-- testes com `node:test`;
-- rede neural individual pequena em JavaScript;
-- `@mlc-ai/web-llm` como camada local opcional, executada em Web Worker com WebGPU.
+**Snapshot de referência, 27/10/2026:** branch `main` do GitHub em `b36727648370ac52a02707b86fbcfcb5a9315d10`. Esta referência identifica a consulta documental, **não** atesta execução dos testes ou aprovação de todas as funcionalidades.
 
-### Diagnóstico
+- Aplicação web com **Vite**, TypeScript/JavaScript, **Canvas 2D**, interface HTML/CSS e simulador em **Worker**.
+- Serviço de IA local integrado ao **Ollama** (`src/ai/ollama-service.mjs`); modelos e runtime devem ser checados no manifest/HEAD efetivos. WebLLM aparece no histórico como alternativa, não como descrição exclusiva do runtime vigente.
+- Scripts presentes: `npm run dev`, `npm run typecheck`, `npm test`, `npm run build`; testes publicados não substituem CI/replay completo.
+- **JUL-177** segue responsável por reconciliar suíte, CI e checkout limpo; não considerar CI validada sem execução.
+- Melhorias de renderização, chunks e profiling devem ser medidas; não trocar engine por preferência. Não misturar este repositório com o projeto Genesis.
 
-A stack é **suficiente para o MVP web 2D** e para validar a experiência observacional. Não há evidência para uma troca imediata de engine. O código já separa parte dos domínios e expõe uma fachada de simulação, mas o crescimento da proposta exige evoluir as fronteiras e o controle de execução.
+O Worker é autoridade do mundo; entrada humana ou de IA passa por comandos validados. Preservar fronteiras entre domínio, política, integração de IA e renderer.
 
-Pontos técnicos que o primeiro marco deve confirmar ou endereçar:
+## 11. Arquitetura lógica e contratos
 
-- a simulação diária é executada de forma síncrona; o relógio da interface pode avançar até 12 dias em uma chamada, o que tende a bloquear o quadro se o mundo crescer;
-- `src/ui/game.js` concentra renderização, eventos de interface, inspeção e integração com a simulação em um arquivo extenso;
-- arquivos `.js` da simulação não passam pela verificação estrita de tipos porque `checkJs` está desativado;
-- o modelo WebLLM atende solicitações em fila e não é adequado para controlar cada indivíduo a cada passo;
-- há uma divergência aparente: `src/config/ecosystem.js` define 96 × 96, enquanto `tests/integration/migration.test.mjs` espera 192 × 192. O teste precisa ser executado para confirmar e corrigir ou documentar a diferença;
-- a IA estratégica atual adiciona um conselho opcional a decisões individuais; ela ainda não representa um planejador de reino separado que distribui uma agenda completa de governo.
-
-### Decisão recomendada
-
-**Manter TypeScript + Vite + Canvas 2D no curto prazo. Evoluir a arquitetura antes de trocar a stack.**
-
-1. Estabelecer baseline de build, testes, replay, throughput e memória em cenários e browsers definidos.
-2. Isolar o núcleo da simulação do DOM e executá-lo em um Web Worker; enviar comandos de entrada e snapshots/deltas de saída por contratos versionados.
-3. Quebrar `game.js` em renderer, controles de observação, inspetores e conectores de estado.
-4. Migrar gradualmente a simulação para TypeScript estrito, ou ativar verificação de JavaScript por diretório, sem reescrever tudo de uma vez.
-5. Medir o custo antes de introduzir estruturas data-oriented: arrays tipados para campos densos do mapa, índices espaciais e atualizações em regiões ou agentes ativos podem ser adotados quando o benchmark demonstrar benefício.
-6. Manter Canvas 2D como renderer inicial. Avaliar PixiJS/WebGL somente se o custo medido de sprites, zoom, camadas ou animação for o gargalo.
-7. Manter WebLLM opcional para aconselhamento estratégico pouco frequente; políticas locais leves continuam sendo a base rápida, barata e reproduzível.
-
-Uma migração para outra engine só deve ser reaberta se o produto exigir 3D/nativo ou se benchmarks mostrarem que a solução web não atende ao orçamento acordado.
-
-## 11. Arquitetura lógica proposta
-
-| Módulo | Responsabilidade | Fronteira principal |
+| Sistema | Responsabilidade | Contrato de fronteira |
 |---|---|---|
-| **Simulation Core** | Estado, relógio, semente, reprodutibilidade, comandos e eventos. | Não depende de DOM, Canvas ou LLM. |
-| **World & Ecology** | Terreno, clima, água, solo, flora, fauna e recursos naturais. | Expõe observações e mudanças de estado. |
-| **Economy & Settlements** | Inventários, produção, transporte, mercado, construção e manutenção. | Valida custos e disponibilidade. |
-| **Individuals & Communities** | Necessidades, percepção, memória, relações, tarefas e políticas individuais. | Agentes recebem observações limitadas e emitem ações candidatas. |
-| **Kingdom Strategy** | Prioridades do reino, delegação, orçamento, sucessão, diplomacia e defesa. | Emite planos; não escreve diretamente no mundo. |
-| **Conflict & Military** | Patrulha, mobilização, combate, baixas, ocupação e encerramento de conflitos. | Consome tempo, recursos, unidades e estado político. |
-| **Observer & Renderer** | Mapa, painéis, timeline, inspetores, visualização e controles de tempo. | Consome snapshots/eventos; não decide regras da simulação. |
+| **Simulation Core / Worker** | Tempo, seed, estado, validação, snapshots, replay | Não depende de renderer nem de texto livre |
+| **World / Resources** | Recursos finitos, terreno, água e fauna mínima | Expõe disponibilidade observável |
+| **Economy / Settlements** | Produção, inventários, transporte, mercado, obra | Conserva quantidades e propriedade |
+| **Individuals / Social** | Necessidades, crenças, relações, compromissos | Recebe observações limitadas |
+| **Kingdom / General AI** | Objetivos, delegação, planos, relatórios, campanhas | Pede ações, não grava estado diretamente |
+| **Military / Combat** | Grupos, formação, táticas, contatos, ferimentos, treino | Resolve regras físicas e custos |
+| **Observer / Player Input** | Mapa, painéis, inspeção e futuros comandos humanos | Não executa regras por UI |
 
-### Contratos essenciais
+Contratos essenciais: **Observation** (fatos, procedência, idade, incerteza), **Intent/Plan** (ator, papel, objetivo, orçamento e validade), **Command** (origem humano/IA, alvo, parâmetros, revisão, idempotência), **Validation** (recusa/aceite), **ExecutionResult** (parcial, concluído, interrompido), **Event** (causas e custos) e **Snapshot/Replay** (consistência e auditoria).
 
-- **Observation:** dados locais filtrados por sentidos, acesso institucional ou inteligência disponível.
-- **Plan/Command:** intenção com ator, alvo, prioridade, validade e origem da decisão.
-- **Validation:** checagem de capacidades, custo, caminho, posse, prazo e estado atual.
-- **Event:** mudança ocorrida com tick, causas, participantes, custos e resultado.
-- **Snapshot:** visão consistente para salvar, replay, renderer e comparação de cenários.
+Nunca admitir duas políticas disputando controle de um mesmo personagem. Quando o humano devolve o controle, o agente continua com a posição, necessidades, inventário, experiência e planos ainda válidos.
 
 ## 12. Riscos e mitigação
 
-| Risco | Mitigação inicial |
+| Risco | Mitigação |
 |---|---|
-| Escopo de RTS cresce antes do núcleo estar estável. | Entregar uma fatia jogável observacional e fechar gates antes de adicionar sistemas. |
-| Crescimento do mapa torna a simulação lenta. | Benchmark antes/depois, worker, atualizações em múltiplas escalas e dados compactos. |
-| IA parece aleatória ou onisciente. | Observações limitadas, decisões registradas, causas, custos e validação determinística. |
-| LLM atrasa ou falha. | Limitar frequência, manter fila pequena, fallback local e nunca bloquear a simulação. |
-| Muitos ajustes arbitrários dificultam entendimento. | Centralizar parâmetros, registrar a justificativa e usar fixtures para relações importantes. |
-| Testes deixam de representar o código atual. | Alinhar dimensão do cenário, fixtures e critérios com o baseline da branch. |
-| Conflito vira espetáculo sem causalidade. | Exigir motivo, capacidade, abastecimento, risco e consequências registradas. |
+| Crescer escopo antes de estabilizar economia/combate | Fatias pequenas, gates e dependências do Linear |
+| Divulgar recursos ou tropas inexistentes | Motor calcula fatos derivados e valida cada transição |
+| LLM falhar, atrasar ou alucinar | Orçamento de inferência, ações estruturadas, timeout, fallback |
+| IA onisciente ou social sem causa | Relatórios limitados, memória com procedência, eventos e replay |
+| Guerra atacar civis sem regra legítima | Critério de hostilidade, teste de alvo e correção JUL-223 |
+| Treinamento neural apenas aparente | Arena real, custo, baselines, seeds holdout e ablação |
+| Regressão em Worker, inventários e FPS | CI, seeds fixas, perfis, smoke browser e controle de versão |
+| Docs afirmarem entrega ainda não verificada | Diferenciar feito no Linear de confirmado no SHA corrente |
+| Experimentos de voz virarem obrigação | Gates comparativos e opção de rejeitar voz |
 
-## 13. Roadmap de produto proposto
+## 13. Roadmap de produto e rastreabilidade
 
-### M0 — GDD e baseline técnico
+| Marco | Direção | Estado de referência em 27/10/2026 |
+|---|---|---|
+| **M0** | GDD e baseline | Done no Linear — JUL-156 |
+| **M1** | Worker, snapshot e observador | Done no Linear — JUL-159 |
+| **M2** | Planejamento/delegação do reino | Done no Linear — JUL-161 |
+| **M3** | Economia e assentamentos | In Progress — JUL-162, JUL-178, JUL-201/202/224 |
+| **M4** | Território, logística e conflito | In Progress — JUL-163, JUL-223 |
+| **M5** | Vertical slice autônomo anual | In Progress — JUL-164, bloqueado por JUL-177 |
+| **M6** | Beta tático, combate e aprendizagem | Parcial: JUL-179/180/181/182 Done; demais fatias e JUL-194 pendentes |
+| **S0–S6** | Social, memória, ajuda, política e facções | JUL-170–173 Done; JUL-174–176 planejadas |
+| **M7** | Seleção e autoridade humano/IA | Backlog — JUL-206–209 |
+| **M8** | Texto, planos e delegação | Backlog — JUL-210–212; experimento JUL-221 em andamento |
+| **M9** | Experimento de voz | Backlog — JUL-213/214 |
+| **M10** | Controle de corpos | Backlog — JUL-215–217 |
+| **M11** | Tática + continuidade | Backlog — JUL-218–220 |
+| **M12** | Respostas de IA nas interações jogador–NPC | Backlog — JUL-225, após JUL-220 |
 
-Validar escopo observacional, cenário inicial, build, testes, determinismo e custo atual. Resolver a divergência de dimensão entre configuração e teste.
+**Status da issue não comprova integração na `main`.** Validar no SHA corrente e registrar evidências. As novas propostas não reabrem automaticamente marcos M0–M5 nem ativam o roadmap M7–M12.
 
-### M1 — Núcleo reproduzível e observador desacoplado
+## 14. Janela operacional já planejada — 27/10 a 23/11/2026
 
-Definir contratos de comandos, eventos e snapshots; mover simulação para Worker; preservar replay e manter UI responsiva.
+- **27/10–02/11:** JUL-177 (base/CI), JUL-223 (alvo civil), JUL-197 (soldado em transporte), JUL-178 (conservação e logística de alimentos).
+- **03–09/11:** JUL-201 (mercado após JUL-178), JUL-200 (edifícios de recrutamento) e JUL-221 (benchmark de SLM).
+- **10–16/11:** JUL-202 (impostos após JUL-201) e JUL-184 (guarnição e turnos em torres). JUL-203 é reserva condicionada.
+- **17–23/11:** fatia inicial de JUL-183 (campanhas), prova inicial de JUL-192 (arena de treino), replay intermediário de JUL-164; preparar JUL-191 **após** JUL-183 e JUL-184.
 
-### M2 — Planejamento e delegação por reino
+A janela de quatro semanas **não** equivale ao aceite completo de M6, M5 ou da JUL-195. Itens bloqueados permanecem aguardando; prazo-alvo não garante implementação.
 
-Criar política estratégica separada para cada reino, prioridades e tarefas delegadas, mantendo ações e custos validados pelo domínio.
+## 15. Decisões ainda abertas
 
-### M3 — Economia e crescimento de assentamentos
+1. Hardware/browser mínimos e orçamento de FPS, memória e simulação aceito.
+2. Quando e como ampliar mapa e número de reinos depois de medir escala.
+3. Regras de informação entre rei, general e NPCs, inclusive perda de conhecimento na conquista e sucessão.
+4. Parâmetros finais de oferta/demanda, impostos e produção alimentar após replays econômicos.
+5. Conjunto e balanceamento final de formações, habilidades e aprendizagem militar.
+6. Modelo local de linguagem vencedor após benchmark JUL-221; nenhuma escolha automática.
+7. Modalidades de controle humano aprovadas por experimento; voz pode não entrar.
+8. Validação de controle compartilhado sem quebrar autonomia e determinismo.
+9. Aprovação do GDD 0.2.0 e merge do PR #1, ambos sujeitos a revisão humana.
 
-Consolidar produção, transporte, armazenagem, consumo, mercado, construção, manutenção e efeitos demográficos.
+## 16. Checklist de alinhamento com o Linear — 27/10/2026
 
-### M4 — Território, diplomacia e conflito
+| Verificação documental | Situação desta revisão | Referência |
+|---|---|---|
+| Atualizar jogador observador → participação opcional | Incorporado ao GDD, implementação futura | JUL-205, M7–M12 |
+| Remover biomas e ecologia sazonal do escopo ativo | Incorporado, com exceção estreita da ovelha | JUL-165, JUL-199, JUL-204 |
+| Descrever mercado, impostos em ouro e demanda alimentar | Incorporado como propostas condicionadas | JUL-178, JUL-201/202/224 |
+| Detalhar recrutamento, exército, general e treino neural | Incorporado sem declarar M6 entregue | JUL-183–194, JUL-200/203 |
+| Diferenciar memória social, planejador, LLM e motor | Incorporado; benchmark não presumido | JUL-169–176, JUL-221 |
+| Corrigir arquitetura e cenário de referência | Descrição atualizada; execução CI não atestada | JUL-177, GitHub main em 27/10 |
+| Estender roadmap M0–M12 e explicitar dependências | Incorporado, futuro permanece Backlog | JUL-195, JUL-205 |
+| Integrar versão revista à main | **Não realizado — depende de revisão/merge do PR #1** | GitHub PR #1 |
 
-Implementar motivos rastreáveis para disputa, preparação, defesa, guerra, recuo, perda e reorganização política.
-
-### M5 — Vertical slice autônomo
-
-Acompanhar múltiplos reinos por um ano, comparar sementes, inspecionar eventos causais e medir o limite de escala da máquina/browser de referência.
-
-## 14. Primeira issue recomendada
-
-**Auditar baseline do Kingdom antes de ampliar o RTS autônomo.**
-
-Entregáveis: resultado real de `npm run build` e `npm test`, resolução da expectativa 96 × 96 versus 192 × 192, seeds determinísticas de referência, throughput/memória para o cenário atual, mapa de módulos e recomendação quantificada para o próximo passo. Esta issue deve preceder uma reescrita ou mudança de engine.
-
-## 15. Decisões abertas
-
-- Qual browser e hardware definem o alvo mínimo do primeiro MVP?
-- O mundo começa com dois reinos em todos os cenários ou o gerador poderá iniciar populações sem reinos e observar sua formação?
-- Qual janela temporal define a primeira demonstração: um ano, várias gerações ou ambos em velocidades distintas?
-- Qual quantidade de população e dimensão de mapa deve ser o primeiro alvo de escala após o benchmark?
-- Como conhecimento estratégico é preservado, compartilhado ou perdido quando um reino se divide ou é conquistado?
-- Quais ações da pessoa observadora são aceitáveis sem alterar a tese de autonomia?
+**Regra de manutenção:** usar GitHub como fonte do GDD versionado e do código; Linear como fonte do estado, decisões e dependências. Toda alteração relevante no produto deve atualizar GDD e issue associada com link, SHA, motivo e evidência. Não marcar Done sem teste e nem presumir que texto implementa gameplay.
