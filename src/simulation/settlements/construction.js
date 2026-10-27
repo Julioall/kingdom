@@ -31,6 +31,11 @@ export function canWorkOnFoodFieldWithReserve(person, assignment, world) {
     && person.foodReserve > FIELD_CONSTRUCTION_MIN_FOOD_RESERVE;
 }
 
+export function canGatherFoodFieldMaterialsWithReserve(person, assignment) {
+  return assignment?.action === 'gather' && assignment.goal === 'prepare-cultivated-field'
+    && person.foodReserve > FIELD_CONSTRUCTION_MIN_FOOD_RESERVE;
+}
+
 export function hasConstructionFoodReserve(person, structure) {
   return structure?.type === 'roça'
     ? person.foodReserve > FIELD_CONSTRUCTION_MIN_FOOD_RESERVE
@@ -150,6 +155,9 @@ export function canCommunityBuild(w, community, size) {
 
 export function nextCommunityStructure(w, community, size, structures) {
     if (structures.some(s => !s.complete)) return { type: 'ongoing', woodCost: 0, stoneCost: 0, foodCost: 0 };
+    if (community.isKingdomGroup && size >= 6 && !structures.some(s => s.type === 'roça')) {
+      return { type: 'roça', woodCost: 16, stoneCost: 6, foodCost: 0, seedMass: 8, required: 34 };
+    }
     if (!structures.some(s => s.type === 'abrigo')) return { type: 'abrigo', woodCost: 18, stoneCost: 8, foodCost: 0, required: 28 };
     if (size >= 6 && !structures.some(s => s.type === 'roça')) return { type: 'roça', woodCost: 16, stoneCost: 6, foodCost: 0, seedMass: 8, required: 34 };
     if (size >= 6 && !structures.some(s => s.type === 'curral')) return { type: 'curral', woodCost: 14, stoneCost: 5, foodCost: 0, required: 34 };

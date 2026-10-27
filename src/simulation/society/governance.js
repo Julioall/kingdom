@@ -153,8 +153,10 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
       && s.type === 'roça' && s.complete && s.destroyedDay == null && s.integrity !== 0
       && s.cropCycleState === 'ready' && (!(s.fieldTileIndices || []).length || cultivatedFieldStandingBiomass(w, s) > .01)) : [];
     const cropInvestment = desired.action === 'build' && desired.goal === 'invest-in-cultivated-food';
+    const fieldMaterialPreparation = desired.action === 'gather' && desired.goal === 'prepare-cultivated-field';
     const activeFieldProject = structures.some(structure => structure.type === 'roça' && !structure.complete);
-    const fieldBuilderReserveFloor = cropInvestment && activeFieldProject ? FIELD_CONSTRUCTION_MIN_FOOD_RESERVE : 14;
+    const fieldBuilderReserveFloor = fieldMaterialPreparation || cropInvestment && activeFieldProject
+      ? FIELD_CONSTRUCTION_MIN_FOOD_RESERVE : 14;
     const fieldBuildFoodFloor = cropInvestment && activeFieldProject ? FIELD_CONSTRUCTION_MIN_FOOD_RESERVE : 16;
     const fieldBuildEnergyFloor = cropInvestment && activeFieldProject ? FIELD_CONSTRUCTION_MIN_ENERGY : 27;
     const foodWorkers = workers.filter(person => person.id !== leader.id && person.ageDays >= 12 * 365);
@@ -166,7 +168,8 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
       / CULTIVATED_FIELD_HARVEST_PER_WORKER) : 0;
     const foodCapacity = Math.min(foodWorkers.length, Math.max(1,
       Math.ceil(dailyNeed / (harvestPerWorker * FOOD_RESERVE_PER_UNIT)), fieldTeamSize));
-    const capacity = desired.action === 'forage' && desired.priority === 'urgent' ? foodCapacity
+    const capacity = fieldMaterialPreparation ? 1
+      : desired.action === 'forage' && desired.priority === 'urgent' ? foodCapacity
       : cropInvestment || desired.goal === 'repair-damaged-structures' ? 1 : desired.priority === 'urgent'
       ? Math.min(5, Math.max(1, Math.ceil(workers.length / 3)))
       : Math.min(3, Math.max(1, Math.ceil(workers.length / 5)));
@@ -259,6 +262,36 @@ export function assignKingdomFoodSupportTasks(w, community, leader, members) {
       && person.assignment.goal === 'secure-shared-food' && person.assignment.expiresDay >= w.day).length;
     return Math.max(0, after - before);
   }
+
+export function assignKingdomFieldPreparationTasks(w, community, leader, members) {
+  if (!community?.isKingdomGroup || !leader || !Array.isArray(members) || members.length < 2) return 0;
+  const plan = nextCommunityStructure(w, community, members.length, communityStructures(w, community));
+  const needsMaterials = plan?.type === 'roça'
+    && ((community.stores.wood || 0) < plan.woodCost || (community.stores.stone || 0) < plan.stoneCost);
+  const activePreparers = members.filter(person => person.assignment?.goal === 'prepare-cultivated-field'
+    && person.assignment.expiresDay >= w.day);
+  if (!needsMaterials) {
+    for (const person of activePreparers) {
+      const carriesMaterials = (person.carriedWood || 0) + (person.carriedStone || 0) + (person.carriedMaterial || 0) > .01;
+      if (!carriesMaterials) person.assignment = null;
+    }
+    return 0;
+  }
+  if (activePreparers.length) {
+    for (const person of activePreparers) person.assignment.expiresDay = Math.max(person.assignment.expiresDay, w.day + 1);
+    return 0;
+  }
+
+  const before = members.filter(person => person.assignment?.goal === 'prepare-cultivated-field'
+    && person.assignment.expiresDay >= w.day).length;
+  assignCommunityTasks(w, community, leader, members, {
+    action: 'gather', title: 'reunir madeira e pedra para a primeira roça', skill: 'gather',
+    goal: 'prepare-cultivated-field', priority: 'normal', source: 'kingdom-strategy', expiresAfterDays: 8
+  }, false);
+  const after = members.filter(person => person.assignment?.goal === 'prepare-cultivated-field'
+    && person.assignment.expiresDay >= w.day).length;
+  return Math.max(0, after - before);
+}
 
 function recordProjectWorkStatus(w, project, status, reason, details = {}) {
   project.workStatus = {
@@ -415,6 +448,7 @@ export function updateCommunityGovernance(w, kingdomPlanner) {
         const leader = kingdom && members.find(person => person.id === kingdom.rulerId) || selectCommunityLeader(w, community, members);
         community.leaderId = leader.id;
         community.satisfaction = communitySatisfaction(w, community);
+        assignKingdomFieldPreparationTasks(w, community, leader, members);
         if (w.day - community.lastGovernanceDay >= 8) {
           assignCommunityTasks(w, community, leader, members, kingdom && kingdom.strategy && kingdom.strategy.order, false);
           assignKingdomFoodSupportTasks(w, community, leader, members);

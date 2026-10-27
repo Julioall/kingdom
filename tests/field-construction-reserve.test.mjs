@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import engine from '../src/simulation/engine.js';
-import { assignCommunityTasks, taskForCommunity } from '../src/simulation/society/governance.js';
+import { assignCommunityTasks, assignKingdomFieldPreparationTasks, taskForCommunity } from '../src/simulation/society/governance.js';
 import {
-  canWorkOnFoodFieldWithReserve, hasConstructionFoodReserve
+  canGatherFoodFieldMaterialsWithReserve, canWorkOnFoodFieldWithReserve, hasConstructionFoodReserve,
+  nextCommunityStructure, communityStructures
 } from '../src/simulation/settlements/construction.js';
+import { kingdomStrategyChoices, observeKingdomStrategy, planKingdomStrategy } from '../src/simulation/kingdoms/strategy.js';
 
 test('a funded field project can keep one builder working above the critical food floor', () => {
   const world = engine.createWorld(42);
@@ -50,4 +52,32 @@ test('the low-reserve construction exception does not apply to other buildings',
   assert.equal(hasConstructionFoodReserve({ foodReserve: 24 }, tower), true);
   assert.equal(canWorkOnFoodFieldWithReserve(person, { action: 'build', goal: 'complete-funded-project', structureId: tower.id },
     { structures: [tower] }), false);
+  assert.equal(canGatherFoodFieldMaterialsWithReserve(person, { action: 'gather', goal: 'gather-construction-materials' }), false);
+  assert.equal(canGatherFoodFieldMaterialsWithReserve({ foodReserve: 9 }, { action: 'gather', goal: 'prepare-cultivated-field' }), true);
+});
+
+test('a kingdom prioritizes its first field and reserves one gatherer while food is low', () => {
+  const world = engine.createWorld(42);
+  const community = world.communities[0];
+  const kingdom = world.kingdoms.find(item => item.id === community.kingdomId);
+  const members = world.people.filter(person => person.alive && person.communityId === community.id);
+  const leader = members.find(person => person.id === kingdom.rulerId) || members[0];
+  const worker = members.find(person => person.id !== leader.id && person.role !== 'soldier' && person.ageDays >= 12 * 365);
+
+  assert.equal(nextCommunityStructure(world, community, members.length, communityStructures(world, community)).type, 'roça');
+  const report = observeKingdomStrategy(world, kingdom.id);
+  assert.equal(report.community.buildPlan.type, 'roça');
+  assert.equal(planKingdomStrategy(report).goal, 'prepare-cultivated-field');
+  assert.ok(kingdomStrategyChoices(report).some(choice => choice.goal === 'prepare-cultivated-field'));
+
+  for (const person of members) person.assignment = null;
+  Object.assign(worker, {
+    foodReserve: 9, energy: 20, hydration: 35, health: 100, buildCooldown: 0,
+    perception: { ...(worker.perception || {}), resources: [{ visible: true, terrain: 'land', stone: 10,
+      goldOre: 0, biomass: { broadleaf: 500, conifer: 0 } }] }
+  });
+  assert.equal(assignKingdomFieldPreparationTasks(world, community, leader, members), 1);
+  assert.equal(worker.assignment.action, 'gather');
+  assert.equal(worker.assignment.goal, 'prepare-cultivated-field');
+  assert.equal(canGatherFoodFieldMaterialsWithReserve(worker, worker.assignment), true);
 });

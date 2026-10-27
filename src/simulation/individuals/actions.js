@@ -12,7 +12,7 @@ import { moveOne } from './movement.js';
 import { bushHarvestHitbox, collidesWithWorldAt, hitboxesOverlap, mineralHitbox, npcHitbox, worldCollisionIndex } from '../physics/hitboxes.js';
 import { communityHerd, domesticatedSheep } from '../ecology/animals.js';
 import { communityRelation, completeCommunityTask, updateCommunityGovernance } from '../society/governance.js';
-import { canCommunityBuild, canWorkOnFoodFieldWithReserve, communityBuildUtility, communityBuildingNeed,
+import { canCommunityBuild, canGatherFoodFieldMaterialsWithReserve, canWorkOnFoodFieldWithReserve, communityBuildUtility, communityBuildingNeed,
   communityStructures, nextCommunityStructure, workOnCommunityStructure } from '../settlements/construction.js';
 import { availableCommunityPen } from '../ecology/herd.js';
 import { cultivatedFieldStandingBiomass, eatPlants, isBushAnchor, plantBiomass } from '../ecology/plants.js';
@@ -1088,16 +1088,17 @@ function updatePeopleCore(w) {
       ];
       const assignment = currentAssignment;
       updateKingdomFoodSupplyPhase(assignment, p.foodReserve, p.carriedFood);
-      const canContinueFoodFieldBuild = canWorkOnFoodFieldWithReserve(p, assignment, w);
+      const canContinueFoodFieldWork = canWorkOnFoodFieldWithReserve(p, assignment, w)
+        || canGatherFoodFieldMaterialsWithReserve(p, assignment);
       const assignmentConflict = assignment && (
         (p.hydration < 22 && assignment.action !== 'drink')
-        || (p.foodReserve < 24 && !['forage', 'hunt', 'deliver'].includes(assignment.action) && !canContinueFoodFieldBuild)
+        || (p.foodReserve < 24 && !['forage', 'hunt', 'deliver'].includes(assignment.action) && !canContinueFoodFieldWork)
         || (p.energy < 9 && !['forage', 'hunt', 'drink', 'rest'].includes(assignment.action))
         || (p.health < 18 && assignment.action !== 'rest')
       );
       const assignmentPauseReason = assignmentConflict
         ? p.hydration < 22 && assignment.action !== 'drink' ? 'hidratação baixa'
-          : p.foodReserve < 24 && !['forage', 'hunt', 'deliver'].includes(assignment.action) && !canContinueFoodFieldBuild ? 'alimento baixo'
+          : p.foodReserve < 24 && !['forage', 'hunt', 'deliver'].includes(assignment.action) && !canContinueFoodFieldWork ? 'alimento baixo'
             : p.energy < 9 && !['forage', 'hunt', 'drink', 'rest'].includes(assignment.action) ? 'energia baixa'
               : 'saúde baixa'
         : null;

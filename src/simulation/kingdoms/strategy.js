@@ -453,6 +453,12 @@ export function planKingdomStrategy(report) {
       reason: 'Os materiais permitem preparar abrigo ou roça para abastecimento; há um trabalhador seguro e o cultivo usa sementes reais do talhão.'
     };
   }
+  if (report.community.buildPlan?.type === 'roça' && report.community.constructionMaterialNeed > 0) {
+    return {
+      goal: 'prepare-cultivated-field', action: 'gather', priority: 'normal', garrisonMode,
+      reason: 'A primeira roça é a próxima infraestrutura alimentar, mas falta madeira ou pedra; um trabalhador reúne os materiais enquanto os demais podem repor comida.'
+    };
+  }
   if (sharedFoodBufferDays < COMMUNITY_FOOD_BUFFER_DAYS) {
     const urgency = sharedFoodBufferDays < 2 ? 'urgent' : 'normal';
     return {
@@ -601,6 +607,12 @@ export function kingdomStrategyChoices(report) {
     if (report.community.marketFoodTradeable) add('trade_for_food', 'Trocar excedentes por alimento', {
       goal: 'trade-for-shared-food', action: 'trade', priority: 'urgent', reason: 'A reserva comum está baixa e há alimento acessível no mercado.'
     });
+    if (report.community.buildPlan?.type === 'roça' && report.community.constructionMaterialNeed > 0) add(
+      'prepare_cultivated_field', 'Reunir materiais para a primeira roça', {
+        goal: 'prepare-cultivated-field', action: 'gather', priority: 'normal',
+        reason: 'Falta madeira ou pedra para iniciar uma roça; a governança reserva no máximo um trabalhador e mantém os demais disponíveis para comida.'
+      }
+    );
     add('forage_for_food', 'Buscar alimento para a reserva comum', {
       goal: 'secure-shared-food', action: 'forage', priority: sharedFoodBufferDays < 2 ? 'urgent' : 'normal',
       reason: 'O estoque compartilhado está baixo para o número de moradores.'
