@@ -37,3 +37,9 @@ O painel de cada curral mostra sua própria lotação `ovelhas / 35`. A ração 
 ## Próximos limites
 
 JUL-199 deve validar que o limite separado de ovelhas selvagens coexiste com as lotações domésticas por curral. JUL-178/JUL-201 continuam responsáveis pelo novo ciclo da roça: compra de sementes no mercado, entrega, plantio, crescimento e colheita.
+
+## Ajuste de dependência/aceite — 27/10/2026
+
+A validação combinada de limite por curral e teto global de ovelhas selvagens ficou originalmente no aceite de JUL-198, embora JUL-198 seja pré-requisito de JUL-199, issue que implementa o teto global. Isso impediria JUL-198 de ser concluída antes de seu próprio bloqueador. Separei responsabilidades: JUL-198 demonstra 35 vagas por curral, overflow para outro curral e que ovelhas selvagens não ocupam vagas domésticas; JUL-199 assume o replay integrado entre limites locais e teto global, além de demonstrar que nenhum spawn ocorre com a população no teto. A relação `JUL-198 blocks JUL-199` permanece, porque a fundação e os slots domésticos já são implementados e testados. O replay integrado será executado depois de JUL-199; não há alteração de runtime nesta reordenação.
+
+Na revisão atual, `node --test tests/corral-capacity.test.mjs` passou 9/9. O commit de implementação `33394f007fe5be82c4b8b16b80efe2a2932d0feb` e a decisão anterior já registram 16/16 testes direcionados (capacidade + alimento de rebanho), suíte 213/213, typecheck/build, CI e playtest do painel. A CI do branch corrente `aaef7362925329721ece16371f0d4ca18f4c8da7` ainda precisa concluir antes de fechar JUL-198.
