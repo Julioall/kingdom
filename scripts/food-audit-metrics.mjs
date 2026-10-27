@@ -1,3 +1,5 @@
+import { PLANTS } from '../src/config/ecosystem.js';
+
 function countCauses(entities) {
   const counts = {};
   for (const entity of entities) {
@@ -6,6 +8,40 @@ function countCauses(entities) {
     counts[cause] = (counts[cause] || 0) + 1;
   }
   return counts;
+}
+
+export function summarizeCultivatedFields(world) {
+  const rootIndex = PLANTS.findIndex(plant => plant.id === 'cultivated-root');
+  const fields = (world?.structures || []).filter(structure => structure?.type === 'roça');
+  const standingBiomass = field => (field.fieldTileIndices || []).reduce((sum, index) => {
+    const tile = world?.tiles?.[index];
+    return sum + (rootIndex >= 0 ? Number(tile?.plants?.[rootIndex]) || 0 : 0);
+  }, 0);
+  const summarize = field => ({
+    id: field.id ?? null,
+    communityId: field.communityId ?? null,
+    complete: !!field.complete,
+    destroyed: field.destroyedDay != null || field.integrity === 0,
+    progress: Number(field.progress) || 0,
+    required: Number(field.required) || 0,
+    builtDay: Number.isFinite(field.builtDay) ? field.builtDay : null,
+    fieldTileCount: (field.fieldTileIndices || []).length,
+    standingBiomass: Number(standingBiomass(field).toFixed(2)),
+    cropSeedStored: Number((Number(field.cropSeedStored) || 0).toFixed(2)),
+    cropSeededBiomass: Number((Number(field.cropSeededBiomass) || 0).toFixed(2)),
+    cropHarvested: Number((Number(field.cropHarvested) || 0).toFixed(2))
+  });
+  const rows = fields.map(summarize).sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+  return {
+    fieldCount: rows.length,
+    completeFieldCount: rows.filter(field => field.complete && !field.destroyed).length,
+    totalFieldTiles: rows.reduce((sum, field) => sum + field.fieldTileCount, 0),
+    standingBiomass: Number(rows.reduce((sum, field) => sum + field.standingBiomass, 0).toFixed(2)),
+    cropSeedStored: Number(rows.reduce((sum, field) => sum + field.cropSeedStored, 0).toFixed(2)),
+    cropSeededBiomass: Number(rows.reduce((sum, field) => sum + field.cropSeededBiomass, 0).toFixed(2)),
+    cropHarvested: Number(rows.reduce((sum, field) => sum + field.cropHarvested, 0).toFixed(2)),
+    fields: rows
+  };
 }
 
 export function summarizeFoodDeaths(world) {

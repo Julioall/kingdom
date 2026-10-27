@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
 import engine from '../src/simulation/engine.js';
-import { summarizeCampaignFoodLogistics, summarizeFoodDeaths } from './food-audit-metrics.mjs';
+import { summarizeCampaignFoodLogistics, summarizeCultivatedFields, summarizeFoodDeaths } from './food-audit-metrics.mjs';
 
 const args = new Map();
 for (let index = 2; index < process.argv.length; index++) {
@@ -122,6 +122,7 @@ function run(seed) {
     deathsByCause: { ...(world.deathsByCause || {}) },
     deathsByActor: summarizeFoodDeaths(world),
     campaignLogistics: summarizeCampaignFoodLogistics(world),
+    cultivatedFields: summarizeCultivatedFields(world),
     births: world.births || 0, deaths: world.deaths || 0,
     harvests: { ...(world.harvests || {}) },
     ecologyFlows: { ...(world.ecologyFlows || {}) },
@@ -160,10 +161,10 @@ if (outputPath) {
   const summary = { sourceRevision: report.sourceRevision, days, seeds, repeatSeed,
     results: results.map(({ seed, elapsedSeconds, stateSha256, chronicleSha256, determinismVerified,
       determinismDiff, livingPeople, adultDaysFoodReserveBelow20, deathsByCause, births, deaths,
-      deathsByActor, campaignLogistics, foodBiomass, activeCampaigns, campaignBattles, marketTransactions, stocks }) => ({ seed, elapsedSeconds,
+      deathsByActor, campaignLogistics, cultivatedFields, foodBiomass, activeCampaigns, campaignBattles, marketTransactions, stocks }) => ({ seed, elapsedSeconds,
       stateSha256, chronicleSha256, determinismVerified, determinismDiff, livingPeople,
       adultDaysFoodReserveBelow20, deathsByCause, births, deaths, foodBiomass,
-      deathsByActor, campaignLogistics, activeCampaigns, campaignBattles, marketTransactions, stocks })) };
+      deathsByActor, campaignLogistics, cultivatedFields, activeCampaigns, campaignBattles, marketTransactions, stocks })) };
   process.stdout.write(JSON.stringify(summary, null, 2) + '\n');
 } else process.stdout.write(output);
 if (repeatSeed !== null && !results.at(-1).determinismVerified) process.exitCode = 1;
