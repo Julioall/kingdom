@@ -203,6 +203,31 @@ test('one royal field assignment stays active until the shared stock reaches its
   assert.equal(kingdom.strategy.lastOutcome.status, 'completed');
 });
 
+test('a funded construction assignment persists across daily progress until its building is complete', () => {
+  const leader = { id: 1, alive: true, name: 'Rei', prestige: 0 };
+  const worker = { id: 2, alive: true, name: 'Aru', communityId: 3, prestige: 0, assignment: {
+    action: 'build', title: 'concluir a roça', goal: 'complete-funded-project', structureId: 7,
+    source: 'community-project', communityId: 3, expiresDay: 20
+  } };
+  const community = { id: 3, leaderId: 1, history: [], assignments: [{ personId: 2, status: 'delegada' }] };
+  const field = { id: 7, type: 'roça', communityId: 3, complete: false, progress: 10, required: 34 };
+  const world = { day: 5, people: [leader, worker], communities: [community], structures: [field], events: [] };
+
+  assert.equal(completeCommunityTask(world, worker, 'build', { buildProgress: 10 }, { buildProgress: 11 }), false,
+    'one day of construction is progress, not completion of the multi-day task');
+  assert.equal(worker.assignment?.goal, 'complete-funded-project');
+  assert.equal(community.assignments[0].status, 'delegada');
+  assert.equal(worker.prestige, 0);
+
+  field.complete = true;
+  field.progress = 34;
+  assert.equal(completeCommunityTask(world, worker, 'build', { buildProgress: 33 }, { buildProgress: 34 }), true,
+    'the assignment completes when the structure itself is complete');
+  assert.equal(worker.assignment, null);
+  assert.equal(community.assignments[0].status, 'concluída');
+  assert.equal(worker.prestige, 1);
+});
+
 test('a standard field batch sizes harvest assignments for 49, 50, and 51 residents', () => {
   for (const population of [49, 50, 51]) {
     const leader = { id: 1, alive: true, name: 'Rei', communityId: 3, ageDays: 40 * 365 };

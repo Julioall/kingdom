@@ -506,9 +506,17 @@ export function completeCommunityTask(w, person, action, beforeState, afterState
         task.action = 'deliver'; return false;
       }
     } else if (task.action === 'capture_sheep' && action === 'capture_sheep' && person.leadingSheepId) { task.action = 'lead_sheep'; return false; }
-    else if (task.action === 'build' && action === 'build') succeeded = task.goal === 'repair-damaged-structures'
-      ? afterState.repairProgress > beforeState.repairProgress + .01
-      : afterState.buildProgress > beforeState.buildProgress;
+    else if (task.action === 'build' && action === 'build') {
+      const assignedProjectStillOpen = task.source === 'community-project' && (w.structures || []).some(structure =>
+        structure.id === task.structureId && !structure.complete && structure.destroyedDay == null && structure.integrity !== 0);
+      // Construction is a multi-day project. Progress on one day is not task
+      // completion: keep its reserved builder assigned until the structure is
+      // actually finished, or food support can reclaim that worker next tick.
+      if (assignedProjectStillOpen) return false;
+      succeeded = task.goal === 'repair-damaged-structures'
+        ? afterState.repairProgress > beforeState.repairProgress + .01
+        : afterState.buildProgress > beforeState.buildProgress;
+    }
     else if (task.action === 'trade' && action === 'trade') succeeded = afterState.tradeCount > beforeState.tradeCount;
     else if (task.action === 'raid' && action === 'raid' && person.lastRaidSuccess) { task.action = 'deliver'; person.lastRaidSuccess = false; return false; }
     else if (task.action === 'deliver' && action === 'deliver') succeeded = afterState.food > beforeState.food + .02 || afterState.feed > beforeState.feed + .02
