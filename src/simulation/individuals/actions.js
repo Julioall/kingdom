@@ -13,7 +13,7 @@ import { bushHarvestHitbox, collidesWithWorldAt, hitboxesOverlap, mineralHitbox,
 import { communityHerd, domesticatedSheep } from '../ecology/animals.js';
 import { communityRelation, completeCommunityTask, updateCommunityGovernance } from '../society/governance.js';
 import { canCommunityBuild, canGatherFoodFieldMaterialsWithReserve, canWorkOnFoodFieldWithReserve, communityBuildUtility, communityBuildingNeed,
-  communityStructures, nextCommunityStructure, workOnCommunityStructure } from '../settlements/construction.js';
+  communityStructures, nextCommunityStructure, workOnCommunityStructure, workOnReplantingField } from '../settlements/construction.js';
 import { availableCommunityPen } from '../ecology/herd.js';
 import { cultivatedFieldStandingBiomass, eatPlants, isBushAnchor, plantBiomass } from '../ecology/plants.js';
 import { refreshHarvestSuitability } from '../world/queries.js';
@@ -233,6 +233,21 @@ export function collectFoodForCommunity(w, person, tile) {
       }
       const delivered = storeCommunityFruit(w, community, null, harvested);
       field.foodDelivered = (field.foodDelivered || 0) + delivered;
+      if (field.cropCycleState === 'spent' && !field.cropSeedsRetainedThisCycle) {
+        const seedReserve = Math.max(0, Number(field.cropSeededBiomass) || Number(field.seedMass) || 0);
+        if (seedReserve > .01 && community.stores.food + .001 >= seedReserve) {
+          community.stores.food = Math.max(0, community.stores.food - seedReserve);
+          community.stores.seeds = Math.max(0, Number(community.stores.seeds) || 0) + seedReserve;
+          field.cropSeedsRetainedThisCycle = seedReserve;
+          field.cropSeedsRetainedTotal = (Number(field.cropSeedsRetainedTotal) || 0) + seedReserve;
+          field.foodDelivered = Math.max(0, field.foodDelivered - seedReserve);
+          w.ecologyFlows.humanFoodCultivationSeedRetained = (w.ecologyFlows.humanFoodCultivationSeedRetained || 0) + seedReserve;
+          const message = community.name + ' reservou ' + seedReserve.toFixed(2)
+            + ' unidades da colheita como sementes para manter o próximo ciclo da roça.';
+          community.history.push(message);
+          log(w, message, w.day + 1);
+        }
+      }
       if (delivered <= .01) return 0;
       person.visualActivity = { kind: 'harvest', x: tile.x, y: tile.y, day: w.day + 1 };
       consumePersonEnergy(person, .22);
@@ -1433,9 +1448,12 @@ function updatePeopleCore(w) {
           p.state = 'obra financiada concluída';
           p.lastLesson = 'A estrutura atribuída foi concluída; o trabalhador voltou à prioridade atual do reino.';
         } else {
-          workOnCommunityStructure(w, p, community, communitySize);
+          if (assignment?.goal === 'replant-cultivated-food') workOnReplantingField(w, p, community, assignment.foodFieldId);
+          else workOnCommunityStructure(w, p, community, communitySize);
           p.skills.build = clamp(p.skills.build + .003, 0, 1);
-          p.lastLesson = 'Construir consome material, alimento e energia; a estrutura passa a beneficiar o reino.';
+          if (assignment?.goal !== 'replant-cultivated-food') {
+            p.lastLesson = 'Construir consome material, alimento e energia; a estrutura passa a beneficiar o reino.';
+          }
         }
       } else if (action === 'gather') gatherMaterials(w, p, community);
       else if (action === 'collect_log') collectLooseLog(w, p, looseLog);

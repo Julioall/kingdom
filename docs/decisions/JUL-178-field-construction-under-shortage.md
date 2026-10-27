@@ -63,3 +63,18 @@ Fonte do motor: `20c81ef6e415c03712a2bf16777f1defa839c6a3`. Rodei 730 dias nas s
 O primeiro lote funcionou: em cada seed, as duas roças concluíram, colheram 10.000 cada e entregaram 19.727,74–19.915,82 no total. Mas, ao dia 730, as oito comunidades estavam sem estoque de comida, com 284–319 dias abaixo de 300 e sem cultivo em pé; as duas roças por mundo tinham `cropSeedStored=0`. As seeds registraram 2–12 mortes humanas por fome cada e 23.713–26.292 adulto-dias com reserva abaixo de 20. O motor não replantou o campo depois de consumir o lote.
 
 Conclusão: a persistência da obra elimina o bloqueio de construção e a primeira colheita fecha contabilmente, mas **não há continuidade de plantio** no runtime atual. O rei entende que o lote é finito e não regenera; contudo, não dispõe de ordem nem de estoque de sementes para replantar. Isso reprova a continuidade de produção no horizonte de dois anos e não deve ser descrito como solução sustentável. A decisão de manter a compra de sementes e a ordem de replantio em JUL-201 continua coerente com a fronteira de issues, mas a auditoria alimentar permanece aberta até o fluxo posterior ser executado e medido.
+
+### Atualização — ordem de replantio e continuidade sob validação (27/10/2026)
+
+A direção revisada da JUL-178 pede que o próprio Rei reconheça a necessidade de semear novamente, acompanhe a reserva alimentar enquanto o próximo lote cresce e seja validado por reino/dia. A resposta no código em revisão é uma ordem real, não regeneração automática:
+
+- o relatório agregado do Rei expõe o estado de cada campo, sementes no estoque comunitário e `replantReady` quando há campo esgotado;
+- o prompt explica que o próximo lote deve ser plantado antes da reserva chegar à emergência, enquanto a comunidade consome o lote entregue;
+- o plano do Rei escolhe `replant-cultivated-food` se o campo foi colhido, há sementes reais e o estoque ainda cobre mais de um dia;
+- a tarefa transfere as sementes do inventário comunitário para o campo existente e semeia a área ocupada. Se a ação falhar, as sementes retornam ao estoque;
+- ao final de uma colheita, a mesma massa de sementes usada no campo é separada da comida que acabou de entrar no estoque. O saldo de alimento diminui e o saldo de sementes aumenta pela mesma quantidade; não há semente gratuita nem crescimento quando o campo está vazio.
+- a primeira semeadura ainda usa a coleta finita de frutos silvestres do comportamento legado; migrar a aquisição inicial para compra no mercado permanece no escopo dependente da JUL-201. Não foi criado saldo de sementes no tesouro.
+
+O ciclo de compra inicial e reposição comercial de sementes continua em JUL-201, conforme a fronteira revisada das issues. Esta fatia valida a continuidade com a reserva de sementes convertida explicitamente da colheita; ela não declara concluído o comércio de sementes.
+
+O teste do Rei cobre a escolha da ordem com semente disponível, campo gasto e buffer acima de um dia, e sua indisponibilidade sem sementes. A suíte completa passou em 257/257 e `npm run build` passou; depois da revisão do saldo de sementes inicial, os testes direcionados passaram em 24/24 e `git diff --check` passou. A seed 42/365 anterior foi executada antes dessa revisão e não é evidência do SHA atual. Falta executar e registrar a matriz revisada de 253/365/730 dias para seeds 1/42/987/2026 com repetição de 42, além dos choques e reconciliação por proprietário/dia; JUL-178 permanece aberta até esses critérios serem demonstrados.

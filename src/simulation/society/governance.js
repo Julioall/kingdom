@@ -153,6 +153,10 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
       && s.type === 'roça' && s.complete && s.destroyedDay == null && s.integrity !== 0
       && s.cropCycleState === 'ready' && (!(s.fieldTileIndices || []).length || cultivatedFieldStandingBiomass(w, s) > .01)) : [];
     const cropInvestment = desired.action === 'build' && desired.goal === 'invest-in-cultivated-food';
+    const cropReplant = desired.action === 'build' && desired.goal === 'replant-cultivated-food';
+    const replantField = cropReplant ? structures.filter(structure => structure.type === 'roça' && structure.complete
+      && structure.cropCycleState === 'spent' && structure.destroyedDay == null && structure.integrity !== 0
+      && (community.stores.seeds || 0) > .01).sort((a, b) => a.id - b.id)[0] : null;
     const fieldMaterialPreparation = desired.action === 'gather' && desired.goal === 'prepare-cultivated-field';
     const activeFieldProject = structures.some(structure => structure.type === 'roça' && !structure.complete);
     const fieldBuilderReserveFloor = fieldMaterialPreparation || cropInvestment && activeFieldProject
@@ -190,8 +194,9 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
         if (desired.action === 'build') return person.energy > fieldBuildEnergyFloor && person.hydration > 18 && person.foodReserve > fieldBuildFoodFloor
           // Governance runs after today's actions. Movement toward a site sets a
           // two-day cooldown, which ticks down before each next individual action.
-          && person.buildCooldown <= 2 && (desired.goal === 'repair-damaged-structures'
-            ? canRepairKingdomStructure(w, community) : canCommunityBuild(w, community, workers.length));
+          && person.buildCooldown <= 2 && (cropReplant ? !!replantField
+            : desired.goal === 'repair-damaged-structures'
+              ? canRepairKingdomStructure(w, community) : canCommunityBuild(w, community, workers.length));
         if (desired.action === 'trade') {
           const kingdom = w.kingdoms.find(item => item.id === community.kingdomId);
           const station = kingdom && w.structures.find(item => item.type === 'mercado' && item.kingdomId === kingdom.id);
@@ -218,6 +223,7 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
         priority: desired.priority || 'normal', pauseReason: null, lastPausedDay: null };
       if (fields.length) candidate.assignment.foodFieldId = fields.slice()
         .sort((a, b) => distance(candidate, a) - distance(candidate, b) || a.id - b.id)[0].id;
+      if (replantField) candidate.assignment.foodFieldId = replantField.id;
       community.assignments.push({ personId: candidate.id, action: desired.action, goal: desired.goal || null, assignedDay: w.day, status: 'delegada' });
       if (community.assignments.length > 16) community.assignments.shift();
       community.history.push(leader.name + ' delegou a ' + candidate.name + ' a tarefa: ' + desired.title + '.');
@@ -513,9 +519,11 @@ export function completeCommunityTask(w, person, action, beforeState, afterState
       // completion: keep its reserved builder assigned until the structure is
       // actually finished, or food support can reclaim that worker next tick.
       if (assignedProjectStillOpen) return false;
-      succeeded = task.goal === 'repair-damaged-structures'
-        ? afterState.repairProgress > beforeState.repairProgress + .01
-        : afterState.buildProgress > beforeState.buildProgress;
+      succeeded = task.goal === 'replant-cultivated-food'
+        ? task.replantSowedDay === w.day
+        : task.goal === 'repair-damaged-structures'
+          ? afterState.repairProgress > beforeState.repairProgress + .01
+          : afterState.buildProgress > beforeState.buildProgress;
     }
     else if (task.action === 'trade' && action === 'trade') succeeded = afterState.tradeCount > beforeState.tradeCount;
     else if (task.action === 'raid' && action === 'raid' && person.lastRaidSuccess) { task.action = 'deliver'; person.lastRaidSuccess = false; return false; }

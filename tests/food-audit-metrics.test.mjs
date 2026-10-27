@@ -54,10 +54,13 @@ test('food audit separates standing crop, stored seed, seeded mass, and cumulati
   };
   const summary = summarizeCultivatedFields({
     tiles: [cropTile(5.5, 10), cropTile(2.25, 10), cropTile(1.5, 11)],
+    communities: [{ id: 2, stores: { seeds: 6 } }, { id: 3, stores: { seeds: 0 } }],
     structures: [
       { id: 10, communityId: 2, type: 'roça', complete: true, fieldTileIndices: [0, 1],
         progress: 34, required: 34, builtDay: 120,
-        cropSeedStored: 0, cropSeededBiomass: 8, cropHarvested: 1.25, foodDelivered: .75 },
+        cropSeedStored: 0, cropSeededBiomass: 8, cropSeedsRetainedThisCycle: 3,
+        cropSeedsRetainedTotal: 7, cropSowCount: 2, cropLastSowedDay: 180,
+        cropCycleState: 'growing', cropHarvested: 1.25, foodDelivered: .75 },
       { id: 11, communityId: 3, type: 'roça', complete: false, fieldTileIndices: [2],
         progress: 5, required: 34, cropSeedStored: 2.5, cropSeededBiomass: 0, cropHarvested: 0 }
     ]
@@ -66,13 +69,18 @@ test('food audit separates standing crop, stored seed, seeded mass, and cumulati
   assert.deepEqual(summary, {
     fieldCount: 2, completeFieldCount: 1, totalFieldTiles: 3,
     standingBiomass: 9.25, cropSeedStored: 2.5, cropSeededBiomass: 8, cropHarvested: 1.25, foodDelivered: .75,
+    seedStockByCommunity: [{ communityId: 2, seeds: 6 }, { communityId: 3, seeds: 0 }],
     fields: [
       { id: 10, communityId: 2, complete: true, destroyed: false, progress: 34, required: 34,
         builtDay: 120, fieldTileCount: 2,
-        standingBiomass: 7.75, cropSeedStored: 0, cropSeededBiomass: 8, cropHarvested: 1.25, foodDelivered: .75 },
+        standingBiomass: 7.75, cropSeedStored: 0, cropSeededBiomass: 8,
+        cropSeedsRetainedThisCycle: 3, cropSeedsRetainedTotal: 7, cropSowCount: 2,
+        cropLastSowedDay: 180, cropCycleState: 'growing', cropHarvested: 1.25, foodDelivered: .75 },
       { id: 11, communityId: 3, complete: false, destroyed: false, progress: 5, required: 34,
         builtDay: null, fieldTileCount: 1,
-        standingBiomass: 1.5, cropSeedStored: 2.5, cropSeededBiomass: 0, cropHarvested: 0, foodDelivered: 0 }
+        standingBiomass: 1.5, cropSeedStored: 2.5, cropSeededBiomass: 0,
+        cropSeedsRetainedThisCycle: 0, cropSeedsRetainedTotal: 0, cropSowCount: 0,
+        cropLastSowedDay: null, cropCycleState: null, cropHarvested: 0, foodDelivered: 0 }
     ]
   });
 });
@@ -80,7 +88,8 @@ test('food audit separates standing crop, stored seed, seeded mass, and cumulati
 test('food audit reports zero field stock instead of treating missing fields as shared food', () => {
   assert.deepEqual(summarizeCultivatedFields({ structures: [], tiles: [] }), {
     fieldCount: 0, completeFieldCount: 0, totalFieldTiles: 0, standingBiomass: 0,
-    cropSeedStored: 0, cropSeededBiomass: 0, cropHarvested: 0, foodDelivered: 0, fields: []
+    cropSeedStored: 0, cropSeededBiomass: 0, cropHarvested: 0, foodDelivered: 0,
+    seedStockByCommunity: [], fields: []
   });
 });
 

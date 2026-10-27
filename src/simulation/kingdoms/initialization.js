@@ -105,7 +105,7 @@ export function initializeKingdoms(world) {
       cohesion: .2, satisfaction: .62, leaderId: null, leadershipChallenge: null, assignments: [], properties: [],
       lastGovernanceDay: -999, lastPropertyDay: -999, createdDay: world.day, history: [], usedCells: {},
       grounds: { hunting: null, fishing: null }, lastBuildDay: -999,
-      stores: { food: 0, meat: 0, wood: 0, stone: 0, feed: 0, gold: 0 }, tradeCount: 0, splitCooldown: 0
+      stores: { food: 0, meat: 0, wood: 0, stone: 0, feed: 0, gold: 0, seeds: 0 }, tradeCount: 0, splitCooldown: 0
     });
   }
 

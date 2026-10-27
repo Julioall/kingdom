@@ -1,7 +1,7 @@
 import { rearProjection, safeCorralFootprint } from '../kingdoms/rear-sites.js';
 import { initializeStructureHealth } from '../kingdoms/fortifications.js';
 import { clamp, distance, hash01 } from '../core/math.js';
-import { communityFoodStock, consumeFoodReserve, spendInventory, spendStoreInventory, withdrawCommunityFood } from '../economy/inventories.js';
+import { communityFoodStock, consumeFoodReserve, spendInventory, spendStoreInventory, transferResource, withdrawCommunityFood } from '../economy/inventories.js';
 import { cellAt, cellsWithin } from '../world/spatial.js';
 import { collectCommunityFieldSeeds, plantBiomass, sowCommunityField } from '../ecology/plants.js';
 import { PLANTS } from '../../config/ecosystem.js';
@@ -21,7 +21,7 @@ export const FIELD_CONSTRUCTION_MIN_ENERGY = 24;
 
 export function isFoodFieldConstructionAssignment(world, assignment) {
   if (!assignment || assignment.action !== 'build') return false;
-  if (assignment.goal === 'invest-in-cultivated-food') return true;
+  if (['invest-in-cultivated-food', 'replant-cultivated-food'].includes(assignment.goal)) return true;
   const structure = (world.structures || []).find(item => item.id === assignment.structureId);
   return structure?.type === 'roça' && !structure.complete;
 }
@@ -357,3 +357,48 @@ export function workOnCommunityStructure(w, person, community, size) {
       log(w, community.name + ' concluiu ' + structure.type + (structure.type === 'divisa' ? ' ao redor de sua área de ' + (structure.groundKind === 'hunting' ? 'caça' : 'pesca') + '; cruzar o limite custa mais energia.' : '; sua área de uso alcançou novos recursos.'));
     }
   }
+
+export function workOnReplantingField(w, person, community, fieldId = person?.assignment?.foodFieldId) {
+  if (!w || !person?.alive || !community?.stores || person.communityId !== community.id) return false;
+  const field = (w.structures || []).find(item => item.id === fieldId && item.type === 'roça'
+    && item.communityId === community.id && item.complete && item.destroyedDay == null && item.integrity !== 0);
+  const availableSeeds = Math.max(0, Number(community.stores.seeds) || 0);
+  if (!field || field.cropCycleState !== 'spent' || availableSeeds <= .01) {
+    person.state = !field ? 'roça para replantio indisponível' : 'aguardando sementes para replantio';
+    return false;
+  }
+
+  const cropTiles = (field.fieldTileIndices || []).map(index => w.tiles[index])
+    .filter(tile => tile && tile.cropFieldId === field.id && tile.terrain === 'land')
+    .sort((a, b) => distance(person, a) - distance(person, b) || a.i - b.i);
+  if (!cropTiles.length) {
+    person.state = 'área da roça indisponível para replantio';
+    return false;
+  }
+  const plantingTile = cropTiles.find(tile => distance(person, tile) <= 1.6);
+  if (!plantingTile) {
+    const moved = cropTiles.some(tile => moveOne(w, person, cellAt(w, tile.x, tile.y), false));
+    person.state = moved ? 'indo semear a roça' : 'rota da roça bloqueada para replantio';
+    person.buildCooldown = moved ? 1 : 3;
+    return false;
+  }
+
+  const previousSeedMass = Math.max(0, Number(field.cropSeededBiomass) || Number(field.seedMass) || 0);
+  const seedMass = Math.min(availableSeeds, previousSeedMass || availableSeeds);
+  if (seedMass <= .01) return false;
+  const movedSeeds = transferResource(community.stores, field, 'seeds', seedMass, 'cropSeedStored');
+  if (movedSeeds <= .01) return false;
+  const planted = sowCommunityField(w, field);
+  if (planted <= .01) {
+    transferResource(field, community.stores, 'cropSeedStored', movedSeeds, 'seeds');
+    return false;
+  }
+  field.cropSeedsRetainedThisCycle = 0;
+  field.cropLastSowedDay = w.day;
+  if (person.assignment) person.assignment.replantSowedDay = w.day;
+  person.state = 'semeando a roça';
+  person.lastLesson = 'O morador debitou sementes reservadas e replantou a área existente; o crescimento começa em um novo lote finito.';
+  community.history.push('Replantou a roça com ' + planted.toFixed(2) + ' unidades de sementes reservadas no estoque comum.');
+  log(w, community.name + ' replantou uma roça com ' + planted.toFixed(2) + ' unidades de sementes; novo lote iniciado.', w.day + 1);
+  return true;
+}

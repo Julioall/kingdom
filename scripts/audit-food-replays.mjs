@@ -88,9 +88,12 @@ function summarizeStocks(world) {
   const people = (world.people || []).filter(person => person.alive);
   return {
     communityFood: Number(sum(communities.map(item => item.stores), 'food').toFixed(2)),
+    communitySeeds: Number(sum(communities.map(item => item.stores), 'seeds').toFixed(2)),
     communityMeat: Number(sum(communities.map(item => item.stores), 'meat').toFixed(2)),
     treasuryFood: Number(sum(treasuries, 'food').toFixed(2)),
     marketFood: Number(sum(markets, 'food').toFixed(2)),
+    marketSeeds: Number(sum(markets, 'seeds').toFixed(2)),
+    treasurySeeds: Number(sum(treasuries, 'seeds').toFixed(2)),
     personalFoodReserve: Number(sum(people, 'foodReserve').toFixed(2)),
     carriedFood: Number(sum(people, 'carriedFood').toFixed(2)),
     carriedFruit: Number(sum(people, 'carriedFruit').toFixed(2)),
@@ -120,6 +123,9 @@ function foodReserveTrackers(world) {
       daysBelowDemandBuffer: 0,
       firstDayBelow300: null,
       endingFood: stock,
+      endingSeedStock: Number(community.stores?.seeds) || 0,
+      minimumSeedStock: Number(community.stores?.seeds) || 0,
+      maximumSeedStock: Number(community.stores?.seeds) || 0,
       minimumCombinedReserveDays: dailyFoodUnits > 0 ? (stock + personalReservePoints / FOOD_RESERVE_PER_UNIT) / dailyFoodUnits : null,
       maximumCombinedReserveDays: dailyFoodUnits > 0 ? (stock + personalReservePoints / FOOD_RESERVE_PER_UNIT) / dailyFoodUnits : null,
       daysBelowCombinedReserve14: 0,
@@ -163,6 +169,10 @@ function updateFoodReserveTrackers(world, trackers) {
     tracker.minimumFood = Math.min(tracker.minimumFood, stock);
     tracker.maximumFood = Math.max(tracker.maximumFood, stock);
     tracker.endingFood = stock;
+    const seedStock = Math.max(0, Number(community.stores?.seeds) || 0);
+    tracker.endingSeedStock = seedStock;
+    tracker.minimumSeedStock = Math.min(tracker.minimumSeedStock, seedStock);
+    tracker.maximumSeedStock = Math.max(tracker.maximumSeedStock, seedStock);
     if (Number.isFinite(combinedReserveDays)) {
       tracker.minimumCombinedReserveDays = Math.min(tracker.minimumCombinedReserveDays, combinedReserveDays);
       tracker.maximumCombinedReserveDays = Math.max(tracker.maximumCombinedReserveDays, combinedReserveDays);
@@ -198,6 +208,9 @@ function finalizeFoodReserveTrackers(trackers) {
     minimumFood: Number(tracker.minimumFood.toFixed(2)),
     maximumFood: Number(tracker.maximumFood.toFixed(2)),
     endingFood: Number(tracker.endingFood.toFixed(2)),
+    endingSeedStock: Number(tracker.endingSeedStock.toFixed(2)),
+    minimumSeedStock: Number(tracker.minimumSeedStock.toFixed(2)),
+    maximumSeedStock: Number(tracker.maximumSeedStock.toFixed(2)),
     minimumCombinedReserveDays: Number.isFinite(tracker.minimumCombinedReserveDays)
       ? Number(tracker.minimumCombinedReserveDays.toFixed(2)) : null,
     maximumCombinedReserveDays: Number.isFinite(tracker.maximumCombinedReserveDays)

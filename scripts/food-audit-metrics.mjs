@@ -29,6 +29,11 @@ export function summarizeCultivatedFields(world) {
     standingBiomass: Number(standingBiomass(field).toFixed(2)),
     cropSeedStored: Number((Number(field.cropSeedStored) || 0).toFixed(2)),
     cropSeededBiomass: Number((Number(field.cropSeededBiomass) || 0).toFixed(2)),
+    cropSeedsRetainedThisCycle: Number((Number(field.cropSeedsRetainedThisCycle) || 0).toFixed(2)),
+    cropSeedsRetainedTotal: Number((Number(field.cropSeedsRetainedTotal) || 0).toFixed(2)),
+    cropSowCount: Number(field.cropSowCount) || 0,
+    cropLastSowedDay: Number.isFinite(field.cropLastSowedDay) ? field.cropLastSowedDay : null,
+    cropCycleState: field.cropCycleState || null,
     cropHarvested: Number((Number(field.cropHarvested) || 0).toFixed(2)),
     foodDelivered: Number((Number(field.foodDelivered) || 0).toFixed(2))
   });
@@ -42,6 +47,9 @@ export function summarizeCultivatedFields(world) {
     cropSeededBiomass: Number(rows.reduce((sum, field) => sum + field.cropSeededBiomass, 0).toFixed(2)),
     cropHarvested: Number(rows.reduce((sum, field) => sum + field.cropHarvested, 0).toFixed(2)),
     foodDelivered: Number(rows.reduce((sum, field) => sum + field.foodDelivered, 0).toFixed(2)),
+    seedStockByCommunity: (world?.communities || []).filter(community => !community.dissolved)
+      .map(community => ({ communityId: community.id, seeds: Number((Number(community.stores?.seeds) || 0).toFixed(2)) }))
+      .sort((a, b) => a.communityId - b.communityId),
     fields: rows
   };
 }

@@ -30,6 +30,7 @@ const TASK_DETAILS = Object.freeze({
 const ROYAL_BUILD_DETAILS = Object.freeze({
   'prepare-food-access': { title: 'construir abrigo para apoiar coleta e caça', skill: 'build' },
   'invest-in-cultivated-food': { title: 'construir e semear uma roça', skill: 'build' },
+  'replant-cultivated-food': { title: 'replantar uma roça com sementes reservadas', skill: 'build' },
   'invest-in-herd-capacity': { title: 'construir um curral para ampliar o rebanho', skill: 'build' }
 });
 
@@ -120,6 +121,10 @@ export function observeKingdomStrategy(world, kingdomId) {
     }
   }
   const fieldStructures = communityStructures.filter(structure => structure.type === 'roça');
+  const seedStock = Math.max(0, finite(communityStock.seeds));
+  const spentFields = fieldStructures.filter(field => field.complete && field.cropCycleState === 'spent')
+    .sort((a, b) => finite(a.cropLastSowedDay, a.builtDay || 0) - finite(b.cropLastSowedDay, b.builtDay || 0) || a.id - b.id);
+  const replantField = seedStock > .01 ? spentFields[0] || null : null;
   const cropIndex = PLANTS.findIndex(plant => plant.id === 'cultivated-root');
   const cropRootReserve = cropIndex >= 0 ? Math.max(0, finite(PLANTS[cropIndex].rootReserve)) : 0;
   let standingCropBiomass = 0, harvestableCropPotential = 0;
@@ -155,6 +160,7 @@ export function observeKingdomStrategy(world, kingdomId) {
         growthGenerated: finite(field.cropGrowthGenerated),
         harvestedThisCycle: finite(field.cropHarvestedThisCycle),
         standingBiomass: Number(standingBiomass.toFixed(1)),
+        seedReserveReturned: finite(field.cropSeedsRetainedThisCycle),
         foodDelivered: finite(field.foodDelivered),
         cycleState: field.cropCycleState || (standingBiomass > 0 ? 'growing' : 'unplanted')
       };
@@ -162,6 +168,11 @@ export function observeKingdomStrategy(world, kingdomId) {
     activeProjectType: activeFoodProjectType,
     nextBuildType: nextFoodStructureType,
     nextBuildReady: !!nextFoodStructureType && constructionReady && safeBuilderAvailable,
+    seedStock,
+    replantReady: !!replantField,
+    replantFieldId: replantField?.id ?? null,
+    replantSeedMass: replantField ? Math.min(seedStock,
+      Math.max(0, finite(replantField.cropSeededBiomass, finite(replantField.seedMass)))) : 0,
     buildSitePrevalidated: false,
     buildSiteRequirement: 'O construtor precisa encontrar área válida e alcançável; prontidão de materiais não confirma o local.',
     completedCorrals: herdSummary.pens.length,
@@ -445,6 +456,12 @@ export function planKingdomStrategy(report) {
       reason: 'A reserva comum está baixa e o mercado tem alimento disponível para troca com ouro ou excedentes observados.'
     };
   }
+  if (report.community.foodInfrastructure?.replantReady && sharedFoodBufferDays > 1) {
+    return {
+      goal: 'replant-cultivated-food', action: 'build', priority: 'normal', garrisonMode,
+      reason: 'A roça anterior terminou e há sementes já reservadas; replantar agora mantém o crescimento em paralelo ao consumo da colheita entregue.'
+    };
+  }
   if ((report.community.buildPlan && ['abrigo', 'roça'].includes(report.community.buildPlan.type)
       || report.community.activeCropProject || report.community.activeFoodProject)
       && report.community.constructionReady && report.community.safeBuilderAvailable) {
@@ -529,7 +546,12 @@ function normalizePlan(proposal, report) {
   if (proposal.action === 'build' && proposal.goal === 'repair-damaged-structures' && !report.community.repairs?.repairReady) {
     return { valid: false, reason: 'Não há construção danificada ou materiais suficientes no tesouro para repará-la.' };
   }
-  if (proposal.action === 'build' && proposal.goal !== 'repair-damaged-structures' && !report.community.constructionReady) {
+  if (proposal.action === 'build' && proposal.goal === 'replant-cultivated-food'
+      && (!report.community.foodInfrastructure?.replantReady || foodBufferDaysForReport(report.community) <= 1)) {
+    return { valid: false, reason: 'A roça não está esgotada com sementes reservadas ou a reserva comum está em emergência.' };
+  }
+  if (proposal.action === 'build' && !['repair-damaged-structures', 'replant-cultivated-food'].includes(proposal.goal)
+      && !report.community.constructionReady) {
     return { valid: false, reason: 'A próxima construção não está autorizada pelos estoques, capacidade ou intervalo de obra.' };
   }
   if (proposal.action === 'gather' && (!report.community.buildPlan || report.community.constructionMaterialNeed <= 0)) {
@@ -586,6 +608,15 @@ function addFoodCapacityChoices(report, add) {
   );
 }
 
+function addFieldReplantChoice(report, add) {
+  const infrastructure = report?.community?.foodInfrastructure;
+  if (!infrastructure?.replantReady || foodBufferDaysForReport(report.community) <= 1) return;
+  add('replant_cultivated_field', 'Replantar a roça com sementes reservadas', {
+    goal: 'replant-cultivated-food', action: 'build', priority: 'normal',
+    reason: 'O lote anterior acabou, há sementes físicas reservadas e a reserva comum ainda cobre o trabalho de replantio.'
+  });
+}
+
 export function kingdomStrategyChoices(report) {
   const fallback = planKingdomStrategy(report);
   const garrisonMode = fallback.garrisonMode || 'standby';
@@ -617,6 +648,7 @@ export function kingdomStrategyChoices(report) {
       goal: 'secure-shared-food', action: 'forage', priority: sharedFoodBufferDays < 2 ? 'urgent' : 'normal',
       reason: 'O estoque compartilhado está baixo para o número de moradores.'
     });
+    addFieldReplantChoice(report, add);
     addFoodCapacityChoices(report, add);
     if (report.community.repairs?.repairReady && report.community.repairs.criticalStructureCount > 0) add(
       'repair_damaged_structures', 'Reparar uma construção crítica', {
@@ -640,6 +672,7 @@ export function kingdomStrategyChoices(report) {
     });
   }
   addFoodCapacityChoices(report, add);
+  addFieldReplantChoice(report, add);
   if (report.community.constructionReady) {
     const cropProject = report.community.buildPlan && report.community.buildPlan.type === 'roça'
       || report.community.activeCropProject;

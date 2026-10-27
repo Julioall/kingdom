@@ -314,6 +314,7 @@ export function sowCommunityField(w, structure) {
     structure.cropHarvestedThisCycle = 0;
     structure.cropCycleState = 'growing';
     structure.cropCycleStartedDay = w.day;
+    structure.cropSowCount = (Number(structure.cropSowCount) || 0) + 1;
     structure.cropTileCapacity = structure.cropYieldTarget / tiles.length;
     structure.cropHarvested = structure.cropHarvested || 0;
     invalidateNavigation(w);

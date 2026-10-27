@@ -59,7 +59,7 @@ export function createCommunity(w, members) {
     }
     const id = w.nextId++, center = { x: (members[0].x + members[1].x) / 2, y: (members[0].y + members[1].y) / 2 };
     const naming = communityName(w, members);
-    const c = { id, name: naming.name, nameSource: naming.source, color: COLORS[(id + Math.floor(rand(w) * COLORS.length)) % COLORS.length], memberIds: [], stage: 'vínculo', previousStage: 'vínculo', x: center.x, y: center.y, cohesion: .2, satisfaction: .5, leaderId: null, leadershipChallenge: null, assignments: [], properties: [], lastGovernanceDay: -999, lastPropertyDay: -999, createdDay: w.day, history: [], usedCells: {}, grounds: { hunting: null, fishing: null }, lastBuildDay: -999, stores: { food: 0, meat: 0, wood: 0, stone: 0, feed: 0, gold: 0 }, tradeCount: 0, splitCooldown: 0 };
+    const c = { id, name: naming.name, nameSource: naming.source, color: COLORS[(id + Math.floor(rand(w) * COLORS.length)) % COLORS.length], memberIds: [], stage: 'vínculo', previousStage: 'vínculo', x: center.x, y: center.y, cohesion: .2, satisfaction: .5, leaderId: null, leadershipChallenge: null, assignments: [], properties: [], lastGovernanceDay: -999, lastPropertyDay: -999, createdDay: w.day, history: [], usedCells: {}, grounds: { hunting: null, fishing: null }, lastBuildDay: -999, stores: { food: 0, meat: 0, wood: 0, stone: 0, feed: 0, gold: 0, seeds: 0 }, tradeCount: 0, splitCooldown: 0 };
     w.communities.push(c);
     for (const p of members) { p.communityId = id; if (!c.memberIds.includes(p.id)) c.memberIds.push(p.id); recordCommunityUse(w, p); }
     selectCommunityLeader(w, c, members);

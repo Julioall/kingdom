@@ -4,7 +4,7 @@ import engine from '../src/simulation/engine.js';
 import { DAILY_FOOD_NEED, FOOD_RESERVE_PER_UNIT, PLANTS } from '../src/config/ecosystem.js';
 import { stripAbsoluteCalendarFields } from '../src/ai/observations.js';
 import {
-  kingdomStrategyChoices, observeKingdomStrategy, queueKingdomStrategicAiRequests, setStrategicAiEnabled
+  kingdomStrategyChoices, observeKingdomStrategy, planKingdomStrategy, queueKingdomStrategicAiRequests, setStrategicAiEnabled
 } from '../src/simulation/kingdoms/strategy.js';
 import { queueCampaignGeneralAiRequests } from '../src/simulation/kingdoms/campaigns.js';
 import { buildKingdomStrategySystemPrompt } from '../src/ai/kingdom-strategy-prompt.js';
@@ -144,6 +144,34 @@ test('king receives aggregate crop production and active/blocked royal order sta
   assert.equal('personId' in request.context.report.community.activeRoyalOrders[0], false);
 });
 
+test('king sees the seed reserve and chooses to replant a spent field before food enters emergency', () => {
+  const cropIndex = PLANTS.findIndex(plant => plant.id === 'cultivated-root');
+  const { rawReport, request } = strategicRequest(91, ({ world, community }) => {
+    community.stores.food = 10_000;
+    community.stores.seeds = 8;
+    const tiles = world.tiles.filter(tile => tile.terrain === 'land' && tile.cropFieldId == null).slice(0, 24);
+    const field = { id: 99002, type: 'roça', communityId: community.id, complete: true,
+      fieldTileIndices: tiles.map(tile => tile.i), cropSeededBiomass: 8, cropYieldTarget: 10_000,
+      cropHarvestedThisCycle: 10_000, cropCycleState: 'spent' };
+    for (const tile of tiles) {
+      tile.cropFieldId = field.id;
+      tile.plants[cropIndex] = 0;
+    }
+    world.structures.push(field);
+  });
+
+  assert.equal(rawReport.community.foodInfrastructure.seedStock, 8);
+  assert.equal(rawReport.community.foodInfrastructure.replantReady, true);
+  assert.ok(rawReport.community.foodBufferDays > 1);
+  assert.equal(planKingdomStrategy(rawReport).goal, 'replant-cultivated-food');
+  assert.ok(kingdomStrategyChoices(rawReport).some(choice => choice.id === 'replant_cultivated_field'));
+  assert.equal(request.context.report.community.foodInfrastructure.seedStock, 8);
+
+  rawReport.community.foodInfrastructure.seedStock = 0;
+  rawReport.community.foodInfrastructure.replantReady = false;
+  assert.ok(!kingdomStrategyChoices(rawReport).some(choice => choice.id === 'replant_cultivated_field'));
+});
+
 test('kingdom model prompt explains farm, corral, and blocked-order constraints', () => {
   const prompt = buildKingdomStrategySystemPrompt(['forage_for_food', 'build_food_field', 'capture_sheep']);
   assert.match(prompt, /biomassa em pé e colheita histórica não são estoque/i);
@@ -151,6 +179,8 @@ test('kingdom model prompt explains farm, corral, and blocked-order constraints'
   assert.match(prompt, /tarefa bloqueada/i);
   assert.match(prompt, /buffer de 180 dias/i);
   assert.match(prompt, /retira o lote inteiro/i);
+  assert.match(prompt, /continuidade da roça/i);
+  assert.match(prompt, /replantar a área existente/i);
   assert.match(prompt, /forage_for_food, build_food_field, capture_sheep/);
 });
 
