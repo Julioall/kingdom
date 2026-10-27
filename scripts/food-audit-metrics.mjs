@@ -29,7 +29,8 @@ export function summarizeCultivatedFields(world) {
     standingBiomass: Number(standingBiomass(field).toFixed(2)),
     cropSeedStored: Number((Number(field.cropSeedStored) || 0).toFixed(2)),
     cropSeededBiomass: Number((Number(field.cropSeededBiomass) || 0).toFixed(2)),
-    cropHarvested: Number((Number(field.cropHarvested) || 0).toFixed(2))
+    cropHarvested: Number((Number(field.cropHarvested) || 0).toFixed(2)),
+    foodDelivered: Number((Number(field.foodDelivered) || 0).toFixed(2))
   });
   const rows = fields.map(summarize).sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
   return {
@@ -40,6 +41,7 @@ export function summarizeCultivatedFields(world) {
     cropSeedStored: Number(rows.reduce((sum, field) => sum + field.cropSeedStored, 0).toFixed(2)),
     cropSeededBiomass: Number(rows.reduce((sum, field) => sum + field.cropSeededBiomass, 0).toFixed(2)),
     cropHarvested: Number(rows.reduce((sum, field) => sum + field.cropHarvested, 0).toFixed(2)),
+    foodDelivered: Number(rows.reduce((sum, field) => sum + field.foodDelivered, 0).toFixed(2)),
     fields: rows
   };
 }

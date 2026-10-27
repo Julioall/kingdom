@@ -57,7 +57,7 @@ test('food audit separates standing crop, stored seed, seeded mass, and cumulati
     structures: [
       { id: 10, communityId: 2, type: 'roça', complete: true, fieldTileIndices: [0, 1],
         progress: 34, required: 34, builtDay: 120,
-        cropSeedStored: 0, cropSeededBiomass: 8, cropHarvested: 1.25 },
+        cropSeedStored: 0, cropSeededBiomass: 8, cropHarvested: 1.25, foodDelivered: .75 },
       { id: 11, communityId: 3, type: 'roça', complete: false, fieldTileIndices: [2],
         progress: 5, required: 34, cropSeedStored: 2.5, cropSeededBiomass: 0, cropHarvested: 0 }
     ]
@@ -65,14 +65,14 @@ test('food audit separates standing crop, stored seed, seeded mass, and cumulati
 
   assert.deepEqual(summary, {
     fieldCount: 2, completeFieldCount: 1, totalFieldTiles: 3,
-    standingBiomass: 9.25, cropSeedStored: 2.5, cropSeededBiomass: 8, cropHarvested: 1.25,
+    standingBiomass: 9.25, cropSeedStored: 2.5, cropSeededBiomass: 8, cropHarvested: 1.25, foodDelivered: .75,
     fields: [
       { id: 10, communityId: 2, complete: true, destroyed: false, progress: 34, required: 34,
         builtDay: 120, fieldTileCount: 2,
-        standingBiomass: 7.75, cropSeedStored: 0, cropSeededBiomass: 8, cropHarvested: 1.25 },
+        standingBiomass: 7.75, cropSeedStored: 0, cropSeededBiomass: 8, cropHarvested: 1.25, foodDelivered: .75 },
       { id: 11, communityId: 3, complete: false, destroyed: false, progress: 5, required: 34,
         builtDay: null, fieldTileCount: 1,
-        standingBiomass: 1.5, cropSeedStored: 2.5, cropSeededBiomass: 0, cropHarvested: 0 }
+        standingBiomass: 1.5, cropSeedStored: 2.5, cropSeededBiomass: 0, cropHarvested: 0, foodDelivered: 0 }
     ]
   });
 });
@@ -80,7 +80,7 @@ test('food audit separates standing crop, stored seed, seeded mass, and cumulati
 test('food audit reports zero field stock instead of treating missing fields as shared food', () => {
   assert.deepEqual(summarizeCultivatedFields({ structures: [], tiles: [] }), {
     fieldCount: 0, completeFieldCount: 0, totalFieldTiles: 0, standingBiomass: 0,
-    cropSeedStored: 0, cropSeededBiomass: 0, cropHarvested: 0, fields: []
+    cropSeedStored: 0, cropSeededBiomass: 0, cropHarvested: 0, foodDelivered: 0, fields: []
   });
 });
 

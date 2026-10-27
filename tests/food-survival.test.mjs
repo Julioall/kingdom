@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import engine from '../src/simulation/engine.js';
-import { bestPeopleFoodCell } from '../src/simulation/individuals/actions.js';
+import { bestPeopleFoodCell, collectFoodForCommunity } from '../src/simulation/individuals/actions.js';
 import { distance } from '../src/simulation/core/math.js';
 import { PLANTS } from '../src/config/ecosystem.js';
 import { cellAt } from '../src/simulation/world/spatial.js';
@@ -93,6 +93,28 @@ test('a hungry peacetime soldier returns to a stocked garrison before foraging',
 
   assert.equal(soldier.lastDecision.action, 'return_garrison');
   assert.ok(distance(soldier, center) < before, 'the soldier moves toward the actual ration source');
+});
+
+test('cultivated food delivered at the field is attributed to that field and community stock', () => {
+  const { world, soldier: worker } = starvingPeacetimeSoldierFixture();
+  worker.role = 'resident';
+  const community = world.communities.find(item => item.id === worker.communityId);
+  community.stores.food = 0;
+  const cropIndex = PLANTS.findIndex(plant => plant.id === 'cultivated-root');
+  const crop = cellAt(world, Math.round(worker.x), Math.round(worker.y));
+  const field = { id: 99003, type: 'roça', communityId: community.id, complete: true, fieldTileIndices: [crop.i] };
+  crop.cropFieldId = field.id;
+  crop.plants.fill(0);
+  crop.plants[cropIndex] = 100;
+  world.structures.push(field);
+
+  const collected = collectFoodForCommunity(world, worker, crop);
+
+  assert.equal(collected, 24, 'one farm collection fills the defined communal load');
+  assert.equal(worker.carriedFood, 0, 'harvest next to its field is transferred without a redundant return trip');
+  assert.equal(community.stores.food, 24, 'the harvested units reach the accessible community inventory');
+  assert.equal(field.cropHarvested, 24, 'standing crop is debited by the real harvested amount');
+  assert.equal(field.foodDelivered, 24, 'delivered production is separately attributed to its source field');
 });
 
 test('an adult with critical hunger harvests nearby food while critical water remains out of reach', () => {

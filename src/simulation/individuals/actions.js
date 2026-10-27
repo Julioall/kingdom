@@ -226,7 +226,8 @@ export function collectFoodForCommunity(w, person, tile) {
       && s.destroyedDay == null && s.integrity !== 0);
     const community = field && distance(person, tile) <= 1.6 ? activeCommunity(w, person) : null;
     if (community) {
-      moveCarriedResource(person, 'carriedFood', community, 'food', person.carriedFood);
+      const delivered = moveCarriedResource(person, 'carriedFood', community, 'food', person.carriedFood);
+      field.foodDelivered = (field.foodDelivered || 0) + delivered;
       person.state = 'colhendo para a reserva da roça';
       person.lastLesson = 'A colheita foi retirada do talhão e guardada na própria roça para abastecer a comunidade.';
     }
@@ -1275,7 +1276,13 @@ function updatePeopleCore(w) {
               addResource(receivingShelter, 'fruitStored', amount);
             }
           }
-          if (p.carriedFood > .01) moveCarriedResource(p, 'carriedFood', receivingCommunity, 'food', p.carriedFood);
+          if (p.carriedFood > .01) {
+            const sourceField = p.assignment?.foodFieldId == null ? null : w.structures.find(structure =>
+              structure.id === p.assignment.foodFieldId && structure.type === 'roça'
+              && structure.communityId === receivingCommunity.id);
+            const delivered = moveCarriedResource(p, 'carriedFood', receivingCommunity, 'food', p.carriedFood);
+            if (sourceField) sourceField.foodDelivered = (sourceField.foodDelivered || 0) + delivered;
+          }
           if (p.carriedWood > .01) moveCarriedResource(p, 'carriedWood', receivingCommunity, 'wood', p.carriedWood);
           if (p.carriedStone > .01) moveCarriedResource(p, 'carriedStone', receivingCommunity, 'stone', p.carriedStone);
           if (p.carriedGold > .01) moveCarriedResource(p, 'carriedGold', receivingCommunity, 'gold', p.carriedGold);
