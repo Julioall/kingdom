@@ -11,6 +11,7 @@ import { moveOne, reachableAreaAround } from '../individuals/movement.js';
 import { hitboxesOverlap, structureHitbox, worldCollisionIndex } from '../physics/hitboxes.js';
 import { consumePersonEnergy } from '../individuals/energy.js';
 import { claimConstructionWorkstation, clearConstructionWorkpointResources, constructionContactPoint, constructionWorkpointReachable, constructionWorkPositions } from './construction-workstations.js';
+import { communityNeedsAdditionalPen } from '../ecology/herd.js';
 
 const COMMUNITY_BUILDING_TYPES = new Set(['abrigo', 'roça', 'curral', 'posto de coleta', 'acampamento']);
 const KINGDOM_REPAIR_COST = Object.freeze({ wood: 3, stone: 2 });
@@ -117,15 +118,18 @@ export function canCommunityBuild(w, community, size) {
     const limit = size >= 12 ? 5 : size >= 8 ? 4 : size >= 6 ? 3 : size >= 3 ? 1 : 0;
     const completed = structures.filter(s => s.complete && COMMUNITY_BUILDING_TYPES.has(s.type)).length;
     const plan = nextCommunityStructure(w, community, size, structures);
-    return completed < limit && plan && (community.stores.wood || 0) >= plan.woodCost
+    const capacityExpansion = plan?.type === 'curral' && communityNeedsAdditionalPen(w, community.id);
+    return (completed < limit || capacityExpansion) && plan && (community.stores.wood || 0) >= plan.woodCost
       && (community.stores.stone || 0) >= plan.stoneCost
       && communityFoodStock(community) >= plan.foodCost && w.day - community.lastBuildDay >= 24;
   }
 
 export function nextCommunityStructure(w, community, size, structures) {
+    if (structures.some(s => !s.complete)) return { type: 'ongoing', woodCost: 0, stoneCost: 0, foodCost: 0 };
     if (!structures.some(s => s.type === 'abrigo')) return { type: 'abrigo', woodCost: 18, stoneCost: 8, foodCost: 0, required: 28 };
     if (size >= 6 && !structures.some(s => s.type === 'roça')) return { type: 'roça', woodCost: 16, stoneCost: 6, foodCost: 0, seedMass: 8, required: 34 };
     if (size >= 6 && !structures.some(s => s.type === 'curral')) return { type: 'curral', woodCost: 14, stoneCost: 5, foodCost: 0, required: 34 };
+    if (communityNeedsAdditionalPen(w, community.id)) return { type: 'curral', woodCost: 14, stoneCost: 5, foodCost: 0, required: 34 };
     if (!structures.some(s => s.type === 'posto de coleta')) return { type: 'posto de coleta', woodCost: 20, stoneCost: 12, foodCost: 1, required: 36 };
     if (size >= 12 && !structures.some(s => s.type === 'acampamento')) return { type: 'acampamento', woodCost: 24, stoneCost: 16, foodCost: 1, required: 44 };
     return null;
@@ -134,7 +138,8 @@ export function nextCommunityStructure(w, community, size, structures) {
 export function communityBuildUtility(w, community, size) {
     const active = communityStructures(w, community).some(s => !s.complete);
     const hasShelter = communityStructures(w, community).some(s => s.type === 'abrigo' && s.complete);
-    return clamp(.28 + size * .035 + (active ? .25 : 0) + (!hasShelter ? .44 : 0), .32, .92);
+    const needsPen = communityNeedsAdditionalPen(w, community.id);
+    return clamp(.28 + size * .035 + (active ? .25 : 0) + (!hasShelter ? .44 : 0) + (needsPen ? .3 : 0), .32, .98);
   }
 
 function overlapsSiteResources(w, hitbox, resourceIndex) {

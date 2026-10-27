@@ -105,8 +105,9 @@ export function clearCivilianDuties(world, person, returnCargo = true) {
   }
   if (person.leadingSheepId != null) {
     const sheep = world.animals.find(item => item.id === person.leadingSheepId);
-    if (sheep?.beingLedBy === person.id) sheep.beingLedBy = null;
+    if (sheep?.beingLedBy === person.id) { sheep.beingLedBy = null; sheep.herdPenId = null; }
     person.leadingSheepId = null;
+    person.leadingSheepPenId = null;
   }
 }
 

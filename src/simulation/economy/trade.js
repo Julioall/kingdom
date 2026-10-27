@@ -3,6 +3,7 @@ import { communityRelation } from '../society/governance.js';
 import { domesticatedSheep, makeAnimal } from '../ecology/animals.js';
 import { communityFoodStock, consumeStoreInventory, exchangeResources, removeStoredFruit, stockSurplus, transferCommunityFood, transferFoodReserve } from './inventories.js';
 import { getSocialLink } from '../society/communities.js';
+import { availableCommunityPen, reconcileCommunityHerdPens } from '../ecology/herd.js';
 import { nearestPenFor } from '../individuals/actions.js';
 import { cellAt, cellsWithin } from '../world/spatial.js';
 import { FOOD_RESERVE_PER_UNIT, MEAT_NUTRITIONAL_VALUE } from '../../config/ecosystem.js';
@@ -117,10 +118,9 @@ export function marketHasTradeOpportunity(w, community) {
         || ((store.stone || 0) >= 18 && (market.stone || 0) + 6 <= 260));
     const hasSurplus = (store.food || 0) > 45 || (store.wood || 0) > 28 || (store.stone || 0) > 24 || (store.feed || 0) > 30
       || canBarterFood;
-    const pen = w.structures.some(s => s.communityId === community.id && s.complete && s.type === 'curral');
-    const herd = domesticatedSheep(w, community).length;
+    const pen = availableCommunityPen(w, community.id);
     const hasDemand = (store.gold || 0) >= 4 && ((market.food || 0) >= 8 || (market.wood || 0) >= 8
-      || (market.stone || 0) >= 6 || (market.feed || 0) >= 8 || (pen && herd < 6 && (market.sheep || 0) > 0));
+      || (market.stone || 0) >= 6 || (market.feed || 0) >= 8 || (pen && (market.sheep || 0) > 0));
     return hasSurplus || hasDemand;
   }
 
@@ -376,19 +376,21 @@ export function performTrade(w, person, community, partner) {
       }
       const marketBefore = tradeBalances(market);
       const pen = nearestPenFor(w, person);
+      const availablePen = availableCommunityPen(w, community.id, person);
       const herd = domesticatedSheep(w, community).length;
       let transaction = null;
-      if (pen && herd < 6 && market.sheep > 0 && store.gold >= 38) {
-        const candidates = cellsWithin(w, pen.x, pen.y, (pen.radius || 4) - .7, t => t.terrain === 'land' && t.slope < .5)
-          .sort((a, b) => distance(a, pen) - distance(b, pen));
+      if (availablePen && market.sheep > 0 && store.gold >= 38) {
+        const candidates = cellsWithin(w, availablePen.x, availablePen.y, (availablePen.radius || 4) - .7, t => t.terrain === 'land' && t.slope < .5)
+          .sort((a, b) => distance(a, availablePen) - distance(b, availablePen));
         const tile = candidates.find(t => !w.animals.some(a => a.alive && distance(a, t) < 1.2));
         if (tile && exchangeResources(store, { gold: 38 }, market, { sheep: 1 })) {
           // The structured trade ledger already includes this store debit as
           // part of the market exchange; do not count it a second time as use.
           consumeStoreInventory(community, { sheep: 1 }, null);
           const sheep = makeAnimal(w, 'sheep', tile.x, tile.y, false);
-          sheep.energy = 68; sheep.habituation = .82; sheep.herdCommunityId = community.id; sheep.aiEnabled = false;
+          sheep.energy = 68; sheep.habituation = .82; sheep.herdCommunityId = community.id; sheep.herdPenId = availablePen.id; sheep.aiEnabled = false;
           w.animals.push(sheep);
+          reconcileCommunityHerdPens(w, community.id);
           transaction = 'comprou uma ovelha';
         }
       }

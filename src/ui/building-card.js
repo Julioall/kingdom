@@ -35,7 +35,7 @@ export function buildingCard(world, s) {
   }
   if (s.type === 'curral') {
     const data = corralSummary(world, s);
-    html = row('Ovelhas no rebanho', data.sheep) + row('Ração disponível', fmt(data.feed) + ' un. · reserva compartilhada') +
+    html = row('Ovelhas neste curral', data.sheep + ' / ' + data.capacity) + row('Ração disponível', fmt(data.feed) + ' un. · reserva compartilhada') +
       row('Consumo previsto de ração', fmt(data.dailyFeed) + ' un./dia') +
       row('Duração da ração', data.feedDays == null ? 'Sem rebanho' : fmt(data.feedDays) + ' dias') +
       row('Comida produzida', '0 un./dia') + note('O curral mantém e reproduz o rebanho. Ainda não existe produção de leite nem abate de ovelhas domesticadas.') +

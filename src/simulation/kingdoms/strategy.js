@@ -1,7 +1,8 @@
 import { DOMESTIC_SHEEP_DAILY_FEED, MEAT_NUTRITIONAL_VALUE } from '../../config/ecosystem.js';
 import { communityFoodStock, transferInventoryToStores } from '../economy/inventories.js';
 import { kingdomFoodDemand } from '../economy/food-policy.js';
-import { canRepairKingdomStructure, damagedKingdomStructures } from '../settlements/construction.js';
+import { canRepairKingdomStructure, damagedKingdomStructures, nextCommunityStructure } from '../settlements/construction.js';
+import { communityNeedsAdditionalPen } from '../ecology/herd.js';
 import { calendarDate } from '../ecology/climate.js';
 import { log } from '../core/events.js';
 import { recruitKingdomSoldier, SOLDIER_COST } from './commands.js';
@@ -23,17 +24,6 @@ const TASK_DETAILS = Object.freeze({
 
 function finite(value, fallback = 0) {
   return Number.isFinite(value) ? value : fallback;
-}
-
-function nextCommunityBuildPlan(size, structures) {
-  const complete = structures.filter(structure => structure.complete);
-  if (structures.some(structure => !structure.complete)) return { type: 'ongoing', woodCost: 0, stoneCost: 0, foodCost: 0 };
-  if (!complete.some(structure => structure.type === 'abrigo')) return { type: 'abrigo', woodCost: 18, stoneCost: 8, foodCost: 0 };
-  if (size >= 6 && !complete.some(structure => structure.type === 'roça')) return { type: 'roça', woodCost: 16, stoneCost: 6, foodCost: 0, seedMass: 8 };
-  if (size >= 6 && !complete.some(structure => structure.type === 'curral')) return { type: 'curral', woodCost: 14, stoneCost: 5, foodCost: 0 };
-  if (!complete.some(structure => structure.type === 'posto de coleta')) return { type: 'posto de coleta', woodCost: 20, stoneCost: 12, foodCost: 1 };
-  if (size >= 12 && !complete.some(structure => structure.type === 'acampamento')) return { type: 'acampamento', woodCost: 24, stoneCost: 16, foodCost: 1 };
-  return null;
 }
 
 /**
@@ -73,15 +63,16 @@ export function observeKingdomStrategy(world, kingdomId) {
   const activeCropProject = communityStructures.some(structure => structure.type === 'roça' && !structure.complete);
   const activeFoodProject = communityStructures.some(structure => ['abrigo', 'roça'].includes(structure.type) && !structure.complete);
   const size = community ? community.memberIds.length : population;
-  const buildPlan = community ? nextCommunityBuildPlan(size, communityStructures) : null;
+  const buildPlan = community ? nextCommunityStructure(world, community, size, communityStructures) : null;
   const woodStock = finite(community && community.stores && community.stores.wood);
   const stoneStock = finite(community && community.stores && community.stores.stone);
   const buildLimit = size >= 12 ? 5 : size >= 8 ? 4 : size >= 6 ? 3 : size >= 3 ? 1 : 0;
   const completedStructures = communityStructures.filter(structure => structure.complete
     && COMMUNITY_BUILDING_TYPES.has(structure.type)).length;
   const buildWindowOpen = !!community && world.day - finite(community.lastBuildDay, -999) >= 24;
+  const capacityExpansion = community && buildPlan?.type === 'curral' && communityNeedsAdditionalPen(world, community.id);
   const constructionReady = !!buildPlan && (buildPlan.type === 'ongoing'
-    || (completedStructures < buildLimit && buildWindowOpen
+    || ((completedStructures < buildLimit || capacityExpansion) && buildWindowOpen
       && woodStock >= buildPlan.woodCost && stoneStock >= buildPlan.stoneCost
       && foodStock >= buildPlan.foodCost));
   const constructionMaterialNeed = buildPlan && buildPlan.type !== 'ongoing'
@@ -878,7 +869,7 @@ export function fundFoodInfrastructure(world, kingdom) {
   const structures = world.structures.filter(s => s.communityId === community.id && s.destroyedDay == null
     && s.integrity !== 0 && (!s.kingdomProject || s.complete));
   if (structures.some(s => s.type === 'roça' && s.complete)) return null;
-  const plan = nextCommunityBuildPlan(community.memberIds.length, structures);
+  const plan = nextCommunityStructure(world, community, community.memberIds.length, structures);
   if (!plan || !['abrigo', 'roça'].includes(plan.type)) return null;
   const stock = kingdom.treasury?.stock;
   const wood = Math.max(0, plan.woodCost - (community.stores.wood || 0));

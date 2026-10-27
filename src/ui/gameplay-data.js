@@ -1,4 +1,5 @@
 import { DOMESTIC_SHEEP_DAILY_FEED, MEAT_NUTRITIONAL_VALUE } from '../config/ecosystem.js';
+import { communityHerdPenAssignments, DOMESTIC_SHEEP_PER_PEN } from '../simulation/ecology/herd.js';
 
 const sum = (items, value) => items.reduce((total, item) => total + (Number(value(item)) || 0), 0);
 const food = stock => (stock?.food || 0) + (stock?.meat || 0) * MEAT_NUTRITIONAL_VALUE;
@@ -27,16 +28,14 @@ export function resourceSummary(world, kingdomId = null) {
 }
 
 export function corralSummary(world, structure) {
-  // Simulation associates sheep with the first completed pen of their community.
-  const pen = world.structures.find(s => s.type === 'curral' && s.complete && s.destroyedDay == null
-    && s.communityId === structure.communityId);
-  const herd = pen?.id === structure.id ? world.animals.filter(a => a.alive && a.speciesId === 'sheep'
-    && a.herdCommunityId === structure.communityId) : [];
+  const assignments = communityHerdPenAssignments(world, structure.communityId).assignments;
+  const herd = world.animals.filter(a => a.alive && a.speciesId === 'sheep'
+    && a.herdCommunityId === structure.communityId && assignments.get(a.id) === structure.id);
   const community = world.communities.find(c => c.id === structure.communityId && !c.dissolved);
   const feed = community?.stores?.feed || 0;
   const dailyFeed = herd.length * DOMESTIC_SHEEP_DAILY_FEED;
   const births = structure.herdBirths || 0;
-  return { sheep: herd.length, feed, dailyFeed, feedDays: dailyFeed > 0 ? feed / dailyFeed : null,
+  return { sheep: herd.length, capacity: DOMESTIC_SHEEP_PER_PEN, feed, dailyFeed, feedDays: dailyFeed > 0 ? feed / dailyFeed : null,
     fedToday: sum(herd, a => a.lastFedDay === world.day || a.lastFedDay === world.day - 1 ? a.lastFeedAmount : 0),
     births, lastBirthDay: structure.lastHerdBirthDay ?? null,
     breedingReady: herd.filter(a => a.ageDays >= 200 && a.energy >= 74 && a.reproductionCooldown <= 0).length,

@@ -9,6 +9,7 @@ import { congestionRouteStep, rememberedRouteStep, rememberRouteArrival } from '
 import { peopleNear } from './spatial-index.js';
 import { consumePersonEnergy } from './energy.js';
 import { collidesWithWorldAt, hitboxesOverlap, mineralHitbox, npcHitbox, worldCollisionIndex } from '../physics/hitboxes.js';
+import { assignedHerdPen } from '../ecology/herd.js';
 
 const PASSAGE_BUSY_ACTIONS = new Set(['forage', 'hunt', 'deliver', 'drink', 'rest', 'build', 'gather',
   'collect_log', 'collect_feed', 'trade', 'capture_sheep', 'lead_sheep', 'raid', 'campaign']);
@@ -322,7 +323,7 @@ export function moveOne(w, agent, target, aquatic, movementOptions = null) {
     const destination = corralWaypoint(agent, target, corrals);
     const current = { x: Math.round(agent.x), y: Math.round(agent.y) };
     const pen = agent.speciesId === 'sheep' && agent.herdCommunityId !== null
-      ? w.structures.find(s => s.complete && s.type === 'curral' && s.communityId === agent.herdCommunityId) : null;
+      ? assignedHerdPen(w, agent) : null;
     function stepToward(from, avoidPeople = true) {
       const canEnterAgent = tile => canEnter(w, agent, tile, aquatic, pen, corrals, movementOptions)
         && (!avoidPeople || aquatic || agent.speciesId != null || !personOnTile(w, tile, agent));

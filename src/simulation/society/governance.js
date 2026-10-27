@@ -1,6 +1,7 @@
 import { clamp, distance, hash01 } from '../core/math.js';
 import { communityFoodStock, spendStoreInventory } from '../economy/inventories.js';
 import { domesticatedSheep } from '../ecology/animals.js';
+import { availableCommunityPen } from '../ecology/herd.js';
 import { canCommunityBuild, canRepairKingdomStructure, communityBuildingNeed, communityStructures, nextCommunityStructure } from '../settlements/construction.js';
 import { bestPeopleFoodCell } from '../individuals/actions.js';
 import { plantBiomass } from '../ecology/plants.js';
@@ -73,8 +74,7 @@ export function taskForCommunity(w, community, members) {
     };
     if (farmInvestmentReady) return { action: 'build', title: 'construir uma roça e semear raízes', skill: 'build', goal: 'invest-in-cultivated-food' };
     if (hasPen && herd.length && (community.stores.feed || 0) < Math.max(8, herd.length * 5)) return { action: 'collect_feed', title: 'repor brotos para o rebanho', skill: 'care' };
-    const taggedHerdSize = w.animals.filter(animal => animal.alive && animal.speciesId === 'sheep' && animal.herdCommunityId === community.id).length;
-    const observedWildSheep = hasPen && taggedHerdSize < 4 && members.some(person => (person.perception && person.perception.animals || []).some(sighting => {
+    const observedWildSheep = !!availableCommunityPen(w, community.id) && members.some(person => (person.perception && person.perception.animals || []).some(sighting => {
       const sheep = w.animals.find(animal => animal.id === sighting.id && animal.alive);
       return sighting.speciesId === 'sheep' && sighting.visible && sighting.distance <= 5.5 && sheep && sheep.herdCommunityId === null && !sheep.beingLedBy;
     }));
@@ -177,7 +177,8 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
           return !!station && distance(person, station) <= 16;
         }
         if (desired.action === 'collect_feed') return hasPen && person.energy > 12 && (person.perception && person.perception.resources || []).some(item => item.visible && (item.biomass.browse || 0) > 1);
-        if (desired.action === 'capture_sheep') return hasPen && !person.leadingSheepId && person.energy > 18
+        if (desired.action === 'capture_sheep') return !!availableCommunityPen(w, community.id, person)
+          && !person.leadingSheepId && person.energy > 18
           && (person.perception && person.perception.animals || []).some(sighting => sighting.speciesId === 'sheep' && sighting.visible && sighting.distance <= 5.5
             && w.animals.some(animal => animal.id === sighting.id && animal.alive && animal.herdCommunityId === null && !animal.beingLedBy));
         if (desired.action === 'gather') return person.energy > 12 && (person.perception && person.perception.resources || []).some(item => item.visible

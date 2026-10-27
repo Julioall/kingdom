@@ -12,6 +12,7 @@ import { bushHarvestHitbox, collidesWithWorldAt, hitboxesOverlap, mineralHitbox,
 import { communityHerd, domesticatedSheep } from '../ecology/animals.js';
 import { communityRelation, completeCommunityTask, updateCommunityGovernance } from '../society/governance.js';
 import { canCommunityBuild, communityBuildUtility, communityBuildingNeed, communityStructures, nextCommunityStructure, workOnCommunityStructure } from '../settlements/construction.js';
+import { availableCommunityPen } from '../ecology/herd.js';
 import { eatPlants, isBushAnchor, plantBiomass } from '../ecology/plants.js';
 import { refreshHarvestSuitability } from '../world/queries.js';
 import { changePersonHealth, killPerson, reproducePeople, updateDependent } from './lifecycle.js';
@@ -517,18 +518,18 @@ export function nearestPerceivedSheep(w, person, radius) {
 
 export function captureSheep(w, person, community, sighting) {
     if (!community || !sighting || !sighting.visible) return false;
-    const pen = nearestPenFor(w, person);
+    const pen = availableCommunityPen(w, community.id, person);
     const sheep = w.animals.find(animal => animal.id === sighting.id && animal.alive && animal.speciesId === 'sheep');
-    if (!pen || !sheep || sheep.herdCommunityId !== null || sheep.beingLedBy || person.leadingSheepId) return false;
-    const flockSize = communityHerd(w, community).filter(animal => animal.herdCommunityId === community.id).length;
-    const capacity = Math.max(4, Math.floor((pen.radius || 3.5) * 1.6));
-    if (flockSize >= capacity) { person.state = 'curral sem espaço'; return false; }
+    if (!sheep || sheep.herdCommunityId !== null || sheep.beingLedBy || person.leadingSheepId) return false;
+    if (!pen) { person.state = 'curral sem espaço'; return false; }
     if (distance(person, sheep) > 1.45) {
       moveOne(w, person, cellAt(w, Math.round(sheep.x), Math.round(sheep.y)), false);
       person.state = 'aproximando-se da ovelha';
       person.lastLesson = 'A ovelha só pode ser conduzida a partir de perto; a aproximação custa energia e ela ainda pode fugir.';
       return false;
     }
+    sheep.herdPenId = pen.id;
+    person.leadingSheepPenId = pen.id;
     sheep.beingLedBy = person.id; person.leadingSheepId = sheep.id;
     consumePersonEnergy(person, .9); person.hydration = Math.max(0, person.hydration - .18);
     sheep.state = 'sendo conduzida';
@@ -540,10 +541,13 @@ export function captureSheep(w, person, community, sighting) {
 
 export function leadSheep(w, person, community) {
     const sheep = w.animals.find(animal => animal.id === person.leadingSheepId && animal.alive && animal.beingLedBy === person.id);
-    const pen = community && nearestPenFor(w, person);
+    const pen = community && (w.structures.find(structure => structure.id === (sheep?.herdPenId || person.leadingSheepPenId)
+      && structure.complete && structure.destroyedDay == null && structure.integrity !== 0
+      && structure.type === 'curral' && structure.communityId === community.id)
+      || availableCommunityPen(w, community.id, person));
     if (!sheep || !pen) {
-      if (sheep) { sheep.beingLedBy = null; sheep.state = 'fugiu durante a condução'; }
-      person.leadingSheepId = null; person.state = 'sem ovelha para conduzir'; return false;
+      if (sheep) { sheep.beingLedBy = null; sheep.herdPenId = null; sheep.state = 'fugiu durante a condução'; }
+      person.leadingSheepId = null; person.leadingSheepPenId = null; person.state = 'sem ovelha para conduzir'; return false;
     }
     if (distance(person, pen) > 1.4) {
       moveOne(w, person, cellAt(w, pen.x, pen.y), false);
@@ -555,7 +559,8 @@ export function leadSheep(w, person, community) {
       return false;
     }
     sheep.x = pen.x + .2; sheep.y = pen.y + .2;
-    sheep.beingLedBy = null; sheep.herdCommunityId = community.id; sheep.aiEnabled = false;
+    sheep.beingLedBy = null; sheep.herdCommunityId = community.id; sheep.herdPenId = pen.id; sheep.aiEnabled = false;
+    person.leadingSheepPenId = null;
     sheep.habituation = Math.max(sheep.habituation || 0, .72); sheep.lastFedDay = w.day;
     person.leadingSheepId = null; consumePersonEnergy(person, .2);
     sheep.state = 'no curral'; person.state = 'ovelha entregue ao curral';
@@ -980,6 +985,7 @@ function updatePeopleCore(w) {
         ? preyNearby ? .5 + visibleCover * .3 : herdPrey ? .5 : huntGround ? .18 + clamp(1 - distance(p, huntGround) / 18, 0, 1) * .28 : 0
         : 0;
       const pen = nearestPenFor(w, p);
+      const availablePen = community ? availableCommunityPen(w, community.id, p) : null;
       const sheepSighting = nearestPerceivedSheep(w, p, 5.5);
       const raidTarget = nearestRaidTarget(w, p, community);
       const storage = nearestKnownStorage(w, p, community);
@@ -1035,7 +1041,7 @@ function updatePeopleCore(w) {
         (communityFoodAidAvailable || voluntaryFoodAidAvailable) ? .3 + inputs[6] * .5 + p.skills.care * .16 : -.55,
         tradePartner ? .54 + p.skills.diplomacy * .15 + marketTrust * .12 : -.55,
         canMigrate ? .18 + risk * .58 + (1 - localSuitability) * .32 + (hasFoodPressure ? .64 : 0) + (hasWaterPressure ? .62 : 0) : -.7,
-        community && pen && sheepSighting && sheepSighting.visible && !p.leadingSheepId
+        community && availablePen && sheepSighting && sheepSighting.visible && !p.leadingSheepId
           ? .28 + (sheepSighting.distance <= 1.6 ? .72 : .24) + p.skills.care * .14 + (communityHerd(w, community).length < 3 ? .12 : 0) : -.8,
         p.leadingSheepId && pen ? 1.18 : -.8,
         raidTarget && community && communityFoodStock(community) / Math.max(1, communitySize) < 2.2
