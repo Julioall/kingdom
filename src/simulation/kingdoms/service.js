@@ -1,4 +1,5 @@
 import { initializeCombatResources } from './combat-resources.js';
+import { militaryCivilianFoodFloor } from '../economy/food-policy.js';
 import { DAILY_FOOD_NEED, FOOD_RESERVE_PER_UNIT } from '../../config/ecosystem.js';
 import { distance } from '../core/math.js';
 import {
@@ -89,7 +90,8 @@ export function drawGarrisonRation(world, person, center = militaryDutyCenterFor
   }
   const remainder = Math.max(0, need - received);
   const community = world.communities.find(item => item.id === kingdom?.communityId && item.kingdomId === person.kingdomId);
-  const communityRation = Math.min(communityFoodStock(community), remainder / FOOD_RESERVE_PER_UNIT);
+  const surplus = Math.max(0, communityFoodStock(community) - militaryCivilianFoodFloor(world, kingdom));
+  const communityRation = Math.min(surplus, remainder / FOOD_RESERVE_PER_UNIT);
   if (communityRation > .01) {
     const meal = withdrawCommunityFood(world, community, communityRation, 'military-garrison-ration');
     received += addFoodReserve(person, meal.nutrition * FOOD_RESERVE_PER_UNIT, 'military-garrison-ration');

@@ -134,3 +134,34 @@ test('reaching the muster point releases a returning soldier even before a retur
   assert.equal(returned.role, 'soldier');
   assert.ok(!side.troopIds.includes(returned.id));
 });
+
+test('campaign resupply protects two days of civilian demand in food units', () => {
+  const { world, attacker } = warFixture();
+  prepareKingdomCampaigns(world, 1);
+  const campaign = world.campaigns[0];
+  const side = campaign.attacker;
+  const troop = world.people.find(person => person.id === side.troopIds[0]);
+  const members = world.people.filter(person => person.alive && attacker.memberIds.includes(person.id));
+  for (const person of members) if (person.id !== troop.id) { person.role = 'pawn'; person.ageDays = 30 * 365; }
+  side.troopIds = [troop.id];
+  troop.role = 'soldier';
+  troop.campaignId = campaign.id;
+  const ownTile = world.tiles.find(tile => tile.kingdomId === attacker.id);
+  assert.ok(ownTile);
+  Object.assign(troop, { x: ownTile.x, y: ownTile.y });
+  const floor = (members.length - 1) * .78 * 2 / FOOD_RESERVE_PER_UNIT;
+  const community = world.communities.find(item => item.id === attacker.communityId);
+  community.stores.food = floor;
+  community.stores.meat = 0;
+  attacker.treasury.stock.food = 0;
+  side.supply.stock.food = 0;
+  side.lastResupplyDay = -100;
+  prepareKingdomCampaigns(world, 8);
+  assert.ok(Math.abs(community.stores.food - floor) < 1e-9);
+  assert.equal(side.supply.stock.food, 0);
+  community.stores.food += 4;
+  prepareKingdomCampaigns(world, 15);
+  assert.ok(Math.abs(community.stores.food - floor) < 1e-9);
+  assert.ok(Math.abs(side.supply.stock.food - 4) < 1e-9);
+  assert.ok(Math.abs(side.supplyLedger.resupplySources.food.community - 4) < 1e-9);
+});

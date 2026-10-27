@@ -13,7 +13,7 @@ import { cellAt } from '../world/spatial.js';
 import { moveOne, reachableAreaAround } from '../individuals/movement.js';
 import { changePersonHealth, killPerson } from '../individuals/lifecycle.js';
 import { communityFoodStock, spendInventory, spendResource, transferInventory, transferStoreResourceToAccount } from '../economy/inventories.js';
-import { kingdomFoodDemand } from '../economy/food-policy.js';
+import { MILITARY_CIVILIAN_RESERVE_DAYS, militaryCivilianFoodFloor } from '../economy/food-policy.js';
 import { kingdomRelation, recomputeKingdomTerritories } from './territories.js';
 import {
   AI_DECISION_CONTRACT_VERSION, validateDecisionAction, validateDecisionResult
@@ -26,7 +26,6 @@ import {
 
 const ACTIVE_STATES = new Set(['mobilizing', 'marching', 'engaged', 'withdrawing']);
 const CAMPAIGN_RATION_DAYS = 18;
-const CAMPAIGN_CIVILIAN_RESERVE_DAYS = 2;
 const RESUPPLY_INTERVAL = 7;
 const TARGET_RADIUS = 11;
 const CEASEFIRE_DAYS = 30;
@@ -60,7 +59,7 @@ function kingdomById(world, id) {
 function campaignRationBudget(world, kingdom, troopIds) {
   const troops = troopIds.map(id => world.people.find(person => person.id === id && person.alive)).filter(Boolean);
   const community = world.communities.find(item => item.id === kingdom.communityId && !item.dissolved);
-  const civilianReserve = kingdomFoodDemand(world, kingdom).dailyFoodNeed * CAMPAIGN_CIVILIAN_RESERVE_DAYS;
+  const civilianReserve = militaryCivilianFoodFloor(world, kingdom);
   const communitySurplus = Math.max(0, communityFoodStock(community) - civilianReserve);
   const treasuryFood = Math.max(0, Number(kingdom.treasury?.stock?.food) || 0);
   const personalRations = troops.reduce((sum, person) => sum + Math.max(0, Number(person.foodReserve) || 0), 0);
@@ -527,10 +526,10 @@ function resupplySide(world, campaign, side, day) {
   side.supplyLedger.resupply.food += treasuryFood;
   side.supplyLedger.resupplySources.food.treasury += treasuryFood;
   let communityFood = 0;
-  const civilianReserveDays = CAMPAIGN_CIVILIAN_RESERVE_DAYS;
+  const civilianReserveDays = MILITARY_CIVILIAN_RESERVE_DAYS;
   const community = world.communities.find(item => item.id === kingdom.communityId && !item.dissolved);
   if (community) {
-    const civilianReserve = kingdomFoodDemand(world, kingdom).dailyFoodNeed * civilianReserveDays;
+    const civilianReserve = militaryCivilianFoodFloor(world, kingdom);
     const protectedSurplus = Math.max(0, communityFoodStock(community) - civilianReserve);
     communityFood = transferStoreResourceToAccount(community, side.supply, 'food',
       Math.min(Math.max(0, foodGap - treasuryFood), protectedSurplus), 'campaign-resupply');

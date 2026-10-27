@@ -2,6 +2,7 @@ import { DAILY_FOOD_NEED, FOOD_RESERVE_PER_UNIT } from '../../config/ecosystem.j
 
 export const DEPENDENT_DAILY_FOOD_NEED = .42;
 export const COMMUNITY_FOOD_BUFFER_DAYS = 180;
+export const MILITARY_CIVILIAN_RESERVE_DAYS = 2;
 export const CULTIVATED_FOOD_PER_SEED_UNIT = 1250;
 export const CULTIVATED_FIELD_HARVEST_PER_WORKER = 2500;
 
@@ -34,4 +35,9 @@ export function kingdomFoodDemand(world, kingdom) {
   const memberIds = new Set(kingdomMembers);
   const members = (world?.people || []).filter(person => person.alive && memberIds.has(person.id));
   return { members, ...dailyFoodNeedForMembers(members) };
+}
+
+export function militaryCivilianFoodFloor(world, kingdom) {
+  const civilians = kingdomFoodDemand(world, kingdom).members.filter(person => person.role !== 'soldier');
+  return communityFoodBufferTarget(dailyFoodNeedForMembers(civilians).dailyFoodNeed, MILITARY_CIVILIAN_RESERVE_DAYS);
 }
