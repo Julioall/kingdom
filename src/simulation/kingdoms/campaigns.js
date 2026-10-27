@@ -18,6 +18,7 @@ import { kingdomRelation, recomputeKingdomTerritories } from './territories.js';
 import {
   AI_DECISION_CONTRACT_VERSION, validateDecisionAction, validateDecisionResult
 } from '../../ai/contracts.js';
+import { stripAbsoluteCalendarFields } from '../../ai/observations.js';
 import {
   createFormation, formationSlot, measureFormation, recordFormationBlockedMove,
   setFormationDestination, setFormationState, setFormationType
@@ -901,7 +902,7 @@ export function queueCampaignGeneralAiRequests(world, day = world.day + 1) {
       const interval = urgent ? GENERAL_URGENT_REVIEW_INTERVAL : GENERAL_REVIEW_INTERVAL;
       if (side.nextGeneralReviewDay != null && day < side.nextGeneralReviewDay) continue;
       const allowedActions = generalAllowedActions(campaign);
-      const observedFacts = generalObservedFacts(world, campaign, side, day);
+      const observedFacts = stripAbsoluteCalendarFields(generalObservedFacts(world, campaign, side, day));
       const requestId = 'general:' + campaign.id + ':' + side.kingdomId + ':' + state.nextRequestSequence++;
       const reportDay = Math.max(0, Math.floor(day));
       const request = {

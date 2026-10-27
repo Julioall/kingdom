@@ -2,7 +2,6 @@ import { clamp, hash01, spatialNoise } from '../core/math.js';
 import { PLANTS } from '../../config/ecosystem.js';
 import { cellAt } from '../world/spatial.js';
 import { spendResource } from '../economy/inventories.js';
-import { seasonIndex } from './climate.js';
 import { invalidateNavigation } from '../individuals/navigation-cache.js';
 import { isRoadTile, resourceUsePressure } from '../world/roads.js';
 
@@ -154,7 +153,6 @@ export function updatePlants(w, day) {
     w.ecologyFlows.humanFoodSettlementLoss ||= 0;
     w.ecologyFlows.humanFoodEcologicalLoss ||= 0;
     w.ecologyFlows.humanFoodCultivatedRegrowth ||= 0;
-    const season = seasonIndex(day);
     for (const t of w.tiles) {
       for (let i = 0; i < PLANTS.length; i++) {
         const p = PLANTS[i];
@@ -173,7 +171,7 @@ export function updatePlants(w, day) {
         const capacity = p.max;
         const recoveryInLowUseAreas = p.cultivatedOnly ? 1 : 1 + (1 - resourceUsePressure(t)) * .45;
         const actual = Math.min(Math.max(0, capacity - b), p.growth * RESOURCE_REGEN_FACTOR
-          * RESOURCE_REGEN_INTERVAL_DAYS * (p.seasonalGrowth?.[season] ?? 1)
+          * RESOURCE_REGEN_INTERVAL_DAYS
           * Math.max(0, 1 - b / capacity) * recoveryInLowUseAreas);
         if (actual <= 0) continue;
         if (p.foodFor === 'people') {

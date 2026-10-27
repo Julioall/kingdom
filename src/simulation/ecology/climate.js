@@ -6,6 +6,10 @@ import { log } from '../core/events.js';
 
 export const CALENDAR_DAYS_PER_YEAR = 365;
 export const SEASON_LENGTHS = [91, 91, 92, 91];
+const MEAN_ANNUAL_TEMPERATURE_C = 20;
+// Solves the old seasonal rule's weighted annual expected rain while keeping
+// its daily random event and magnitude variation: p * E[amount] = .19*f*(2+8.5*f).
+const MEAN_ANNUAL_RAIN_FACTOR = 1.0109;
 
 export function calendarDate(day) {
     const absoluteDay = Math.max(0, Math.floor(Number(day) || 0));
@@ -32,8 +36,6 @@ export function seasonIndex(day) { return calendarDate(day).season; }
 
 export function updateClimate(w, day) {
     const season = seasonIndex(day);
-    const seasonalTemp = [19, 25, 21, 15][season];
-    const rainFactor = [1.14, .72, .84, 1.26][season];
     let wetRegions = 0, dryRegions = 0, rainMean = 0;
     for (const r of w.regions) {
       const cx = (r.id % (WIDTH / REGION_SIDE)) * REGION_SIDE + 4;
@@ -41,10 +43,11 @@ export function updateClimate(w, day) {
       const altitude = cellAt(w, cx, cy).heightM;
       const lat = (cy / HEIGHT - .5) * 3.8;
       const event = rand(w);
-      const baseRain = event < .19 * rainFactor ? (2 + rand(w) * 17 * rainFactor) : 0;
+      const baseRain = event < .19 * MEAN_ANNUAL_RAIN_FACTOR
+        ? (2 + rand(w) * 17 * MEAN_ANNUAL_RAIN_FACTOR) : 0;
       const severity = day <= (w.droughtUntil || 0) ? clamp(w.droughtSeverity || 0, 0, .95) : 0;
       const rain = baseRain * (1 - severity);
-      r.temperatureC = seasonalTemp - lat - altitude * .0065 + (rand(w) - .5) * 2.2;
+      r.temperatureC = MEAN_ANNUAL_TEMPERATURE_C - lat - altitude * .0065 + (rand(w) - .5) * 2.2;
       r.rainfallMm = rain;
       r.humidity = clamp(.32 + rain / 30 + r.meanMoisture * .5, .12, .99);
       r.weather = rain > 1 ? 'rain' : r.meanMoisture < .18 ? 'dry' : 'stable';

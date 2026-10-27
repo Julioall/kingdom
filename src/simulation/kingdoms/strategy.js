@@ -1,4 +1,4 @@
-import { DOMESTIC_SHEEP_DAILY_FEED, MEAT_NUTRITIONAL_VALUE, SEASONS } from '../../config/ecosystem.js';
+import { DOMESTIC_SHEEP_DAILY_FEED, MEAT_NUTRITIONAL_VALUE } from '../../config/ecosystem.js';
 import { communityFoodStock, transferInventoryToStores } from '../economy/inventories.js';
 import { kingdomFoodDemand } from '../economy/food-policy.js';
 import { canRepairKingdomStructure, damagedKingdomStructures } from '../settlements/construction.js';
@@ -6,6 +6,7 @@ import { calendarDate } from '../ecology/climate.js';
 import { log } from '../core/events.js';
 import { recruitKingdomSoldier, SOLDIER_COST } from './commands.js';
 import { AI_DECISION_CONTRACT_VERSION, validateDecisionAction, validateDecisionResult } from '../../ai/contracts.js';
+import { stripAbsoluteCalendarFields } from '../../ai/observations.js';
 
 const COMMUNITY_TASKS = new Set(['forage', 'trade', 'collect_feed', 'gather', 'build']);
 const COMMUNITY_BUILDING_TYPES = new Set(['abrigo', 'roça', 'curral', 'posto de coleta', 'acampamento']);
@@ -520,7 +521,6 @@ function evidenceFor(report) {
     },
     territoryTiles: report.territoryTiles,
     garrisonSize: report.garrisonSize,
-    season: report.calendar.season,
     military: {
       activeCampaign: report.military.activeCampaign ? { ...report.military.activeCampaign } : null,
       knownEvidence: report.military.knownEvidence.map(item => ({ ...item })),
@@ -591,12 +591,12 @@ export function queueKingdomStrategicAiRequests(world) {
     const choices = kingdomStrategyChoices(report);
     if (!report || !choices.length) { ai.nextDecisionDays[id] = world.day + KINGDOM_AI_RETRY_DAYS; continue; }
     const requestedDay = world.day;
-    const context = {
+    const context = stripAbsoluteCalendarFields({
       ruler: { name: ruler.name },
       kingdom: report.kingdom,
       report: {
         ...report,
-        calendar: { ...report.calendar, season: SEASONS[report.calendar.season] || 'desconhecida' }
+        calendar: { ...report.calendar }
       },
       currentPlan: kingdom.strategy ? {
         goal: kingdom.strategy.goal, action: kingdom.strategy.action,
@@ -606,7 +606,7 @@ export function queueKingdomStrategicAiRequests(world) {
       choices: choices.map(({ id: optionId, label, goal, action, priority, garrisonMode }) => ({
         id: optionId, label, goal, action, priority, garrisonMode
       }))
-    };
+    });
     const requestId = 'king:' + id + ':' + ai.nextRequestSequence++;
     const orderVersion = Math.max(0, Math.floor(finite(kingdom.strategy && kingdom.strategy.sinceDay)));
     const campaignId = report.military.activeCampaign ? report.military.activeCampaign.id : null;
