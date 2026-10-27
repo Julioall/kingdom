@@ -1,0 +1,22 @@
+{
+  "pairedSeed": 42,
+  "climate": {
+    "day91Season": 0,
+    "day92Season": 1,
+    "day91MeanRain": 2.1547700379113843,
+    "day92MeanRain": 0.9068132809465167,
+    "mismatchedRegions": 256
+  },
+  "weeklyGrowth": {
+    "day7Season": 0,
+    "day98Season": 1,
+    "cultivatedRootDay7": 12.599998474121094,
+    "cultivatedRootDay98": 12.075000762939453,
+    "sheepBrowseDay7": 0.4007987976074219,
+    "sheepBrowseDay98": 0.08164405822753906
+  },
+  "codeRevision": "7c67efe794cb5aae1b7be5d132f737b77fe806a0",
+  "workspaceRevision": "651fc2db330b0a476f0122f9866b61ab603588b2",
+  "command": "node scripts/diagnose-ecology-seasonality.mjs",
+  "limitation": "Paired local rule diagnostic only; not a full world replay or causal population outcome."
+}
