@@ -1,0 +1,46 @@
+name: Kingdom integration CI
+
+on:
+  push:
+    branches: [dev, "test/kingdom-autonomous", "codex/**"]
+  pull_request:
+    branches: [dev, "test/kingdom-autonomous"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kingdom-integration-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck, tests, food replay and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run published test suite
+        run: npm test
+
+      - name: Run deterministic food replay smoke
+        run: npm run audit:food -- --days 30 --seeds 42 --repeat-seed 42
+
+      - name: Build production assets
+        run: npm run build
