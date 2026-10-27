@@ -393,7 +393,7 @@ export function prepareKingdomCampaigns(world, day = world.day + 1) {
             + (kingdom && kingdom.name || 'seu reino') + ' antes de esgotar a reserva: a campanha não tinha '
             + 'uma ração diária disponível; foi liberado para buscar alimento.',
           { kingdomId: side.kingdomId, personId: person.id, reason: 'withdrawal-out-of-rations',
-            remainingReserve, fieldRationPoints: Number(fieldRationPoints.toFixed(2)) });
+            remainingReserve, fieldRationDays: Number(fieldRationDays.toFixed(2)) });
         }
         if (returnedIds.length) recordCampaignEvent(world, campaign, day, 'returned-to-garrison',
           returnedIds.length === 1 ? 'Um soldado regressou e retomou o serviço na guarnição.'
