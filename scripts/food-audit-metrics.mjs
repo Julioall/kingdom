@@ -75,6 +75,8 @@ export function summarizeTradeActivity(world) {
   };
   const byAction = new Map();
   const byOwner = new Map();
+  const byActor = new Map();
+  const peopleById = new Map((world?.people || []).map(person => [person.id, person]));
   for (const record of marketRecords) {
     const action = record.action || 'unclassified';
     const actionStats = byAction.get(action) || { action, count: 0, marketDelta: {} };
@@ -89,6 +91,24 @@ export function summarizeTradeActivity(world) {
     ownerStats.count++;
     sumDeltas(ownerStats.marketDelta, record.market?.delta);
     byOwner.set(ownerKey, ownerStats);
+
+    const participant = (record.participants || []).find(item => Number.isInteger(item.personId))
+      || (record.participants || []).find(item => item.communityId != null)
+      || (record.participants || []).find(item => item.kingdomId != null);
+    const person = participant?.personId != null ? peopleById.get(participant.personId) : null;
+    const actorType = participant?.personId != null ? 'person'
+      : participant?.communityId != null ? 'community'
+        : participant?.kingdomId != null ? 'kingdom' : 'unattributed';
+    const actorId = participant?.personId ?? participant?.communityId ?? participant?.kingdomId ?? null;
+    const actorKey = actorType + ':' + (actorId ?? 'none');
+    const actorStats = byActor.get(actorKey) || {
+      actorType, actorId, role: person?.role ?? null,
+      communityId: participant?.communityId ?? person?.communityId ?? null,
+      count: 0, marketDelta: {}
+    };
+    actorStats.count++;
+    sumDeltas(actorStats.marketDelta, record.market?.delta);
+    byActor.set(actorKey, actorStats);
   }
   const clean = stats => {
     for (const key of ['marketDelta']) {
@@ -96,6 +116,8 @@ export function summarizeTradeActivity(world) {
     }
     return stats;
   };
+  const diagnostics = world?.tradeDiagnostics || {};
+  const sortedCounts = counts => Object.fromEntries(Object.entries(counts || {}).sort(([a], [b]) => a.localeCompare(b)));
   return {
     totalTradeRecords,
     retainedTradeRecords: records.length,
@@ -106,7 +128,20 @@ export function summarizeTradeActivity(world) {
     marketTransactionCoverageComplete: marketTransactions === marketRecords.length,
     otherTradeRecords: records.filter(record => record?.kind !== 'market').length,
     byAction: [...byAction.values()].map(clean).sort((a, b) => a.action.localeCompare(b.action)),
-    byMarket: [...byOwner.values()].map(clean).sort((a, b) => a.ownerType.localeCompare(b.ownerType) || (a.ownerId ?? 0) - (b.ownerId ?? 0))
+    byMarket: [...byOwner.values()].map(clean).sort((a, b) => a.ownerType.localeCompare(b.ownerType) || (a.ownerId ?? 0) - (b.ownerId ?? 0)),
+    byActor: [...byActor.values()].map(clean).sort((a, b) => a.actorType.localeCompare(b.actorType) || (a.actorId ?? 0) - (b.actorId ?? 0)),
+    diagnostics: {
+      marketOpportunityChecks: Number(diagnostics.marketOpportunityChecks) || 0,
+      marketOpportunities: Number(diagnostics.marketOpportunities) || 0,
+      marketOpportunityBlocked: sortedCounts(diagnostics.marketOpportunityBlocked),
+      marketApproaches: Number(diagnostics.marketApproaches) || 0,
+      marketAttempts: Number(diagnostics.marketAttempts) || 0,
+      marketCompleted: Number(diagnostics.marketCompleted) || 0,
+      marketBlocked: sortedCounts(diagnostics.marketBlocked),
+      communityBarterAttempts: Number(diagnostics.communityBarterAttempts) || 0,
+      communityBarterCompleted: Number(diagnostics.communityBarterCompleted) || 0,
+      communityBarterBlocked: sortedCounts(diagnostics.communityBarterBlocked)
+    }
   };
 }
 

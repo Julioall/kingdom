@@ -27,6 +27,28 @@ const RESOURCE_LABELS = Object.freeze({
 });
 const TRADE_RESOURCES = Object.freeze(['food', 'meat', 'wood', 'stone', 'gold', 'feed', 'sheep']);
 
+function ensureTradeDiagnostics(world) {
+  const diagnostics = world.tradeDiagnostics ||= {
+    marketOpportunityChecks: 0, marketOpportunities: 0, marketOpportunityBlocked: {},
+    marketApproaches: 0, marketAttempts: 0, marketCompleted: 0, marketBlocked: {},
+    communityBarterAttempts: 0, communityBarterCompleted: 0, communityBarterBlocked: {}
+  };
+  diagnostics.marketOpportunityBlocked ||= {};
+  diagnostics.marketBlocked ||= {};
+  diagnostics.communityBarterBlocked ||= {};
+  for (const field of ['marketOpportunityChecks', 'marketOpportunities', 'marketApproaches', 'marketAttempts',
+    'marketCompleted', 'communityBarterAttempts', 'communityBarterCompleted']) {
+    diagnostics[field] = Number(diagnostics[field]) || 0;
+  }
+  return diagnostics;
+}
+
+function countTradeDiagnostic(world, field, reason = null) {
+  const diagnostics = ensureTradeDiagnostics(world);
+  if (reason) diagnostics[field][reason] = (diagnostics[field][reason] || 0) + 1;
+  else diagnostics[field]++;
+}
+
 function formatTradeAmount(amount) {
   return Number(amount.toFixed(2)).toString().replace('.', ',');
 }
@@ -74,9 +96,14 @@ export function findTradePartner(w, community, person) {
     const post = w.structures.filter(s => s.complete && s.communityId === community.id
         && (s.type === 'posto de coleta' || (kingdom && s.type === 'mercado' && s.kingdomId === kingdom.id)))
       .sort((a, b) => distance(person, a) - distance(person, b))[0];
-    if (post && distance(person, post) <= 16 && marketHasTradeOpportunity(w, community)) {
+    const diagnostics = ensureTradeDiagnostics(w);
+    diagnostics.marketOpportunityChecks++;
+    if (!post) diagnostics.marketOpportunityBlocked['no-market-station'] = (diagnostics.marketOpportunityBlocked['no-market-station'] || 0) + 1;
+    else if (distance(person, post) > 16) diagnostics.marketOpportunityBlocked['station-out-of-range'] = (diagnostics.marketOpportunityBlocked['station-out-of-range'] || 0) + 1;
+    else if (marketHasTradeOpportunity(w, community)) {
+      diagnostics.marketOpportunities++;
       return { isMarket: true, station: post, market: kingdom && kingdom.market || w.market, distance: distance(person, post) };
-    }
+    } else diagnostics.marketOpportunityBlocked['no-exchange-offer'] = (diagnostics.marketOpportunityBlocked['no-exchange-offer'] || 0) + 1;
     const visibleMembers = (person.perception && person.perception.people || []).filter(s => s.visible)
       .map(s => w.people.find(p => p.id === s.id && p.alive)).filter(Boolean);
     return w.communities.filter(c => !c.dissolved && c.id !== community.id && visibleMembers.some(p => p.communityId === c.id))
@@ -330,11 +357,19 @@ export function resolveFoodAidRequest(w, requester, helper, participantsToday = 
 
 export function performTrade(w, person, community, partner) {
     if (!community || !partner) return false;
-    if (!partner.isMarket && partner.community && communitiesHaveClosedBorder(w, community, partner.community)) return false;
+    if (!partner.isMarket && partner.community && communitiesHaveClosedBorder(w, community, partner.community)) {
+      countTradeDiagnostic(w, 'communityBarterBlocked', 'closed-border');
+      return false;
+    }
     if (partner.distance > 2.2) {
       const target = partner.isMarket ? partner.station : partner.person;
       const tile = target && cellAt(w, target.x, target.y);
-      if (!tile || !moveOne(w, person, tile, false)) return false;
+      if (!tile || !moveOne(w, person, tile, false)) {
+        if (partner.isMarket) countTradeDiagnostic(w, 'marketBlocked', 'route-blocked');
+        else countTradeDiagnostic(w, 'communityBarterBlocked', 'route-blocked');
+        return false;
+      }
+      if (partner.isMarket) countTradeDiagnostic(w, 'marketApproaches');
       person.state = partner.isMarket ? 'indo negociar no mercado' : 'indo encontrar parceiro de troca';
       person.lastLesson = partner.isMarket
         ? 'O mercado foi identificado; aproximar-se do posto consome tempo antes que a troca possa acontecer.'
@@ -342,13 +377,17 @@ export function performTrade(w, person, community, partner) {
       return true;
     }
     if (partner.isMarket) {
+      countTradeDiagnostic(w, 'marketAttempts');
       const store = community.stores;
       const storeBefore = { ...store };
       const tradeStoreBefore = tradeBalances(store);
       const animalsBefore = w.animals.length;
       const marketOwner = partner.market || w.market;
       const market = marketOwner && marketOwner.stock || marketOwner;
-      if (!market) return false;
+      if (!market) {
+        countTradeDiagnostic(w, 'marketBlocked', 'market-account-missing');
+        return false;
+      }
       const marketBefore = tradeBalances(market);
       const pen = nearestPenFor(w, person);
       const herd = domesticatedSheep(w, community).length;
@@ -404,7 +443,11 @@ export function performTrade(w, person, community, partner) {
           break;
         }
       }
-      if (!transaction) return false;
+      if (!transaction) {
+        countTradeDiagnostic(w, 'marketBlocked', 'no-executable-exchange');
+        return false;
+      }
+      countTradeDiagnostic(w, 'marketCompleted');
       marketOwner.transactions = (marketOwner.transactions || 0) + 1;
       community.tradeCount++;
       consumePersonEnergy(person, .35);
@@ -419,7 +462,8 @@ export function performTrade(w, person, community, partner) {
       recordTrade(w, {
         kind: 'market',
         action: transaction,
-        participants: [{ communityId: community.id, delta: tradeDelta(tradeStoreBefore, tradeBalances(store)) }],
+        participants: [{ personId: person.id, communityId: community.id,
+          delta: tradeDelta(tradeStoreBefore, tradeBalances(store)) }],
         market: {
           ownerType: marketOwner.ownerType || 'market',
           ownerId: marketOwner.ownerId ?? null,
@@ -433,6 +477,7 @@ export function performTrade(w, person, community, partner) {
       log(w, message, day);
       return true;
     }
+    countTradeDiagnostic(w, 'communityBarterAttempts');
     const a = community.stores, b = partner.community.stores;
     const communityStoreBefore = { ...a };
     const partnerStoreBefore = { ...b };
@@ -448,7 +493,11 @@ export function performTrade(w, person, community, partner) {
       exchanged = exchangeResources(b, { food: 5 }, a, { [reverseResource]: 5 });
       if (exchanged) removeStoredFruit(w, partner.community, 5);
     }
-    if (!exchanged) return false;
+    if (!exchanged) {
+      countTradeDiagnostic(w, 'communityBarterBlocked', 'no-complementary-surplus');
+      return false;
+    }
+    countTradeDiagnostic(w, 'communityBarterCompleted');
     partner.relation.trust = clamp(partner.relation.trust + .13, 0, 1);
     partner.relation.tension = Math.max(0, partner.relation.tension - .18);
     partner.relation.trades++;
@@ -463,7 +512,7 @@ export function performTrade(w, person, community, partner) {
       kind: 'community-barter',
       action: 'barter',
       participants: [
-        { communityId: community.id, delta: tradeDelta(tradeStoreBefore, tradeBalances(a)) },
+        { personId: person.id, communityId: community.id, delta: tradeDelta(tradeStoreBefore, tradeBalances(a)) },
         { communityId: partner.community.id, delta: tradeDelta(partnerTradeBefore, tradeBalances(b)) }
       ],
       market: null,

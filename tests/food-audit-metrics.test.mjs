@@ -87,7 +87,7 @@ test('food audit reports zero field stock instead of treating missing fields as 
 test('trade audit separates actual market purchases from community barter and deduplicates shared ledgers', () => {
   const purchase = {
     id: 1, day: 9, kind: 'market', action: 'comprou alimento',
-    participants: [{ communityId: 2, delta: { food: 12, gold: -6 } }],
+    participants: [{ personId: 11, communityId: 2, delta: { food: 12, gold: -6 } }],
     market: { ownerType: 'kingdom-market', ownerId: 4, delta: { food: -12, gold: 6 } }
   };
   const barter = {
@@ -100,7 +100,11 @@ test('trade audit separates actual market purchases from community barter and de
   const market = { ownerType: 'kingdom-market', ownerId: 4, transactions: 1,
     tradeLedger: { count: 1, history: [purchase] } };
   const summary = summarizeTradeActivity({ trades: 2, communities: [community, partner],
-    kingdoms: [{ id: 4, market }], market: { transactions: 0, tradeLedger: { count: 0, history: [] } } });
+    people: [{ id: 11, role: 'farmer', communityId: 2 }],
+    kingdoms: [{ id: 4, market }], market: { transactions: 0, tradeLedger: { count: 0, history: [] } },
+    tradeDiagnostics: { marketOpportunityChecks: 4, marketOpportunities: 2,
+      marketOpportunityBlocked: { 'no-exchange-offer': 2 }, marketAttempts: 2, marketCompleted: 1,
+      marketBlocked: { 'route-blocked': 1 } } });
 
   assert.equal(summary.totalTradeRecords, 2);
   assert.equal(summary.retainedTradeRecords, 2);
@@ -113,6 +117,14 @@ test('trade audit separates actual market purchases from community barter and de
   assert.deepEqual(summary.byAction, [{ action: 'comprou alimento', count: 1, marketDelta: { food: -12, gold: 6 } }]);
   assert.deepEqual(summary.byMarket, [{ ownerType: 'kingdom-market', ownerId: 4, count: 1,
     marketDelta: { food: -12, gold: 6 } }]);
+  assert.deepEqual(summary.byActor, [{ actorType: 'person', actorId: 11, role: 'farmer', communityId: 2,
+    count: 1, marketDelta: { food: -12, gold: 6 } }]);
+  assert.deepEqual(summary.diagnostics, {
+    marketOpportunityChecks: 4, marketOpportunities: 2,
+    marketOpportunityBlocked: { 'no-exchange-offer': 2 }, marketApproaches: 0,
+    marketAttempts: 2, marketCompleted: 1, marketBlocked: { 'route-blocked': 1 },
+    communityBarterAttempts: 0, communityBarterCompleted: 0, communityBarterBlocked: {}
+  });
 });
 
 test('trade audit marks truncated ledgers and missing market transaction records', () => {
