@@ -1,5 +1,5 @@
 {
-  "version": "2.4.0",
+  "version": "2.8.0",
   "events": {
     "magic_heal": [
       "effect_magic_heal_01"
@@ -9,6 +9,38 @@
       "effect_sword_slash_02",
       "effect_sword_slash_03",
       "effect_sword_slash_04"
+    ],
+    "sword_swing_miss": [
+      "effect_sword_swing_miss_01",
+      "effect_sword_swing_miss_02",
+      "effect_sword_swing_miss_03"
+    ],
+    "sword_armor_swing_hit": [
+      "effect_sword_armor_swing_hit_01",
+      "effect_sword_armor_swing_hit_02",
+      "effect_sword_armor_swing_hit_03",
+      "effect_sword_armor_swing_hit_04",
+      "effect_sword_armor_swing_hit_05",
+      "effect_sword_armor_swing_hit_06",
+      "effect_sword_armor_swing_hit_07",
+      "effect_sword_armor_swing_hit_08",
+      "effect_sword_armor_swing_hit_09",
+      "effect_sword_armor_swing_hit_10",
+      "effect_sword_armor_swing_hit_11"
+    ],
+    "combat_grunt": [
+      "effect_combat_grunt_01",
+      "effect_combat_grunt_02",
+      "effect_combat_grunt_03",
+      "effect_combat_grunt_04",
+      "effect_combat_grunt_05",
+      "effect_combat_grunt_06",
+      "effect_combat_grunt_07",
+      "effect_combat_grunt_08",
+      "effect_combat_grunt_09",
+      "effect_combat_grunt_10",
+      "effect_combat_grunt_11",
+      "effect_combat_grunt_12"
     ],
     "sword_armor_impact": [
       "effect_sword_armor_impact_01"
@@ -132,11 +164,71 @@
     ]
   },
   "usage": {
+    "sword_swing_miss": {
+      "when": "on_sword_or_spear_attack_miss",
+      "pick": "stable_hash_variant",
+      "gain": 0.2,
+      "gain_by_weapon": {
+        "guerreiro": 0.2,
+        "lanceiro": 0.15
+      },
+      "gain_relative_to_existing_sword_swing": 0.5,
+      "ids": [
+        "effect_sword_swing_miss_01",
+        "effect_sword_swing_miss_02",
+        "effect_sword_swing_miss_03"
+      ]
+    },
+    "sword_armor_swing_hit": {
+      "when": "on_sword_or_spear_hit_to_armored_military_target",
+      "pick": "stable_hash_variant",
+      "gain": 0.98,
+      "gain_by_weapon": {
+        "guerreiro": 0.98,
+        "lanceiro": 0.735
+      },
+      "contact_offset_ms": 180,
+      "ids": [
+        "effect_sword_armor_swing_hit_01",
+        "effect_sword_armor_swing_hit_02",
+        "effect_sword_armor_swing_hit_03",
+        "effect_sword_armor_swing_hit_04",
+        "effect_sword_armor_swing_hit_05",
+        "effect_sword_armor_swing_hit_06",
+        "effect_sword_armor_swing_hit_07",
+        "effect_sword_armor_swing_hit_08",
+        "effect_sword_armor_swing_hit_09",
+        "effect_sword_armor_swing_hit_10",
+        "effect_sword_armor_swing_hit_11"
+      ]
+    },
+    "combat_grunt": {
+      "when": "melee_attack_effort",
+      "pick": "stable_hash_variant_on_one_fifth_of_attacks",
+      "gain": 0.18,
+      "max_concurrent_voices": 10,
+      "ids": [
+        "effect_combat_grunt_01",
+        "effect_combat_grunt_02",
+        "effect_combat_grunt_03",
+        "effect_combat_grunt_04",
+        "effect_combat_grunt_05",
+        "effect_combat_grunt_06",
+        "effect_combat_grunt_07",
+        "effect_combat_grunt_08",
+        "effect_combat_grunt_09",
+        "effect_combat_grunt_10",
+        "effect_combat_grunt_11",
+        "effect_combat_grunt_12"
+      ]
+    },
     "wind_ambience": {
       "when": "after_audio_unlock",
       "pick": "continuous_loop",
       "zoom_gain": "50% de zoom: 70%; 1600% de zoom: 10%; transição suave e controle de volume geral.",
-      "ids": ["effect_wind_ambience_01"]
+      "ids": [
+        "effect_wind_ambience_01"
+      ]
     },
     "building_destroyed": {
       "when": "on_building_destroyed",
@@ -216,6 +308,7 @@
     "harvesting": {
       "when": "on_successful_food_or_feed_harvest",
       "pick": "fixed",
+      "gain": 0.26,
       "ids": [
         "effect_harvesting_01"
       ]
@@ -244,14 +337,18 @@
     }
   },
   "integration_notes": [
+    "sword_armor_swing_hit combina balanço e contato metálico para espada e lança: iniciar cerca de 180 ms antes do contato; ganho 0,98 para espada e 0,735 para lança; não tocar sword_slash junto nesse acerto.",
+    "Ataques de lanceiro reutilizam os balanços de espada com ganho 0,30 (25% abaixo dos 0,40 da espada); os erros usam sword_swing_miss com ganho 0,15 (25% abaixo dos 0,20 da espada).",
+    "combat_grunt usa doze trechos curtos extraídos do arquivo de 41 s; toca em cerca de um quinto dos ataques corpo a corpo, com ganho 0,18 e limitado a dez vozes simultâneas.",
+    "Ataques de guerreiro com espada que terminam em miss usam uma variação sword_swing_miss; o ganho máximo é 0,20, metade dos 0,40 usados no balanço atual. Acertos e contatos com escudo, arma ou estrutura mantêm os sons existentes.",
     "As quatro versões de building_destroyed são variações alternativas: sorteie uma por evento de destruição, não as quatro em sequência.",
     "Não iniciar o áudio quando começar a perder vida: tocar somente quando a construção for efetivamente destruída.",
     "A primeira chamada de corneta grave foi designada para guerra; a segunda para recuo. Elas não são variações aleatórias do mesmo comando.",
     "Os eventos de flecha permanecem separados em release/flight/impact conforme a simulação.",
     "effect_building_destroy_01 também marca contato positivo de espada/lança contra estrutura; se o golpe destruir a estrutura, a sequência de impacto e colapso pode usar esse efeito e uma variação de building_destroyed.",
-    "Efeitos de mineração e colheita disparam somente quando a simulação registra coleta positiva; caminhar até o recurso não toca o som.",
+    "Efeitos de mineração e colheita disparam somente quando a simulação registra coleta positiva; caminhar até o recurso não toca o som. Colheitas de frutos e arroz usam ganho 0,26, metade do valor anterior.",
     "Rajada de quatro flechas em arco e área ainda não existe como ação de jogo. arrow_sequence permanece reservado para essa mecânica e não toca em disparos comuns.",
     "Ovelhas adultas começam a alternar os dois balidos a partir dos 180 dias; filhotes menores usam o chamado da mãe quando estão separados dela.",
-    "Vocalizações são ambientais, espaçadas entre animais e atenuadas pela distância. Os três arquivos deste lote são MP3 e não incluem cópias OGG."
+    "Vocalizações de ovelha são ambientais, espaçadas entre animais e atenuadas pela distância; os três arquivos de vocalização são MP3 e não incluem cópias OGG."
   ]
 }

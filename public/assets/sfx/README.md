@@ -1,6 +1,6 @@
-# Kingdom — Biblioteca completa de efeitos sonoros (v2.4)
+# Kingdom — Biblioteca completa de efeitos sonoros (v2.8)
 
-**56 efeitos sonoros**. A biblioteca usa OGG e MP3; os sons de ovelha estão disponíveis apenas em MP3. O vento tem uma cópia OGG para reprodução preferencial e o MP3 original como alternativa.
+**82 efeitos sonoros**. A biblioteca usa OGG e MP3; sons de ovelha, balanço sem contato, impactos combinados de espada/armadura e grunhidos recortados estão disponíveis apenas em MP3. O vento tem uma cópia OGG para reprodução preferencial e o MP3 original como alternativa.
 
 O vento (`wind_ambience`, `effect_wind_ambience_01`) toca em um único loop após a liberação do áudio. O ganho varia suavemente com a câmera: 70% no zoom de 50% e 10% no zoom de 1600%, multiplicado pelo volume geral. O vento acompanha a câmera durante a pausa e não acelera com a simulação. Desativar os efeitos interrompe o loop.
 
@@ -12,7 +12,7 @@ Os controles “Música” e “Efeitos” são independentes e salvos localment
 
 ## Nivelamento de volume
 
-Os 55 efeitos (107 arquivos OGG/MP3) têm compensações de volume medidas por formato em `normalization.formats`, aplicadas uma única vez ao ganho de cada reprodução. O alvo é -24 LUFS, com teto de pico verdadeiro de -2 dBTP e amplificação máxima de 14 dB. Impactos com picos muito curtos podem ficar abaixo do alvo para preservar sua dinâmica. Efeitos menores que a janela de medição são medidos por repetição de três segundos. Os arquivos de áudio originais permanecem intactos.
+Os 81 efeitos não ambientais (133 arquivos OGG/MP3) têm compensações de volume medidas por formato em `normalization.formats`, aplicadas uma única vez ao ganho de cada reprodução. O alvo é -24 LUFS, com teto de pico verdadeiro de -2 dBTP e amplificação máxima de 14 dB. Impactos com picos muito curtos podem ficar abaixo do alvo para preservar sua dinâmica. Efeitos menores que a janela de medição são medidos por repetição de três segundos. Os arquivos-fonte originais permanecem intactos.
 
 Após a compensação dos arquivos, um barramento próprio dos efeitos repõe 12 dB de ganho para manter as ações audíveis com a atenuação de zoom e distância. O vento passa diretamente ao volume geral e mantém sua curva própria de volume; enquanto efeitos audíveis tocam, ele recua temporariamente para 45% desse volume, respeitando o mínimo de 10%, e retoma suavemente depois. Distância, posicionamento e controles gerais continuam ativos. Um compressor suave protege a saída quando muitos efeitos se sobrepõem.
 
@@ -23,8 +23,13 @@ Para medir novamente: `python scripts/measure-sfx-loudness.py --ffmpeg CAMINHO_D
 - `effect_character_body_impact_01` (`character_body_impact`) → pawn sem armadura atingido por golpe corpo a corpo. Militar continua usando `sword_armor_impact`; flechas usam os eventos próprios de impacto.
 - `effect_hammer_build_01` e `effect_hammer_build_02` (`hammer_build`) → variações aleatórias das marteladas durante a construção feita pelo pawn.
 - `effect_mining_01` (`mining`) → extração bem-sucedida de pedra ou minério.
-- `effect_harvesting_01` (`harvesting`) → coleta bem-sucedida de alimento vegetal ou brotos para ração.
+- `effect_harvesting_01` (`harvesting`) → coleta bem-sucedida de frutos, arroz ou brotos para ração.
+- A colheita de frutos e arroz usa ganho 0,26, metade do nível anterior.
 - `effect_sheep_bleat_01` e `effect_sheep_bleat_02` (`sheep_bleat`) → balidos de ovelhas adultas, alternados a cada vocalização.
+- `effect_sword_swing_miss_01..03` (`sword_swing_miss`) → uma variação quando um ataque de espada termina sem contato; ganho máximo 0,20, metade do balanço atual.
+- `effect_sword_armor_swing_hit_01..11` (`sword_armor_swing_hit`) → balanço seguido de impacto metálico quando espada ou lança atinge armadura; iniciar 180 ms antes do contato. Ganho 0,98 para espada e 0,735 para lança.
+- Lanceiros reutilizam os sons de balanço de espada a 0,30 (25% abaixo do 0,40 da espada); em erros, o som sem contato toca a 0,15 (25% abaixo do 0,20 da espada).
+- `effect_combat_grunt_01..12` (`combat_grunt`) → doze recortes curtos do arquivo de grunhidos, em cerca de um quinto dos ataques corpo a corpo; ganho 0,18 e até dez vozes simultâneas.
 - `effect_lamb_call_mother_01` (`lamb_call_mother`) → chamado de cordeiro com menos de 180 dias quando está separado da mãe registrada.
 - `building_melee_impact` → `effect_building_destroy_01` quando espada ou lança causa dano a uma estrutura. Se o golpe também a destruir, o impacto toca primeiro e uma variação do evento `building_destroyed` toca em seguida.
 - Flecha contra alvo sem armadura → `effect_arrow_wood_impact_01`; contra alvo militar com armadura → `effect_crossbow_fire_01`, conforme o mapeamento definido.

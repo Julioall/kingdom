@@ -1,9 +1,9 @@
 {
   "package": "Kingdom — Efeitos sonoros completos (animais, combate, construção e coleta)",
-  "version": "2.4.0",
+  "version": "2.8.0",
   "language": "pt-BR",
-  "n_source_files": 47,
-  "n_processed_effects": 56,
+  "n_source_files": 62,
+  "n_processed_effects": 82,
   "events": {
     "magic_heal": [
       "effect_magic_heal_01"
@@ -13,6 +13,38 @@
       "effect_sword_slash_02",
       "effect_sword_slash_03",
       "effect_sword_slash_04"
+    ],
+    "sword_swing_miss": [
+      "effect_sword_swing_miss_01",
+      "effect_sword_swing_miss_02",
+      "effect_sword_swing_miss_03"
+    ],
+    "sword_armor_swing_hit": [
+      "effect_sword_armor_swing_hit_01",
+      "effect_sword_armor_swing_hit_02",
+      "effect_sword_armor_swing_hit_03",
+      "effect_sword_armor_swing_hit_04",
+      "effect_sword_armor_swing_hit_05",
+      "effect_sword_armor_swing_hit_06",
+      "effect_sword_armor_swing_hit_07",
+      "effect_sword_armor_swing_hit_08",
+      "effect_sword_armor_swing_hit_09",
+      "effect_sword_armor_swing_hit_10",
+      "effect_sword_armor_swing_hit_11"
+    ],
+    "combat_grunt": [
+      "effect_combat_grunt_01",
+      "effect_combat_grunt_02",
+      "effect_combat_grunt_03",
+      "effect_combat_grunt_04",
+      "effect_combat_grunt_05",
+      "effect_combat_grunt_06",
+      "effect_combat_grunt_07",
+      "effect_combat_grunt_08",
+      "effect_combat_grunt_09",
+      "effect_combat_grunt_10",
+      "effect_combat_grunt_11",
+      "effect_combat_grunt_12"
     ],
     "sword_armor_impact": [
       "effect_sword_armor_impact_01"
@@ -152,7 +184,7 @@
         "mp3": "audio/mp3/magic/healing/effect_magic_heal_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -22.89,
@@ -185,7 +217,7 @@
         "mp3": "audio/mp3/combat/sword/effect_sword_slash_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -16.39,
@@ -218,7 +250,7 @@
         "mp3": "audio/mp3/combat/sword/effect_sword_armor_impact_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -12.72,
@@ -236,6 +268,358 @@
       }
     },
     {
+      "id": "effect_sword_armor_swing_hit_01",
+      "trigger": "sword_armor_swing_hit",
+      "category": "combat",
+      "subcategory": "sword",
+      "description": "Balanço seguido de impacto metálico em armadura, variação 01",
+      "source": "floraphonic-swing-whoosh-metal-hit-3-234620.mp3",
+      "start_seconds": 0,
+      "end_seconds": 0.7836,
+      "duration_seconds": 0.7836,
+      "source_duration_seconds": 2.11,
+      "files": {
+        "mp3": "audio/mp3/combat/sword/effect_sword_armor_swing_hit_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -9.6,
+            "input_true_peak_dbtp": 1.68,
+            "gain_db": -14.4,
+            "measurement": "integrated_lufs"
+          }
+        }
+      },
+      "source_title": "Swing Whoosh Metal Hit 3",
+      "source_url": "https://pixabay.com/sound-effects/film-special-effects-swing-whoosh-metal-hit-3-234620/",
+      "creator": "floraphonic",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_sword_armor_swing_hit_02",
+      "trigger": "sword_armor_swing_hit",
+      "category": "combat",
+      "subcategory": "sword",
+      "description": "Balanço seguido de impacto metálico em armadura, variação 02",
+      "source": "floraphonic-swing-whoosh-metal-hit-8-234623.mp3",
+      "start_seconds": 0,
+      "end_seconds": 0.7552,
+      "duration_seconds": 0.7552,
+      "source_duration_seconds": 1.3,
+      "files": {
+        "mp3": "audio/mp3/combat/sword/effect_sword_armor_swing_hit_02.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -12.72,
+            "input_true_peak_dbtp": 0.6,
+            "gain_db": -11.28,
+            "measurement": "integrated_lufs"
+          }
+        }
+      },
+      "source_title": "Swing Whoosh Metal Hit 8",
+      "source_url": "https://pixabay.com/sound-effects/film-special-effects-swing-whoosh-metal-hit-8-234623/",
+      "creator": "floraphonic",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_sword_armor_swing_hit_03",
+      "trigger": "sword_armor_swing_hit",
+      "category": "combat",
+      "subcategory": "sword",
+      "description": "Balanço seguido de impacto metálico em armadura, variação 03",
+      "source": "floraphonic-swing-whoosh-metal-hit-10-234626.mp3",
+      "start_seconds": 0,
+      "end_seconds": 0.7199,
+      "duration_seconds": 0.7199,
+      "source_duration_seconds": 1.78,
+      "files": {
+        "mp3": "audio/mp3/combat/sword/effect_sword_armor_swing_hit_03.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -10.79,
+            "input_true_peak_dbtp": 1.02,
+            "gain_db": -13.21,
+            "measurement": "integrated_lufs"
+          }
+        }
+      },
+      "source_title": "Swing Whoosh Metal Hit 10",
+      "source_url": "https://pixabay.com/sound-effects/film-special-effects-swing-whoosh-metal-hit-10-234626/",
+      "creator": "floraphonic",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_sword_armor_swing_hit_04",
+      "trigger": "sword_armor_swing_hit",
+      "category": "combat",
+      "subcategory": "sword",
+      "description": "Balanço seguido de impacto metálico em armadura, variação 04",
+      "source": "floraphonic-swing-whoosh-metal-hit-11-234627.mp3",
+      "start_seconds": 0,
+      "end_seconds": 0.9182,
+      "duration_seconds": 0.9182,
+      "source_duration_seconds": 1.73,
+      "files": {
+        "mp3": "audio/mp3/combat/sword/effect_sword_armor_swing_hit_04.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -11.64,
+            "input_true_peak_dbtp": 1.4,
+            "gain_db": -12.36,
+            "measurement": "integrated_lufs"
+          }
+        }
+      },
+      "source_title": "Swing Whoosh Metal Hit 11",
+      "source_url": "https://pixabay.com/sound-effects/film-special-effects-swing-whoosh-metal-hit-11-234627/",
+      "creator": "floraphonic",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_sword_armor_swing_hit_05",
+      "trigger": "sword_armor_swing_hit",
+      "category": "combat",
+      "subcategory": "sword",
+      "description": "Balanço seguido de impacto metálico em armadura, variação 05",
+      "source": "floraphonic-swing-whoosh-metal-hit-15-234629.mp3",
+      "start_seconds": 0,
+      "end_seconds": 0.6154,
+      "duration_seconds": 0.6154,
+      "source_duration_seconds": 1.42,
+      "files": {
+        "mp3": "audio/mp3/combat/sword/effect_sword_armor_swing_hit_05.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -10.27,
+            "input_true_peak_dbtp": 1.38,
+            "gain_db": -13.73,
+            "measurement": "integrated_lufs"
+          }
+        }
+      },
+      "source_title": "Swing Whoosh Metal Hit 15",
+      "source_url": "https://pixabay.com/sound-effects/film-special-effects-swing-whoosh-metal-hit-15-234629/",
+      "creator": "floraphonic",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_sword_armor_swing_hit_06",
+      "trigger": "sword_armor_swing_hit",
+      "category": "combat",
+      "subcategory": "sword",
+      "description": "Balanço seguido de impacto metálico em armadura, variação 06",
+      "source": "floraphonic-swing-whoosh-metal-hit-9-234625.mp3",
+      "start_seconds": 0,
+      "end_seconds": 0.5982,
+      "duration_seconds": 0.5982,
+      "source_duration_seconds": 1.39,
+      "files": {
+        "mp3": "audio/mp3/combat/sword/effect_sword_armor_swing_hit_06.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -10.1,
+            "input_true_peak_dbtp": 1.38,
+            "gain_db": -13.9,
+            "measurement": "integrated_lufs"
+          }
+        }
+      },
+      "source_title": "Swing Whoosh Metal Hit 9",
+      "source_url": "https://pixabay.com/sound-effects/film-special-effects-swing-whoosh-metal-hit-9-234625/",
+      "creator": "floraphonic",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_sword_armor_swing_hit_07",
+      "trigger": "sword_armor_swing_hit",
+      "category": "combat",
+      "subcategory": "sword",
+      "description": "Balanço seguido de impacto metálico em armadura, variação 07",
+      "source": "floraphonic-swing-whoosh-metal-hit-20-234635.mp3",
+      "start_seconds": 0,
+      "end_seconds": 0.7536,
+      "duration_seconds": 0.7536,
+      "source_duration_seconds": 1.49,
+      "files": {
+        "mp3": "audio/mp3/combat/sword/effect_sword_armor_swing_hit_07.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -9.44,
+            "input_true_peak_dbtp": 0.61,
+            "gain_db": -14.56,
+            "measurement": "integrated_lufs"
+          }
+        }
+      },
+      "source_title": "Swing Whoosh Metal Hit 20",
+      "source_url": "https://pixabay.com/sound-effects/film-special-effects-swing-whoosh-metal-hit-20-234635/",
+      "creator": "floraphonic",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_sword_armor_swing_hit_08",
+      "trigger": "sword_armor_swing_hit",
+      "category": "combat",
+      "subcategory": "sword",
+      "description": "Balanço seguido de impacto metálico em armadura, variação 08",
+      "source": "floraphonic-swing-whoosh-metal-hit-13-234630.mp3",
+      "start_seconds": 0,
+      "end_seconds": 1.208,
+      "duration_seconds": 1.208,
+      "source_duration_seconds": 2.16,
+      "files": {
+        "mp3": "audio/mp3/combat/sword/effect_sword_armor_swing_hit_08.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -11.74,
+            "input_true_peak_dbtp": 1.12,
+            "gain_db": -12.26,
+            "measurement": "integrated_lufs"
+          }
+        }
+      },
+      "source_title": "Swing Whoosh Metal Hit 13",
+      "source_url": "https://pixabay.com/sound-effects/film-special-effects-swing-whoosh-metal-hit-13-234630/",
+      "creator": "floraphonic",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_sword_armor_swing_hit_09",
+      "trigger": "sword_armor_swing_hit",
+      "category": "combat",
+      "subcategory": "sword",
+      "description": "Balanço seguido de impacto metálico em armadura, variação 09",
+      "source": "floraphonic-swing-whoosh-metal-hit-12-234628.mp3",
+      "start_seconds": 0,
+      "end_seconds": 0.8357,
+      "duration_seconds": 0.8357,
+      "source_duration_seconds": 1.9,
+      "files": {
+        "mp3": "audio/mp3/combat/sword/effect_sword_armor_swing_hit_09.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -9,
+            "input_true_peak_dbtp": 1.79,
+            "gain_db": -15,
+            "measurement": "integrated_lufs"
+          }
+        }
+      },
+      "source_title": "Swing Whoosh Metal Hit 12",
+      "source_url": "https://pixabay.com/sound-effects/film-special-effects-swing-whoosh-metal-hit-12-234628/",
+      "creator": "floraphonic",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_sword_armor_swing_hit_10",
+      "trigger": "sword_armor_swing_hit",
+      "category": "combat",
+      "subcategory": "sword",
+      "description": "Balanço seguido de impacto metálico em armadura, variação 10",
+      "source": "floraphonic-swing-whoosh-metal-hit-6-234622.mp3",
+      "start_seconds": 0,
+      "end_seconds": 0.7405,
+      "duration_seconds": 0.7405,
+      "source_duration_seconds": 1.63,
+      "files": {
+        "mp3": "audio/mp3/combat/sword/effect_sword_armor_swing_hit_10.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -11.63,
+            "input_true_peak_dbtp": 0.93,
+            "gain_db": -12.37,
+            "measurement": "integrated_lufs"
+          }
+        }
+      },
+      "source_title": "Swing Whoosh Metal Hit 6",
+      "source_url": "https://pixabay.com/sound-effects/film-special-effects-swing-whoosh-metal-hit-6-234622/",
+      "creator": "floraphonic",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_sword_armor_swing_hit_11",
+      "trigger": "sword_armor_swing_hit",
+      "category": "combat",
+      "subcategory": "sword",
+      "description": "Balanço seguido de impacto metálico em armadura, variação 11",
+      "source": "floraphonic-swing-whoosh-metal-hit-16-234632.mp3",
+      "start_seconds": 0,
+      "end_seconds": 1.212,
+      "duration_seconds": 1.212,
+      "source_duration_seconds": 1.94,
+      "files": {
+        "mp3": "audio/mp3/combat/sword/effect_sword_armor_swing_hit_11.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -13.66,
+            "input_true_peak_dbtp": 0.54,
+            "gain_db": -10.34,
+            "measurement": "integrated_lufs"
+          }
+        }
+      },
+      "source_title": "Swing Whoosh Metal Hit 16",
+      "source_url": "https://pixabay.com/sound-effects/film-special-effects-swing-whoosh-metal-hit-16-234632/",
+      "creator": "floraphonic",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
       "id": "effect_sword_clash_02",
       "trigger": "sword_clash",
       "category": "combat",
@@ -251,7 +635,7 @@
         "mp3": "audio/mp3/combat/sword/effect_sword_clash_02.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -16.4,
@@ -284,7 +668,7 @@
         "mp3": "audio/mp3/combat/axe/effect_axe_slash_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -23.78,
@@ -318,7 +702,7 @@
       },
       "gameplay_role": "arrow_armored_impact",
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -11.16,
@@ -351,7 +735,7 @@
         "mp3": "audio/mp3/signals/horn/effect_war_horn_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -15.44,
@@ -384,7 +768,7 @@
         "mp3": "audio/mp3/combat/sword/effect_sword_slash_02.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -8.88,
@@ -417,7 +801,7 @@
         "mp3": "audio/mp3/combat/sword/effect_sword_slash_03.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -25.15,
@@ -450,7 +834,7 @@
         "mp3": "audio/mp3/combat/sword/effect_sword_slash_04.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -25.66,
@@ -468,6 +852,102 @@
       }
     },
     {
+      "id": "effect_sword_swing_miss_01",
+      "trigger": "sword_swing_miss",
+      "category": "combat",
+      "subcategory": "sword",
+      "description": "Balanço de espada sem contato, variação rápida 1",
+      "source": "phoenix_connection_brazil-rapid-wind-sound-effect-1-108398.mp3",
+      "start_seconds": 0,
+      "end_seconds": 0.52,
+      "duration_seconds": 0.52,
+      "source_duration_seconds": 0.52,
+      "files": {
+        "mp3": "audio/mp3/combat/sword/effect_sword_swing_miss_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -17.15,
+            "input_true_peak_dbtp": -2.91,
+            "gain_db": -6.85,
+            "measurement": "integrated_lufs"
+          }
+        }
+      },
+      "source_title": "Rapid Wind Sound Effect 1",
+      "source_url": "https://pixabay.com/sound-effects/film-special-effects-rapid-wind-sound-effect-1-108398/",
+      "creator": "Phoenix_Connection_Brazil",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_sword_swing_miss_02",
+      "trigger": "sword_swing_miss",
+      "category": "combat",
+      "subcategory": "sword",
+      "description": "Balanço de espada sem contato, variação rápida 2",
+      "source": "phoenix_connection_brazil-rapid-wind-sound-effect-2-108400.mp3",
+      "start_seconds": 0,
+      "end_seconds": 0.52,
+      "duration_seconds": 0.52,
+      "source_duration_seconds": 0.52,
+      "files": {
+        "mp3": "audio/mp3/combat/sword/effect_sword_swing_miss_02.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -19.3,
+            "input_true_peak_dbtp": 0,
+            "gain_db": -4.7,
+            "measurement": "integrated_lufs"
+          }
+        }
+      },
+      "source_title": "Rapid Wind Sound Effect 2",
+      "source_url": "https://pixabay.com/sound-effects/film-special-effects-rapid-wind-sound-effect-2-108400/",
+      "creator": "Phoenix_Connection_Brazil",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_sword_swing_miss_03",
+      "trigger": "sword_swing_miss",
+      "category": "combat",
+      "subcategory": "sword",
+      "description": "Balanço de espada sem contato, variação lenta",
+      "source": "phoenix_connection_brazil-slow-wind-sound-effect-108401.mp3",
+      "start_seconds": 0,
+      "end_seconds": 0.91,
+      "duration_seconds": 0.91,
+      "source_duration_seconds": 0.91,
+      "files": {
+        "mp3": "audio/mp3/combat/sword/effect_sword_swing_miss_03.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -17.67,
+            "input_true_peak_dbtp": 0,
+            "gain_db": -6.33,
+            "measurement": "integrated_lufs"
+          }
+        }
+      },
+      "source_title": "Slow Wind Sound Effect",
+      "source_url": "https://pixabay.com/sound-effects/film-special-effects-slow-wind-sound-effect-108401/",
+      "creator": "Phoenix_Connection_Brazil",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
       "id": "effect_sword_unsheathe_01",
       "trigger": "sword_unsheathe",
       "category": "combat",
@@ -483,7 +963,7 @@
         "mp3": "audio/mp3/combat/sword/effect_sword_unsheathe_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -9.06,
@@ -516,7 +996,7 @@
         "mp3": "audio/mp3/combat/wood/effect_wood_impact_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -27.01,
@@ -549,7 +1029,7 @@
         "mp3": "audio/mp3/combat/ranged/effect_bow_draw_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -20.58,
@@ -582,7 +1062,7 @@
         "mp3": "audio/mp3/combat/ranged/effect_bow_release_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -14.28,
@@ -615,7 +1095,7 @@
         "mp3": "audio/mp3/combat/sword/effect_sword_clash_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -15.1,
@@ -648,7 +1128,7 @@
         "mp3": "audio/mp3/magic/casting/effect_magic_cast_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -15.99,
@@ -681,7 +1161,7 @@
         "mp3": "audio/mp3/combat/shield/effect_shield_impact_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -16.43,
@@ -714,7 +1194,7 @@
         "mp3": "audio/mp3/combat/shield/effect_shield_impact_02.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -16.38,
@@ -747,7 +1227,7 @@
         "mp3": "audio/mp3/combat/shield/effect_shield_impact_03.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -17.25,
@@ -780,7 +1260,7 @@
         "mp3": "audio/mp3/combat/shield/effect_shield_impact_04.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -16.26,
@@ -813,7 +1293,7 @@
         "mp3": "audio/mp3/combat/shield/effect_shield_impact_05.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -15.87,
@@ -846,7 +1326,7 @@
         "mp3": "audio/mp3/characters/hurt/effect_character_hurt_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -18.05,
@@ -879,7 +1359,7 @@
         "mp3": "audio/mp3/characters/hurt/effect_character_hurt_02.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -8.65,
@@ -895,6 +1375,390 @@
           }
         }
       }
+    },
+    {
+      "id": "effect_combat_grunt_01",
+      "trigger": "combat_grunt",
+      "category": "combat",
+      "subcategory": "vocalization",
+      "description": "Grunhido curto de combate, recorte 01",
+      "source": "freesound_community-grunts-33249.mp3",
+      "start_seconds": 0.463,
+      "end_seconds": 0.795,
+      "duration_seconds": 0.332,
+      "source_duration_seconds": 41.45,
+      "files": {
+        "mp3": "audio/mp3/characters/grunts/effect_combat_grunt_01.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -20.92,
+            "input_true_peak_dbtp": -10.04,
+            "gain_db": -3.08,
+            "measurement": "repeated_short_transient_lufs"
+          }
+        }
+      },
+      "source_title": "grunts",
+      "source_url": "https://pixabay.com/sound-effects/people-grunts-33249/",
+      "creator": "mattgarkusha (Freesound)",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_combat_grunt_02",
+      "trigger": "combat_grunt",
+      "category": "combat",
+      "subcategory": "vocalization",
+      "description": "Grunhido curto de combate, recorte 02",
+      "source": "freesound_community-grunts-33249.mp3",
+      "start_seconds": 4.543,
+      "end_seconds": 4.866,
+      "duration_seconds": 0.323,
+      "source_duration_seconds": 41.45,
+      "files": {
+        "mp3": "audio/mp3/characters/grunts/effect_combat_grunt_02.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -16.83,
+            "input_true_peak_dbtp": -6.26,
+            "gain_db": -7.17,
+            "measurement": "repeated_short_transient_lufs"
+          }
+        }
+      },
+      "source_title": "grunts",
+      "source_url": "https://pixabay.com/sound-effects/people-grunts-33249/",
+      "creator": "mattgarkusha (Freesound)",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_combat_grunt_03",
+      "trigger": "combat_grunt",
+      "category": "combat",
+      "subcategory": "vocalization",
+      "description": "Grunhido curto de combate, recorte 03",
+      "source": "freesound_community-grunts-33249.mp3",
+      "start_seconds": 8.053,
+      "end_seconds": 8.571,
+      "duration_seconds": 0.518,
+      "source_duration_seconds": 41.45,
+      "files": {
+        "mp3": "audio/mp3/characters/grunts/effect_combat_grunt_03.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -15.11,
+            "input_true_peak_dbtp": -3.62,
+            "gain_db": -8.89,
+            "measurement": "integrated_lufs"
+          }
+        }
+      },
+      "source_title": "grunts",
+      "source_url": "https://pixabay.com/sound-effects/people-grunts-33249/",
+      "creator": "mattgarkusha (Freesound)",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_combat_grunt_04",
+      "trigger": "combat_grunt",
+      "category": "combat",
+      "subcategory": "vocalization",
+      "description": "Grunhido curto de combate, recorte 04",
+      "source": "freesound_community-grunts-33249.mp3",
+      "start_seconds": 12.124,
+      "end_seconds": 12.503,
+      "duration_seconds": 0.379,
+      "source_duration_seconds": 41.45,
+      "files": {
+        "mp3": "audio/mp3/characters/grunts/effect_combat_grunt_04.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -18.5,
+            "input_true_peak_dbtp": -6.55,
+            "gain_db": -5.5,
+            "measurement": "repeated_short_transient_lufs"
+          }
+        }
+      },
+      "source_title": "grunts",
+      "source_url": "https://pixabay.com/sound-effects/people-grunts-33249/",
+      "creator": "mattgarkusha (Freesound)",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_combat_grunt_05",
+      "trigger": "combat_grunt",
+      "category": "combat",
+      "subcategory": "vocalization",
+      "description": "Grunhido curto de combate, recorte 05",
+      "source": "freesound_community-grunts-33249.mp3",
+      "start_seconds": 15.78,
+      "end_seconds": 16.212,
+      "duration_seconds": 0.432,
+      "source_duration_seconds": 41.45,
+      "files": {
+        "mp3": "audio/mp3/characters/grunts/effect_combat_grunt_05.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -18.15,
+            "input_true_peak_dbtp": -5.12,
+            "gain_db": -5.85,
+            "measurement": "integrated_lufs"
+          }
+        }
+      },
+      "source_title": "grunts",
+      "source_url": "https://pixabay.com/sound-effects/people-grunts-33249/",
+      "creator": "mattgarkusha (Freesound)",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_combat_grunt_06",
+      "trigger": "combat_grunt",
+      "category": "combat",
+      "subcategory": "vocalization",
+      "description": "Grunhido curto de combate, recorte 06",
+      "source": "freesound_community-grunts-33249.mp3",
+      "start_seconds": 19.13,
+      "end_seconds": 19.464,
+      "duration_seconds": 0.334,
+      "source_duration_seconds": 41.45,
+      "files": {
+        "mp3": "audio/mp3/characters/grunts/effect_combat_grunt_06.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -17.93,
+            "input_true_peak_dbtp": -5.79,
+            "gain_db": -6.07,
+            "measurement": "repeated_short_transient_lufs"
+          }
+        }
+      },
+      "source_title": "grunts",
+      "source_url": "https://pixabay.com/sound-effects/people-grunts-33249/",
+      "creator": "mattgarkusha (Freesound)",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_combat_grunt_07",
+      "trigger": "combat_grunt",
+      "category": "combat",
+      "subcategory": "vocalization",
+      "description": "Grunhido curto de combate, recorte 07",
+      "source": "freesound_community-grunts-33249.mp3",
+      "start_seconds": 22.532,
+      "end_seconds": 22.906,
+      "duration_seconds": 0.374,
+      "source_duration_seconds": 41.45,
+      "files": {
+        "mp3": "audio/mp3/characters/grunts/effect_combat_grunt_07.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -18.33,
+            "input_true_peak_dbtp": -6.29,
+            "gain_db": -5.67,
+            "measurement": "repeated_short_transient_lufs"
+          }
+        }
+      },
+      "source_title": "grunts",
+      "source_url": "https://pixabay.com/sound-effects/people-grunts-33249/",
+      "creator": "mattgarkusha (Freesound)",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_combat_grunt_08",
+      "trigger": "combat_grunt",
+      "category": "combat",
+      "subcategory": "vocalization",
+      "description": "Grunhido curto de combate, recorte 08",
+      "source": "freesound_community-grunts-33249.mp3",
+      "start_seconds": 25.946,
+      "end_seconds": 26.26,
+      "duration_seconds": 0.314,
+      "source_duration_seconds": 41.45,
+      "files": {
+        "mp3": "audio/mp3/characters/grunts/effect_combat_grunt_08.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -21,
+            "input_true_peak_dbtp": -6.9,
+            "gain_db": -3,
+            "measurement": "repeated_short_transient_lufs"
+          }
+        }
+      },
+      "source_title": "grunts",
+      "source_url": "https://pixabay.com/sound-effects/people-grunts-33249/",
+      "creator": "mattgarkusha (Freesound)",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_combat_grunt_09",
+      "trigger": "combat_grunt",
+      "category": "combat",
+      "subcategory": "vocalization",
+      "description": "Grunhido curto de combate, recorte 09",
+      "source": "freesound_community-grunts-33249.mp3",
+      "start_seconds": 30.128,
+      "end_seconds": 30.511,
+      "duration_seconds": 0.383,
+      "source_duration_seconds": 41.45,
+      "files": {
+        "mp3": "audio/mp3/characters/grunts/effect_combat_grunt_09.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -16.65,
+            "input_true_peak_dbtp": -4.61,
+            "gain_db": -7.35,
+            "measurement": "repeated_short_transient_lufs"
+          }
+        }
+      },
+      "source_title": "grunts",
+      "source_url": "https://pixabay.com/sound-effects/people-grunts-33249/",
+      "creator": "mattgarkusha (Freesound)",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_combat_grunt_10",
+      "trigger": "combat_grunt",
+      "category": "combat",
+      "subcategory": "vocalization",
+      "description": "Grunhido curto de combate, recorte 10",
+      "source": "freesound_community-grunts-33249.mp3",
+      "start_seconds": 31.111,
+      "end_seconds": 31.798,
+      "duration_seconds": 0.687,
+      "source_duration_seconds": 41.45,
+      "files": {
+        "mp3": "audio/mp3/characters/grunts/effect_combat_grunt_10.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -11.67,
+            "input_true_peak_dbtp": -4.03,
+            "gain_db": -12.33,
+            "measurement": "integrated_lufs"
+          }
+        }
+      },
+      "source_title": "grunts",
+      "source_url": "https://pixabay.com/sound-effects/people-grunts-33249/",
+      "creator": "mattgarkusha (Freesound)",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_combat_grunt_11",
+      "trigger": "combat_grunt",
+      "category": "combat",
+      "subcategory": "vocalization",
+      "description": "Grunhido curto de combate, recorte 11",
+      "source": "freesound_community-grunts-33249.mp3",
+      "start_seconds": 33.813,
+      "end_seconds": 34.503,
+      "duration_seconds": 0.69,
+      "source_duration_seconds": 41.45,
+      "files": {
+        "mp3": "audio/mp3/characters/grunts/effect_combat_grunt_11.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -14.59,
+            "input_true_peak_dbtp": -6.51,
+            "gain_db": -9.41,
+            "measurement": "integrated_lufs"
+          }
+        }
+      },
+      "source_title": "grunts",
+      "source_url": "https://pixabay.com/sound-effects/people-grunts-33249/",
+      "creator": "mattgarkusha (Freesound)",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
+    },
+    {
+      "id": "effect_combat_grunt_12",
+      "trigger": "combat_grunt",
+      "category": "combat",
+      "subcategory": "vocalization",
+      "description": "Grunhido curto de combate, recorte 12",
+      "source": "freesound_community-grunts-33249.mp3",
+      "start_seconds": 37.862,
+      "end_seconds": 38.333,
+      "duration_seconds": 0.471,
+      "source_duration_seconds": 41.45,
+      "files": {
+        "mp3": "audio/mp3/characters/grunts/effect_combat_grunt_12.mp3"
+      },
+      "normalization": {
+        "target_lufs": -24,
+        "formats": {
+          "mp3": {
+            "input_lufs": -13.15,
+            "input_true_peak_dbtp": -1,
+            "gain_db": -10.85,
+            "measurement": "integrated_lufs"
+          }
+        }
+      },
+      "source_title": "grunts",
+      "source_url": "https://pixabay.com/sound-effects/people-grunts-33249/",
+      "creator": "mattgarkusha (Freesound)",
+      "license": "Pixabay Content License",
+      "license_url": "https://pixabay.com/service/license-summary/",
+      "source_page_reviewed_at": "2026-10-27"
     },
     {
       "id": "effect_war_horn_call_01",
@@ -913,7 +1777,7 @@
       },
       "gameplay_role": "army_war_call",
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -11.91,
@@ -947,7 +1811,7 @@
       },
       "gameplay_role": "army_retreat_order",
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -12.8,
@@ -985,7 +1849,7 @@
         "building_melee_impact"
       ],
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -18.16,
@@ -1020,7 +1884,7 @@
       },
       "gameplay_role": "construction_destroyed",
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -17.72,
@@ -1055,7 +1919,7 @@
       },
       "gameplay_role": "construction_destroyed",
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -17.76,
@@ -1090,7 +1954,7 @@
       },
       "gameplay_role": "construction_destroyed",
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -17.41,
@@ -1125,7 +1989,7 @@
         "mp3": "audio/mp3/combat/ranged/effect_arrow_release_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -11.21,
@@ -1160,7 +2024,7 @@
         "mp3": "audio/mp3/combat/ranged/effect_arrow_release_02.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -10.93,
@@ -1194,7 +2058,7 @@
         "mp3": "audio/mp3/combat/ranged/effect_arrow_action_sequence_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -9.76,
@@ -1228,7 +2092,7 @@
       },
       "gameplay_role": "arrow_unarmored_impact",
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -11.98,
@@ -1265,7 +2129,7 @@
         "mp3": "audio/mp3/combat/ranged/effect_arrow_flight_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -13.82,
@@ -1301,7 +2165,7 @@
         "mp3": "audio/mp3/combat/ranged/effect_arrow_impact_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -13.45,
@@ -1336,7 +2200,7 @@
         "mp3": "audio/mp3/combat/ranged/effect_arrow_flight_impact_sequence_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -14.22,
@@ -1369,7 +2233,7 @@
         "mp3": "audio/mp3/combat/ranged/effect_arrow_twang_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -15.9,
@@ -1402,7 +2266,7 @@
         "mp3": "audio/mp3/characters/fall/effect_character_fall_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -16.44,
@@ -1435,7 +2299,7 @@
         "mp3": "audio/mp3/characters/fall/effect_body_thud_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -20.56,
@@ -1468,7 +2332,7 @@
         "mp3": "audio/mp3/characters/fall/effect_body_fall_fatal_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -17.37,
@@ -1502,7 +2366,7 @@
         "mp3": "audio/mp3/combat/spear/effect_spear_thrust_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -15.05,
@@ -1536,7 +2400,7 @@
         "mp3": "audio/mp3/combat/spear/effect_spear_thrust_02.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -15.33,
@@ -1570,7 +2434,7 @@
         "mp3": "audio/mp3/combat/spear/effect_spear_thrust_03.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -16.54,
@@ -1604,7 +2468,7 @@
         "mp3": "audio/mp3/combat/spear/effect_spear_thrust_04.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -15.75,
@@ -1638,7 +2502,7 @@
         "mp3": "audio/mp3/combat/spear/effect_spear_thrust_05.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -14.86,
@@ -1672,7 +2536,7 @@
         "mp3": "audio/mp3/combat/spear/effect_spear_thrust_06.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -15.65,
@@ -1705,7 +2569,7 @@
         "mp3": "audio/mp3/combat/impacts/effect_light_thud_01.mp3"
       },
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -25.45,
@@ -1735,7 +2599,7 @@
       },
       "gameplay_role": "pawn_body_hit",
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -20.84,
@@ -1765,7 +2629,7 @@
       },
       "gameplay_role": "pawn_hammer_build",
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -26.78,
@@ -1795,7 +2659,7 @@
       },
       "gameplay_role": "pawn_hammer_build",
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -32.85,
@@ -1825,7 +2689,7 @@
       },
       "gameplay_role": "resource_mining",
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -17.35,
@@ -1855,7 +2719,7 @@
       },
       "gameplay_role": "resource_harvesting",
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "ogg": {
             "input_lufs": -21.27,
@@ -1884,7 +2748,7 @@
       },
       "gameplay_role": "adult_sheep_bleat",
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "mp3": {
             "input_lufs": -24.25,
@@ -1907,7 +2771,7 @@
       },
       "gameplay_role": "adult_sheep_bleat",
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "mp3": {
             "input_lufs": -37.14,
@@ -1930,7 +2794,7 @@
       },
       "gameplay_role": "lamb_separation_call",
       "normalization": {
-        "target_lufs": -20.0,
+        "target_lufs": -20,
         "formats": {
           "mp3": {
             "input_lufs": -19.09,
@@ -1977,8 +2841,13 @@
       "usage": "Três tomadas separadas: duas mais curtas e uma longa; evitar executar toda a gravação original com silêncios."
     }
   ],
-  "notes": "Versão consolidada: lote anterior (21 efeitos) + lote 02 (26 efeitos). O manifesto mantém origens e cortes. Não reproduza sequências completas junto dos componentes. Verifique as licenças individuais dos áudios. Atualização 2.1: os quatro efeitos de pedra são variações do evento de destruição de construção; a primeira chamada de corneta grave indica convocação à guerra e a segunda, retirada. Essa associação de corneta é uma decisão de design (não uma semântica intrínseca ao áudio). O toque anterior effect_war_horn_01 continua disponível como som genérico independente. Atualização 2.2: impactos corporais, marteladas de construção, mineração e colheita foram adicionados; building_destroy_01 também é o impacto de espada/lança em estrutura. Atualização 2.3: balidos adultos alternados, chamado de filhote separado da mãe e crescimento gradual de cordeiros até os 180 dias.",
+  "notes": "Versão consolidada: lote anterior (21 efeitos) + lote 02 (26 efeitos). O manifesto mantém origens e cortes. Não reproduza sequências completas junto dos componentes. Verifique as licenças individuais dos áudios. Atualização 2.1: os quatro efeitos de pedra são variações do evento de destruição de construção; a primeira chamada de corneta grave indica convocação à guerra e a segunda, retirada. Essa associação de corneta é uma decisão de design (não uma semântica intrínseca ao áudio). O toque anterior effect_war_horn_01 continua disponível como som genérico independente. Atualização 2.2: impactos corporais, marteladas de construção, mineração e colheita foram adicionados; building_destroy_01 também é o impacto de espada/lança em estrutura. Atualização 2.3: balidos adultos alternados, chamado de filhote separado da mãe e crescimento gradual de cordeiros até os 180 dias. Atualização 2.5: três variações de balanço sem contato; ganho de reprodução limitado a 0,20. Atualização 2.6: onze variações de balanço e impacto em armadura e doze recortes curtos de grunhidos, todos normalizados por arquivo. Atualização 2.7: lanceiros reutilizam sons de balanço de espada com ganho 25% menor e compartilham os sons de impacto combinado contra armadura com volume 25% menor.",
   "gameplay_mappings": {
+    "sword_swing_miss": {
+      "trigger_condition": "Ataque de guerreiro com espada termina como miss, sem contato com personagem ou estrutura.",
+      "variation_selection": "Uma das três gravações por evento, escolhida deterministicamente pelo ID do combate.",
+      "recommended_timing": "Durante o balanço da espada; ganho máximo 0,20, metade do ganho 0,40 do balanço atual."
+    },
     "building_destroyed": {
       "trigger_condition": "Construção passa do estado intacto/danificado para destruída (apenas uma vez por construção).",
       "variation_selection": "Escolher aleatoriamente UMA das quatro variações em cada destruição.",
@@ -1999,6 +2868,16 @@
       "trigger_condition": "Ataque de espada ou lança aplica dano positivo a uma estrutura.",
       "variation_selection": "Efeito fixo effect_building_destroy_01; no golpe que destrói a estrutura, tocar também building_destroyed.",
       "recommended_timing": "No instante de contato do ataque."
+    },
+    "sword_armor_swing_hit": {
+      "trigger_condition": "Ataque de espada ou lança acerta personagem militar com armadura.",
+      "variation_selection": "Uma das onze gravações combinadas de balanço e impacto metálico.",
+      "recommended_timing": "Começar cerca de 180 ms antes do contato para sincronizar o impacto; ganho 0,98 para espada e 0,735 para lança. Não sobrepor outro balanço genérico."
+    },
+    "combat_grunt": {
+      "trigger_condition": "Ataque corpo a corpo de guerreiro ou lanceiro.",
+      "variation_selection": "Um dos doze cortes curtos de grunhido em cerca de um quinto dos ataques, com seleção determinística.",
+      "recommended_timing": "Durante a preparação do ataque; ganho 0,18 e no máximo dez vozes simultâneas."
     },
     "character_body_impact": {
       "trigger_condition": "Ataque corpo a corpo acerta um pawn sem classe militar/armadura.",
@@ -2021,9 +2900,9 @@
       "recommended_timing": "Após o golpe de mineração."
     },
     "harvesting": {
-      "trigger_condition": "Coleta de alimento vegetal ou brotos transfere uma quantidade positiva.",
+      "trigger_condition": "Coleta de frutos, arroz ou brotos transfere uma quantidade positiva.",
       "variation_selection": "Efeito fixo effect_harvesting_01.",
-      "recommended_timing": "No momento de coletar."
+      "recommended_timing": "Ao coletar frutos, arroz ou alimento para ração; ganho 0,26, metade do valor anterior."
     },
     "arrow_sequence": {
       "trigger_condition": "Rajada de quatro flechas disparadas em arco para cair numa área.",
@@ -2042,9 +2921,9 @@
     }
   },
   "loudness_normalization": {
-    "target_lufs": -24.0,
-    "true_peak_ceiling_dbtp": -2.0,
-    "max_boost_db": 14.0,
+    "target_lufs": -24,
+    "true_peak_ceiling_dbtp": -2,
+    "max_boost_db": 14,
     "excluded_events": [
       "wind_ambience"
     ],
