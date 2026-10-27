@@ -316,6 +316,25 @@ test('food support assigns harvesters alongside a separate active field builder'
     'a second support pass does not duplicate active food assignments');
 });
 
+test('urgent food support can assign ready-field harvesters after personal reserves are empty', () => {
+  const members = Array.from({ length: 50 }, (_, index) => ({
+    id: index + 1, alive: true, communityId: 3, ageDays: 30 * 365, role: 'resident',
+    hydration: 100, energy: 50, health: 80, foodReserve: 0, skills: { forage: .5 }
+  }));
+  const leader = members[0];
+  const community = { id: 3, kingdomId: 4, isKingdomGroup: true, leaderId: leader.id,
+    memberIds: members.map(person => person.id), assignments: [], history: [], stores: { food: 0 } };
+  const field = { id: 7, type: 'roça', complete: true, communityId: 3, cropCycleState: 'ready', cropYieldTarget: 10_000 };
+  const world = { day: 1, people: members, structures: [field], communities: [community], kingdoms: [] };
+
+  const addedFoodWorkers = assignKingdomFoodSupportTasks(world, community, leader, members);
+  const assigned = members.filter(person => person.assignment?.goal === 'secure-shared-food');
+
+  assert.equal(addedFoodWorkers, 4);
+  assert.ok(assigned.every(person => person.foodReserve === 0 && person.assignment.foodFieldId === field.id),
+    'low reserves do not block urgent harvesting of food that is already ripe and reachable');
+});
+
 test('food support redirects an existing forager to a newly ready field after their current load is delivered', () => {
   for (const carried of [false, true]) {
     const leader = { id: 1, alive: true, communityId: 3, ageDays: 40 * 365, foodReserve: 80, skills: { forage: .5 } };

@@ -174,6 +174,10 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
     const activeFieldProject = structures.some(structure => structure.type === 'roça' && !structure.complete);
     const fieldBuilderReserveFloor = fieldMaterialPreparation || cropInvestment && activeFieldProject
       ? FIELD_CONSTRUCTION_MIN_FOOD_RESERVE : 14;
+    // Emergency food work must remain assignable after personal reserves run out;
+    // a mature field can be harvested straight into the shared stock.
+    const assignmentFoodReserveFloor = desired.action === 'forage' && desired.priority === 'urgent'
+      ? 0 : fieldBuilderReserveFloor;
     const fieldBuildFoodFloor = cropInvestment && activeFieldProject ? FIELD_CONSTRUCTION_MIN_FOOD_RESERVE : 16;
     const fieldBuildEnergyFloor = cropInvestment && activeFieldProject ? FIELD_CONSTRUCTION_MIN_ENERGY : 27;
     const foodWorkers = workers.filter(person => person.id !== leader.id && person.ageDays >= 12 * 365);
@@ -200,7 +204,7 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
         if (person.ageDays < 12 * 365) return false;
         // Do not assign already depleted people to work that could be done by a
         // healthier member. If everyone is depleted, their own survival policy wins.
-        if (person.hydration < 24 || person.energy < 14 || person.health < 28 || person.foodReserve < fieldBuilderReserveFloor) return false;
+        if (person.hydration < 24 || person.energy < 14 || person.health < 28 || person.foodReserve < assignmentFoodReserveFloor) return false;
         if (desired.action === 'forage') {
           return person.energy > 8 && (!!bestPeopleFoodCell(w, person, 5) || fields.length > 0);
         }
