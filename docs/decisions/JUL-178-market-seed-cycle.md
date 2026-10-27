@@ -8,6 +8,8 @@ Issues: [JUL-178](https://linear.app/julio-alves/issue/JUL-178/auditar-conservac
 
 A roça terá um ciclo econômico visível: **comprar sementes no mercado local → transportar até a roça → plantar → crescer → colher → armazenar, consumir ou vender a produção**. A roça é propriedade da comunidade; moradores executam o trabalho. Assim, a compra de sementes sai de uma conta comunitária identificada e a produção entra primeiro na carga do trabalhador ou no estoque comunitário conforme a entrega efetivamente feita.
 
+Em nova orientação de 27/10/2026, o jogador reforçou que comprar sementes no mercado, plantar e colher é mais interessante como gameplay do que manter uma roça que apenas acumula biomassa. Esse reforço confirma a cadeia acima; não altera seus requisitos de conservação nem a ordem de dependências.
+
 O mercado vende lotes finitos de sementes. O estoque de abertura tem origem explícita e é concedido uma única vez; depois, só aumenta com uma entrada registrada de sementes recuperadas da produção ou de uma compra/entrega de outro vendedor. Esgotar sementes ou caixa deve deixar a roça sem plantio, com a causa visível. Não haverá reposição automática.
 
 O plantio consome a quantidade comprada e registra qual lote foi usado em qual campo. A colheita consome biomassa cultivada real, respeita capacidade de carga e reserva de replantio, e só então pode alimentar moradores, estoque comum ou mercado. O valor acumulado de colheita continua sendo histórico e nunca vira inventário vendável por si só.

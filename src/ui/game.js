@@ -19,6 +19,7 @@ import { createGameAudio, windGainAtZoom } from './game-audio.js';
 import { musicGainAtZoom } from './music-audio.js';
 import { mapDecorationAt, MAP_DECORATION_SPRITES } from './map-decorations.js';
 import { MILITARY_PAY, GARRISON_RECOVERY } from '../simulation/kingdoms/service.js';
+import { isOperationalMilitarySource, MILITARY_SOURCE_LABELS } from '../simulation/kingdoms/military-sources.js';
 import { mapCamera, spriteScale, BUILDING_FEET, alignedTileRect, SOURCE_TILE_PIXELS } from './map-camera.js';
 import { structureDepthY } from './world-depth.js';
 import { createCloudSystem, atmosphereZoomProfile } from './cloud-system.js';
@@ -2476,6 +2477,7 @@ export function mountGame() {
     if (selection.kind === 'kingdom') {
       const kingdom = getKingdom(selection.id);
       if (!kingdom) { selection = null; renderInspector(); return; }
+      const kingdomId = kingdom.id;
       const residents = kingdom.memberIds.map(id => getPerson(id)).filter(Boolean);
       const ruler = getPerson(kingdom.rulerId);
       const homes = kingdom.homeIds.map(id => world.structures.find(s => s.id === id)).filter(Boolean);
@@ -2506,7 +2508,8 @@ export function mountGame() {
       const towers = structures.filter(s => s.type === 'torre' && s.complete && !s.frontierOutpost);
       const frontierTowers = structures.filter(s => s.frontierOutpost && (s.complete
         || s.integrity > 0 && s.builtDay == null && (s.progress || 0) < (s.required || 1)));
-      const militaryCenters = (kingdom.militaryCenterIds || []).map(id => world.structures.find(s => s.id === id && s.complete)).filter(Boolean);
+      const militaryCenters = (kingdom.militaryCenterIds || []).map(id => world.structures.find(s => s.id === id
+        && isOperationalMilitarySource(s, 'centro_militar'))).filter(Boolean);
       const soldiers = residents.filter(person => person.role === 'soldier');
       const pendingRecruitments = residents.filter(person => person.alive && person.recruitmentOrder);
       const activeKingdomProject = structures.find(structure => structure.kingdomProject && !structure.complete && structure.integrity > 0 && structure.builtDay == null);
@@ -2514,7 +2517,16 @@ export function mountGame() {
         && !structure.kingdomProject && !structure.complete && structure.integrity > 0 && structure.builtDay == null);
       const patrollingSoldiers = soldiers.filter(person => String(person.state || '').startsWith('patrulhando')).length;
       const soldierCapacity = militaryCenters.reduce((sum, center) => sum + (center.capacity || 8), 0);
-      const soldierSlots = Math.max(0, soldierCapacity - soldiers.length - pendingRecruitments.length);
+      const soldierSlots = militaryCenters.reduce((total, center) => {
+        const stationed = new Set((center.soldierIds || []).filter(id => soldiers.some(person => person.id === id)));
+        for (const person of soldiers) if (person.militaryCenterId === center.id) stationed.add(person.id);
+        const pending = pendingRecruitments.filter(person => person.recruitmentOrder.militaryCenterId === center.id).length;
+        return total + Math.max(0, (center.capacity || 8) - stationed.size - pending);
+      }, 0);
+      const hasRecruitmentSource = militaryClass => !!Sim.kingdomCommands.militaryClassSource(world, kingdomId, militaryClass);
+      const missingMilitarySources = ['guerreiro', 'arqueiro', 'monge']
+        .filter(militaryClass => !hasRecruitmentSource(militaryClass));
+      const pausedRecruitments = pendingRecruitments.filter(person => person.recruitmentOrder.progressionStatus === 'paused');
       const constructionStatus = activeKingdomProject
         ? '<div class="note-card"><b>Obra de defesa em andamento</b><span>'
           + esc(activeKingdomProject.frontierOutpost ? 'Posto de fronteira' : structureDisplayName(activeKingdomProject.type))
@@ -2548,7 +2560,6 @@ export function mountGame() {
       const recruitmentStatus = pendingRecruitments.length
         ? '<div class="note-card"><b>Treinamento em andamento</b><span>' + pendingRecruitments.map(person =>
           esc(person.name) + ' · ' + Math.max(0, person.recruitmentOrder.readyDay - world.day) + ' dias restantes').join(' · ') + '</span></div>' : '';
-      const kingdomId = kingdom.id;
       const calendar = Sim.modules.Cosmos.calendarDate(world.day);
       const strategy = kingdom.strategy;
       const strategyGoalLabels = {
@@ -2680,10 +2691,12 @@ export function mountGame() {
         constructionStatus + communityConstructionStatus + recruitmentStatus +
         '<div class="kingdom-actions"><button type="button" data-kingdom-command="torre" data-kingdom-id="' + kingdomId + '"' + (activeKingdomProject ? ' disabled' : '') + '>Construir torre · ' + Sim.kingdomCommands.timing.torre + ' dias · 34 madeira · 24 pedra · 8 ouro</button>' +
         '<button type="button" data-kingdom-command="centro_militar" data-kingdom-id="' + kingdomId + '"' + (activeKingdomProject ? ' disabled' : '') + '>Construir centro militar · ' + Sim.kingdomCommands.timing.centro_militar + ' dias · 32 madeira · 30 pedra · 12 ouro</button>' +
-        '<button type="button" data-kingdom-command="recruit" data-kingdom-id="' + kingdomId + '"' + (soldierSlots < 1 ? ' disabled' : '') + '>Recrutar lanceiro · ' + Sim.kingdomCommands.timing.recruit + ' dias · 10 alimento · 8 madeira · 3 ouro</button>' +
-        ['guerreiro', 'arqueiro', 'monge'].map(unitClass => '<button type="button" data-kingdom-command="recruit" data-military-class="' + unitClass + '" data-kingdom-id="' + kingdomId + '"' + (soldierSlots < 1 ? ' disabled' : '') + '>Treinar ' + ({ guerreiro: 'infantaria', arqueiro: 'arqueiro', monge: 'clérigo' })[unitClass] + ' · 6 dias · 10 alimento · 8 madeira · 3 ouro</button>').join('') +
+        '<button type="button" data-kingdom-command="recruit" data-kingdom-id="' + kingdomId + '"' + (!hasRecruitmentSource('lanceiro') || soldierSlots < 1 ? ' disabled' : '') + '>Recrutar lanceiro · ' + Sim.kingdomCommands.timing.recruit + ' dias · 10 alimento · 8 madeira · 3 ouro</button>' +
+        ['guerreiro', 'arqueiro', 'monge'].map(unitClass => '<button type="button" data-kingdom-command="recruit" data-military-class="' + unitClass + '" data-kingdom-id="' + kingdomId + '"' + (!hasRecruitmentSource(unitClass) || soldierSlots < 1 ? ' disabled' : '') + '>Treinar ' + ({ guerreiro: 'infantaria', arqueiro: 'arqueiro', monge: 'clérigo' })[unitClass] + ' · 6 dias · 10 alimento · 8 madeira · 3 ouro</button>').join('') +
         ['monasterio', 'arquearia'].map(building => '<button type="button" data-kingdom-command="' + building + '" data-kingdom-id="' + kingdomId + '"' + (activeKingdomProject ? ' disabled' : '') + '>Construir ' + structureDisplayName(building) + '</button>').join('') + '</div>' +
         (soldierSlots < 1 ? '<p class="quiet">Para recrutar, construa um centro militar com vaga. Cada centro comporta até 60 militares.</p>' : '<p class="quiet">Um centro militar comporta até 60 militares. O recrutamento exige um morador adulto em boas condições. Após a promoção, ele deixa as tarefas civis para cumprir guarda, patrulha e campanha.</p>') +
+        (missingMilitarySources.length ? '<p class="quiet">Sem fonte operacional: ' + missingMilitarySources.map(unitClass => esc(MILITARY_SOURCE_LABELS[unitClass === 'guerreiro' ? 'centro_militar' : unitClass === 'arqueiro' ? 'arquearia' : 'monasterio'])).join(' · ') + '. Novos membros e progressão dessas classes ficam pausados.</p>' : '') +
+        (pausedRecruitments.length ? '<p class="quiet">Treinamentos pausados: ' + pausedRecruitments.map(person => esc(person.name) + ' — ' + esc(person.recruitmentOrder.pauseReason)).join(' · ') + '. O custo e o progresso são preservados.</p>' : '') +
         '<p class="quiet">Soldo: ' + MILITARY_PAY.gold + ' ouro a cada ' + MILITARY_PAY.days + ' dias (' + fmt(MILITARY_PAY.gold / MILITARY_PAY.days, 2) + ' ouro/dia), pago pelo tesouro desde a promoção. O soldado compra alimento no mercado; valores sem cobertura ficam em atraso.</p>' +
         (kingdomActionNotice ? '<div class="note-card kingdom-action-notice" role="status">' + esc(kingdomActionNotice) + '</div>' : '') +
 
@@ -2712,6 +2725,11 @@ export function mountGame() {
       const personalMemories = (p.personalMemory || []).slice(-3).reverse();
       const socialInspector = renderSocialInspectorSections(p, world);
       const decisionBrain = p.role === 'soldier' && p.militaryBrain ? p.militaryBrain : p.brain;
+      const progressionAudit = p.militaryProgressionStatus;
+      const progressionAuditText = progressionAudit?.state === 'paused'
+        ? 'Pausada desde o dia ' + progressionAudit.sinceDay + ': falta ' + (MILITARY_SOURCE_LABELS[progressionAudit.sourceType] || 'fonte operacional') + '. Mérito preservado.'
+        : progressionAudit?.state === 'resumed'
+          ? 'Retomada no dia ' + progressionAudit.resumedDay + ' após reconstrução de ' + (MILITARY_SOURCE_LABELS[progressionAudit.sourceType] || 'fonte operacional') + '.' : '';
       const recoveryNeeds = [];
       if (p.energy < GARRISON_RECOVERY.restEnergy) recoveryNeeds.push('energia até ' + GARRISON_RECOVERY.restEnergy + '%');
       if (p.health < GARRISON_RECOVERY.restHealth) recoveryNeeds.push('saúde até ' + GARRISON_RECOVERY.restHealth + '%');
@@ -2719,6 +2737,9 @@ export function mountGame() {
       $('inspectEyebrow').textContent = p.role === 'soldier' ? (p.militaryRank || p.militaryGrade || 'soldado').toUpperCase() + ' · ' + (kingdom ? kingdom.name.toUpperCase() : 'SEM REINO') : kingdom ? 'MORADOR · ' + kingdom.name.toUpperCase() : 'INDIVÍDUO · SEM REINO';
       $('inspectTitle').textContent = p.name;
       root.innerHTML = '<div class="data-row"><span>Estado atual</span><b>' + esc(p.state) + '</b></div>' +
+        (p.recruitmentOrder ? '<div class="note-card"><b>Treinamento militar</b><span>' + (p.recruitmentOrder.progressionStatus === 'paused'
+          ? 'Pausado: ' + esc(p.recruitmentOrder.pauseReason) + '. Custo e progresso preservados.'
+          : 'Classe ' + esc(p.recruitmentOrder.militaryClass) + ' · conclusão prevista no dia ' + p.recruitmentOrder.readyDay + '.') + '</span></div>' : '') +
         (p.role === 'ruler' && kingdom?.lastSitingDecision ? '<div class="note-card"><b>Última escolha de local para obra</b><span>' + esc(kingdom.lastSitingDecision.label) + ' em ' + kingdom.lastSitingDecision.x + ',' + kingdom.lastSitingDecision.y + '. ' + esc(kingdom.lastSitingDecision.reason) + '</span></div>' : '') +
         (p.restingStructureId != null || p.homeRestTargetId != null || p.militaryRestTargetId != null
           ? '<div class="data-row"><span>Recuperação em casa</span><b>'
@@ -2745,6 +2766,7 @@ export function mountGame() {
         '<div class="data-row"><span>Prestígio / tarefa</span><b>' + fmt(p.prestige || 0, 1) + (p.assignment ? ' · ' + esc(p.assignment.title) + esc(assignmentPhase) + (p.assignment.pauseReason ? ' · suspensa por ' + esc(p.assignment.pauseReason) : ' · até dia ' + p.assignment.expiresDay) : ' · sem delegação ativa') + '</b></div>' +
         '<div class="data-row"><span>Vínculos observados</span><b>' + links + '</b></div>' +
         (p.role === 'soldier' ? '<div class="data-row"><span>Patente / nível</span><b>' + esc(p.militaryRank || p.militaryGrade || 'soldado') + (p.militaryGrade && p.militaryRank !== p.militaryGrade ? ' · carreira: ' + esc(p.militaryGrade) : '') + ' · nível ' + (p.militaryLevel || 1) + ' · mérito ' + fmt(p.militaryMerit || 0, 1) + '</b></div><div class="data-row"><span>Função militar</span><b>' + esc((p.militaryRank || 'soldado') + ' · ' + (p.militaryClass || 'soldado')) + ' · guarnição do centro ' + (p.militaryCenterId || '—') + '</b></div>'
+          + (progressionAuditText ? '<div class="data-row"><span>Progressão de classe</span><b>' + esc(progressionAuditText) + '</b></div>' : '')
           + (p.campaignId != null && p.fieldCommand ? '<div class="note-card"><b>' + (p.fieldCommand.issuerId === p.id ? 'Ordem emitida' : 'Ordem recebida de ' + esc(getPerson(p.fieldCommand.issuerId)?.name || 'general')) + '</b><span>' + esc(p.fieldCommand.reason) + ' Formação: ' + (p.fieldCommand.formationType === 'line' ? 'linha' : 'coluna') + '. Alvo: ' + p.fieldCommand.target.x + ',' + p.fieldCommand.target.y + '.</span></div>' : '')
           + '<div class="data-row"><span>Soldo do rei</span><b>' + MILITARY_PAY.gold + ' ouro / ' + MILITARY_PAY.days + ' dias (' + fmt(MILITARY_PAY.gold / MILITARY_PAY.days, 2) + '/dia)</b></div>'
           + '<div class="data-row"><span>Saldo pessoal / atrasado</span><b>' + fmt(p.militaryWallet?.stock.gold || 0) + ' / ' + fmt(p.militaryPayArrears || 0) + ' ouro</b></div>'

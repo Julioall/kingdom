@@ -1,5 +1,6 @@
 import { distance } from '../core/math.js';
 import { log } from '../core/events.js';
+import { militaryClassSource, militaryClassSourceType, MILITARY_SOURCE_LABELS } from './military-sources.js';
 
 export const SERVICE_GRADES = [
   ['soldado', 0], ['cabo', 5], ['sargento', 15], ['tenente', 35],
@@ -16,7 +17,34 @@ function increaseBorderTension(world, a, b, amount) {
 
 export function updateServiceGrades(world, troops, day) {
   for (const person of troops) {
-    const earned = SERVICE_GRADES.filter(([, points]) => (person.militaryMerit || 0) >= points).length;
+    const sourceType = militaryClassSourceType(person.militaryClass);
+    const source = sourceType ? militaryClassSource(world, person.kingdomId, person.militaryClass) : null;
+    if (sourceType && !source) {
+      const previous = person.militaryProgressionStatus;
+      if (previous?.state !== 'paused' || previous.sourceType !== sourceType) {
+        person.militaryProgressionStatus = {
+          state: 'paused', sourceType, sourceLabel: MILITARY_SOURCE_LABELS[sourceType],
+          sinceDay: day, pausedMeritBaseline: person.militaryMerit || 0,
+          reason: 'última fonte operacional da classe destruída'
+        };
+        log(world, 'A progressão de ' + person.name + ' (' + person.militaryClass + ') foi pausada: não há '
+          + MILITARY_SOURCE_LABELS[sourceType] + ' operacional. Mérito de combate é mantido, mas não avança a graduação durante a pausa.', day);
+      }
+      continue;
+    }
+    if (source && person.militaryProgressionStatus?.state === 'paused') {
+      const blockedMerit = Math.max(0, (person.militaryMerit || 0)
+        - (person.militaryProgressionStatus.pausedMeritBaseline || 0));
+      person.militaryProgressionExcludedMerit = (person.militaryProgressionExcludedMerit || 0) + blockedMerit;
+      person.militaryProgressionStatus = {
+        ...person.militaryProgressionStatus, state: 'resumed', resumedDay: day, sourceId: source.id,
+        excludedMerit: blockedMerit
+      };
+      log(world, 'A progressão de ' + person.name + ' (' + person.militaryClass + ') retomou após a reconstrução '
+        + 'de ' + MILITARY_SOURCE_LABELS[sourceType] + '; mérito anterior à pausa foi preservado.', day);
+    }
+    const progressionMerit = Math.max(0, (person.militaryMerit || 0) - (person.militaryProgressionExcludedMerit || 0));
+    const earned = SERVICE_GRADES.filter(([, points]) => progressionMerit >= points).length;
     const previous = person.militaryLevel || 1;
     person.militaryLevel = Math.max(previous, earned);
     person.militaryGrade = SERVICE_GRADES[Math.min(SERVICE_GRADES.length, person.militaryLevel) - 1][0];

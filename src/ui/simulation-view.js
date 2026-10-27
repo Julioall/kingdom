@@ -7,11 +7,12 @@ import { isTreeAnchor } from '../simulation/ecology/plants.js';
 import { corralGate } from '../simulation/individuals/movement.js';
 import { structureHitbox, structureInteractionPoint } from '../simulation/physics/hitboxes.js';
 import { KINGDOM_PROJECT_TIMING } from '../simulation/kingdoms/commands.js';
+import { militaryClassSource } from '../simulation/kingdoms/military-sources.js';
 
 export default {
   width: WIDTH, height: HEIGHT, plants: PLANTS, animals: ANIMALS, seasons: SEASONS, actions: PEOPLE_ACTIONS,
   inspectTile,
-  kingdomCommands: { timing: KINGDOM_PROJECT_TIMING },
+  kingdomCommands: { timing: KINGDOM_PROJECT_TIMING, militaryClassSource },
   modules: {
     Cosmos: { calendarDate, seasonIndex },
     Biosphere: { Botany: { isTreeAnchor } },
