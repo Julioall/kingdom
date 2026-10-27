@@ -34,15 +34,33 @@ Treinamentos já pagos ficam pendentes se perderem a fonte de classe ou o centro
 
 ## Limite desta fatia
 
-JUL-200 também pede que abrigos e casas sirvam de origem para novos moradores, respeitando capacidade, custo, comida e limites populacionais. O nascimento atual não valida esses requisitos antes de criar a pessoa. Essa cadeia de população precisa de desenho e implementação próprios; esta mudança não a declara concluída e não altera reprodução.
+JUL-200 também pede que abrigos e casas sirvam de origem para novos moradores, respeitando capacidade, custo, comida e limites populacionais. A regra adotada para essa fatia é que reprodução natural só conclui quando existe uma vaga em abrigo ou casa concluídos e operacionais. Casas mantêm suas 13 vagas; abrigos comunitários recebem a mesma capacidade, para que o limite seja legível e comparável. A vaga do recém-nascido é reservada no nascimento e liberada quando o morador morre ou deixa o grupo.
+
+O custo existente de criar uma criança continua explícito: os pais precisam estar alimentados e transferem 7 e 5 pontos de suas reservas para a reserva inicial do bebê, além de pagar energia e hidratação. Não há tarifa adicional em ouro por nascimento nem nova população fixa máxima: o limite corrente é a capacidade residencial construída e paga. Sem vaga ou sem condições alimentares dos pais, o nascimento é adiado sem debitar energia, comida ou cooldown. A hipótese de capacidade de 13 por abrigo é conservadora, derivada da capacidade já usada pelas casas; deve ser revisada por replay de crescimento e mortalidade.
+
+### Moradia e nascimento — alternativas e fontes
+
+| Alternativa | Decisão | Motivo |
+| --- | --- | --- |
+| Permitir nascimento sem moradia e deixar `assignHome` tentar resolver depois | Rejeitada | A função podia iniciar uma casa paga, ainda incompleta, e o nascimento mesmo assim terminava; isso deixava o bebê sem vaga operacional. |
+| Criar automaticamente uma casa ou uma vaga ao nascer | Rejeitada | Ignora o tempo de construção e transforma capacidade residencial em oferta sem limite observável. |
+| Cobrar ouro por criança | Rejeitada | A casa/abrigo já consome recursos na construção, e os pais já transferem reserva alimentar e energia para a criança. |
+| Limitar a capacidade de cada moradia e adiar o nascimento quando não há vaga | Escolhida | Reutiliza a capacidade de 13 das casas existentes, torna o abrigo uma moradia funcional e preserva a decisão dos pais de ter filhos apenas quando comida e abrigo permitem. |
+
+SciSpace encontrou modelos de sociedades agrícolas baseados em necessidades domésticas, acesso a recursos e regras sociais, mas não uma capacidade universal de moradores por abrigo; o número 13 vem do contrato existente do jogo, não da literatura. Saqalli et al. (2010), [modelo empírico multiatividade e multidimensional de sociedades rurais](https://doi.org/10.18564/jasss.1547), adverte que modelos de baixa disponibilidade de dados devem ser tratados como provedores de tendências, não de números absolutos. Isso reforça calibrar a capacidade e sobrevivência por cenários locais, sem alegar validade demográfica realista. Consensus foi tentada nesta etapa e recusou novas buscas: a cota mensal de 30 buscas só reinicia em 01/11/2026.
+
+Essa decisão completa o vínculo entre edifício e novos moradores, mas a evidência multissemente e o balanço de longo prazo ainda são necessários antes de fechar JUL-200. Também não altera reprodução animal nem adiciona ecologia sazonal.
 
 O ciclo agrícola pedido pelo jogador — comprar sementes no mercado, levar à roça, plantar, colher e entregar — segue registrado em [JUL-178-market-seed-cycle.md](JUL-178-market-seed-cycle.md). A implementação permanece atrás da auditoria e do contrato econômico de JUL-178/JUL-201. Não foram adicionadas biomas ou estações agrícolas.
 
 ## Evidência e validação
 
 - Fontes conferidas: `commands.js`, `service.js`, `frontier-intelligence.js`, `projects.js`, `initialization.js`, `systems.js` e a inspeção em `game.js`.
+- Para a regra residencial, foram conferidos `lifecycle.js`, `construction.js`, `residency.js`, `inventories.js`, `building-card.js` e o registro existente de capacidade 13 das casas.
 - Os bloqueios e retomadas são eventos de crônica; a inspeção da pessoa mostra a fonte ausente/recuperada e os treinamentos pendentes mostram a causa da pausa.
 - Testes cobrem as quatro classes, fontes alternativas, bloqueio sem custo, pausa de graduação, treinamento pendente sem nova cobrança, centro substituto e repetição determinística do mesmo cenário.
-- SHA de implementação, suíte completa, build e replay serão registrados após o commit.
+- Teste residencial: `tests/residential-birth-capacity.test.mjs` cobre casa, abrigo, vaga cheia/inativa, transferência das 12 unidades alimentares e liberação de vaga após morte; suíte direcionada final: 12/12.
+- Suíte completa: 201/201 testes passaram; `npm run build` passou com `tsc --noEmit` e produção Vite. O build converteu 489 PNGs em WebP sem perdas (8,03 MiB → 5,27 MiB).
+- Playtest no navegador: cartão do abrigo mostrou `Moradores / vagas totais: 0 / 13` no dia 242, sem erro de console; screenshot anexado à JUL-200.
 - `linear_get_agent_context` foi tentada nesta etapa, mas o servidor respondeu `Tool get_agent_context not found`. As instruções da issue, o código e as evidências locais foram usados.
-- SciSpace/Consensus não foram consultados de novo: esta fatia implementa uma regra de produto e contabilidade já registrada, sem hipótese científica a calibrar. A skill Game Studio `game-playtest` foi aplicada para verificar o painel no navegador.
+- SciSpace foi consultado sobre limites de habitação em sociedades simuladas; não encontrou uma capacidade universal, então 13 foi mantido por consistência com as casas atuais. Consensus foi tentada, mas a cota mensal de 30 buscas está esgotada até 01/11/2026. A skill Game Studio `game-playtest` foi aplicada para verificar o painel no navegador.

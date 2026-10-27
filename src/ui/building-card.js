@@ -45,7 +45,8 @@ export function buildingCard(world, s) {
     html = kingdomOverview(world, kingdom);
   } else if (s.type === 'casa' || s.type === 'abrigo') {
     const residents = living.filter(p => (s.residentIds || []).includes(p.id));
-    html = row('Moradores / vagas totais', residents.length + ' / ' + (s.capacity || 0)) +
+    const capacity = Number.isFinite(s.capacity) ? s.capacity : s.type === 'abrigo' ? 13 : 0;
+    html = row('Moradores / vagas totais', residents.length + ' / ' + capacity) +
       row('Descansando aqui', living.filter(p => p.restingStructureId === s.id).length) +
       (s.type === 'abrigo' ? row('Frutos guardados', fmt(s.fruitStored)) + row('Carne guardada', fmt(s.meatStored)) : '') +
       (residents.length ? row('Moradores', residents.map(p => p.name).join(' · ')) : '');

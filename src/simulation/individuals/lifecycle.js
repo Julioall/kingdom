@@ -13,6 +13,27 @@ import { consumePersonEnergy } from './energy.js';
 import { abandonSocialIntentionsForPerson } from '../society/social-evidence.js';
 
 const DEPENDENT_STARVATION_HEALTH_LOSS_PER_POINT = .035;
+const SHELTER_RESIDENT_CAPACITY = 13;
+
+function birthResidence(world, kingdomId, communityId, location) {
+    const dwellings = (world.structures || []).filter(structure => {
+      if (!['abrigo', 'casa'].includes(structure.type) || structure.complete !== true
+        || structure.destroyedDay != null || (structure.integrity != null && structure.integrity <= 0)
+        || (structure.health != null && structure.health <= 0)) return false;
+      return structure.type === 'casa'
+        ? kingdomId != null && structure.kingdomId === kingdomId
+        : communityId != null && structure.communityId === communityId;
+    }).map(structure => {
+      const capacity = Number.isFinite(structure.capacity) ? structure.capacity : SHELTER_RESIDENT_CAPACITY;
+      const occupants = (structure.residentIds || []).filter(id => world.people.some(person =>
+        person.id === id && person.alive && person.homeId === structure.id));
+      structure.residentIds = occupants;
+      return { structure, occupants, capacity };
+    }).filter(home => home.occupants.length < home.capacity);
+    dwellings.sort((a, b) => distance(a.structure, location) - distance(b.structure, location)
+      || a.structure.id - b.structure.id);
+    return dwellings[0] || null;
+  }
 
 function availablePersonSpawn(w, x, y) {
   const origin = cellAt(w, Math.round(x), Math.round(y));
@@ -147,8 +168,8 @@ export function killPerson(w, person, cause) {
     const group = person.communityId && w.communities.find(item => item.id === person.communityId);
     if (group) group.memberIds = group.memberIds.filter(id => id !== person.id);
     if (person.homeId) {
-      const home = w.structures.find(s => s.id === person.homeId && s.type === 'casa');
-      if (home) home.residentIds = home.residentIds.filter(id => id !== person.id);
+      const home = w.structures.find(s => s.id === person.homeId && ['casa', 'abrigo'].includes(s.type));
+      if (home) home.residentIds = (home.residentIds || []).filter(id => id !== person.id);
     }
     w.deathsByCause[cause] = (w.deathsByCause[cause] || 0) + 1;
     const tile = cellAt(w, person.x, person.y);
@@ -315,11 +336,21 @@ export function reproducePeople(w) {
       if (!link || link.trust < .2) continue;
       if (p.communityId !== q.communityId && p.communityId !== null && q.communityId !== null) continue;
       const score = link.trust + Math.min(p.energy, q.energy) * .002 + Math.min(p.foodReserve, q.foodReserve) * .003;
-      candidates.push({ p, q, score });
+      const kingdomId = p.kingdomId === q.kingdomId ? p.kingdomId : (p.kingdomId ?? q.kingdomId);
+      const communityId = kingdomId == null ? null
+        : w.kingdoms.find(kingdom => kingdom.id === kingdomId)?.communityId || null;
+      candidates.push({ p, q, score, kingdomId, communityId, location: {
+        x: (p.x + q.x) / 2, y: (p.y + q.y) / 2
+      } });
     }
     candidates.sort((a, b) => b.score - a.score || a.p.id - b.p.id);
     if (!candidates.length) return;
-    const { p, q } = candidates[0];
+    const selected = candidates.find(candidate => {
+      candidate.residence = birthResidence(w, candidate.kingdomId, candidate.communityId, candidate.location);
+      return candidate.residence;
+    });
+    if (!selected) return;
+    const { p, q, kingdomId, communityId, residence } = selected;
     p.birthCooldown = q.birthCooldown = 280;
     consumePersonEnergy(p, 11); consumePersonEnergy(q, 8);
     p.hydration = Math.max(0, p.hydration - 2); q.hydration = Math.max(0, q.hydration - 2);
@@ -327,14 +358,15 @@ export function reproducePeople(w) {
     transferFoodReserve(p, baby, 7, 'birth-provisions');
     transferFoodReserve(q, baby, 5, 'birth-provisions');
     baby.parents = [p.id, q.id]; baby.guardianId = p.id;
-    baby.kingdomId = p.kingdomId === q.kingdomId ? p.kingdomId : (p.kingdomId ?? q.kingdomId);
+    baby.kingdomId = kingdomId;
     baby.birthKingdomId = baby.kingdomId;
-    baby.communityId = baby.kingdomId == null ? null : w.kingdoms.find(kingdom => kingdom.id === baby.kingdomId)?.communityId || null;
+    baby.communityId = communityId;
     if (baby.kingdomId !== null) {
       const kingdom = w.kingdoms.find(k => k.id === baby.kingdomId);
-      if (kingdom) assignHome(w, kingdom, baby);
       if (kingdom && !kingdom.memberIds.includes(baby.id)) kingdom.memberIds.push(baby.id);
     }
+    baby.homeId = residence.structure.id;
+    residence.structure.residentIds.push(baby.id);
     w.people.push(baby);
     const c = activeCommunity(w, p);
     if (c && baby.communityId === c.id) c.memberIds.push(baby.id);

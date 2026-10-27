@@ -216,6 +216,8 @@ export function chooseBuildSite(w, community, structures, builder = null) {
       fieldTileIndices: best.fieldTileIndices || undefined,
       workPositions: best.workPositions || undefined,
       fruitStored: nextType === 'abrigo' ? 0 : undefined, meatStored: nextType === 'abrigo' ? 0 : undefined,
+      capacity: nextType === 'abrigo' ? 13 : undefined,
+      residentIds: nextType === 'abrigo' ? [] : undefined,
       radius: nextType === 'curral' ? 3.5 : undefined,
       complete: false, createdDay: w.day, builtDay: null, lastProgressDay: null
     };

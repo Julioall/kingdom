@@ -2757,7 +2757,7 @@ export function mountGame() {
         (p.militaryClass === 'monge' ? '<div class="data-row"><span>Mana · cura custa 30</span><b>' + Math.round(p.mana ?? 100) + ' / 100</b></div>' : '') +
         (p.towerMounted ? '<div class="data-row"><span>Posto na torre</span><b>Alcance: 14 células</b></div>' : '') +
         '<div class="data-row"><span>Energia / saúde</span><b>' + Math.round(p.energy) + ' / ' + Math.round(p.health) + '%</b></div>' +
-        '<div class="data-row"><span>Reino / moradia</span><b>' + esc(kingdom ? kingdom.name : 'sem reino') + ' · ' + esc(p.homeId ? 'casa ' + p.homeId : 'sem casa registrada') + '</b></div>' +
+        '<div class="data-row"><span>Reino / moradia</span><b>' + esc(kingdom ? kingdom.name : 'sem reino') + ' · ' + esc(p.homeId ? 'moradia ' + p.homeId : 'sem moradia registrada') + '</b></div>' +
         '<div class="data-row"><span>Ferimentos / carga</span><b>' + Math.round(p.injury) + ' · carne ' + fmt(p.carriedMeat, 1) + ' · madeira ' + fmt(p.carriedWood, 1) + ' · pedra ' + fmt(p.carriedStone, 1) + ' · ração ' + fmt(p.carriedFeed, 1) + '</b></div>' +
         ((p.carriedFood > .01 || p.carriedFruit > .01) ? '<div class="data-row"><span>Alimento na carga</span><b>' + fmt(p.carriedFood, 1) + ' para o estoque · ' + fmt(p.carriedFruit, 1) + ' frutos</b></div>' : '') +
         '<div class="data-row"><span>Necessidade social</span><b>' + Math.round(p.socialNeed) + '%</b></div>' +

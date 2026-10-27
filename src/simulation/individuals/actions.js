@@ -1523,8 +1523,9 @@ function updatePeopleCore(w) {
         });
         if (p.role !== 'soldier' && (leftAfterLongAbsence || leftAfterAccumulatedDissatisfaction)) {
           const leavingKingdom = w.kingdoms.find(kingdom => kingdom.id === p.kingdomId);
-          const home = w.structures.find(structure => structure.id === p.homeId && structure.type === 'casa');
-          if (home) home.residentIds = home.residentIds.filter(id => id !== p.id);
+          const home = w.structures.find(structure => structure.id === p.homeId
+            && ['casa', 'abrigo'].includes(structure.type));
+          if (home) home.residentIds = (home.residentIds || []).filter(id => id !== p.id);
           if (leavingKingdom) leavingKingdom.memberIds = leavingKingdom.memberIds.filter(id => id !== p.id);
           const reasons = [];
           if (leftAfterLongAbsence) reasons.push('ausência de ' + p.awayDays + ' dias com satisfação abaixo de 0,400 (valor '
