@@ -95,3 +95,40 @@ test('an adult with critical hunger harvests nearby food while critical water re
   assert.ok(soldier.foodReserve > 0, 'the action restored food from the harvested crop');
   assert.ok(soldier.hydration < 8, 'the decision does not invent water while food is harvested');
 });
+
+test('critical thirst takes priority over food that is close by but separated by an impassable route', () => {
+  const { world, soldier } = starvingPeacetimeSoldierFixture();
+  soldier.role = 'resident';
+  soldier.militaryCenterId = null;
+  soldier.militaryDutyCenterId = null;
+  soldier.foodReserve = .5;
+  soldier.hydration = 8;
+  soldier.health = 50;
+  soldier.energy = 100;
+
+  const x = Math.round(soldier.x), y = Math.round(soldier.y);
+  const crop = cellAt(world, x + 2, y);
+  const cropIndex = PLANTS.findIndex(plant => plant.id === 'cultivated-root');
+  crop.terrain = 'land';
+  crop.cropFieldId = 99002;
+  crop.plants[cropIndex] = 100;
+  for (const tile of world.tiles) if (tile.x === x + 1) tile.terrain = 'water';
+
+  const water = cellAt(world, x, y + 3);
+  water.terrain = 'water';
+  water.waterKind = 'lake';
+  water.surfaceWaterMm = 20;
+  soldier.perception.knownWater = [{ x: water.x, y: water.y, distance: 3, confidence: 1 }];
+  soldier.perception.resources = [{ x: crop.x, y: crop.y, distance: 2, terrain: 'land', slope: 0,
+    biomass: { 'cultivated-root': 100 }, harvestableBiomass: { 'cultivated-root': 100 } }];
+  const beforeWaterDistance = distance(soldier, water);
+
+  assert.equal(bestPeopleFoodCell(world, soldier, 8), crop,
+    'the food patch has a reachable interaction edge on its own side of the water barrier');
+
+  engine.modules.SocietyExperiment.updatePeople(world);
+
+  assert.equal(soldier.lastDecision.action, 'drink',
+    'an emergency meal must not suppress critical hydration when there is no route to the patch');
+  assert.ok(distance(soldier, water) < beforeWaterDistance, 'the agent makes progress toward the reachable water source');
+});

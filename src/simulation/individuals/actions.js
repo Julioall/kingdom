@@ -1059,7 +1059,7 @@ function updatePeopleCore(w) {
       const urgentWaterNeed = p.hydration <= 9 || healthRelatedWaterRisk;
       const emergencyFoodOpportunity = p.foodReserve <= DAILY_FOOD_NEED && food
         && (!waterHere || distance(p, waterHere) > 1.5)
-        && (canHarvestFoodAt(w, p, food) || distance(p, food) <= 2.5);
+        && canHarvestFoodAt(w, p, food);
       const survivalAction = urgentWaterNeed
         ? emergencyFoodOpportunity ? 'forage'
           : waterTarget ? 'drink' : (waterCue || bestHabitatCell(w, p) ? 'migrate' : null)
