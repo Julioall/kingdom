@@ -2353,6 +2353,52 @@ export function mountGame() {
     $('solitaryCount').textContent = world.kingdoms.length + ' domínios';
   }
 
+  function renderLocalAiHistory() {
+    const list = $('localAiHistoryList');
+    if (!list || !world) return;
+    const kingdomsById = new Map(world.kingdoms.map(kingdom => [kingdom.id, kingdom]));
+    const choiceLabels = {
+      trade_for_food: 'trocar excedentes por alimento',
+      forage_for_food: 'buscar alimento para a reserva comum',
+      repair_damaged_structures: 'reparar construções danificadas',
+      secure_herd_feed: 'repor a ração do rebanho',
+      build_project: 'avançar a construção comunitária',
+      gather_materials: 'reunir materiais de construção',
+      recruit_soldier: 'recrutar um soldado',
+      patrol_borders: 'patrulhar as fronteiras',
+      reserve_garrison: 'manter a guarnição em reserva',
+      maintain_autonomy: 'manter a iniciativa local'
+    };
+    const decisions = [];
+    for (const kingdom of world.kingdoms) {
+      for (const decision of kingdom.strategy?.aiHistory || []) {
+        decisions.push({
+          day: decision.day,
+          role: 'Rei',
+          kingdomName: kingdom.name,
+          action: choiceLabels[decision.choice] || String(decision.choice || decision.action || 'ordem estratégica').replaceAll('_', ' ')
+        });
+      }
+    }
+    for (const decision of world.campaignGeneralAi?.events || []) {
+      if (decision.type !== 'applied' || decision.role !== 'general' || !decision.decision?.action) continue;
+      const kingdom = kingdomsById.get(decision.kingdomId);
+      if (!kingdom) continue;
+      const actionLabels = { advance: 'avançar ao objetivo', hold_position: 'manter posição', withdraw: 'retirada ordenada' };
+      decisions.push({
+        day: decision.day,
+        role: 'General',
+        kingdomName: kingdom.name,
+        action: actionLabels[decision.decision.action] || String(decision.decision.action).replaceAll('_', ' ')
+      });
+    }
+    decisions.sort((a, b) => b.day - a.day);
+    list.innerHTML = decisions.slice(0, 4).map(decision =>
+      '<li><span>Dia ' + fmt(decision.day) + ' · ' + decision.role + ' de ' + esc(decision.kingdomName) + '</span><b>'
+      + esc(decision.action) + '</b></li>'
+    ).join('') || '<li class="quiet">Nenhuma decisão registrada nesta partida.</li>';
+  }
+
   function renderSpecies(stats) {
     $('faunaList').innerHTML = Sim.animals.map(p => {
       const count = stats.animalCounts[p.id] || 0;
@@ -2916,6 +2962,7 @@ export function mountGame() {
     drawMap(source);
     renderMiniMap();
     renderKingdomList();
+    renderLocalAiHistory();
     renderSpecies(stats);
     renderEvents();
     renderInspector();

@@ -79,3 +79,32 @@ test('browser AI engine terminates a worker when inference exceeds its deadline'
   assert.equal(worker.messages.length, messageCount);
   assert.equal(worker.terminated, true);
 });
+
+test('browser AI engine gives a bounded recovery window instead of timing out the CPU reload at the GPU limit', async () => {
+  const engine = createBrowserEngine({ WorkerClass: FakeWorker, decisionTimeoutMs: 10, recoveryTimeoutMs: 200 });
+  const worker = FakeWorker.instance;
+  worker.emit('message', { type: 'ready', device: 'WebGPU' });
+  const result = engine.decide({ role: 'king' });
+  await Promise.resolve();
+  const requestId = worker.messages.at(-1).requestId;
+  worker.emit('message', { type: 'status', status: { recovering: true, phase: 'loading' } });
+  await new Promise(resolve => setTimeout(resolve, 25));
+  assert.equal(worker.terminated, false);
+  worker.emit('message', { type: 'decision', requestId, response: { device: 'CPU/WASM' } });
+  assert.equal((await result).device, 'CPU/WASM');
+  engine.dispose();
+});
+
+test('fatal backend errors reject every pending request and terminate the poisoned worker', async () => {
+  const engine = createBrowserEngine({ WorkerClass: FakeWorker });
+  const worker = FakeWorker.instance;
+  worker.emit('message', { type: 'ready', device: 'WebGPU' });
+  const outcomes = Promise.allSettled([engine.decide({ role: 'king' }), engine.decide({ role: 'general' })]);
+  await Promise.resolve();
+  const requestId = worker.messages.find(message => message.type === 'decide').requestId;
+  worker.emit('message', { type: 'error', requestId, name: 'InferenceBackendError', fatal: true, message: 'GPU and CPU failed' });
+  const results = await outcomes;
+  assert.ok(results.every(result => result.status === 'rejected' && result.reason.name === 'InferenceBackendError'));
+  assert.equal(worker.terminated, true);
+  await assert.rejects(engine.decide({ role: 'king' }), { name: 'AbortError' });
+});
