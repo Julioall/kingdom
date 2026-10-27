@@ -62,3 +62,11 @@ Consensus foi consultado, mas recusou novas buscas por quota mensal esgotada at�
 * Gate de formato ≥95%: **reprovado por todos**.
 * Rubrica humana cega, cenários `WorldWorker`, 30/papel no browser e fallback browser: pendentes.
 * JUL-221 e JUL-195: permanecem em andamento.
+
+## Revalidação do contexto ONNX no navegador — 27/10/2026
+
+Uma inspeção posterior do Worker encontrou uma requisição do rei com 2.590 tokens para um contexto configurado em 2.048, seguida de falha de memória WebGPU (`memory access out of bounds`). A projeção compacta o relatório estratégico do rei sem cortar texto arbitrariamente, mantém todas as ações autorizadas e os fatos necessários sobre comida, obras, ordens, mercado e campanha. O manifesto do runtime ONNX agora encaminha explicitamente o contexto de 2.048 tokens; o Worker mede a entrada com o processador do próprio modelo, reserva 96 tokens de saída e recusa com erro explícito se nenhuma projeção couber. Entradas, saídas e tentativas rejeitadas liberam seus tensores. A justificativa do schema tem máximo de 120 caracteres para reduzir respostas JSON cortadas. O suporte a `maxLength` foi conferido na implementação instalada de `transformers-structured-output` (não inferido apenas pela documentação).
+
+O playtest depois da correção usou `onnx-community/Qwen3.5-0.8B-ONNX-OPT`, revisão pinada, Chrome dentro do aplicativo, WebGPU. O painel do jogo indicou o provider do navegador; `ollama ps` estava vazio (o serviço do Ollama estava instalado/ativo, sem modelo carregado). Dois eventos do rei foram aceitos e expuseram telemetria pelo Worker: 1.251 tokens de entrada / 54 de saída / 3.859 ms e 1.283 / 54 / 4.255 ms, ambos dentro de 2.048. No mesmo período apareceu uma resposta malformada/truncada (6.498 ms), rejeitada pelo contrato e seguida pelo fallback determinístico. Assim, a proteção de contexto foi exercitada com prompts aceitos, mas a saída do modelo ainda não é confiável e o teste não valida o general. O registro estruturado está em `docs/verification/JUL-221-browser-context-bound-20261027.json`.
+
+Esta amostra não altera a decisão de adoção: Qwen3.5 continua experimental; a ocorrência de uma resposta rejeitada, a recorrência de `capture sheep` na curta amostra, o gate de 95% reprovado no benchmark Ollama e os critérios de avaliação cega/30 chamadas por papel impedem promoção ou conclusão de JUL-221.

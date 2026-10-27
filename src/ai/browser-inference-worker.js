@@ -1,6 +1,9 @@
 import { AutoProcessor, pipeline, Qwen3_5ForConditionalGeneration, env } from '@huggingface/transformers';
 import { StructuredOutputProcessor } from '@huggingface/transformers-structured-output';
+import { browserDecisionContextVariants, browserInputFitsTokenBudget, browserInputTokenBudget } from './browser-decision-context.js';
 import { buildKingdomStrategySystemPrompt } from './kingdom-strategy-prompt.js';
+
+const MAX_NEW_TOKENS = 96;
 
 const GENERAL_SYSTEM_PROMPT = 'Você é o general de um reino simulado. Use somente os fatos observados da campanha. Escolha exatamente um ID permitido. A simulação controla recursos, alvos e resultados; não invente informações nem emita ordens fora da lista. Responda com um único JSON contendo action, confidence e reason curta em português.';
 let generator = null;
@@ -115,21 +118,61 @@ function getDecisionSchema(candidateActions) {
     properties: {
       action: { type: 'string', enum: candidateActions },
       confidence: { type: 'number', minimum: 0, maximum: 1 },
-      reason: { type: 'string' }
+      reason: { type: 'string', maxLength: 120 }
     },
     required: ['action', 'confidence', 'reason'],
     additionalProperties: false
   };
 }
 
-function getMessages(request) {
+function getMessages(request, context = request.context) {
   const system = request.role === 'general'
     ? GENERAL_SYSTEM_PROMPT + ' Ações permitidas: ' + request.candidateActions.join(', ') + '.'
     : buildKingdomStrategySystemPrompt(request.candidateActions);
   return [
     { role: 'system', content: system },
-    { role: 'user', content: JSON.stringify(request.context) }
+    { role: 'user', content: JSON.stringify(context) }
   ];
+}
+
+function disposeTensorTree(value, seen = new Set()) {
+  if (!value || typeof value !== 'object' || seen.has(value)) return;
+  seen.add(value);
+  if (ArrayBuffer.isView(value)) return;
+  if (typeof value.dispose === 'function') {
+    try { value.dispose(); } catch { /* Tensor cleanup must not mask the inference result. */ }
+    return;
+  }
+  for (const nested of Object.values(value)) disposeTensorTree(nested, seen);
+}
+
+async function prepareBoundedQwenInputs(request, model) {
+  if (!currentProcessor) throw new Error('O processador de texto Qwen3.5 não foi carregado.');
+  const contextLimit = Number(model.contextTokens);
+  const inputLimit = browserInputTokenBudget(contextLimit, MAX_NEW_TOKENS);
+  if (inputLimit == null) {
+    const error = new Error('O modelo não informou um limite de contexto válido para reservar os tokens de saída.');
+    error.code = 'AI_CONTEXT_BUDGET_UNAVAILABLE';
+    throw error;
+  }
+  let lastInputLength = 0;
+  for (const context of browserDecisionContextVariants(request)) {
+    const prompt = currentProcessor.apply_chat_template(getMessages(request, context), {
+      tokenize: false,
+      add_generation_prompt: true
+    });
+    const inputs = await currentProcessor(prompt);
+    const inputLength = inputs.input_ids?.dims?.at(-1) || 0;
+    lastInputLength = inputLength;
+    if (browserInputFitsTokenBudget(inputLength, inputLimit)) {
+      return { inputs, inputLength, contextLimit };
+    }
+    disposeTensorTree(inputs);
+  }
+  const error = new Error('O contexto da decisão tem ' + lastInputLength + ' tokens; o limite seguro de entrada é '
+    + (Number.isFinite(inputLimit) ? inputLimit : 'desconhecido') + '. A decisão foi bloqueada para evitar exceder a memória do modelo.');
+  error.code = 'AI_CONTEXT_TOO_LONG';
+  throw error;
 }
 
 function createSchemaProcessor(modelPipeline, request) {
@@ -155,31 +198,34 @@ async function loadFallbackModel(model) {
 
 async function runGeneration(modelPipeline, request, schemaProcessor, model) {
   if (model.generationApi === 'qwen3_5') {
-    if (!currentProcessor) throw new Error('O processador de texto Qwen3.5 não foi carregado.');
-    const prompt = currentProcessor.apply_chat_template(getMessages(request), {
-      tokenize: false,
-      add_generation_prompt: true
-    });
-    const inputs = await currentProcessor(prompt);
-    const output = await modelPipeline.generate({
-      ...inputs,
-      max_new_tokens: 96,
-      do_sample: false,
-      logits_processor: schemaProcessor
-    });
-    const inputLength = inputs.input_ids?.dims?.at(-1) || 0;
-    const generated = currentProcessor.batch_decode(
-      output.slice(null, [inputLength, null]),
-      { skip_special_tokens: true }
-    );
-    return {
-      content: generated?.[0] || '',
-      outputTokens: Math.max(0, (output.dims?.at(-1) || inputLength) - inputLength)
-    };
+    const prepared = await prepareBoundedQwenInputs(request, model);
+    const { inputs, inputLength } = prepared;
+    let output;
+    try {
+      output = await modelPipeline.generate({
+        ...inputs,
+        max_new_tokens: MAX_NEW_TOKENS,
+        do_sample: false,
+        logits_processor: schemaProcessor
+      });
+      const generated = currentProcessor.batch_decode(
+        output.slice(null, [inputLength, null]),
+        { skip_special_tokens: true }
+      );
+      return {
+        content: generated?.[0] || '',
+        outputTokens: Math.max(0, (output.dims?.at(-1) || inputLength) - inputLength),
+        inputTokens: inputLength,
+        contextTokens: prepared.contextLimit
+      };
+    } finally {
+      disposeTensorTree(inputs);
+      disposeTensorTree(output);
+    }
   }
 
   const result = await modelPipeline(getMessages(request), {
-    max_new_tokens: 96,
+    max_new_tokens: MAX_NEW_TOKENS,
     do_sample: false,
     temperature: 0,
     tokenizer_encode_kwargs: { enable_thinking: false },
@@ -187,7 +233,7 @@ async function runGeneration(modelPipeline, request, schemaProcessor, model) {
   });
   const generated = result?.[0]?.generated_text;
   const rawContent = Array.isArray(generated) ? generated.at(-1)?.content : generated;
-  return { content: typeof rawContent === 'string' ? rawContent : '', outputTokens: null };
+  return { content: typeof rawContent === 'string' ? rawContent : '', outputTokens: null, inputTokens: null, contextTokens: model.contextTokens ?? null };
 }
 
 async function decide(requestId, request, model) {
@@ -199,7 +245,7 @@ async function decide(requestId, request, model) {
   try {
     result = await runGeneration(modelPipeline, request, schemaProcessor, model);
   } catch (error) {
-    if (currentDevice !== 'WebGPU') throw error;
+    if (currentDevice !== 'WebGPU' || ['AI_CONTEXT_TOO_LONG', 'AI_CONTEXT_BUDGET_UNAVAILABLE'].includes(error?.code)) throw error;
     postStatus('A geração WebGPU falhou; transferindo a decisão para CPU/WASM…', 0);
     try { modelPipeline.dispose?.(); } catch { /* Release partial GPU state when supported. */ }
     modelPipeline = await loadFallbackModel(model);
@@ -220,6 +266,8 @@ async function decide(requestId, request, model) {
     device: currentDevice,
     elapsedMs,
     outputTokens: result.outputTokens,
+    inputTokens: result.inputTokens,
+    contextTokens: result.contextTokens,
     outputPreview: content.slice(0, 240)
   });
   self.postMessage({
@@ -231,6 +279,8 @@ async function decide(requestId, request, model) {
       model: currentModel,
       elapsedMs,
       outputTokens: result.outputTokens,
+      inputTokens: result.inputTokens,
+      contextTokens: result.contextTokens,
       device: currentDevice
     }
   });

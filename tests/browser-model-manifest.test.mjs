@@ -7,6 +7,7 @@ test('Qwen3.5 browser candidate is pinned, quantized, shared, and experimental',
   assert.equal(AI_MODEL_MANIFEST.browser.modelId, 'onnx-community/Qwen3.5-0.8B-ONNX-OPT');
   assert.equal(AI_MODEL_MANIFEST.browser.revision, '9a4c21d8f724176b0a7edaaed36303044451886e');
   assert.equal(AI_MODEL_MANIFEST.browser.generationApi, 'qwen3_5');
+  assert.equal(AI_MODEL_MANIFEST.browser.contextTokens, 2048);
   assert.equal(AI_MODEL_MANIFEST.browser.devicePreference, 'webgpu');
   assert.ok(AI_MODEL_MANIFEST.browser.approximateDownloadBytes < 1_250_000_000);
   assert.deepEqual(AI_MODEL_MANIFEST.browser.dtype, {

@@ -262,8 +262,21 @@ function decisionLabel(request, decision) {
         model: response.model || requestModel?.model || MODEL_ID,
         ...(typeof response.device === 'string' ? { device: response.device } : {}),
         ...(Number.isFinite(response.elapsedMs) ? { elapsedMs: response.elapsedMs } : {}),
-        ...(Number.isFinite(response.outputTokens) ? { outputTokens: response.outputTokens } : {})
+        ...(Number.isFinite(response.outputTokens) ? { outputTokens: response.outputTokens } : {}),
+        ...(Number.isFinite(response.inputTokens) ? { inputTokens: response.inputTokens } : {}),
+        ...(Number.isFinite(response.contextTokens) ? { contextTokens: response.contextTokens } : {})
       };
+      if (providerMetadata.provider === 'transformers-js-browser') {
+        console.info('[Kingdom IA navegador] decisão validada ' + JSON.stringify({
+          role: request.role,
+          model: providerMetadata.model,
+          device: providerMetadata.device || null,
+          elapsedMs: providerMetadata.elapsedMs ?? null,
+          inputTokens: providerMetadata.inputTokens ?? null,
+          contextTokens: providerMetadata.contextTokens ?? null,
+          outputTokens: providerMetadata.outputTokens ?? null
+        }));
+      }
       const accepted = await applyKingdomAiDecision(request, decision, providerMetadata);
       return { accepted, decision, providerMetadata };
     }

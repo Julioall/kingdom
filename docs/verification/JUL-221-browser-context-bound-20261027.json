@@ -1,0 +1,36 @@
+{
+  "issue": "JUL-221",
+  "date": "2026-10-27",
+  "baseSha": "bbc4646d6bcad6713efa11083a04b0ad97028205",
+  "runtime": {
+    "provider": "transformers-js-browser",
+    "model": "onnx-community/Qwen3.5-0.8B-ONNX-OPT",
+    "revision": "9a4c21d8f724176b0a7edaaed36303044451886e",
+    "device": "WebGPU",
+    "browser": "Codex in-app browser",
+    "ollamaModelsLoaded": 0,
+    "contextTokens": 2048,
+    "maxNewTokens": 96,
+    "reasonMaxLength": 120
+  },
+  "observations": {
+    "acceptedKingDecisions": [
+      { "inputTokens": 1251, "outputTokens": 54, "elapsedMs": 3859 },
+      { "inputTokens": 1283, "outputTokens": 54, "elapsedMs": 4255 }
+    ],
+    "invalidResponses": [
+      {
+        "elapsedMs": 6498,
+        "reason": "The generated JSON was truncated/corrupted and rejected by the strict decision contract; deterministic fallback remained active."
+      }
+    ],
+    "acceptedGeneralDecisions": 0,
+    "outOfBoundsErrorsAfterFix": 0,
+    "notes": [
+      "The two accepted prompts fit the configured input/output budget.",
+      "A browser model failure after applying the schema bound demonstrates that output validity is not solved.",
+      "This short playtest does not estimate a reliable validity rate or strategy quality."
+    ]
+  },
+  "decision": "Keep Qwen3.5 experimental; do not promote or close JUL-221."
+}
