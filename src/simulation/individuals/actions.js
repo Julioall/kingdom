@@ -1,5 +1,5 @@
 import { nearestLoot, collectLoot } from '../economy/loot.js';
-import { ANIMALS, COMMUNITY_FOOD_CARRY_CAPACITY, DAILY_FOOD_NEED, FOOD_RESERVE_PER_UNIT, HUMAN_FOOD, MEAT_NUTRITIONAL_VALUE, PEOPLE_ACTIONS, PLANTS, SHEEP_ADULT_AGE_DAYS } from '../../config/ecosystem.js';
+import { ANIMALS, COMMUNITY_FOOD_CARRY_CAPACITY, DAILY_FOOD_NEED, FOOD_DAYS_PER_UNIT, HUMAN_FOOD, MEAT_NUTRITIONAL_VALUE, PEOPLE_ACTIONS, PLANTS, SHEEP_ADULT_AGE_DAYS } from '../../config/ecosystem.js';
 import { clamp, distance, species } from '../core/math.js';
 import { cellAt, cellsWithin, nearby } from '../world/spatial.js';
 import { resourceUsePressure } from '../world/roads.js';
@@ -143,7 +143,7 @@ export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
       const food = HUMAN_FOOD.reduce((sum, id) => sum + (availableFood[id] || 0), 0);
       if (resource.terrain !== 'land' || resource.distance > radius || food < .8) continue;
       const warningPenalty = tile && canEnterForeignTerritory(w, person, tile) ? 0 : 3;
-      const expectedHarvestReserve = Math.min(food, harvestCapacity) * FOOD_RESERVE_PER_UNIT;
+      const expectedHarvestReserve = Math.min(food, harvestCapacity) * FOOD_DAYS_PER_UNIT;
       const expectedTravelDays = Math.ceil(Math.max(0, resource.distance - HARVEST_REACH_DISTANCE) / Math.SQRT2);
       const travelCost = expectedTravelDays * DAILY_FOOD_NEED;
       const canCoverSurvivalTrip = expectedHarvestReserve >= travelCost + DAILY_FOOD_NEED;
@@ -955,25 +955,25 @@ function updatePeopleCore(w) {
         ? 0 : Math.max(0, dailyFoodNeed - campaignRation - purchasedRation);
       const onFriendlySupplyGround = !campaignOrder || cellAt(w, Math.round(p.x), Math.round(p.y))?.kingdomId === p.kingdomId;
       if (community && onFriendlySupplyGround && communityRationNeed > .01 && communityFoodStock(community) > .01) {
-        const personalCapacity = Math.max(0, 100 - p.foodReserve) / FOOD_RESERVE_PER_UNIT;
-        const meal = Math.min(communityRationNeed / FOOD_RESERVE_PER_UNIT, communityFoodStock(community), personalCapacity);
+        const personalCapacity = Math.max(0, 100 - p.foodReserve) / FOOD_DAYS_PER_UNIT;
+        const meal = Math.min(communityRationNeed / FOOD_DAYS_PER_UNIT, communityFoodStock(community), personalCapacity);
         if (meal > .01) {
           withdrawCommunityFood(w, community, meal, 'resident-food-issue');
-          addFoodReserve(p, meal * FOOD_RESERVE_PER_UNIT, 'resident-community-meal');
+          addFoodReserve(p, meal * FOOD_DAYS_PER_UNIT, 'resident-community-meal');
           p.sharedMeals = (p.sharedMeals || 0) + meal;
         }
       }
       const personalRationDeficit = Math.max(0, dailyFoodNeed - p.foodReserve);
       if (personalRationDeficit > .001 && ((p.carriedFood || 0) + (p.carriedFruit || 0) + (p.carriedMeat || 0)) > .01) {
-        const consumedCarriedFood = consumeEdibleCargo(p, personalRationDeficit / FOOD_RESERVE_PER_UNIT, 'emergency-carried-food-consumption');
+        const consumedCarriedFood = consumeEdibleCargo(p, personalRationDeficit / FOOD_DAYS_PER_UNIT, 'emergency-carried-food-consumption');
         if (consumedCarriedFood > .001) {
           emergencyCarriedRationToday = consumedCarriedFood;
-          addFoodReserve(p, consumedCarriedFood * FOOD_RESERVE_PER_UNIT, 'emergency-carried-food-ration');
+          addFoodReserve(p, consumedCarriedFood * FOOD_DAYS_PER_UNIT, 'emergency-carried-food-ration');
           if (p.lastEmergencyRationDay !== w.day - 1) {
             const carriedFor = community ? 'carga destinada ao estoque de ' + community.name : 'carga transportada';
             log(w, 'Ração emergencial: ' + p.name + ' consumiu ' + consumedCarriedFood.toFixed(2) + ' unidades da ' + carriedFor
-              + ' para completar a ração diária; reserva pessoal antes: ' + (p.foodReserve - consumedCarriedFood * FOOD_RESERVE_PER_UNIT).toFixed(2)
-              + ' pontos; estoque comunitário: ' + communityFoodStock(community).toFixed(2) + ' unidades.');
+              + ' para completar a ração diária; reserva pessoal antes: ' + (p.foodReserve - consumedCarriedFood * FOOD_DAYS_PER_UNIT).toFixed(2)
+              + ' dias; estoque comunitário: ' + communityFoodStock(community).toFixed(2) + ' dias alimentares equivalentes.');
           }
           p.lastEmergencyRationDay = w.day;
         }
@@ -1267,7 +1267,7 @@ function updatePeopleCore(w) {
                 p.lastLesson = 'A carga de alimento já está cheia; levá-la ao abrigo libera espaço para outra coleta.';
               }
             } else {
-            const reserveCapacity = Math.max(0, (91 - p.foodReserve) / FOOD_RESERVE_PER_UNIT);
+            const reserveCapacity = Math.max(0, (91 - p.foodReserve) / FOOD_DAYS_PER_UNIT);
             const desiredHarvest = clamp(1.8 + p.skills.forage * 3.2, 1.8, 5);
             const fruitShelter = nearestShelterFor(w, p);
             const directStorage = community && ((fruitShelter && distance(p, fruitShelter) <= 1.5)
@@ -1275,7 +1275,7 @@ function updatePeopleCore(w) {
             const harvestLimit = personalFoodHarvestLimit(p, desiredHarvest, reserveCapacity, !!directStorage);
             const harvest = harvestHumanFood(w, food, harvestLimit);
             const use = Math.min(harvest, reserveCapacity);
-            addFoodReserve(p, use * FOOD_RESERVE_PER_UNIT, 'personal-harvest');
+            addFoodReserve(p, use * FOOD_DAYS_PER_UNIT, 'personal-harvest');
             if (harvest > .1) {
               if (food.cropFieldId == null) hideCollectedBush(w, food, 'berry');
               p.visualActivity = { kind: 'harvest', x: food.x, y: food.y, day: w.day + 1,
@@ -1615,16 +1615,16 @@ function updatePeopleCore(w) {
           if (leftAfterLongAbsence) reasons.push('ausência de ' + p.awayDays + ' dias com satisfação abaixo de 0,400 (valor '
             + satisfaction.toFixed(6) + ')');
           if (leftAfterAccumulatedDissatisfaction) reasons.push('insatisfação acumulada por ' + p.dissatisfactionDays + ' dias');
-          const personalFoodAtExit = p.foodReserve.toFixed(1);
+          const personalFoodDaysAtExit = p.foodReserve.toFixed(1);
           const sharedFoodAtExit = communityFoodStock(community).toFixed(1);
           p.communityId = null; p.kingdomId = null; p.homeId = null; p.awayDays = 0;
           clearMilitaryCommand(p);
           community.memberIds = community.memberIds.filter(id => id !== p.id);
           p.assignment = null;
           p.lastLesson = 'A saída para terra comum ocorreu após ' + reasons.join(' e ') + '; reserva pessoal de alimento: '
-            + personalFoodAtExit + ' pontos; estoque comunitário: ' + sharedFoodAtExit + ' unidades.';
+            + personalFoodDaysAtExit + ' dias; estoque comunitário: ' + sharedFoodAtExit + ' dias alimentares equivalentes.';
           log(w, p.name + ' deixou ' + community.name + ' após ' + reasons.join(' e ')
-            + '; reserva pessoal ' + personalFoodAtExit + ' pontos e estoque comum ' + sharedFoodAtExit + ' unidades.');
+            + '; reserva pessoal ' + personalFoodDaysAtExit + ' dias e estoque comum ' + sharedFoodAtExit + ' dias alimentares equivalentes.');
         }
       }
       if (p.health <= .1 || p.ageDays >= 82 * 365) {

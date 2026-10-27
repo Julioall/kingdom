@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import engine from '../src/simulation/engine.js';
 import { drawCampaignRation, prepareKingdomCampaigns } from '../src/simulation/kingdoms/campaigns.js';
 import { drawGarrisonRation } from '../src/simulation/kingdoms/service.js';
-import { FOOD_RESERVE_PER_UNIT } from '../src/config/ecosystem.js';
+import { DAILY_FOOD_NEED, FOOD_DAYS_PER_UNIT } from '../src/config/ecosystem.js';
 
 function warFixture({ observedLocation = true } = {}) {
   const world = engine.createWorld(42);
@@ -107,14 +107,14 @@ test('a soldier who returned leaves the withdrawing campaign and can draw a fini
   assert.ok(!campaign.attacker.troopIds.includes(returned.id));
   assert.equal(remaining.campaignId, campaign.id, 'the troop still in the field remains assigned');
   assert.equal(campaign.status, 'withdrawing');
-  const received = drawGarrisonRation(world, returned, center, FOOD_RESERVE_PER_UNIT);
-  assert.equal(received, FOOD_RESERVE_PER_UNIT);
+  const received = drawGarrisonRation(world, returned, center, FOOD_DAYS_PER_UNIT);
+  assert.equal(received, FOOD_DAYS_PER_UNIT);
   assert.equal(attacker.treasury.stock.food, 1);
   campaign.attacker.supply.stock.food = 5;
   assert.equal(drawCampaignRation(world, returned), 0, 'the released soldier cannot debit field rations');
   assert.equal(campaign.attacker.supply.stock.food, 5);
   Object.assign(remaining, { x: center.x, y: center.y, foodReserve: 0 });
-  assert.equal(drawGarrisonRation(world, remaining, center, FOOD_RESERVE_PER_UNIT), 0,
+  assert.equal(drawGarrisonRation(world, remaining, center, FOOD_DAYS_PER_UNIT), 0,
     'a soldier still assigned to the campaign cannot use garrison stock');
   assert.equal(attacker.treasury.stock.food, 1);
 });
@@ -149,7 +149,7 @@ test('campaign resupply protects two days of civilian demand in food units', () 
   const ownTile = world.tiles.find(tile => tile.kingdomId === attacker.id);
   assert.ok(ownTile);
   Object.assign(troop, { x: ownTile.x, y: ownTile.y });
-  const floor = (members.length - 1) * .78 * 2 / FOOD_RESERVE_PER_UNIT;
+  const floor = (members.length - 1) * DAILY_FOOD_NEED * 2 / FOOD_DAYS_PER_UNIT;
   const community = world.communities.find(item => item.id === attacker.communityId);
   community.stores.food = floor;
   community.stores.meat = 0;

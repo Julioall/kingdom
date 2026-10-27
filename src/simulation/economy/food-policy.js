@@ -1,6 +1,6 @@
-import { DAILY_FOOD_NEED, FOOD_RESERVE_PER_UNIT } from '../../config/ecosystem.js';
+import { DAILY_FOOD_NEED, FOOD_DAYS_PER_UNIT } from '../../config/ecosystem.js';
 
-export const DEPENDENT_DAILY_FOOD_NEED = .42;
+export const DEPENDENT_DAILY_FOOD_NEED = DAILY_FOOD_NEED;
 export const COMMUNITY_FOOD_BUFFER_DAYS = 180;
 export const MILITARY_CIVILIAN_RESERVE_DAYS = 2;
 export const CULTIVATED_FOOD_PER_SEED_UNIT = 1250;
@@ -15,7 +15,7 @@ export function dailyFoodNeedForMembers(members = []) {
 }
 
 export function foodUnitsPerDay(dailyFoodNeed) {
-  return Math.max(0, Number.isFinite(dailyFoodNeed) ? dailyFoodNeed : 0) / FOOD_RESERVE_PER_UNIT;
+  return Math.max(0, Number.isFinite(dailyFoodNeed) ? dailyFoodNeed : 0) / FOOD_DAYS_PER_UNIT;
 }
 
 export function communityFoodBufferTarget(dailyFoodNeed, days = COMMUNITY_FOOD_BUFFER_DAYS) {

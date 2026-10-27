@@ -1,6 +1,6 @@
 import { initializeCombatResources } from './combat-resources.js';
 import { militaryCivilianFoodFloor } from '../economy/food-policy.js';
-import { DAILY_FOOD_NEED, FOOD_RESERVE_PER_UNIT } from '../../config/ecosystem.js';
+import { DAILY_FOOD_NEED, FOOD_DAYS_PER_UNIT } from '../../config/ecosystem.js';
 import { distance } from '../core/math.js';
 import {
   addFoodReserve, communityFoodStock, spendInventory, transferInventory, transferResource, withdrawCommunityFood
@@ -15,7 +15,7 @@ import {
 } from '../society/social-evidence.js';
 
 export const MILITARY_PAY = Object.freeze({ gold: 15, days: 30 });
-export const PEACETIME_SOLDIER_FOOD_NEED = DAILY_FOOD_NEED * .45;
+export const PEACETIME_SOLDIER_FOOD_NEED = DAILY_FOOD_NEED;
 export const GARRISON_RATION_TARGET = 55;
 export const GARRISON_RECOVERY = Object.freeze({
   food: 42, energy: 50, health: 55, hydration: 24,
@@ -84,17 +84,17 @@ export function drawGarrisonRation(world, person, center = militaryDutyCenterFor
   const kingdom = world.kingdoms.find(item => item.id === person.kingdomId);
   const available = Math.max(0, Number(kingdom?.treasury?.stock?.food) || 0);
   let received = 0;
-  const treasuryRation = Math.min(available, need / FOOD_RESERVE_PER_UNIT);
+  const treasuryRation = Math.min(available, need / FOOD_DAYS_PER_UNIT);
   if (treasuryRation > .01 && spendInventory(kingdom.treasury, { food: treasuryRation }, 'military-garrison-ration')) {
-    received += addFoodReserve(person, treasuryRation * FOOD_RESERVE_PER_UNIT, 'military-garrison-ration');
+    received += addFoodReserve(person, treasuryRation * FOOD_DAYS_PER_UNIT, 'military-garrison-ration');
   }
   const remainder = Math.max(0, need - received);
   const community = world.communities.find(item => item.id === kingdom?.communityId && item.kingdomId === person.kingdomId);
   const surplus = Math.max(0, communityFoodStock(community) - militaryCivilianFoodFloor(world, kingdom));
-  const communityRation = Math.min(surplus, remainder / FOOD_RESERVE_PER_UNIT);
+  const communityRation = Math.min(surplus, remainder / FOOD_DAYS_PER_UNIT);
   if (communityRation > .01) {
     const meal = withdrawCommunityFood(world, community, communityRation, 'military-garrison-ration');
-    received += addFoodReserve(person, meal.nutrition * FOOD_RESERVE_PER_UNIT, 'military-garrison-ration');
+    received += addFoodReserve(person, meal.nutrition * FOOD_DAYS_PER_UNIT, 'military-garrison-ration');
   }
   return received;
 }
@@ -259,7 +259,7 @@ export function buyMilitaryMeal(world, person, rationNeed = DAILY_FOOD_NEED) {
   const wallet = person.militaryWallet?.stock;
   const price = market?.prices?.food;
   if (!wallet || !market || !Number.isFinite(price) || price <= 0) return 0;
-  const food = Math.min(rationNeed / FOOD_RESERVE_PER_UNIT, (100 - person.foodReserve) / FOOD_RESERVE_PER_UNIT,
+  const food = Math.min(rationNeed / FOOD_DAYS_PER_UNIT, (100 - person.foodReserve) / FOOD_DAYS_PER_UNIT,
     market.stock.food || 0, (wallet.gold || 0) / price);
   if (!(food > .01)) return 0;
   const goldPaid = transferResource(wallet, market.stock, 'gold', food * price);
@@ -269,13 +269,13 @@ export function buyMilitaryMeal(world, person, rationNeed = DAILY_FOOD_NEED) {
     return 0;
   }
   market.transactions = (market.transactions || 0) + 1;
-  const reserveAdded = addFoodReserve(person, foodPurchased * FOOD_RESERVE_PER_UNIT, 'military-market-meal');
+  const reserveAdded = addFoodReserve(person, foodPurchased * FOOD_DAYS_PER_UNIT, 'military-market-meal');
   const community = world.communities.find(item => item.id === kingdom.communityId);
   recordTrade(world, {
     kind: 'market',
     action: 'comprou refeição militar',
     participants: [{ personId: person.id, kingdomId: kingdom.id, delta: {
-      gold: -goldPaid, foodReservePoints: reserveAdded
+      gold: -goldPaid, foodReserveDays: reserveAdded
     } }],
     market: {
       ownerType: market.ownerType || 'kingdom-market',

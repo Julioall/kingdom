@@ -157,7 +157,7 @@ test('campaign food audit reconciles field stock and distinguishes treasury, com
     attacker: { kingdomId: 1, role: 'attacker', supply: { stock: { food: 4 } }, supplyLedger: {
       deployment: { food: 6 }, resupply: { food: 4 },
       resupplySources: { food: { treasury: 3, community: 1 } }, rationConsumptionFood: 5,
-      personalReserveRationPoints: 20, returned: { food: 1 }
+      personalReserveRationDays: 20, returned: { food: 1 }
     } },
     defender: { kingdomId: 2, role: 'defender', supply: { stock: { food: 0 } } }
   }] });
@@ -170,10 +170,10 @@ test('campaign food audit reconciles field stock and distinguishes treasury, com
   assert.deepEqual(summary.sides[0], {
     campaignId: 9, kingdomId: 1, role: 'attacker', status: 'ended', ledgerPresent: true,
     fieldFoodDeployed: 6, fieldFoodResupplied: 4, resupplyFromTreasury: 3, resupplyFromCommunity: 1,
-    fieldFoodConsumed: 5, personalReserveRationPoints: 20, fieldFoodReturned: 1,
+    fieldFoodConsumed: 5, personalReserveRationDays: 20, fieldFoodReturned: 1,
     endingFieldFood: 4, resupplySourceDelta: 0, fieldFoodBalance: 0
   });
   assert.equal(summary.totals.fieldFoodConsumed, 5);
-  assert.equal(summary.totals.personalReserveRationPoints, 20);
+  assert.equal(summary.totals.personalReserveRationDays, 20);
   assert.equal(summary.totals.fieldFoodBalance, 0);
 });

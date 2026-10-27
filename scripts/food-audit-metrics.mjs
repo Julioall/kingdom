@@ -191,14 +191,14 @@ export function summarizeCampaignFoodLogistics(world) {
       status: campaign.status, ledgerPresent: true, fieldFoodDeployed: deployed,
       fieldFoodResupplied: resupplied, resupplyFromTreasury: treasury,
       resupplyFromCommunity: community, fieldFoodConsumed: consumed,
-      personalReserveRationPoints: value(ledger.personalReserveRationPoints),
+      personalReserveRationDays: value(ledger.personalReserveRationDays),
       fieldFoodReturned: returned, endingFieldFood: endingStock,
       resupplySourceDelta: Number((resupplied - treasury - community).toFixed(4)),
       fieldFoodBalance: Number((deployed + resupplied - consumed - returned - endingStock).toFixed(4)) });
   }
   const totals = {};
   for (const key of ['fieldFoodDeployed', 'fieldFoodResupplied', 'resupplyFromTreasury', 'resupplyFromCommunity',
-    'fieldFoodConsumed', 'personalReserveRationPoints', 'fieldFoodReturned', 'endingFieldFood',
+    'fieldFoodConsumed', 'personalReserveRationDays', 'fieldFoodReturned', 'endingFieldFood',
     'resupplySourceDelta', 'fieldFoodBalance']) {
     totals[key] = Number(sides.reduce((sum, side) => sum + (side.ledgerPresent ? side[key] || 0 : 0), 0).toFixed(4));
   }

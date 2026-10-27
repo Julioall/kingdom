@@ -9,7 +9,7 @@ import { plantBiomass } from '../ecology/plants.js';
 import { localNameFeature } from './communities.js';
 import { log } from '../core/events.js';
 import { updateKingdomStrategies } from '../kingdoms/strategy.js';
-import { FOOD_RESERVE_PER_UNIT } from '../../config/ecosystem.js';
+import { FOOD_DAYS_PER_UNIT } from '../../config/ecosystem.js';
 import { COMMUNITY_FOOD_BUFFER_DAYS, CULTIVATED_FIELD_HARVEST_PER_WORKER, communityFoodBufferTarget, dailyFoodNeedForMembers, kingdomFoodDemand } from '../economy/food-policy.js';
 import { cultivatedFieldStandingBiomass } from '../ecology/plants.js';
 
@@ -184,7 +184,7 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
       (Number(fields[0].cropYieldTarget) || 0) - (Number(fields[0].cropHarvestedThisCycle) || 0))
       / CULTIVATED_FIELD_HARVEST_PER_WORKER) : 0;
     const foodCapacity = Math.min(foodWorkers.length, Math.max(1,
-      Math.ceil(dailyNeed / (harvestPerWorker * FOOD_RESERVE_PER_UNIT)), fieldTeamSize));
+      Math.ceil(dailyNeed / (harvestPerWorker * FOOD_DAYS_PER_UNIT)), fieldTeamSize));
     const capacity = fieldMaterialPreparation ? 1
       : desired.action === 'forage' && desired.priority === 'urgent' ? foodCapacity
       : cropInvestment || desired.goal === 'repair-damaged-structures' ? 1 : desired.priority === 'urgent'

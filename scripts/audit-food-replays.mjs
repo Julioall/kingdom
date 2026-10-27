@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
 import engine from '../src/simulation/engine.js';
-import { FOOD_RESERVE_PER_UNIT } from '../src/config/ecosystem.js';
+import { FOOD_DAYS_PER_UNIT } from '../src/config/ecosystem.js';
 import { communityFoodStock } from '../src/simulation/economy/inventories.js';
 import { communityFoodBufferTarget, dailyFoodNeedForMembers, kingdomFoodDemand } from '../src/simulation/economy/food-policy.js';
 import { summarizeCampaignFoodLogistics, summarizeCultivatedFields, summarizeFoodDeaths, summarizeTradeActivity } from './food-audit-metrics.mjs';
@@ -110,8 +110,8 @@ function foodReserveTrackers(world) {
       (world.people || []).filter(person => person.alive && community.memberIds.includes(person.id)));
     const stock = communityFoodStock(community);
     const people = (world.people || []).filter(person => person.alive && community.memberIds.includes(person.id));
-    const personalReservePoints = people.reduce((sum, person) => sum + Math.max(0, Number(person.foodReserve) || 0), 0);
-    const dailyFoodUnits = demand.dailyFoodNeed / FOOD_RESERVE_PER_UNIT;
+    const personalReserveDays = people.reduce((sum, person) => sum + Math.max(0, Number(person.foodReserve) || 0), 0);
+    const dailyFoodUnits = demand.dailyFoodNeed / FOOD_DAYS_PER_UNIT;
     return {
       communityId: community.id,
       kingdomId: kingdom?.id ?? community.kingdomId ?? null,
@@ -126,12 +126,11 @@ function foodReserveTrackers(world) {
       endingSeedStock: Number(community.stores?.seeds) || 0,
       minimumSeedStock: Number(community.stores?.seeds) || 0,
       maximumSeedStock: Number(community.stores?.seeds) || 0,
-      minimumCombinedReserveDays: dailyFoodUnits > 0 ? (stock + personalReservePoints / FOOD_RESERVE_PER_UNIT) / dailyFoodUnits : null,
-      maximumCombinedReserveDays: dailyFoodUnits > 0 ? (stock + personalReservePoints / FOOD_RESERVE_PER_UNIT) / dailyFoodUnits : null,
+      minimumCombinedReserveDays: dailyFoodUnits > 0 ? (stock + personalReserveDays / FOOD_DAYS_PER_UNIT) / dailyFoodUnits : null,
+      maximumCombinedReserveDays: dailyFoodUnits > 0 ? (stock + personalReserveDays / FOOD_DAYS_PER_UNIT) / dailyFoodUnits : null,
       daysBelowCombinedReserve14: 0,
-      endingPersonalReservePoints: personalReservePoints,
-      endingPersonalReserveRawEquivalent: personalReservePoints / FOOD_RESERVE_PER_UNIT,
-      endingAveragePersonalReservePoints: people.length ? personalReservePoints / people.length : 0,
+      endingPersonalReserveDays: personalReserveDays,
+      endingAveragePersonalReserveDays: people.length ? personalReserveDays / people.length : 0,
       endingResidentsBelow20: people.filter(person => person.foodReserve < 20).length,
       royalFoodSupportWorkerDays: 0,
       royalFieldWorkerDays: 0,
@@ -139,7 +138,7 @@ function foodReserveTrackers(world) {
       maximumConcurrentRoyalFieldWorkers: 0,
       endingPopulation: demand.members?.length ?? (world.people || []).filter(person =>
         person.alive && community.memberIds.includes(person.id)).length,
-      endingDailyDemandRawUnits: dailyFoodUnits,
+      endingDailyDemandFoodUnits: dailyFoodUnits,
       endingDemandBufferTarget: communityFoodBufferTarget(demand.dailyFoodNeed),
       endingDomesticatedSheep: (world.animals || []).filter(animal => animal.alive
         && animal.speciesId === 'sheep' && animal.herdCommunityId === community.id).length,
@@ -159,10 +158,10 @@ function updateFoodReserveTrackers(world, trackers) {
       : (world.people || []).filter(person => person.alive && community.memberIds.includes(person.id));
     const dailyFoodNeed = dailyFoodNeedForMembers(members).dailyFoodNeed;
     const stock = communityFoodStock(community);
-    const personalReservePoints = members.reduce((sum, person) => sum + Math.max(0, Number(person.foodReserve) || 0), 0);
-    const dailyFoodUnits = dailyFoodNeed / FOOD_RESERVE_PER_UNIT;
+    const personalReserveDays = members.reduce((sum, person) => sum + Math.max(0, Number(person.foodReserve) || 0), 0);
+    const dailyFoodUnits = dailyFoodNeed / FOOD_DAYS_PER_UNIT;
     const combinedReserveDays = dailyFoodUnits > 0
-      ? (stock + personalReservePoints / FOOD_RESERVE_PER_UNIT) / dailyFoodUnits : Infinity;
+      ? (stock + personalReserveDays / FOOD_DAYS_PER_UNIT) / dailyFoodUnits : Infinity;
     const royalFoodWorkers = members.filter(person => person.assignment?.source === 'kingdom-strategy'
       && person.assignment.goal === 'secure-shared-food' && person.assignment.expiresDay >= world.day);
     const royalFieldWorkers = royalFoodWorkers.filter(person => person.assignment.foodFieldId != null);
@@ -178,16 +177,15 @@ function updateFoodReserveTrackers(world, trackers) {
       tracker.maximumCombinedReserveDays = Math.max(tracker.maximumCombinedReserveDays, combinedReserveDays);
       if (combinedReserveDays < 14) tracker.daysBelowCombinedReserve14++;
     }
-    tracker.endingPersonalReservePoints = personalReservePoints;
-    tracker.endingPersonalReserveRawEquivalent = personalReservePoints / FOOD_RESERVE_PER_UNIT;
-    tracker.endingAveragePersonalReservePoints = members.length ? personalReservePoints / members.length : 0;
+    tracker.endingPersonalReserveDays = personalReserveDays;
+    tracker.endingAveragePersonalReserveDays = members.length ? personalReserveDays / members.length : 0;
     tracker.endingResidentsBelow20 = members.filter(person => person.foodReserve < 20).length;
     tracker.royalFoodSupportWorkerDays += royalFoodWorkers.length;
     tracker.royalFieldWorkerDays += royalFieldWorkers.length;
     tracker.maximumConcurrentRoyalFoodWorkers = Math.max(tracker.maximumConcurrentRoyalFoodWorkers, royalFoodWorkers.length);
     tracker.maximumConcurrentRoyalFieldWorkers = Math.max(tracker.maximumConcurrentRoyalFieldWorkers, royalFieldWorkers.length);
     tracker.endingPopulation = members.length;
-    tracker.endingDailyDemandRawUnits = dailyFoodNeed / FOOD_RESERVE_PER_UNIT;
+    tracker.endingDailyDemandFoodUnits = dailyFoodNeed / FOOD_DAYS_PER_UNIT;
     tracker.endingDemandBufferTarget = communityFoodBufferTarget(dailyFoodNeed);
     tracker.endingDomesticatedSheep = (world.animals || []).filter(animal => animal.alive
       && animal.speciesId === 'sheep' && animal.herdCommunityId === community.id).length;
@@ -215,10 +213,9 @@ function finalizeFoodReserveTrackers(trackers) {
       ? Number(tracker.minimumCombinedReserveDays.toFixed(2)) : null,
     maximumCombinedReserveDays: Number.isFinite(tracker.maximumCombinedReserveDays)
       ? Number(tracker.maximumCombinedReserveDays.toFixed(2)) : null,
-    endingPersonalReservePoints: Number(tracker.endingPersonalReservePoints.toFixed(2)),
-    endingPersonalReserveRawEquivalent: Number(tracker.endingPersonalReserveRawEquivalent.toFixed(2)),
-    endingAveragePersonalReservePoints: Number(tracker.endingAveragePersonalReservePoints.toFixed(2)),
-    endingDailyDemandRawUnits: Number(tracker.endingDailyDemandRawUnits.toFixed(2)),
+    endingPersonalReserveDays: Number(tracker.endingPersonalReserveDays.toFixed(2)),
+    endingAveragePersonalReserveDays: Number(tracker.endingAveragePersonalReserveDays.toFixed(2)),
+    endingDailyDemandFoodUnits: Number(tracker.endingDailyDemandFoodUnits.toFixed(2)),
     endingDemandBufferTarget: Number(tracker.endingDemandBufferTarget.toFixed(2)),
     recoveredAbove300AtEnd: tracker.endingFood >= 300
   }));

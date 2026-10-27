@@ -70,7 +70,7 @@ export function renderSocialInspectorSections(person, world) {
       ? 'Relato recebido de ' + (sourcePerson?.name || 'pessoa ' + memory.sourcePersonId)
       : 'Observado diretamente';
     const outcome = fact?.outcome?.resource === 'food' && Number.isFinite(fact.outcome.amount)
-      ? ' · ' + formatNumber(fact.outcome.amount, 1) + ' pontos de alimento'
+      ? ' · ' + formatNumber(fact.outcome.amount, 1) + ' dias de alimento'
       : fact?.outcome?.resource === 'gold' && Number.isFinite(fact.outcome.amount)
         ? ' · ' + formatNumber(fact.outcome.amount, 1) + ' ouro' : '';
     const meetingResult = fact?.type === 'social_meeting' && fact.outcome?.result === 'conversation_completed'

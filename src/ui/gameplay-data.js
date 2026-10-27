@@ -4,7 +4,7 @@ import { communityHerdPenAssignments, DOMESTIC_SHEEP_PER_PEN } from '../simulati
 const sum = (items, value) => items.reduce((total, item) => total + (Number(value(item)) || 0), 0);
 const food = stock => (stock?.food || 0) + (stock?.meat || 0) * MEAT_NUTRITIONAL_VALUE;
 
-// Count each account once. Personal reserves are percentage points, not stock units.
+// Count each account once. Food stocks and personal reserves are reported as adult person-days.
 export function resourceSummary(world, kingdomId = null) {
   const people = world.people.filter(p => p.alive && (kingdomId == null || p.kingdomId === kingdomId));
   const kingdoms = world.kingdoms.filter(k => kingdomId == null || k.id === kingdomId);

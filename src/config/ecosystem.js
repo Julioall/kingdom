@@ -47,9 +47,10 @@ export const ANIMAL_ACTIONS = ['feed', 'drink', 'hunt', 'rest', 'explore', 'flee
 
 export const PEOPLE_INPUTS = 18, HIDDEN_NEURONS = 9, RULER_HIDDEN_NEURONS = 50;
 
-export const FOOD_RESERVE_PER_UNIT = .72;
+// One stored food unit fills one person's reserve for one day.
+export const FOOD_DAYS_PER_UNIT = 1;
 export const COMMUNITY_FOOD_CARRY_CAPACITY = 24;
 
-export const DAILY_FOOD_NEED = .78;
+export const DAILY_FOOD_NEED = 1;
 
 export const MEAT_NUTRITIONAL_VALUE = 2.5;

@@ -9,7 +9,7 @@ import { SimulationClock } from '../app/simulation-loop.ts';
 import Sim from './simulation-view.js';
 import LocalAI from '../ai/local-engine.js';
 import { readLocalAiPreference, writeLocalAiPreference } from '../ai/preference.js';
-import { DOMESTIC_SHEEP_DAILY_FEED, SHEEP_ADULT_AGE_DAYS, SHEEP_JUVENILE_MIN_SCALE } from '../config/ecosystem.js';
+import { DAILY_FOOD_NEED, DOMESTIC_SHEEP_DAILY_FEED, FOOD_DAYS_PER_UNIT, SHEEP_ADULT_AGE_DAYS, SHEEP_JUVENILE_MIN_SCALE } from '../config/ecosystem.js';
 import { isRoadTile, ROAD_RULES } from '../simulation/world/roads.js';
 import { isBushAnchor } from '../simulation/ecology/plants.js';
 import { CHARACTER_SPRITE_SCALE, MILITARY_SPRITES, militarySpritePose } from './military-sprites.js';
@@ -2636,7 +2636,7 @@ export function mountGame() {
       if (campaign) {
         const side = campaign.attackerId === kingdom.id ? campaign.attacker : campaign.defender;
         const activeTroops = side.troopIds.map(id => getPerson(id)).filter(Boolean);
-        const dailyRation = activeTroops.length * .78 / .72;
+        const dailyRation = activeTroops.length * DAILY_FOOD_NEED / FOOD_DAYS_PER_UNIT;
         const foodDays = dailyRation > 0 ? side.supply.stock.food / dailyRation : 0;
         const statusLabels = { mobilizing: 'reunindo suprimentos', marching: 'em marcha', engaged: 'em combate', withdrawing: 'retornando após armistício' };
         const roleLabel = side.role === 'attacker' ? 'força atacante' : 'defesa local';
@@ -2745,7 +2745,7 @@ export function mountGame() {
           ? '<div class="data-row"><span>Recuperação em casa</span><b>'
             + esc(recoveryNeeds.length ? 'Falta recuperar: ' + recoveryNeeds.join(' · ') : 'Recuperado · sai no próximo dia') + '</b></div>' : '') +
         '<div class="data-row"><span>Idade aproximada</span><b>' + fmt(p.ageDays / 365, 1) + ' anos</b></div>' +
-        '<div class="data-row"><span>Alimento / água</span><b>' + Math.round(p.foodReserve) + ' / ' + Math.round(p.hydration) + '%</b></div>' +
+        '<div class="data-row"><span>Reserva alimentar (dias) / água</span><b>' + Math.round(p.foodReserve) + ' / ' + Math.round(p.hydration) + '%</b></div>' +
         (p.role === 'soldier' ? '<div class="data-row"><span>Vitalidade de combate</span><b>' + Math.round(p.health / 100 * (p.maxCombatHealth || 100)) + ' / ' + (p.maxCombatHealth || 100) + '</b></div>' : '') +
         (p.role === 'soldier' ? '<div class="data-row"><span>Estamina</span><b>' + Math.round(p.stamina ?? 100) + ' / 100</b></div>' : '') +
         (p.role === 'soldier' && p.combatDisarmedUntilDay > world.day

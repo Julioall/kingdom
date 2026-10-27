@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import engine from '../src/simulation/engine.js';
-import { DAILY_FOOD_NEED, FOOD_RESERVE_PER_UNIT, PLANTS } from '../src/config/ecosystem.js';
+import { DAILY_FOOD_NEED, FOOD_DAYS_PER_UNIT, PLANTS } from '../src/config/ecosystem.js';
 import { stripAbsoluteCalendarFields } from '../src/ai/observations.js';
 import {
   kingdomStrategyChoices, observeKingdomStrategy, planKingdomStrategy, queueKingdomStrategicAiRequests, setStrategicAiEnabled
@@ -58,6 +58,7 @@ test('kingdom strategy prompt is season-invariant but request expiry metadata st
   assert.equal(Object.hasOwn(spring.request.context.report, 'day'), false);
   assert.equal(Object.hasOwn(spring.request.context.report, 'calendar'), false);
   assert.ok(spring.request.context.decisionGuidance.some(rule => rule.includes('Roça')));
+  assert.ok(spring.request.context.decisionGuidance.some(rule => rule.includes('uma unidade de comida representa um dia de alimento')));
   assert.equal(spring.request.context.report.community.foodInfrastructure.completedCorrals, 1);
   assert.equal(spring.request.context.report.community.foodInfrastructure.sheepCapacity, 35);
   assert.equal(spring.rawReport.community.foodBufferTargetDays, 180);
@@ -66,15 +67,19 @@ test('kingdom strategy prompt is season-invariant but request expiry metadata st
   assert.equal(spring.request.context.report.community.foodBufferDays, spring.rawReport.community.foodBufferDays);
 });
 
-test('food reserves use raw stock units and a demand-based six-month buffer', () => {
-  const dailyReservePoints = 50 * DAILY_FOOD_NEED;
-  const dailyRawUnits = foodUnitsPerDay(dailyReservePoints);
-  const target = communityFoodBufferTarget(dailyReservePoints);
+test('food stock and personal reserves use person-days with a demand-based six-month buffer', () => {
+  const dailyPersonDays = 50 * DAILY_FOOD_NEED;
+  const dailyFoodUnits = foodUnitsPerDay(dailyPersonDays);
+  const target = communityFoodBufferTarget(dailyPersonDays);
 
-  assert.equal(dailyRawUnits, dailyReservePoints / FOOD_RESERVE_PER_UNIT);
+  assert.equal(dailyFoodUnits, dailyPersonDays / FOOD_DAYS_PER_UNIT);
+  assert.equal(dailyFoodUnits, 50);
+  assert.equal(target, 9_000);
   assert.ok(target > 300, 'the target has useful slack above the observed 300-unit failure threshold');
-  assert.equal(communityFoodBufferDays(300, dailyReservePoints), 300 / dailyRawUnits);
-  assert.ok(Math.abs(communityFoodBufferDays(target, dailyReservePoints) - 180) < .001);
+  assert.equal(communityFoodBufferDays(300, dailyPersonDays), 300 / dailyFoodUnits);
+  assert.ok(Math.abs(communityFoodBufferDays(target, dailyPersonDays) - 180) < .001);
+  assert.equal(communityFoodBufferDays(1_000, DAILY_FOOD_NEED), 1_000,
+    'one thousand food units provide one thousand adult-days');
 });
 
 test('kingdom forage policy stops repeating once the observed six-month buffer is reached', () => {

@@ -80,9 +80,9 @@ test('a deterministic production replay carries social outcomes into the live in
   assert.equal(water.transferred, true);
   assert.deepEqual(water.fact.location, { x: 10, y: 10 });
   assert.equal(accepted.accepted, true);
-  assert.ok(Math.abs(accepted.amount - 3.024) < 1e-9);
+  assert.ok(Math.abs(accepted.amount - 4.2) < 1e-9);
   assert.ok(Math.abs(community.stores.food - 95.8) < 1e-9);
-  assert.ok(Math.abs(people[5].foodReserve - 23.024) < 1e-9);
+  assert.ok(Math.abs(people[5].foodReserve - 24.2) < 1e-9);
 
   assert.equal(refused.accepted, false);
   assert.equal(people[7].foodReserve, 20);

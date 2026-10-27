@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { FOOD_DAYS_PER_UNIT } from '../src/config/ecosystem.js';
 import { addHarvestedFood } from '../src/simulation/economy/inventories.js';
 import { attemptHumanFishing } from '../src/simulation/individuals/actions.js';
 
@@ -7,7 +8,7 @@ test('a harvest cannot silently discard surplus when a personal food load is ful
   const person = { x: 0, y: 0, foodReserve: 90, carriedFood: 24, energy: 50 };
   const before = { foodReserve: person.foodReserve, carriedFood: person.carriedFood };
   const result = addHarvestedFood(person, null, 4);
-  const accepted = (person.foodReserve - before.foodReserve) / .72 + person.carriedFood - before.carriedFood;
+  const accepted = (person.foodReserve - before.foodReserve) / FOOD_DAYS_PER_UNIT + person.carriedFood - before.carriedFood;
   assert.equal(result.eaten + result.surplus, accepted, 'reported yield must equal the food actually received');
 });
 
@@ -24,7 +25,7 @@ test('a fish remains alive when the entire catch cannot be received', () => {
 });
 
 test('a harvest fitting personal and cargo capacity is fully accounted for', () => {
-  const person = { x: 0, y: 0, foodReserve: 89.28, carriedFood: 21, energy: 50 };
+  const person = { x: 0, y: 0, foodReserve: 89, carriedFood: 21, energy: 50 };
   const result = addHarvestedFood(person, null, 4);
   assert.ok(Math.abs(result.eaten - 1) < 1e-9);
   assert.ok(Math.abs(result.surplus - 3) < 1e-9);

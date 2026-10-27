@@ -337,7 +337,7 @@ function dispatchKingdomReserves(world, kingdom, day = world.day + 1) {
   const stock = kingdom.treasury && kingdom.treasury.stock;
   if (!stock) return null;
 
-  // Keep a two-week shared reserve so workers can leave food collection once
+  // Keep a six-month shared reserve so workers can leave food collection once
   // the store has room for routine consumption and nearby population growth.
   // If its remaining stock is below one day's need, release the treasury floor
   // so tomorrow's ration can be buffered. The configured drought reserve is a
@@ -376,7 +376,7 @@ function dispatchKingdomReserves(world, kingdom, day = world.day + 1) {
     destination: 'community',
     destinationId: community.id,
     foodReason: foodMoved > .01
-      ? emergencyFoodRelease ? 'emergency-community-below-one-day' : 'restore-fourteen-day-community-buffer'
+      ? emergencyFoodRelease ? 'emergency-community-below-one-day' : 'restore-180-day-community-buffer'
       : null,
     feedReason: feedMoved > .01 ? 'restore-herd-feed-buffer' : null,
     food: foodMoved,
@@ -404,7 +404,7 @@ function dispatchKingdomReserves(world, kingdom, day = world.day + 1) {
   const reasons = [
     delivery.foodReason === 'emergency-community-below-one-day'
       ? 'a reserva comum estava abaixo de um dia de consumo e o piso de seca foi liberado'
-      : delivery.foodReason === 'restore-fourteen-day-community-buffer' ? 'reposição do buffer alimentar comunitário de quatorze dias' : null,
+      : delivery.foodReason === 'restore-180-day-community-buffer' ? 'reposição do buffer alimentar comunitário de 180 dias' : null,
     delivery.feedReason ? 'reposição do buffer de ração do rebanho' : null
   ].filter(Boolean).join(' e ');
   const message = kingdom.name + ' transferiu ' + movement + ' do tesouro para o estoque comunitário no dia ' + day

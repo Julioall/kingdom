@@ -1,4 +1,4 @@
-import { FOOD_RESERVE_PER_UNIT, MEAT_NUTRITIONAL_VALUE } from '../../config/ecosystem.js';
+import { FOOD_DAYS_PER_UNIT, MEAT_NUTRITIONAL_VALUE } from '../../config/ecosystem.js';
 import { clamp, distance } from '../core/math.js';
 
 function inventoryOf(owner) {
@@ -165,7 +165,7 @@ export function transferInventoryToStores(source, destination, resource, amount,
 export function harvestedFoodCapacity(person, community) {
     if (!person || !Number.isFinite(person.foodReserve) || person.foodReserve < 0
         || !Number.isFinite(person.carriedFood ?? 0) || (person.carriedFood ?? 0) < 0) return 0;
-    const personal = Math.max(0, (90 - person.foodReserve) / FOOD_RESERVE_PER_UNIT);
+    const personal = Math.max(0, (90 - person.foodReserve) / FOOD_DAYS_PER_UNIT);
     if (community && distance(person, community) <= 6 && storesOf(community)
         && Number.isFinite(currentAmount(community.stores, 'food')) && currentAmount(community.stores, 'food') >= 0) return Infinity;
     return personal + Math.max(0, 24 - (person.carriedFood ?? 0));
@@ -175,9 +175,9 @@ export function addHarvestedFood(person, community, amount) {
     if (!Number.isFinite(amount) || amount <= 0 || amount > harvestedFoodCapacity(person, community) + 1e-9) {
       return { eaten: 0, surplus: 0 };
     }
-    const needed = Math.max(0, (90 - person.foodReserve) / FOOD_RESERVE_PER_UNIT);
+    const needed = Math.max(0, (90 - person.foodReserve) / FOOD_DAYS_PER_UNIT);
     const eaten = Math.min(amount, needed);
-    addFoodReserve(person, eaten * FOOD_RESERVE_PER_UNIT, 'personal-harvest');
+    addFoodReserve(person, eaten * FOOD_DAYS_PER_UNIT, 'personal-harvest');
     person.energy = clamp(person.energy + eaten * .12, 0, 100);
     const surplus = Math.max(0, amount - eaten);
     const stored = community && distance(person, community) <= 6 && storesOf(community)
@@ -251,9 +251,9 @@ export function stockSurplus(store, resource) {
 
 export function transferCommunityFood(w, community, person, amount, category = 'community-sharing') {
     const need = Math.max(0, 78 - person.foodReserve);
-    const units = Math.min(amount, communityFoodStock(community), need / FOOD_RESERVE_PER_UNIT);
+    const units = Math.min(amount, communityFoodStock(community), need / FOOD_DAYS_PER_UNIT);
     if (units <= .02) return 0;
     withdrawCommunityFood(w, community, units, category);
-    addFoodReserve(person, units * FOOD_RESERVE_PER_UNIT, 'community-meal');
+    addFoodReserve(person, units * FOOD_DAYS_PER_UNIT, 'community-meal');
     return units;
   }

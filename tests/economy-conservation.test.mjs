@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { COMMUNITY_FOOD_CARRY_CAPACITY, FOOD_RESERVE_PER_UNIT, PLANTS } from '../src/config/ecosystem.js';
+import { COMMUNITY_FOOD_CARRY_CAPACITY, FOOD_DAYS_PER_UNIT, PLANTS } from '../src/config/ecosystem.js';
 import { updateDependent } from '../src/simulation/individuals/lifecycle.js';
 import { collectFoodForCommunity, personalFoodHarvestLimit } from '../src/simulation/individuals/actions.js';
 import { exchangeResources, transferFoodReserve } from '../src/simulation/economy/inventories.js';
@@ -25,7 +25,7 @@ test('dependent care transfers only food that the caregiver actually owns', () =
   const { world, caregiver, child } = careFixture(0);
   updateDependent(world, child);
   assert.equal(caregiver.foodReserve, 0);
-  assert.ok(Math.abs(child.foodReserve - 11.58) < 1e-9, 'the child consumes its own 0.42 reserve and receives no invented food');
+  assert.ok(Math.abs(child.foodReserve - 11) < 1e-9, 'the child consumes one day from its own reserve and receives no invented food');
 });
 
 test('partial dependent-care transfer is atomic and conserves food after daily consumption', () => {
@@ -33,8 +33,8 @@ test('partial dependent-care transfer is atomic and conserves food after daily c
   const before = caregiver.foodReserve + child.foodReserve;
   updateDependent(world, child);
   assert.equal(caregiver.foodReserve, 0);
-  assert.ok(Math.abs(child.foodReserve - 11.78) < 1e-9);
-  assert.ok(Math.abs((caregiver.foodReserve + child.foodReserve) - (before - 0.42)) < 1e-9);
+  assert.ok(Math.abs(child.foodReserve - 11.2) < 1e-9);
+  assert.ok(Math.abs((caregiver.foodReserve + child.foodReserve) - (before - 1)) < 1e-9);
 });
 
 test('a dead caregiver and empty shared store cannot supply a dependent meal', () => {
@@ -45,7 +45,7 @@ test('a dead caregiver and empty shared store cannot supply a dependent meal', (
   updateDependent(world, child);
 
   assert.equal(caregiver.foodReserve, 20, 'a dead caregiver is not a source account');
-  assert.ok(Math.abs(child.foodReserve - 11.68) < 1e-9, 'the orphan pays only its reduced daily need');
+  assert.ok(Math.abs(child.foodReserve - 11) < 1e-9, 'the orphan pays the same one-day need as every other person');
   assert.equal(child.alive, true);
 });
 
@@ -57,7 +57,7 @@ test('a dependent with one small meal does not die before actual starvation lowe
   updateDependent(world, child);
 
   assert.equal(child.alive, true, 'a missed caregiver day cannot kill a healthy dependent at 0.1 reserve');
-  assert.ok(Math.abs(child.foodReserve - 0.1) < 1e-9, 'only the dependent\'s existing reserve was consumed');
+  assert.ok(Math.abs(child.foodReserve) < 1e-9, 'only the dependent\'s existing partial-day reserve was consumed');
 
   for (let day = 0; day < 210 && child.alive; day++) {
     world.day++;
@@ -179,21 +179,21 @@ test('campaign ration debits only available field food and respects personal res
   const side = {
     campaignId: 20, kingdomId: 1, role: 'attacker', troopIds: [person.id],
     supply: { stock: { food: 0.2 } }, rationsConsumed: 0,
-    supplyLedger: { rationConsumptionFood: 0, personalReserveRationPoints: 0 }
+    supplyLedger: { rationConsumptionFood: 0, personalReserveRationDays: 0 }
   };
   const campaign = { id: 20, status: 'marching', attacker: side,
     defender: { campaignId: 20, kingdomId: 2, role: 'defender', troopIds: [], supply: { stock: { food: 0 } } } };
   const world = { people: [person], campaigns: [campaign] };
-  const initialFoodPoints = person.foodReserve + side.supply.stock.food * FOOD_RESERVE_PER_UNIT;
+  const initialFoodDays = person.foodReserve + side.supply.stock.food * FOOD_DAYS_PER_UNIT;
 
-  const rationPoints = drawCampaignRation(world, person, 12);
-  assert.ok(Math.abs(rationPoints - 0.2 * FOOD_RESERVE_PER_UNIT) < 1e-9);
+  const rationDays = drawCampaignRation(world, person, 12);
+  assert.ok(Math.abs(rationDays - 0.2 * FOOD_DAYS_PER_UNIT) < 1e-9);
   assert.equal(side.supply.stock.food, 0);
   assert.equal(person.foodReserve, 96, 'ration drawing reports nutrition for the caller to credit exactly once');
   assert.equal(side.rationsConsumed, 0.2);
   assert.equal(side.supplyLedger.rationConsumptionFood, 0.2);
-  assert.ok(Math.abs(person.foodReserve + side.supply.stock.food * FOOD_RESERVE_PER_UNIT + rationPoints - initialFoodPoints) < 1e-9,
-    'field food is reported as reserve points at the configured conversion rate');
+  assert.ok(Math.abs(person.foodReserve + side.supply.stock.food * FOOD_DAYS_PER_UNIT + rationDays - initialFoodDays) < 1e-9,
+    'field food is reported as personal reserve days at the configured conversion rate');
 
   person.foodReserve = 100;
   side.supply.stock.food = 1;

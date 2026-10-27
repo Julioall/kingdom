@@ -6,7 +6,7 @@ import { getSocialLink } from '../society/communities.js';
 import { availableCommunityPen, reconcileCommunityHerdPens } from '../ecology/herd.js';
 import { nearestPenFor } from '../individuals/actions.js';
 import { cellAt, cellsWithin } from '../world/spatial.js';
-import { FOOD_RESERVE_PER_UNIT, MEAT_NUTRITIONAL_VALUE } from '../../config/ecosystem.js';
+import { FOOD_DAYS_PER_UNIT, MEAT_NUTRITIONAL_VALUE } from '../../config/ecosystem.js';
 import { log } from '../core/events.js';
 import { moveOne } from '../individuals/movement.js';
 import { recordTrade } from './trade-ledger.js';
@@ -205,7 +205,7 @@ export function performShare(w, person, community, target) {
       && distance(person, community) <= 7 && distance(person, recipient) <= 7 && recipient.foodReserve < 48) {
     const units = transferCommunityFood(w, community, recipient, 4.2);
     if (units > .02) {
-      recordFoodAidExperience(w, person, recipient, units * FOOD_RESERVE_PER_UNIT, 'community');
+      recordFoodAidExperience(w, person, recipient, units * FOOD_DAYS_PER_UNIT, 'community');
       consumePersonEnergy(person, .22);
       const link = getSocialLink(w, person, recipient); link.trust = clamp(link.trust + .08, 0, 1); link.sharedFood += units;
       person.skills.care = clamp(person.skills.care + .004, 0, 1);

@@ -158,7 +158,7 @@ test('failed crop navigation is cooled down so local perception can select anoth
     'the short retry memory expires so later perception can reconsider the patch');
 });
 
-test('a critically hungry forager commits to a patch that covers travel and its next ration', () => {
+test('a critically hungry forager takes a nearby one-day patch before making a longer trip', () => {
   const world = createWorld(42);
   world.day = 450;
   const berryIndex = PLANTS.findIndex(plant => plant.id === 'berry');
@@ -194,8 +194,8 @@ test('a critically hungry forager commits to a patch that covers travel and its 
   world.peopleSpatialIndex = createPersonSpatialIndex(world.people);
   world.navigationRevision = (world.navigationRevision || 0) + 1;
 
-  assert.deepEqual(bestPeopleFoodCell(world, person, 8), productivePatch,
-    'a nearby harvest smaller than one ration cannot beat a patch that covers travel and food');
+  assert.deepEqual(bestPeopleFoodCell(world, person, 8), nearbyPatch,
+    'one nearby food unit covers the next ration without spending another day traveling');
 
   person.foodTarget = { x: productivePatch.x, y: productivePatch.y };
   person.perception.resources[0].harvestableBiomass.berry = 1.5;

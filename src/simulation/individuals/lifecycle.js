@@ -1,4 +1,4 @@
-import { COMMUNITY_FORMS, FOOD_RESERVE_PER_UNIT, HEIGHT, HUMAN_NAMES, PEOPLE_ACTIONS, PEOPLE_INPUTS, RULER_HIDDEN_NEURONS, WIDTH } from '../../config/ecosystem.js';
+import { COMMUNITY_FORMS, DAILY_FOOD_NEED, FOOD_DAYS_PER_UNIT, HEIGHT, HUMAN_NAMES, PEOPLE_ACTIONS, PEOPLE_INPUTS, RULER_HIDDEN_NEURONS, WIDTH } from '../../config/ecosystem.js';
 import { rand } from '../core/random.js';
 import { createBrain, ensureBrainSize } from '../../controllers/individual/neural.js';
 import { randomHabitatCell } from '../world/generation.js';
@@ -89,7 +89,7 @@ export function makePerson(w, x, y, newborn) {
 
 export function addIndividuals(w, count, initial) {
     const added = [];
-    let arrivalFoodReservePoints = 0;
+    let arrivalFoodReserveDays = 0;
     for (let n = 0; n < count; n++) {
       const wanderingTile = initial ? null : randomHabitatCell(w, false);
       const kingdom = w.kingdoms && w.kingdoms.length
@@ -103,7 +103,7 @@ export function addIndividuals(w, count, initial) {
       let cell = cellAt(w, x, y);
       if (!cell || cell.terrain === 'water' || cell.terrain === 'rock') { x = t.x; y = t.y; }
       const person = makePerson(w, x, y, false);
-      if (!initial) arrivalFoodReservePoints += person.foodReserve;
+      if (!initial) arrivalFoodReserveDays += person.foodReserve;
       if (kingdom) {
         person.kingdomId = kingdom.id;
         person.communityId = kingdom.communityId || null;
@@ -134,7 +134,7 @@ export function addIndividuals(w, count, initial) {
       }
     }
     if (!initial && added.length) log(w, added.length + ' indivíduos chegaram ao mundo trazendo '
-      + arrivalFoodReservePoints.toFixed(1) + ' pontos de reserva alimentar de fora do mapa e foram associados ao reino e à moradia mais próximos.');
+      + arrivalFoodReserveDays.toFixed(1) + ' dias de reserva alimentar de fora do mapa e foram associados ao reino e à moradia mais próximos.');
     return added;
   }
 
@@ -270,12 +270,12 @@ export function updateDependent(w, child) {
     const nearbyAdults = communityAdults.filter(person => distance(person, child) <= 6);
     const familyCaregiver = family.filter(person => distance(person, child) <= 6)
       .sort((a, b) => b.foodReserve - a.foodReserve || distance(a, child) - distance(b, child))[0];
-    const nearbyFedAdult = nearbyAdults.filter(person => !familyIds.has(person.id) && person.foodReserve >= .42)
+    const nearbyFedAdult = nearbyAdults.filter(person => !familyIds.has(person.id) && person.foodReserve >= DAILY_FOOD_NEED)
       .sort((a, b) => distance(a, child) - distance(b, child) || b.foodReserve - a.foodReserve)[0];
     const distantFedAdult = communityAdults.filter(person => !familyIds.has(person.id) && person.campaignId == null
-      && person.foodReserve >= .42)
+      && person.foodReserve >= DAILY_FOOD_NEED)
       .sort((a, b) => distance(a, child) - distance(b, child) || b.foodReserve - a.foodReserve)[0];
-    let caregiver = familyCaregiver && familyCaregiver.foodReserve >= .42 ? familyCaregiver
+    let caregiver = familyCaregiver && familyCaregiver.foodReserve >= DAILY_FOOD_NEED ? familyCaregiver
       : nearbyFedAdult || distantFedAdult || familyCaregiver
       || nearbyAdults.sort((a, b) => distance(a, child) - distance(b, child))[0]
       || family.sort((a, b) => distance(a, child) - distance(b, child))[0] || null;
@@ -285,16 +285,16 @@ export function updateDependent(w, child) {
     }
     if (caregiver) child.guardianId = caregiver.id;
     const community = activeCommunity(w, child);
-    const careFoodNeed = caregiver && distance(caregiver, child) <= 6 ? .42 : .32;
+    const careFoodNeed = DAILY_FOOD_NEED;
     const consumedFood = consumeFoodReserve(child, careFoodNeed, 'dependent-consumption');
     let foodProvided = consumedFood;
-    const sharedFood = community ? Math.min(careFoodNeed, communityFoodStock(community) * FOOD_RESERVE_PER_UNIT,
+      const sharedFood = community ? Math.min(careFoodNeed, communityFoodStock(community) * FOOD_DAYS_PER_UNIT,
       Math.max(0, 100 - child.foodReserve)) : 0;
     if (sharedFood > .001) {
-      withdrawCommunityFood(w, community, sharedFood / FOOD_RESERVE_PER_UNIT, 'dependent-food-issue');
+      withdrawCommunityFood(w, community, sharedFood / FOOD_DAYS_PER_UNIT, 'dependent-food-issue');
       addFoodReserve(child, sharedFood, 'dependent-community-meal');
       foodProvided += sharedFood;
-      child.sharedMeals = (child.sharedMeals || 0) + sharedFood / FOOD_RESERVE_PER_UNIT;
+      child.sharedMeals = (child.sharedMeals || 0) + sharedFood / FOOD_DAYS_PER_UNIT;
     }
     const unmetNeed = Math.max(0, careFoodNeed - sharedFood);
     if (caregiver && distance(caregiver, child) <= 6) {
@@ -306,9 +306,9 @@ export function updateDependent(w, child) {
       caregiver.skills.care = clamp(caregiver.skills.care + .0003, 0, 1);
       if (caregiverContribution > .001 && !familyIds.has(caregiver.id)) {
         const amount = caregiverContribution.toFixed(2);
-        child.lastLesson = 'Recebeu ' + amount + ' pontos de alimento de ' + caregiver.name + ' para o cuidado diário.';
+        child.lastLesson = 'Recebeu ' + amount + ' dias de alimento de ' + caregiver.name + ' para o cuidado diário.';
         log(w, caregiver.name + ' apoiou ' + child.name + ' e transferiu ' + amount
-          + ' pontos de alimento de sua reserva para o cuidado diário.');
+          + ' dias de alimento de sua reserva para o cuidado diário.');
       }
       child.hydration = clamp(child.hydration + .4, 0, 100);
       changePersonHealth(w, child, .035, 'care');
@@ -373,6 +373,6 @@ export function reproducePeople(w) {
     if (c && baby.communityId === c.id) c.memberIds.push(baby.id);
     w.births++; w.birthsByKind.people++;
     const link = getSocialLink(w, p, q); link.trust = clamp(link.trust + .08, 0, 1);
-    log(w, 'Nasceu ' + baby.name + '; ' + p.name + ' transferiu 7 pontos e ' + q.name
-      + ' transferiu 5 pontos de suas reservas para financiar os 12 pontos da reserva inicial.');
+    log(w, 'Nasceu ' + baby.name + '; ' + p.name + ' transferiu 7 dias e ' + q.name
+      + ' transferiu 5 dias de suas reservas para financiar os 12 dias da reserva inicial.');
   }
