@@ -32,6 +32,7 @@ test('visible communities can barter during peace when trust and complementary s
   assert.equal(foreign.stores.wood, 19);
   assert.equal(home.tradeCount, 1);
   assert.equal(foreign.tradeCount, 1);
+  assert.equal(world.tradeDiagnostics, undefined, 'runtime trade counters remain disabled outside an audit');
 });
 
 test('an explicitly closed border blocks direct barter and rejects a stale partner safely', () => {
@@ -61,6 +62,7 @@ test('active war does not imply a trade embargo when the border remains open', (
 
 test('market audit records the person who buys food and counts completed transactions', async () => {
   const { world, home, trader } = tradeFixture();
+  world.tradeDiagnostics = {};
   home.stores = { food: 20, meat: 0, wood: 0, stone: 0, gold: 10, feed: 0 };
   const market = { ownerType: 'kingdom-market', ownerId: 1, transactions: 0,
     stock: { food: 40, wood: 20, stone: 20, gold: 100, feed: 20, sheep: 0 } };
@@ -86,6 +88,7 @@ test('market audit records the person who buys food and counts completed transac
 
 test('market opportunity and failed attempt expose why no trade happened', () => {
   const { world, home, trader } = tradeFixture();
+  world.tradeDiagnostics = {};
   home.stores = { food: 40, meat: 0, wood: 0, stone: 0, gold: 0, feed: 0 };
   trader.perception.people = [];
   world.market = { transactions: 0, stock: { food: 0, wood: 0, stone: 0, gold: 0, feed: 0, sheep: 0 } };
@@ -97,5 +100,5 @@ test('market opportunity and failed attempt expose why no trade happened', () =>
   assert.equal(performTrade(world, trader, home, { isMarket: true, market: world.market, distance: 1 }), false);
   assert.equal(world.tradeDiagnostics.marketAttempts, 1);
   assert.deepEqual(world.tradeDiagnostics.marketBlocked, { 'no-executable-exchange': 1 });
-  assert.equal(world.tradeDiagnostics.marketCompleted, 0);
+  assert.equal(world.tradeDiagnostics.marketCompleted ?? 0, 0);
 });

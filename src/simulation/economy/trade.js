@@ -27,26 +27,13 @@ const RESOURCE_LABELS = Object.freeze({
 });
 const TRADE_RESOURCES = Object.freeze(['food', 'meat', 'wood', 'stone', 'gold', 'feed', 'sheep']);
 
-function ensureTradeDiagnostics(world) {
-  const diagnostics = world.tradeDiagnostics ||= {
-    marketOpportunityChecks: 0, marketOpportunities: 0, marketOpportunityBlocked: {},
-    marketApproaches: 0, marketAttempts: 0, marketCompleted: 0, marketBlocked: {},
-    communityBarterAttempts: 0, communityBarterCompleted: 0, communityBarterBlocked: {}
-  };
-  diagnostics.marketOpportunityBlocked ||= {};
-  diagnostics.marketBlocked ||= {};
-  diagnostics.communityBarterBlocked ||= {};
-  for (const field of ['marketOpportunityChecks', 'marketOpportunities', 'marketApproaches', 'marketAttempts',
-    'marketCompleted', 'communityBarterAttempts', 'communityBarterCompleted']) {
-    diagnostics[field] = Number(diagnostics[field]) || 0;
-  }
-  return diagnostics;
-}
-
 function countTradeDiagnostic(world, field, reason = null) {
-  const diagnostics = ensureTradeDiagnostics(world);
-  if (reason) diagnostics[field][reason] = (diagnostics[field][reason] || 0) + 1;
-  else diagnostics[field]++;
+  const diagnostics = world?.tradeDiagnostics;
+  if (!diagnostics) return;
+  if (reason) {
+    const counts = diagnostics[field] ||= {};
+    counts[reason] = (counts[reason] || 0) + 1;
+  } else diagnostics[field] = (Number(diagnostics[field]) || 0) + 1;
 }
 
 function formatTradeAmount(amount) {
@@ -96,14 +83,13 @@ export function findTradePartner(w, community, person) {
     const post = w.structures.filter(s => s.complete && s.communityId === community.id
         && (s.type === 'posto de coleta' || (kingdom && s.type === 'mercado' && s.kingdomId === kingdom.id)))
       .sort((a, b) => distance(person, a) - distance(person, b))[0];
-    const diagnostics = ensureTradeDiagnostics(w);
-    diagnostics.marketOpportunityChecks++;
-    if (!post) diagnostics.marketOpportunityBlocked['no-market-station'] = (diagnostics.marketOpportunityBlocked['no-market-station'] || 0) + 1;
-    else if (distance(person, post) > 16) diagnostics.marketOpportunityBlocked['station-out-of-range'] = (diagnostics.marketOpportunityBlocked['station-out-of-range'] || 0) + 1;
+    countTradeDiagnostic(w, 'marketOpportunityChecks');
+    if (!post) countTradeDiagnostic(w, 'marketOpportunityBlocked', 'no-market-station');
+    else if (distance(person, post) > 16) countTradeDiagnostic(w, 'marketOpportunityBlocked', 'station-out-of-range');
     else if (marketHasTradeOpportunity(w, community)) {
-      diagnostics.marketOpportunities++;
+      countTradeDiagnostic(w, 'marketOpportunities');
       return { isMarket: true, station: post, market: kingdom && kingdom.market || w.market, distance: distance(person, post) };
-    } else diagnostics.marketOpportunityBlocked['no-exchange-offer'] = (diagnostics.marketOpportunityBlocked['no-exchange-offer'] || 0) + 1;
+    } else countTradeDiagnostic(w, 'marketOpportunityBlocked', 'no-exchange-offer');
     const visibleMembers = (person.perception && person.perception.people || []).filter(s => s.visible)
       .map(s => w.people.find(p => p.id === s.id && p.alive)).filter(Boolean);
     return w.communities.filter(c => !c.dissolved && c.id !== community.id && visibleMembers.some(p => p.communityId === c.id))
