@@ -45,8 +45,12 @@ export function restPersonInHouse(world, person) {
   person.towerMounted = false;
   const entry = structureInteractionPoint(house) || house;
   if (distance(person, entry) > 1.25) {
-    moveOne(world, person, entry, false);
-    person.state = 'indo descansar na casa';
+    const moved = moveOne(world, person, entry, false, { arrivalRadius: 1.25 });
+    if (!moved) {
+      if (soldier) person.militaryRestTargetId = null;
+      else person.homeRestTargetId = null;
+      person.state = 'descansando ao ar livre';
+    } else person.state = 'indo descansar na casa';
     return false;
   }
   person.restingStructureId = house.id;
