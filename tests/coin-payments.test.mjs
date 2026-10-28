@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  goldPriceToCopper, quoteCoinPayment, settleCoinTrade
+  goldPriceToCopper, quoteCoinPayment, settleCoinPayment, settleCoinTrade
 } from '../src/simulation/economy/coin-payments.js';
 
 const value = account => account.gold * 100 + account.silver * 10 + account.copper;
@@ -75,4 +75,30 @@ test('search chooses a valid non-greedy change combination without minting', () 
   assert.equal(value(payer), 150);
   assert.equal(value(payee), 200);
   assert.equal(value(payer) + value(payee), total);
+});
+
+test('salary-only settlement transfers whole coins, including a real change mix', () => {
+  const treasury = { gold: 1, silver: 0, copper: 0 };
+  const soldier = { gold: 0, silver: 6, copper: 3 };
+  const before = value(treasury) + value(soldier);
+  const settlement = settleCoinPayment(treasury, soldier, 37);
+  assert.ok(settlement);
+  assert.deepEqual(settlement.transfers, { copper: -3, silver: -6, gold: 1 });
+  assert.equal(value(treasury), 63);
+  assert.equal(value(soldier), 100);
+  assert.equal(value(treasury) + value(soldier), before);
+  assert.equal(treasury.coinMode, true);
+  assert.equal(soldier.coinMode, true);
+});
+
+test('salary-only settlement rejects fractional legacy coins or missing change atomically', () => {
+  const treasury = { gold: 1, silver: 0, copper: 0 };
+  const soldier = { gold: 0, silver: 0, copper: 0 };
+  const before = structuredClone({ treasury, soldier });
+  assert.equal(settleCoinPayment(treasury, soldier, 37), null);
+  assert.deepEqual({ treasury, soldier }, before);
+  treasury.gold = .5;
+  assert.equal(settleCoinPayment(treasury, soldier, 50), null);
+  assert.equal(treasury.gold, .5);
+  assert.equal(soldier.gold, 0);
 });
