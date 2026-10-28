@@ -6,6 +6,7 @@ import { getSocialLink } from '../society/communities.js';
 import { availableCommunityPen, reconcileCommunityHerdPens } from '../ecology/herd.js';
 import { nearestPenFor } from '../individuals/actions.js';
 import { cellAt, cellsWithin } from '../world/spatial.js';
+import { recoverSeedCargo } from './seed-cargo.js';
 import { canEnterForeignTerritory } from '../kingdoms/territories.js';
 import { FOOD_DAYS_PER_UNIT, MEAT_NUTRITIONAL_VALUE } from '../../config/ecosystem.js';
 import { log } from '../core/events.js';
@@ -167,7 +168,10 @@ function fieldSeedMarketOrder(world, community, marketOwner) {
   // by an arbitrary visitor; the courier carries community-owned cargo.
   if (!seedDemand || (store.seeds || 0) >= order.reserve
       || (world.people || []).some(person => person.alive && person.role !== 'soldier'
-        && person.communityId === community.id && (person.carriedCommunitySeeds || 0) > 0)) return null;
+        && person.seedCargoCommunityId === community.id && (person.carriedCommunitySeeds || 0) > 0)
+      || (world.seedCargoDrops || []).some(parcel => parcel.available
+        && parcel.ownerCommunityId === community.id && parcel.purpose === 'construction'
+        && parcel.seeds > 0)) return null;
   const market = marketOwner.stock || marketOwner;
   if (!canSpend(market, 'seeds', order.amount)) return null;
   const payer = kingdom?.treasury?.stock || store;
@@ -277,6 +281,8 @@ function settleFieldSeedOrder(world, person, community, marketOwner) {
     order.market, person, 'seeds', order.amount, 8, 'carriedCommunitySeeds');
   if (!receipt) return false;
   person.seedCargoCommunityId = community.id;
+  person.seedCargoPurpose = 'construction';
+  person.seedCargoFieldId = null;
   marketOwner.transactions = (marketOwner.transactions || 0) + 1;
   community.tradeCount = (community.tradeCount || 0) + 1;
   countTradeDiagnostic(world, 'marketCompleted');
@@ -322,8 +328,11 @@ export function purchaseFieldSeedsForConstruction(world, person, community) {
     return 'unavailable';
   const station = seedMarketStation(world, community, kingdom, person);
   if (!station) { countTradeDiagnostic(world, 'marketBlocked', 'no-market-station'); return 'no-station'; }
-  // A fully sourced market lot is always bought before sending another worker
-  // to extract. This blocks speculative overharvest and free auto-replenishment.
+  // Recover abandoned funded cargo first. The original parcel remains at
+  // its death/migration location until a worker physically reaches it.
+  const recovered = recoverSeedCargo(world, person, community, 'construction');
+  if (!['none', 'full'].includes(recovered)) return recovered;
+  // A fully sourced market lot is bought only after no funded cargo is recoverable.
   if (fieldSeedMarketOrder(world, community, marketOwner)) {
     const moving = moveSeedGatherer(world, person, station, 'indo comprar sementes no mercado');
     if (moving !== 'arrived') return moving;
@@ -341,8 +350,9 @@ export function purchaseFieldSeedsForConstruction(world, person, community) {
   // directly from natural terrain into a farm or community seed inventory.
   if ((person.carriedSeeds || 0) >= NATURAL_SEED_LOT)
     return sellGatheredSeedLot(world, person, community, marketOwner, station);
-  // A market with a partial lot should not attract another gatherer until the
-  // partial lot is combined with a valid purchased shipment.
+  // Abandoned personally gathered seeds remain recoverable as natural inputs.
+  const wildParcel = recoverSeedCargo(world, person, community, 'wild');
+  if (!['none', 'full'].includes(wildParcel)) return wildParcel;
   return gatherWildSeedLot(world, person, community);
 }
 
