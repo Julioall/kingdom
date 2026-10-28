@@ -176,7 +176,9 @@ test('market livestock purchase uses another pen when the first one is full', ()
   const station = { id: 902, type: 'posto de coleta', communityId: community.id,
     complete: true, destroyedDay: null, integrity: 1, health: 1, x: 90, y: 31 };
   world.structures.push(station);
-  world.kingdoms.find(kingdom => kingdom.communityId === community.id).market = market;
+  world.market = market;
+  const kingdom = world.kingdoms.find(item => item.communityId === community.id);
+  if (kingdom) kingdom.market = market;
   const partner = { isMarket: true, distance: 1, station, market };
   const animalCountBefore = world.animals.length;
 
