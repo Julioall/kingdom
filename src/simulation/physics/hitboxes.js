@@ -419,7 +419,11 @@ export function resourceCollisionIndex(world) {
     const tree = treeHitbox(world, tile);
     if (tree) hitboxes.push(tree);
     const mineral = mineralHitbox(tile);
-    if (mineral) hitboxes.push(mineral);
+    // Copper/silver/iron seams are frequently scattered like forest resources.
+    // Keep their visual and mining hitboxes, but do not turn whole regions into
+    // impassable collision mazes: these small deposits are walkable ground.
+    if (mineral && (mineral.resourceKind === 'gold' || mineral.resourceKind === 'stone'))
+      hitboxes.push(mineral);
   }
   const signature = 'resources:' + revision + ':' + hitboxSignature(hitboxes);
   const result = { ...spatialIndex(world, hitboxes, signature), revision, tiles: world.tiles };

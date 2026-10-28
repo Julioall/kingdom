@@ -1,6 +1,6 @@
 // Fixed currency hierarchy used for quoting and presentation. Ore stocks remain
 // physically owned inventories; this module never creates or transfers coins.
-export const COIN_VALUE_COPPER = Object.freeze({ copper: 1, silver: 5, gold: 25 });
+export const COIN_VALUE_COPPER = Object.freeze({ copper: 1, silver: 10, gold: 100 });
 export const METAL_TYPES = Object.freeze(['copper', 'silver', 'gold', 'iron']);
 export const COIN_TYPES = Object.freeze(['copper', 'silver', 'gold']);
 

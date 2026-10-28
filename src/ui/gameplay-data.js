@@ -21,7 +21,8 @@ export function resourceSummary(world, kingdomId = null) {
     unassignedMarket: kingdomId == null ? food(world.market) : 0
   };
   const gold = sum(accounts, a => a?.gold)
-    + sum(people, p => (p.carriedGold || 0) + (p.militaryWallet?.stock?.gold || 0));
+    + sum(people, p => (p.carriedGold || 0) + (p.militaryWallet?.stock?.gold || 0)
+      + (p.personalWallet?.stock?.gold || 0));
   const copper = sum(accounts, a => a?.copper) + sum(people, p => p.carriedCopper || 0);
   const silver = sum(accounts, a => a?.silver) + sum(people, p => p.carriedSilver || 0);
   const iron = sum(accounts, a => a?.iron) + sum(people, p => p.carriedIron || 0);
