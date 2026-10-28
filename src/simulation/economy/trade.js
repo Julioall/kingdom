@@ -119,7 +119,9 @@ function personalMarketOffer(world, community, person, marketOwner) {
       || !(world.people || []).includes(person) || !(world.communities || []).includes(community)
       || community.dissolved || !market || !marketOwner?.prices) return null;
   const kingdom = (world.kingdoms || []).find(item => item.communityId === community.id);
+  if (kingdom && (kingdom.market !== marketOwner || marketOwner.ownerId !== kingdom.id)) return null;
   if (kingdom && person.kingdomId != null && person.kingdomId !== kingdom.id) return null;
+  if (!kingdom && person.kingdomId != null) return null;
   const foodPrice = marketOwner.prices.food;
   const foodAmount = accountAmount(market, 'food');
   const goldHeld = accountAmount(person, 'carriedGold');
@@ -178,6 +180,20 @@ function executePersonalMarketTrade(world, person, community, marketOwner) {
   person.lastLesson = 'A troca mudou somente os estoques físicos e o ouro efetivamente existentes.';
   recordTrade(world, {
     kind: 'market', scope: 'personal', action: offer.action,
+    pricing: {
+      resource: offer.action === 'buy-food' ? 'food' : offer.resource,
+      quantity: movedResource, goldPerUnit: offer.gold / offer.amount,
+      goldTransferred: movedGold
+    },
+    balancesAfter: {
+      person: {
+        carriedGold: person.carriedGold || 0,
+        foodReserveDays: person.foodReserve || 0,
+        carriedWood: person.carriedWood || 0,
+        carriedStone: person.carriedStone || 0
+      },
+      market: tradeBalances(market)
+    },
     participants: [{
       personId: person.id, communityId: community.id,
       delta: offer.action === 'buy-food'
