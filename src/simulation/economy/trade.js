@@ -353,6 +353,10 @@ export function marketHasTradeOpportunity(w, community) {
     const canBarterFood = needsMarketFood && canSpend(market, 'food', MARKET_PURCHASES.food.amount)
       && ((canSpend(store, 'wood', 26) && canReceiveUpTo(market, 'wood', 8, 260))
         || (canSpend(store, 'stone', 18) && canReceiveUpTo(market, 'stone', 6, 260)));
+    const canCoinBuy = hasCoinFunds(store) && coinMarketNeeds(store, pen, herd)
+      .some(choice => choice.needed && coinPurchaseOffer(store, market,
+        choice.resource, MARKET_PURCHASES[choice.resource].amount,
+        MARKET_PURCHASES[choice.resource].gold));
     const canSell = MARKET_SALES.some(sale => {
       const payment = marketSaleGold(sale, marketOwner);
       return payment !== null && payment > 0
@@ -361,7 +365,7 @@ export function marketHasTradeOpportunity(w, community) {
         && canReceiveUpTo(market, sale.resource, sale.amount, sale.capacity)
         && canSpend(market, 'gold', payment);
     });
-    return canBuyFood || canBuyWood || canBuyStone || canBuyFeed || canBuySheep || canBarterFood || canSell;
+    return canBuyFood || canBuyWood || canBuyStone || canBuyFeed || canBuySheep || canBarterFood || canSell || canCoinBuy;
   }
 
 function recordFoodAidExperience(w, giver, recipient, amount, method) {
@@ -661,8 +665,21 @@ export function performTrade(w, person, community, partner) {
       const pen = nearestPenFor(w, person);
       const availablePen = availableCommunityPen(w, community.id, person);
       const herd = domesticatedSheep(w, community).length;
-      let transaction = null;
-      if (availablePen && canSpend(market, 'sheep', MARKET_PURCHASES.sheep.amount)
+      let transaction = null, coinReceipt = null;
+      if (hasCoinFunds(store)) {
+        for (const choice of coinMarketNeeds(store, availablePen || pen, herd)) {
+          if (!choice.needed) continue;
+          const order = MARKET_PURCHASES[choice.resource];
+          const offer = coinPurchaseOffer(store, market, choice.resource, order.amount, order.gold);
+          if (!offer) continue;
+          coinReceipt = settleCoinTrade(store, market, offer.priceCopper,
+            market, store, choice.resource, order.amount);
+          if (!coinReceipt) continue;
+          transaction = 'comprou ' + choice.label + ' com moedas';
+          break;
+        }
+      }
+      if (!transaction && availablePen && canSpend(market, 'sheep', MARKET_PURCHASES.sheep.amount)
           && canSpend(store, 'gold', MARKET_PURCHASES.sheep.gold)) {
         const candidates = cellsWithin(w, availablePen.x, availablePen.y, (availablePen.radius || 4) - .7, t => t.terrain === 'land' && t.slope < .5)
           .sort((a, b) => distance(a, availablePen) - distance(b, availablePen));
@@ -679,28 +696,28 @@ export function performTrade(w, person, community, partner) {
           transaction = 'comprou uma ovelha';
         }
       }
-      if (!transaction && (store.food + (store.meat || 0) * MEAT_NUTRITIONAL_VALUE) < MARKET_PURCHASES.food.reserve
+      if (!transaction && !hasCoinFunds(store) && (store.food + (store.meat || 0) * MEAT_NUTRITIONAL_VALUE) < MARKET_PURCHASES.food.reserve
           && canSpend(market, 'food', MARKET_PURCHASES.food.amount)
           && canSpend(store, 'gold', MARKET_PURCHASES.food.gold)
           && exchangeResources(store, { gold: MARKET_PURCHASES.food.gold }, market,
             { food: MARKET_PURCHASES.food.amount })) {
         transaction = 'comprou alimento';
       }
-      if (!transaction && store.wood < MARKET_PURCHASES.wood.reserve
+      if (!transaction && !hasCoinFunds(store) && store.wood < MARKET_PURCHASES.wood.reserve
           && canSpend(market, 'wood', MARKET_PURCHASES.wood.amount)
           && canSpend(store, 'gold', MARKET_PURCHASES.wood.gold)
           && exchangeResources(store, { gold: MARKET_PURCHASES.wood.gold }, market,
             { wood: MARKET_PURCHASES.wood.amount })) {
         transaction = 'comprou madeira';
       }
-      if (!transaction && store.stone < MARKET_PURCHASES.stone.reserve
+      if (!transaction && !hasCoinFunds(store) && store.stone < MARKET_PURCHASES.stone.reserve
           && canSpend(market, 'stone', MARKET_PURCHASES.stone.amount)
           && canSpend(store, 'gold', MARKET_PURCHASES.stone.gold)
           && exchangeResources(store, { gold: MARKET_PURCHASES.stone.gold }, market,
             { stone: MARKET_PURCHASES.stone.amount })) {
         transaction = 'comprou pedra';
       }
-      if (!transaction && pen && herd && store.feed < MARKET_PURCHASES.feed.reserve
+      if (!transaction && !hasCoinFunds(store) && pen && herd && store.feed < MARKET_PURCHASES.feed.reserve
           && canSpend(market, 'feed', MARKET_PURCHASES.feed.amount)
           && canSpend(store, 'gold', MARKET_PURCHASES.feed.gold)
           && exchangeResources(store, { gold: MARKET_PURCHASES.feed.gold }, market,
@@ -755,7 +772,9 @@ export function performTrade(w, person, community, partner) {
           ownerId: marketOwner.ownerId ?? null,
           delta: tradeDelta(marketBefore, tradeBalances(market))
         },
-        assetsCreated: createdAnimals.map(animal => ({ type: 'animal', id: animal.id, speciesId: animal.speciesId, count: 1 }))
+        assetsCreated: createdAnimals.map(animal => ({ type: 'animal', id: animal.id, speciesId: animal.speciesId, count: 1 })),
+        ...(coinReceipt ? { coinPayment: { priceCopper: coinReceipt.priceCopper,
+          tender: coinReceipt.tender, change: coinReceipt.change } } : {})
       }, [community, marketOwner]);
       const effects = [storeChanges, animalChange].filter(Boolean).join('; ');
       const message = community.name + ' ' + transaction + ': ' + effects + ' no mercado.';
