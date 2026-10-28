@@ -170,6 +170,71 @@ function fieldSeedMarketOrder(world, community, marketOwner) {
   return { payer, market, amount: order.amount, priceCopper, kingdomId: kingdom?.id ?? null };
 }
 
+function settleFieldSeedOrder(world, person, community, marketOwner) {
+  const order = fieldSeedMarketOrder(world, community, marketOwner);
+  if (!order) return false;
+  const storeBefore = tradeBalances(community.stores);
+  const marketBefore = tradeBalances(order.market);
+  const receipt = settleCoinTrade(order.payer, order.market, order.priceCopper,
+    order.market, community.stores, 'seeds', order.amount);
+  if (!receipt) return false;
+  marketOwner.transactions = (marketOwner.transactions || 0) + 1;
+  community.tradeCount = (community.tradeCount || 0) + 1;
+  countTradeDiagnostic(world, 'marketCompleted');
+  consumePersonEnergy(person, .35);
+  if (person.skills) person.skills.diplomacy = clamp((person.skills.diplomacy || 0) + .008, 0, 1);
+  person.state = 'comprando sementes no mercado';
+  person.lastLesson = 'Comprou sementes do estoque finito do mercado com moedas realmente disponíveis no tesouro.';
+  recordTrade(world, {
+    kind: 'market', action: 'comprou sementes para a roça',
+    participants: [
+      { personId: person.id, communityId: community.id,
+        delta: tradeDelta(storeBefore, tradeBalances(community.stores)) },
+      ...(order.kingdomId == null ? [] : [{
+        kingdomId: order.kingdomId,
+        delta: Object.fromEntries(['copper', 'silver', 'gold']
+          .map(coin => [coin, -(receipt.transfers[coin] || 0)]))
+      }])
+    ],
+    market: {
+      ownerType: marketOwner.ownerType || 'market', ownerId: marketOwner.ownerId ?? null,
+      delta: tradeDelta(marketBefore, tradeBalances(order.market))
+    },
+    coinPayment: { priceCopper: receipt.priceCopper, tender: receipt.tender, change: receipt.change },
+    assetsCreated: []
+  }, [community, marketOwner, person]);
+  const message = community.name + ' comprou ' + order.amount + ' sementes para roça; tesouro pagou '
+    + receipt.priceCopper + ' cobres equivalentes, sem emissão de moedas.';
+  community.history.push(message);
+  log(world, message, world.day + 1);
+  return true;
+}
+
+// Explicit request from the farm builder: the market trip is real, so the
+// construction plan cannot wait indefinitely for an unrelated trade decision.
+export function purchaseFieldSeedsForConstruction(world, person, community) {
+  if (!world || !person?.alive || person.role === 'soldier'
+      || person.communityId !== community?.id || !(world.people || []).includes(person)
+      || !(world.communities || []).includes(community) || community.dissolved) return 'invalid';
+  const kingdom = (world.kingdoms || []).find(item => item.communityId === community.id);
+  const marketOwner = kingdom ? kingdom.market : world.market;
+  if (!fieldSeedMarketOrder(world, community, marketOwner)) return 'unavailable';
+  const station = (world.structures || []).filter(s => operationalTradeStation(s, community, kingdom))
+    .sort((a, b) => distance(person, a) - distance(person, b) || a.id - b.id)[0];
+  if (!station) { countTradeDiagnostic(world, 'marketBlocked', 'no-market-station'); return 'no-station'; }
+  if (distance(person, station) > 2.2) {
+    const destination = cellAt(world, station.x, station.y);
+    if (!destination || !moveOne(world, person, destination, false)) {
+      countTradeDiagnostic(world, 'marketBlocked', 'route-blocked');
+      return 'route-blocked';
+    }
+    person.state = 'indo buscar sementes no mercado';
+    return 'approaching';
+  }
+  countTradeDiagnostic(world, 'marketAttempts');
+  return settleFieldSeedOrder(world, person, community, marketOwner) ? 'purchased' : 'unavailable';
+}
+
 function marketSaleGold(sale, marketOwner) {
   if (!sale.dynamicPrice) return sale.gold;
   const price = marketOwner?.prices?.[sale.resource];
@@ -707,20 +772,10 @@ export function performTrade(w, person, community, partner) {
       const pen = nearestPenFor(w, person);
       const availablePen = availableCommunityPen(w, community.id, person);
       const herd = domesticatedSheep(w, community).length;
-      let transaction = null, coinReceipt = null, seedFunding = null;
-      const seedOrder = fieldSeedMarketOrder(w, community, marketOwner);
-      if (seedOrder) {
-        coinReceipt = settleCoinTrade(seedOrder.payer, seedOrder.market, seedOrder.priceCopper,
-          seedOrder.market, store, 'seeds', seedOrder.amount);
-        if (coinReceipt) {
-          transaction = 'comprou sementes para a roça';
-          seedFunding = seedOrder.kingdomId == null ? null
-            : { kingdomId: seedOrder.kingdomId,
-              delta: Object.fromEntries(['copper', 'silver', 'gold']
-                .map(coin => [coin, -(coinReceipt.transfers[coin] || 0)])) };
-        }
-      }
-      if (!transaction && hasCoinFunds(store)) {
+      if (fieldSeedMarketOrder(w, community, marketOwner)
+          && settleFieldSeedOrder(w, person, community, marketOwner)) return true;
+      let transaction = null, coinReceipt = null;
+      if (hasCoinFunds(store)) {
         for (const choice of coinMarketNeeds(store, availablePen || pen, herd)) {
           if (!choice.needed) continue;
           const order = MARKET_PURCHASES[choice.resource];
@@ -825,8 +880,7 @@ export function performTrade(w, person, community, partner) {
         kind: 'market',
         action: transaction,
         participants: [{ personId: person.id, communityId: community.id,
-          delta: tradeDelta(tradeStoreBefore, tradeBalances(store)) },
-          ...(seedFunding ? [seedFunding] : [])],
+          delta: tradeDelta(tradeStoreBefore, tradeBalances(store)) }],
         market: {
           ownerType: marketOwner.ownerType || 'market',
           ownerId: marketOwner.ownerId ?? null,
