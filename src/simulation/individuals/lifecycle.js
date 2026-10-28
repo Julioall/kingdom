@@ -11,6 +11,7 @@ import { assignHome } from '../kingdoms/initialization.js';
 import { moveOne } from './movement.js';
 import { consumePersonEnergy } from './energy.js';
 import { abandonSocialIntentionsForPerson } from '../society/social-evidence.js';
+import { releaseSeedCargo } from '../economy/seed-cargo.js';
 
 const DEPENDENT_STARVATION_HEALTH_LOSS_PER_POINT = .035;
 const SHELTER_RESIDENT_CAPACITY = 13;
@@ -77,6 +78,8 @@ export function makePerson(w, x, y, newborn) {
       health: newborn ? 82 : 82 + rand(w) * 18, injury: 0, carriedFood: 0, carriedFruit: 0, carriedMeat: 0, carriedMaterial: 0,
       carriedWood: 0, carriedStone: 0, carriedFeed: 0, carriedGold: 0,
       carriedCopper: 0, carriedSilver: 0, carriedIron: 0,
+      carriedSeeds: 0, carriedCommunitySeeds: 0, seedCargoCommunityId: null,
+      seedCargoPurpose: null, seedCargoFieldId: null,
       personalWallet: { stock: { gold: 0 } }, headingX: (rand(w) - .5) * 2, headingY: (rand(w) - .5) * 2,
       leadingSheepId: null, prestige: 0, loyalty: .8, assignment: null, dissatisfactionDays: 0,
       sensoryMemory: { actors: {}, water: [] }, perception: null,
@@ -142,6 +145,9 @@ export function addIndividuals(w, count, initial) {
 
 export function killPerson(w, person, cause) {
     if (!person.alive) return;
+    // Preserve both personally gathered and commissioned seeds at the exact
+    // death location. The old owner may recover community cargo by walking there.
+    releaseSeedCargo(w, person, { reason: 'death', includePersonal: true });
     person.alive = false; w.deaths++;
     person.deathKingdomId = person.kingdomId;
     person.deathDay = w.day + 1;
