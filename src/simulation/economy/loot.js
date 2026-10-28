@@ -46,7 +46,8 @@ export function dropStructureLoot(world, structure, day) {
 
 export function nearestLoot(world, person, radius = 7) {
   if (!person.alive || carriedResources(person) >= 24) return null;
-  return (world.loot || []).filter(p => p.available && Object.values(p.resources).some(n => n > .001)
+  return (world.loot || []).filter(p => p.available && Object.entries(p.resources).some(([resource, amount]) =>
+    amount > .001 && !(person.role === 'soldier' && resource === 'stone'))
     && distance(person, p) <= radius).sort((a, b) => distance(person, a) - distance(person, b) || a.id - b.id)[0] || null;
 }
 
@@ -56,6 +57,7 @@ export function collectLoot(world, person, pile) {
   let capacity = Math.max(0, 24 - carriedResources(person)), collected = 0;
   const order = person.foodReserve < 24 ? ['food', 'meat', 'gold', 'wood', 'stone', 'feed'] : ['gold', 'wood', 'stone', 'food', 'meat', 'feed'];
   for (const resource of order) {
+    if (person.role === 'soldier' && resource === 'stone') continue;
     const moved = transferResource(pile.resources, person, resource, Math.min(capacity, pile.resources[resource] || 0), LOOT_CARGO[resource]);
     capacity -= moved; collected += moved;
   }
