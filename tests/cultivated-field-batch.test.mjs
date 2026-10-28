@@ -81,9 +81,24 @@ test('a mature field can be collected as one finite batch and stays visually emp
   community.stores.seeds = 4;
   workers[0].assignment = { source: 'kingdom-strategy', action: 'build', goal: 'replant-cultivated-food',
     communityId: community.id, expiresDay: world.day + 10, foodFieldId: field.id };
+  assert.equal(workOnReplantingField(world, workers[0], community, field.id), false,
+    'the farmer cannot withdraw seeds remotely while standing at the field');
+  assert.equal(community.stores.seeds, 4, 'stock remains at storage until physical pickup');
+  const seedStorage = world.structures.find(s => s.complete && s.communityId === community.id
+    && ['vila', 'abrigo', 'posto de coleta'].includes(s.type) && s.destroyedDay == null);
+  assert.ok(seedStorage);
+  workers[0].x = seedStorage.x;
+  workers[0].y = seedStorage.y;
+  assert.equal(workOnReplantingField(world, workers[0], community, field.id), false,
+    'pickup creates an owned courier load, not an instant crop');
+  assert.equal(community.stores.seeds, 0, 'the exact seed mass leaves shared stock at the storage building');
+  assert.equal(workers[0].carriedCommunitySeeds, 4);
+  assert.equal(workers[0].seedCargoFieldId, field.id);
+  workers[0].x = fieldTile.x;
+  workers[0].y = fieldTile.y;
   assert.equal(workOnReplantingField(world, workers[0], community, field.id), true,
-    'a resident can replant the spent field from the reserved community seed stock');
-  assert.equal(community.stores.seeds, 0, 'planting debits the exact seed mass from shared stock');
+    'sowing begins only after the worker physically delivers the reserved lot to the field');
+  assert.equal(workers[0].carriedCommunitySeeds, 0);
   assert.equal(field.cropYieldTarget, 5_000, 'the next crop scales down with the smaller seed lot');
   assert.equal(field.cropCycleState, 'growing');
   assert.equal(completeCommunityTask(world, workers[0], 'build', { buildProgress: 34 }, { buildProgress: 34 }), true,
