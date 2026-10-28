@@ -27,7 +27,9 @@ export function exchangeAtRoyalCastle(world, kingdomId, castleId, fromCoin, toCo
   const settlement = world.settlements?.find(item => item.kingdomId === kingdomId && item.castleId === castleId);
   const treasury = kingdom?.treasury?.stock;
   const market = kingdom?.market?.stock;
-  if (!kingdom || !castle || !settlement || !treasury || !market || treasury === market)
+  if (!kingdom || !castle || !settlement || !treasury || !market || treasury === market
+      || kingdom.treasury.ownerId !== kingdom.id || kingdom.market.ownerId !== kingdom.id
+      || kingdom.market.ownerType !== 'kingdom-market')
     return { ok: false, reason: 'É necessário um castelo operacional e o mercado do mesmo reino.' };
   const goldBefore = currencyValueCopper(treasury), marketBefore = currencyValueCopper(market);
   if (![treasury, market].every(account => COIN_TYPES.every(coin =>
