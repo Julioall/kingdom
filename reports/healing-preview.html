@@ -1,0 +1,20 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><base href="/"><title>Verificação da cura em área</title>
+<style>body{margin:0;background:#18372d;color:#f4e8cb;font:16px system-ui;text-align:center}h1{font-size:24px;margin:24px 0 8px}p{margin:8px}canvas{width:960px;max-width:100%;image-rendering:pixelated}button{padding:10px 22px;margin:12px;background:#e7d4a5;border:0;border-radius:5px;font:inherit}</style>
+<h1>Cura em área · partículas nos aliados curados</h1><p>O clérigo prioriza o mais ferido. O aliado próximo também recebe cura; o personagem fora da área permanece ferido.</p>
+<canvas id="preview" width="960" height="410"></canvas><br><button id="cast">Repetir feitiço</button><p id="result"></p>
+<script type="module">
+import { castAreaHealing } from '/src/simulation/kingdoms/military.js';
+import { createActivityEffects } from '/src/ui/person-animations.js';
+import { createAnimationRenderer, getUnitAnimation } from '/src/ui/animations.js';
+const make=(id,x,health,militaryClass)=>({id,x,y:4,health,militaryClass,role:'soldier',alive:true,kingdomId:1,maxCombatHealth:300,injury:1});
+const people=[make(1,2,100,'monge'),make(2,7,20,'guerreiro'),make(3,9,55,'arqueiro'),make(4,13,50,'lanceiro')];
+const world={day:0,width:20,people,kingdoms:[{id:1,palette:'blue'}],tiles:Array.from({length:400},()=>({terrain:'land'}))};
+const effects=createActivityEffects(),renderer=createAnimationRenderer();
+const canvas=document.getElementById('preview'),ctx=canvas.getContext('2d');
+await Promise.all([renderer.load(getUnitAnimation('monge','heal-effect')), ...people.map(p=>renderer.load(getUnitAnimation(p.militaryClass,p.id===1?'heal':'idle')))]);
+let started=0;
+function cast(){people.forEach((p,i)=>p.health=[100,20,55,50][i]);world.day+=6;effects.observe(world,performance.now(),true);castAreaHealing(world,people[0],people,world.day);started=performance.now();effects.observe(world,started);document.getElementById('result').textContent='Vida após a cura: '+people.map(p=>Math.round(p.health)+'%').join(' · ');}
+document.getElementById('cast').onclick=cast;
+function draw(now){ctx.clearRect(0,0,960,410);ctx.fillStyle='#365d40';ctx.fillRect(25,100,910,250);for(const p of people){const x=p.x*55+25,y=265;renderer.draw(ctx,getUnitAnimation(p.militaryClass,p.id===1?'heal':'idle'),x,y,{elapsedMs:now-started,scale:1.1,loop:true});ctx.fillStyle='#172b20';ctx.fillRect(x-28,y+8,56,7);ctx.fillStyle='#8fdc91';ctx.fillRect(x-27,y+9,54*p.health/100,5);ctx.fillStyle='#fff2d0';ctx.font='14px system-ui';ctx.textAlign='center';ctx.fillText(['Clérigo','Prioridade: mais ferido','Aliado na área','Fora da área'][p.id-1],x,310);ctx.fillText(Math.round(p.health)+'%',x,335);}for(const e of effects.active(now)){const p=people.find(p=>p.id===e.personId);if(p)renderer.draw(ctx,e.animation,p.x*55+25,265,{elapsedMs:now-e.startedAt,scale:1.1});}requestAnimationFrame(draw);}
+cast();requestAnimationFrame(draw);
+</script></html>

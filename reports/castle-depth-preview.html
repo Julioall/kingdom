@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="pt-BR">
+<meta charset="utf-8">
+<title>Castelo — profundidade</title>
+<style>
+body{margin:0;padding:24px;background:#213b2b;color:#f2e4bb;font:18px Georgia,serif}h1{font-size:24px;margin:0 0 20px}main{display:flex;gap:24px;flex-wrap:wrap}article{margin:0}h2{font-size:19px;margin:0 0 10px}canvas{display:block;background:#779b50;image-rendering:pixelated;border:2px solid #bd9854}p{max-width:970px;line-height:1.5;font-size:16px}output{display:block;margin-top:16px;color:#c9ecae}
+</style>
+<h1>Personagem passando pela frente do castelo</h1>
+<main>
+  <article><h2>Antes</h2><canvas id="before" width="448" height="380"></canvas></article>
+  <article><h2>Corrigido</h2><canvas id="after" width="448" height="380"></canvas></article>
+</main>
+<p>Mesma posição e mesmos sprites nas duas cenas. O personagem junto à entrada está fora da área de colisão. Quem está atrás continua sendo encoberto pelo castelo.</p>
+<output id="result">Carregando…</output>
+<script type="module">
+import { structureDepthY } from '/src/ui/world-depth.js';
+import { BUILDING_FEET } from '/src/ui/map-camera.js';
+import { CHARACTER_SPRITE_SCALE } from '/src/ui/military-sprites.js';
+import { structureHitbox, npcHitbox, hitboxesOverlap } from '/src/simulation/physics/hitboxes.js';
+import { getUnitAnimation } from '/src/ui/animations.js';
+const tile=64,castle={id:1,type:'castelo',complete:true,x:3,y:4.2};
+const footprint=structureHitbox(castle);
+const front={id:2,x:2.2,y:4.08,ageDays:9000},rear={id:3,x:3.6,y:1.65,ageDays:9000};
+const pawn=getUnitAnimation('pawn','idle','blue');
+const load=src=>new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=reject;image.src=src});
+const [building,person]=await Promise.all([load('/assets/tiny-swords/buildings/blue/castle.png'),load('/'+pawn.url)]);
+function draw(id,corrected){
+  const ctx=document.getElementById(id).getContext('2d');ctx.imageSmoothingEnabled=false;
+  const items=[{name:'castle',y:corrected?structureDepthY(castle,footprint):castle.y},
+    {name:'rear',...rear},{name:'front',...front}].sort((a,b)=>a.y-b.y);
+  for(const item of items){
+    if(item.name==='castle')ctx.drawImage(building,(castle.x+.5)*tile-building.width/2,(castle.y+1)*tile-BUILDING_FEET.castle);
+    else ctx.drawImage(person,0,0,pawn.frameWidth,pawn.frameHeight,
+      (item.x+.5)*tile-pawn.anchor.x*CHARACTER_SPRITE_SCALE,(item.y+1)*tile-pawn.anchor.y*CHARACTER_SPRITE_SCALE,
+      pawn.frameWidth*CHARACTER_SPRITE_SCALE,pawn.frameHeight*CHARACTER_SPRITE_SCALE);
+  }
+  return items.map(item=>item.name).join(',');
+}
+const before=draw('before',false),after=draw('after',true);
+const ok=before==='rear,front,castle'&&after==='rear,castle,front'
+  &&[front,rear].every(actor=>!hitboxesOverlap(npcHitbox(actor),footprint));
+document.getElementById('result').textContent=ok?'Verificado: frente visível, fundo encoberto, sem colisão.':'Falha na verificação';
+document.getElementById('result').dataset.passed=String(ok);
+</script>
+</html>

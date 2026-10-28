@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="pt-BR">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<base href="/">
+<title>Kingdom · Animações aplicadas</title>
+<style>
+  *{box-sizing:border-box}body{margin:0;padding:16px;background:#e8e8d9;color:#263d2e;font:14px system-ui}
+  main{max-width:760px;margin:auto}h1{font:600 24px Georgia;margin:0 0 8px}p{font-size:12px;line-height:1.5;margin:0 0 16px}
+  section{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}figure{margin:0;background:#c4d39f;border:1px solid #9cab80;border-radius:8px;overflow:hidden}
+  canvas{display:block;width:100%;height:auto;image-rendering:pixelated}figcaption{text-align:center;font-size:11px;padding:8px 2px;background:#f4f2e4}
+</style>
+<main><h1>Animações aplicadas</h1><p>Poses e efeitos usados pelo jogo nas ações existentes. Prévia com o mesmo catálogo, seleção de poses e renderer da simulação.</p><section id="grid"></section><p id="status">Carregando sprites…</p></main>
+<script type="module">
+  import {getUnitAnimation,getAnimation,createAnimationRenderer} from '/src/ui/animations.js';
+  import {residentSpritePose} from '/src/ui/person-animations.js';
+  const renderer=createAnimationRenderer();
+  const cases=[
+    ['Madeira · transporte',{carriedWood:4},true],['Ouro · transporte',{carriedGold:2},true],['Carne · transporte',{carriedMeat:4},true],
+    ['Madeira · parado',{carriedWood:4},false],['Ouro · parado',{carriedGold:2},false],['Carne · parado',{carriedMeat:4},false],
+    ['Mineração',{state:'extraindo ouro'},false],['Corte de árvore',{state:'derrubando árvore'},false],['Construção',{state:'construindo casa'},false],
+    ['Guarda','unit.blue.lancer.defend-right'],['Poeira','effect.dust-02'],['Respingo','effect.water-splash']
+  ];
+  const cards=cases.map(([label,person,moving])=>{
+    const figure=document.createElement('figure'),canvas=document.createElement('canvas'),caption=document.createElement('figcaption');
+    canvas.width=160;canvas.height=150;caption.textContent=label;figure.append(canvas,caption);document.querySelector('#grid').append(figure);
+    const animation=typeof person==='string'?getAnimation(person):getUnitAnimation('pawn',residentSpritePose({state:'',brain:{lastAction:'rest'},...person},{moving,dirX:1},1).action,'blue');
+    return {canvas,animation};
+  });
+  await Promise.all(cards.map(card=>renderer.load(card.animation)));
+  document.querySelector('#status').textContent='12 estados carregados e reproduzindo.';
+  function frame(now){for(const {canvas,animation} of cards){const ctx=canvas.getContext('2d');ctx.clearRect(0,0,160,150);renderer.draw(ctx,animation,80,animation.category==='effect'?78:128,{elapsedMs:now,loop:true,scale:animation.id.includes('lancer')?.9:1.2});}requestAnimationFrame(frame);}
+  requestAnimationFrame(frame);
+</script>
+</html>

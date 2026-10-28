@@ -1,0 +1,326 @@
+[
+  {
+    "day": 20,
+    "alive": 200,
+    "towers": [
+      {
+        "id": 44,
+        "archer": 164,
+        "shifts": 1
+      },
+      {
+        "id": 45,
+        "archer": 143,
+        "shifts": 1
+      },
+      {
+        "id": 46,
+        "archer": 72,
+        "shifts": 1
+      },
+      {
+        "id": 47,
+        "archer": 83,
+        "shifts": 1
+      },
+      {
+        "id": 64,
+        "archer": 260,
+        "shifts": 1
+      },
+      {
+        "id": 65,
+        "archer": 253,
+        "shifts": 1
+      },
+      {
+        "id": 66,
+        "archer": 169,
+        "shifts": 1
+      },
+      {
+        "id": 67,
+        "archer": 201,
+        "shifts": 1
+      }
+    ],
+    "arrows": 0,
+    "mana": [
+      29,
+      59,
+      89,
+      29,
+      59,
+      59,
+      29,
+      59,
+      59,
+      29
+    ],
+    "stamina": 100
+  },
+  {
+    "day": 40,
+    "alive": 201,
+    "towers": [
+      {
+        "id": 44,
+        "archer": 164,
+        "shifts": 1
+      },
+      {
+        "id": 45,
+        "archer": 143,
+        "shifts": 1
+      },
+      {
+        "id": 46,
+        "archer": 72,
+        "shifts": 1
+      },
+      {
+        "id": 47,
+        "archer": 83,
+        "shifts": 1
+      },
+      {
+        "id": 64,
+        "archer": 260,
+        "shifts": 1
+      },
+      {
+        "id": 65,
+        "archer": 253,
+        "shifts": 1
+      },
+      {
+        "id": 66,
+        "archer": 169,
+        "shifts": 1
+      },
+      {
+        "id": 67,
+        "archer": 201,
+        "shifts": 1
+      }
+    ],
+    "arrows": 0,
+    "mana": [
+      49,
+      79,
+      100,
+      100,
+      49,
+      79,
+      49,
+      51,
+      79,
+      79,
+      57,
+      72
+    ],
+    "stamina": 100
+  },
+  {
+    "day": 60,
+    "alive": 202,
+    "towers": [
+      {
+        "id": 44,
+        "archer": 164,
+        "shifts": 1
+      },
+      {
+        "id": 45,
+        "archer": null,
+        "shifts": 1
+      },
+      {
+        "id": 46,
+        "archer": null,
+        "shifts": 1
+      },
+      {
+        "id": 47,
+        "archer": null,
+        "shifts": 1
+      },
+      {
+        "id": 64,
+        "archer": 260,
+        "shifts": 1
+      },
+      {
+        "id": 65,
+        "archer": 253,
+        "shifts": 2
+      },
+      {
+        "id": 66,
+        "archer": null,
+        "shifts": 1
+      },
+      {
+        "id": 67,
+        "archer": 201,
+        "shifts": 1
+      }
+    ],
+    "arrows": 0,
+    "mana": [
+      100,
+      69,
+      99,
+      100,
+      100,
+      69,
+      99,
+      43,
+      75,
+      99,
+      100,
+      81,
+      92,
+      100
+    ],
+    "stamina": 100
+  },
+  {
+    "day": 80,
+    "alive": 201,
+    "towers": [
+      {
+        "id": 44,
+        "archer": 140,
+        "shifts": 3
+      },
+      {
+        "id": 45,
+        "archer": null,
+        "shifts": 1
+      },
+      {
+        "id": 46,
+        "archer": null,
+        "shifts": 1
+      },
+      {
+        "id": 47,
+        "archer": null,
+        "shifts": 1
+      },
+      {
+        "id": 64,
+        "archer": 260,
+        "shifts": 1
+      },
+      {
+        "id": 65,
+        "archer": null,
+        "shifts": 6
+      },
+      {
+        "id": 66,
+        "archer": 169,
+        "shifts": 3
+      },
+      {
+        "id": 67,
+        "archer": null,
+        "shifts": 2
+      },
+      {
+        "id": 334,
+        "archer": null,
+        "shifts": 0
+      }
+    ],
+    "arrows": 31,
+    "mana": [
+      100,
+      59,
+      100,
+      100,
+      73,
+      59,
+      48,
+      35,
+      99,
+      100,
+      100,
+      100,
+      100,
+      100
+    ],
+    "stamina": 0
+  },
+  {
+    "day": 100,
+    "alive": 197,
+    "towers": [
+      {
+        "id": 44,
+        "archer": null,
+        "shifts": 4
+      },
+      {
+        "id": 45,
+        "archer": null,
+        "shifts": 1
+      },
+      {
+        "id": 46,
+        "archer": null,
+        "shifts": 1
+      },
+      {
+        "id": 47,
+        "archer": null,
+        "shifts": 1
+      },
+      {
+        "id": 64,
+        "archer": null,
+        "shifts": 2
+      },
+      {
+        "id": 65,
+        "archer": null,
+        "shifts": 8
+      },
+      {
+        "id": 66,
+        "archer": null,
+        "shifts": 3
+      },
+      {
+        "id": 67,
+        "archer": null,
+        "shifts": 2
+      },
+      {
+        "id": 334,
+        "archer": null,
+        "shifts": 0
+      }
+    ],
+    "arrows": 74,
+    "mana": [
+      52,
+      21,
+      33,
+      100,
+      11,
+      25,
+      16,
+      3,
+      62,
+      30,
+      33,
+      34,
+      0,
+      50
+    ],
+    "stamina": 15
+  }
+]

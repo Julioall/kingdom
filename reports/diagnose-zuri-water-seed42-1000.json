@@ -1,0 +1,4229 @@
+{
+  "seed": 42,
+  "days": 1000,
+  "layout": "default",
+  "focusedPeople": [
+    {
+      "id": 66,
+      "name": "Zuri O",
+      "alive": true,
+      "current": {
+        "kingdomId": null,
+        "communityId": null,
+        "x": 62,
+        "y": 79,
+        "health": 2.65,
+        "hydration": 35.16,
+        "foodReserve": 8.26,
+        "action": "forage",
+        "state": "coletando alimento"
+      },
+      "history": [
+        {
+          "day": 875,
+          "health": 4.98,
+          "hydration": 18.16,
+          "foodReserve": 3.4,
+          "waterTarget": {
+            "x": 54,
+            "y": 74,
+            "distance": 1.41,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 3.68
+          },
+          "knownWater": [
+            {
+              "x": 54,
+              "y": 74,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 874,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.68
+            },
+            {
+              "x": 55,
+              "y": 74,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 874,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.67
+            },
+            {
+              "x": 54,
+              "y": 75,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 874,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.39
+            },
+            {
+              "x": 54,
+              "y": 73,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 873,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.93
+            },
+            {
+              "x": 55,
+              "y": 73,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 874,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 8.74
+            }
+          ],
+          "waterCue": {
+            "x": 55,
+            "y": 74,
+            "distance": 1,
+            "soilWaterMm": 129.83
+          },
+          "action": "forage",
+          "state": "procurando alimento",
+          "x": 55,
+          "y": 73,
+          "kingdomId": null
+        },
+        {
+          "day": 876,
+          "health": 4.97,
+          "hydration": 17.7,
+          "foodReserve": 3.29,
+          "waterTarget": {
+            "x": 55,
+            "y": 73,
+            "distance": 0,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 11.46
+          },
+          "knownWater": [
+            {
+              "x": 55,
+              "y": 73,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 875,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 11.46
+            },
+            {
+              "x": 55,
+              "y": 74,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 874,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 7.09
+            },
+            {
+              "x": 54,
+              "y": 74,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 0.287,
+              "lastSeenDay": 874,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.89
+            },
+            {
+              "x": 55,
+              "y": 71,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 1,
+              "lastSeenDay": 875,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.18
+            },
+            {
+              "x": 54,
+              "y": 71,
+              "source": "runoff",
+              "distance": 2.24,
+              "confidence": 1,
+              "lastSeenDay": 875,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.31
+            }
+          ],
+          "waterCue": {
+            "x": 55,
+            "y": 72,
+            "distance": 1,
+            "soilWaterMm": 132
+          },
+          "action": "forage",
+          "state": "coletando alimento",
+          "x": 55,
+          "y": 73,
+          "kingdomId": null
+        },
+        {
+          "day": 877,
+          "health": 4.96,
+          "hydration": 17.24,
+          "foodReserve": 2.51,
+          "waterTarget": {
+            "x": 55,
+            "y": 73,
+            "distance": 1.41,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 10.66
+          },
+          "knownWater": [
+            {
+              "x": 55,
+              "y": 73,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 876,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 10.66
+            },
+            {
+              "x": 55,
+              "y": 71,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 1,
+              "lastSeenDay": 876,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.38
+            },
+            {
+              "x": 54,
+              "y": 71,
+              "source": "runoff",
+              "distance": 2.24,
+              "confidence": 1,
+              "lastSeenDay": 876,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.51
+            },
+            {
+              "x": 53,
+              "y": 71,
+              "source": "runoff",
+              "distance": 2.83,
+              "confidence": 1,
+              "lastSeenDay": 876,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.82
+            },
+            {
+              "x": 55,
+              "y": 70,
+              "source": "runoff",
+              "distance": 3,
+              "confidence": 1,
+              "lastSeenDay": 876,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.26
+            }
+          ],
+          "waterCue": {
+            "x": 56,
+            "y": 73,
+            "distance": 1,
+            "soilWaterMm": 131.64
+          },
+          "action": "forage",
+          "state": "procurando alimento",
+          "x": 56,
+          "y": 74,
+          "kingdomId": null
+        },
+        {
+          "day": 878,
+          "health": 4.95,
+          "hydration": 16.78,
+          "foodReserve": 1.73,
+          "waterTarget": {
+            "x": 55,
+            "y": 75,
+            "distance": 1,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 2.58
+          },
+          "knownWater": [
+            {
+              "x": 55,
+              "y": 75,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 877,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.58
+            },
+            {
+              "x": 55,
+              "y": 73,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 0.287,
+              "lastSeenDay": 876,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 9.86
+            },
+            {
+              "x": 55,
+              "y": 76,
+              "source": "runoff",
+              "distance": 2.24,
+              "confidence": 1,
+              "lastSeenDay": 877,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.27
+            },
+            {
+              "x": 54,
+              "y": 76,
+              "source": "runoff",
+              "distance": 2.83,
+              "confidence": 1,
+              "lastSeenDay": 877,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.14
+            },
+            {
+              "x": 55,
+              "y": 77,
+              "source": "runoff",
+              "distance": 3.16,
+              "confidence": 1,
+              "lastSeenDay": 877,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.09
+            }
+          ],
+          "waterCue": {
+            "x": 56,
+            "y": 75,
+            "distance": 0,
+            "soilWaterMm": 131.22
+          },
+          "action": "forage",
+          "state": "procurando alimento",
+          "x": 56,
+          "y": 75,
+          "kingdomId": null
+        },
+        {
+          "day": 879,
+          "health": 4.94,
+          "hydration": 16.32,
+          "foodReserve": 0.95,
+          "waterTarget": {
+            "x": 55,
+            "y": 75,
+            "distance": 1.41,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 1.78
+          },
+          "knownWater": [
+            {
+              "x": 55,
+              "y": 75,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 878,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.78
+            },
+            {
+              "x": 55,
+              "y": 76,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 878,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.47
+            },
+            {
+              "x": 54,
+              "y": 75,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 1,
+              "lastSeenDay": 878,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.42
+            },
+            {
+              "x": 55,
+              "y": 77,
+              "source": "runoff",
+              "distance": 2.24,
+              "confidence": 1,
+              "lastSeenDay": 878,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.29
+            },
+            {
+              "x": 54,
+              "y": 76,
+              "source": "runoff",
+              "distance": 2.24,
+              "confidence": 0.287,
+              "lastSeenDay": 877,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.34
+            }
+          ],
+          "waterCue": {
+            "x": 57,
+            "y": 75,
+            "distance": 1.41,
+            "soilWaterMm": 132
+          },
+          "action": "forage",
+          "state": "procurando alimento",
+          "x": 56,
+          "y": 76,
+          "kingdomId": null
+        },
+        {
+          "day": 880,
+          "health": 4.94,
+          "hydration": 15.86,
+          "foodReserve": 0.17,
+          "waterTarget": {
+            "x": 55,
+            "y": 76,
+            "distance": 1.41,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 1.67
+          },
+          "knownWater": [
+            {
+              "x": 55,
+              "y": 76,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 879,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.67
+            },
+            {
+              "x": 55,
+              "y": 75,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 0.287,
+              "lastSeenDay": 878,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 0.98
+            },
+            {
+              "x": 55,
+              "y": 77,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 0.287,
+              "lastSeenDay": 878,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.49
+            },
+            {
+              "x": 54,
+              "y": 77,
+              "source": "runoff",
+              "distance": 2.24,
+              "confidence": 1,
+              "lastSeenDay": 879,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.07
+            },
+            {
+              "x": 54,
+              "y": 75,
+              "source": "runoff",
+              "distance": 2.24,
+              "confidence": 0.287,
+              "lastSeenDay": 878,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.62
+            }
+          ],
+          "waterCue": {
+            "x": 56,
+            "y": 77,
+            "distance": 0,
+            "soilWaterMm": 87.59
+          },
+          "action": "forage",
+          "state": "procurando alimento",
+          "x": 56,
+          "y": 77,
+          "kingdomId": null
+        },
+        {
+          "day": 881,
+          "health": 4.65,
+          "hydration": 15.4,
+          "foodReserve": 0,
+          "waterTarget": {
+            "x": 57,
+            "y": 77,
+            "distance": 1.41,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 4.05
+          },
+          "knownWater": [
+            {
+              "x": 57,
+              "y": 77,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 880,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.05
+            },
+            {
+              "x": 57,
+              "y": 78,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 880,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.4
+            },
+            {
+              "x": 55,
+              "y": 76,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 0.287,
+              "lastSeenDay": 879,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 0.87
+            },
+            {
+              "x": 54,
+              "y": 77,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 1,
+              "lastSeenDay": 880,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.27
+            },
+            {
+              "x": 58,
+              "y": 77,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 1,
+              "lastSeenDay": 880,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.31
+            }
+          ],
+          "waterCue": {
+            "x": 57,
+            "y": 77,
+            "distance": 1.41,
+            "soilWaterMm": 88
+          },
+          "action": "forage",
+          "state": "procurando alimento",
+          "x": 56,
+          "y": 78,
+          "kingdomId": null
+        },
+        {
+          "day": 882,
+          "health": 4.29,
+          "hydration": 14.94,
+          "foodReserve": 0,
+          "waterTarget": {
+            "x": 57,
+            "y": 78,
+            "distance": 1.41,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 2.6
+          },
+          "knownWater": [
+            {
+              "x": 57,
+              "y": 78,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 881,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.6
+            },
+            {
+              "x": 57,
+              "y": 79,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 881,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.26
+            },
+            {
+              "x": 57,
+              "y": 77,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 0.287,
+              "lastSeenDay": 880,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.25
+            },
+            {
+              "x": 58,
+              "y": 78,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 1,
+              "lastSeenDay": 881,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.31
+            },
+            {
+              "x": 58,
+              "y": 79,
+              "source": "runoff",
+              "distance": 2.24,
+              "confidence": 1,
+              "lastSeenDay": 881,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.6
+            }
+          ],
+          "waterCue": {
+            "x": 56,
+            "y": 79,
+            "distance": 0,
+            "soilWaterMm": 131.64
+          },
+          "action": "forage",
+          "state": "procurando alimento",
+          "x": 56,
+          "y": 79,
+          "kingdomId": null
+        },
+        {
+          "day": 883,
+          "health": 3.94,
+          "hydration": 14.48,
+          "foodReserve": 0,
+          "waterTarget": {
+            "x": 57,
+            "y": 79,
+            "distance": 1,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 2.46
+          },
+          "knownWater": [
+            {
+              "x": 57,
+              "y": 79,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 882,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.46
+            },
+            {
+              "x": 57,
+              "y": 80,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 882,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.62
+            },
+            {
+              "x": 57,
+              "y": 78,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 0.287,
+              "lastSeenDay": 881,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.8
+            },
+            {
+              "x": 58,
+              "y": 79,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 1,
+              "lastSeenDay": 882,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.8
+            },
+            {
+              "x": 56,
+              "y": 81,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 1,
+              "lastSeenDay": 882,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.26
+            }
+          ],
+          "waterCue": {
+            "x": 55,
+            "y": 80,
+            "distance": 2,
+            "soilWaterMm": 132
+          },
+          "action": "forage",
+          "state": "procurando alimento",
+          "x": 57,
+          "y": 80,
+          "kingdomId": null
+        },
+        {
+          "day": 884,
+          "health": 3.58,
+          "hydration": 14.02,
+          "foodReserve": 1.33,
+          "waterTarget": {
+            "x": 57,
+            "y": 80,
+            "distance": 0,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 2.34
+          },
+          "knownWater": [
+            {
+              "x": 57,
+              "y": 80,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 883,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.34
+            },
+            {
+              "x": 58,
+              "y": 80,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 883,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.19
+            },
+            {
+              "x": 57,
+              "y": 79,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 882,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.33
+            },
+            {
+              "x": 58,
+              "y": 79,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 883,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.86
+            },
+            {
+              "x": 56,
+              "y": 81,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 0.287,
+              "lastSeenDay": 882,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.46
+            }
+          ],
+          "waterCue": {
+            "x": 58,
+            "y": 80,
+            "distance": 1,
+            "soilWaterMm": 132
+          },
+          "action": "forage",
+          "state": "coletando alimento",
+          "x": 57,
+          "y": 80,
+          "kingdomId": null
+        },
+        {
+          "day": 885,
+          "health": 3.57,
+          "hydration": 32.06,
+          "foodReserve": 0.55,
+          "waterTarget": {
+            "x": 58,
+            "y": 79,
+            "distance": 1.41,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 3.06
+          },
+          "knownWater": [
+            {
+              "x": 57,
+              "y": 80,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 884,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 0
+            },
+            {
+              "x": 58,
+              "y": 80,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 883,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.39
+            },
+            {
+              "x": 58,
+              "y": 79,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 884,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.06
+            },
+            {
+              "x": 56,
+              "y": 81,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 884,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.93
+            },
+            {
+              "x": 59,
+              "y": 80,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 0.287,
+              "lastSeenDay": 883,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.25
+            }
+          ],
+          "waterCue": {
+            "x": 58,
+            "y": 80,
+            "distance": 1,
+            "soilWaterMm": 131.61
+          },
+          "action": "drink",
+          "state": "bebendo água",
+          "x": 57,
+          "y": 80,
+          "kingdomId": null
+        },
+        {
+          "day": 886,
+          "health": 3.46,
+          "hydration": 31.6,
+          "foodReserve": 0,
+          "waterTarget": {
+            "x": 57,
+            "y": 80,
+            "distance": 1.41,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 3.37
+          },
+          "knownWater": [
+            {
+              "x": 57,
+              "y": 80,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 885,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.37
+            },
+            {
+              "x": 58,
+              "y": 80,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 885,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.3
+            },
+            {
+              "x": 58,
+              "y": 79,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 885,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 6.44
+            },
+            {
+              "x": 56,
+              "y": 81,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 0.287,
+              "lastSeenDay": 884,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.13
+            },
+            {
+              "x": 59,
+              "y": 80,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 1,
+              "lastSeenDay": 885,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.8
+            }
+          ],
+          "waterCue": {
+            "x": 58,
+            "y": 80,
+            "distance": 2.24,
+            "soilWaterMm": 132
+          },
+          "action": "forage",
+          "state": "procurando alimento",
+          "x": 56,
+          "y": 81,
+          "kingdomId": null
+        },
+        {
+          "day": 887,
+          "health": 3.1,
+          "hydration": 31.14,
+          "foodReserve": 0,
+          "waterTarget": {
+            "x": 55,
+            "y": 81,
+            "distance": 1.41,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 5.55
+          },
+          "knownWater": [
+            {
+              "x": 55,
+              "y": 81,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 886,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.55
+            },
+            {
+              "x": 55,
+              "y": 82,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 886,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.48
+            },
+            {
+              "x": 57,
+              "y": 80,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 0.287,
+              "lastSeenDay": 885,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.57
+            },
+            {
+              "x": 54,
+              "y": 81,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 1,
+              "lastSeenDay": 886,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.66
+            },
+            {
+              "x": 54,
+              "y": 82,
+              "source": "runoff",
+              "distance": 2.24,
+              "confidence": 1,
+              "lastSeenDay": 886,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.21
+            }
+          ],
+          "waterCue": {
+            "x": 55,
+            "y": 81,
+            "distance": 1.41,
+            "soilWaterMm": 131.29
+          },
+          "action": "forage",
+          "state": "procurando alimento",
+          "x": 56,
+          "y": 82,
+          "kingdomId": null
+        },
+        {
+          "day": 888,
+          "health": 2.75,
+          "hydration": 30.68,
+          "foodReserve": 3.6,
+          "waterTarget": {
+            "x": 55,
+            "y": 82,
+            "distance": 1,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 3.68
+          },
+          "knownWater": [
+            {
+              "x": 55,
+              "y": 82,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 887,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.68
+            },
+            {
+              "x": 55,
+              "y": 83,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 887,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.56
+            },
+            {
+              "x": 55,
+              "y": 81,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 0.287,
+              "lastSeenDay": 886,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.75
+            },
+            {
+              "x": 54,
+              "y": 82,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 1,
+              "lastSeenDay": 887,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.41
+            },
+            {
+              "x": 54,
+              "y": 83,
+              "source": "runoff",
+              "distance": 2.24,
+              "confidence": 1,
+              "lastSeenDay": 887,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.08
+            }
+          ],
+          "waterCue": {
+            "x": 55,
+            "y": 82,
+            "distance": 1,
+            "soilWaterMm": 130.87
+          },
+          "action": "forage",
+          "state": "coletando alimento",
+          "x": 56,
+          "y": 82,
+          "kingdomId": null
+        },
+        {
+          "day": 889,
+          "health": 2.74,
+          "hydration": 30.22,
+          "foodReserve": 6.42,
+          "waterTarget": {
+            "x": 55,
+            "y": 82,
+            "distance": 1,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 2.88
+          },
+          "knownWater": [
+            {
+              "x": 55,
+              "y": 82,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 888,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.88
+            },
+            {
+              "x": 55,
+              "y": 83,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 888,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.76
+            },
+            {
+              "x": 54,
+              "y": 82,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 1,
+              "lastSeenDay": 888,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.61
+            },
+            {
+              "x": 54,
+              "y": 83,
+              "source": "runoff",
+              "distance": 2.24,
+              "confidence": 1,
+              "lastSeenDay": 888,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.28
+            },
+            {
+              "x": 55,
+              "y": 84,
+              "source": "runoff",
+              "distance": 2.24,
+              "confidence": 1,
+              "lastSeenDay": 888,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.53
+            }
+          ],
+          "waterCue": {
+            "x": 55,
+            "y": 82,
+            "distance": 1,
+            "soilWaterMm": 130.5
+          },
+          "action": "forage",
+          "state": "coletando alimento",
+          "x": 56,
+          "y": 82,
+          "kingdomId": null
+        },
+        {
+          "day": 890,
+          "health": 2.73,
+          "hydration": 29.76,
+          "foodReserve": 9.24,
+          "waterTarget": {
+            "x": 55,
+            "y": 82,
+            "distance": 1,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 2.08
+          },
+          "knownWater": [
+            {
+              "x": 55,
+              "y": 82,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 889,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.08
+            },
+            {
+              "x": 55,
+              "y": 83,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 889,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.96
+            },
+            {
+              "x": 54,
+              "y": 82,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 1,
+              "lastSeenDay": 889,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.81
+            },
+            {
+              "x": 54,
+              "y": 83,
+              "source": "runoff",
+              "distance": 2.24,
+              "confidence": 1,
+              "lastSeenDay": 889,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.48
+            },
+            {
+              "x": 55,
+              "y": 84,
+              "source": "runoff",
+              "distance": 2.24,
+              "confidence": 1,
+              "lastSeenDay": 889,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.73
+            }
+          ],
+          "waterCue": {
+            "x": 55,
+            "y": 82,
+            "distance": 1,
+            "soilWaterMm": 130.12
+          },
+          "action": "forage",
+          "state": "coletando alimento",
+          "x": 56,
+          "y": 82,
+          "kingdomId": null
+        },
+        {
+          "day": 915,
+          "health": 2.65,
+          "hydration": 18.26,
+          "foodReserve": 11.5,
+          "waterTarget": {
+            "x": 65,
+            "y": 76,
+            "distance": 2,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 2.96
+          },
+          "knownWater": [
+            {
+              "x": 65,
+              "y": 76,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 1,
+              "lastSeenDay": 914,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.96
+            },
+            {
+              "x": 65,
+              "y": 75,
+              "source": "runoff",
+              "distance": 2.24,
+              "confidence": 1,
+              "lastSeenDay": 914,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.89
+            },
+            {
+              "x": 65,
+              "y": 77,
+              "source": "runoff",
+              "distance": 2.24,
+              "confidence": 1,
+              "lastSeenDay": 914,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.55
+            },
+            {
+              "x": 65,
+              "y": 78,
+              "source": "runoff",
+              "distance": 2.83,
+              "confidence": 1,
+              "lastSeenDay": 914,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.23
+            },
+            {
+              "x": 65,
+              "y": 74,
+              "source": "runoff",
+              "distance": 2.83,
+              "confidence": 1,
+              "lastSeenDay": 914,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.95
+            }
+          ],
+          "waterCue": {
+            "x": 64,
+            "y": 76,
+            "distance": 1,
+            "soilWaterMm": 131.6
+          },
+          "action": "forage",
+          "state": "coletando alimento",
+          "x": 63,
+          "y": 76,
+          "kingdomId": null
+        },
+        {
+          "day": 916,
+          "health": 2.65,
+          "hydration": 17.8,
+          "foodReserve": 10.72,
+          "waterTarget": {
+            "x": 65,
+            "y": 76,
+            "distance": 3.16,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 6.88
+          },
+          "knownWater": [
+            {
+              "x": 65,
+              "y": 76,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 1,
+              "lastSeenDay": 915,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 6.88
+            },
+            {
+              "x": 65,
+              "y": 75,
+              "source": "runoff",
+              "distance": 2.24,
+              "confidence": 1,
+              "lastSeenDay": 915,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 8.8
+            },
+            {
+              "x": 65,
+              "y": 77,
+              "source": "runoff",
+              "distance": 2.24,
+              "confidence": 1,
+              "lastSeenDay": 915,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 8.62
+            },
+            {
+              "x": 65,
+              "y": 78,
+              "source": "runoff",
+              "distance": 2.83,
+              "confidence": 1,
+              "lastSeenDay": 915,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 9.11
+            },
+            {
+              "x": 65,
+              "y": 74,
+              "source": "runoff",
+              "distance": 2.83,
+              "confidence": 1,
+              "lastSeenDay": 915,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 7.17
+            }
+          ],
+          "waterCue": {
+            "x": 64,
+            "y": 76,
+            "distance": 2.24,
+            "soilWaterMm": 132
+          },
+          "action": "forage",
+          "state": "levando recursos ao abrigo",
+          "x": 62,
+          "y": 77,
+          "kingdomId": null
+        },
+        {
+          "day": 917,
+          "health": 2.65,
+          "hydration": 17.34,
+          "foodReserve": 9.94,
+          "waterTarget": {
+            "x": 65,
+            "y": 77,
+            "distance": 4,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 7.82
+          },
+          "knownWater": [
+            {
+              "x": 65,
+              "y": 77,
+              "source": "runoff",
+              "distance": 3,
+              "confidence": 0.287,
+              "lastSeenDay": 915,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 7.82
+            },
+            {
+              "x": 65,
+              "y": 78,
+              "source": "runoff",
+              "distance": 3.16,
+              "confidence": 0.287,
+              "lastSeenDay": 915,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 8.31
+            },
+            {
+              "x": 65,
+              "y": 76,
+              "source": "runoff",
+              "distance": 3.16,
+              "confidence": 0.287,
+              "lastSeenDay": 915,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 6.08
+            },
+            {
+              "x": 65,
+              "y": 79,
+              "source": "runoff",
+              "distance": 3.61,
+              "confidence": 1,
+              "lastSeenDay": 916,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 8.3
+            },
+            {
+              "x": 65,
+              "y": 75,
+              "source": "runoff",
+              "distance": 3.61,
+              "confidence": 0.287,
+              "lastSeenDay": 915,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 8
+            }
+          ],
+          "waterCue": {
+            "x": 64,
+            "y": 79,
+            "distance": 3.61,
+            "soilWaterMm": 131.67
+          },
+          "action": "forage",
+          "state": "levando recursos ao abrigo",
+          "x": 61,
+          "y": 77,
+          "kingdomId": null
+        },
+        {
+          "day": 918,
+          "health": 2.65,
+          "hydration": 16.88,
+          "foodReserve": 9.16,
+          "waterTarget": {
+            "x": 61,
+            "y": 77,
+            "distance": 1,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 2.94
+          },
+          "knownWater": [
+            {
+              "x": 61,
+              "y": 77,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 917,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.94
+            },
+            {
+              "x": 61,
+              "y": 76,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 917,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.84
+            },
+            {
+              "x": 60,
+              "y": 77,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 917,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.82
+            },
+            {
+              "x": 61,
+              "y": 78,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 917,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.47
+            },
+            {
+              "x": 60,
+              "y": 76,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 917,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.9
+            }
+          ],
+          "waterCue": {
+            "x": 61,
+            "y": 76,
+            "distance": 2,
+            "soilWaterMm": 132
+          },
+          "action": "forage",
+          "state": "levando recursos ao abrigo",
+          "x": 61,
+          "y": 78,
+          "kingdomId": null
+        },
+        {
+          "day": 919,
+          "health": 2.65,
+          "hydration": 16.42,
+          "foodReserve": 8.38,
+          "waterTarget": {
+            "x": 61,
+            "y": 78,
+            "distance": 1,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 1.67
+          },
+          "knownWater": [
+            {
+              "x": 61,
+              "y": 78,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 918,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.67
+            },
+            {
+              "x": 60,
+              "y": 78,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 918,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.56
+            },
+            {
+              "x": 62,
+              "y": 78,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 918,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.41
+            },
+            {
+              "x": 61,
+              "y": 77,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 917,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.14
+            },
+            {
+              "x": 61,
+              "y": 79,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 917,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.29
+            }
+          ],
+          "waterCue": {
+            "x": 62,
+            "y": 78,
+            "distance": 1.41,
+            "soilWaterMm": 131.68
+          },
+          "action": "forage",
+          "state": "levando recursos ao abrigo",
+          "x": 61,
+          "y": 79,
+          "kingdomId": null
+        },
+        {
+          "day": 920,
+          "health": 2.65,
+          "hydration": 15.96,
+          "foodReserve": 8.26,
+          "waterTarget": {
+            "x": 62,
+            "y": 78,
+            "distance": 1.41,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 1.61
+          },
+          "knownWater": [
+            {
+              "x": 61,
+              "y": 78,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 918,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 0.87
+            },
+            {
+              "x": 60,
+              "y": 79,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 918,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 0.78
+            },
+            {
+              "x": 60,
+              "y": 78,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 0.287,
+              "lastSeenDay": 918,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 0.76
+            },
+            {
+              "x": 62,
+              "y": 78,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 0.287,
+              "lastSeenDay": 918,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.61
+            },
+            {
+              "x": 59,
+              "y": 79,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 0.287,
+              "lastSeenDay": 918,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 0.8
+            }
+          ],
+          "waterCue": {
+            "x": 61,
+            "y": 80,
+            "distance": 1,
+            "soilWaterMm": 131.66
+          },
+          "action": "forage",
+          "state": "coletando alimento",
+          "x": 61,
+          "y": 79,
+          "kingdomId": null
+        },
+        {
+          "day": 921,
+          "health": 2.65,
+          "hydration": 15.5,
+          "foodReserve": 7.48,
+          "waterTarget": {
+            "x": 65,
+            "y": 79,
+            "distance": 3.16,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 14.29
+          },
+          "knownWater": [
+            {
+              "x": 65,
+              "y": 79,
+              "source": "runoff",
+              "distance": 4,
+              "confidence": 1,
+              "lastSeenDay": 920,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 14.29
+            },
+            {
+              "x": 57,
+              "y": 79,
+              "source": "runoff",
+              "distance": 4,
+              "confidence": 0.287,
+              "lastSeenDay": 919,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.34
+            },
+            {
+              "x": 65,
+              "y": 80,
+              "source": "runoff",
+              "distance": 4.12,
+              "confidence": 1,
+              "lastSeenDay": 920,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.99
+            },
+            {
+              "x": 65,
+              "y": 78,
+              "source": "runoff",
+              "distance": 4.12,
+              "confidence": 1,
+              "lastSeenDay": 920,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 13.83
+            },
+            {
+              "x": 57,
+              "y": 78,
+              "source": "runoff",
+              "distance": 4.12,
+              "confidence": 0.287,
+              "lastSeenDay": 919,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.33
+            }
+          ],
+          "waterCue": {
+            "x": 61,
+            "y": 80,
+            "distance": 1,
+            "soilWaterMm": 131.32
+          },
+          "action": "forage",
+          "state": "procurando alimento",
+          "x": 62,
+          "y": 80,
+          "kingdomId": null
+        },
+        {
+          "day": 922,
+          "health": 2.65,
+          "hydration": 15.04,
+          "foodReserve": 7.7,
+          "waterTarget": {
+            "x": 65,
+            "y": 80,
+            "distance": 3,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 5.19
+          },
+          "knownWater": [
+            {
+              "x": 65,
+              "y": 80,
+              "source": "runoff",
+              "distance": 3,
+              "confidence": 1,
+              "lastSeenDay": 921,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.19
+            },
+            {
+              "x": 65,
+              "y": 79,
+              "source": "runoff",
+              "distance": 3.16,
+              "confidence": 1,
+              "lastSeenDay": 921,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 13.49
+            },
+            {
+              "x": 65,
+              "y": 78,
+              "source": "runoff",
+              "distance": 3.61,
+              "confidence": 1,
+              "lastSeenDay": 921,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 13.03
+            },
+            {
+              "x": 66,
+              "y": 80,
+              "source": "runoff",
+              "distance": 4,
+              "confidence": 1,
+              "lastSeenDay": 921,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.94
+            },
+            {
+              "x": 66,
+              "y": 79,
+              "source": "runoff",
+              "distance": 4.12,
+              "confidence": 1,
+              "lastSeenDay": 921,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 9.93
+            }
+          ],
+          "waterCue": {
+            "x": 63,
+            "y": 80,
+            "distance": 1,
+            "soilWaterMm": 130.91
+          },
+          "action": "forage",
+          "state": "coletando alimento",
+          "x": 62,
+          "y": 80,
+          "kingdomId": null
+        },
+        {
+          "day": 923,
+          "health": 2.65,
+          "hydration": 14.58,
+          "foodReserve": 7.91,
+          "waterTarget": {
+            "x": 65,
+            "y": 80,
+            "distance": 3,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 4.39
+          },
+          "knownWater": [
+            {
+              "x": 65,
+              "y": 80,
+              "source": "runoff",
+              "distance": 3,
+              "confidence": 1,
+              "lastSeenDay": 922,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.39
+            },
+            {
+              "x": 65,
+              "y": 79,
+              "source": "runoff",
+              "distance": 3.16,
+              "confidence": 1,
+              "lastSeenDay": 922,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 12.69
+            },
+            {
+              "x": 65,
+              "y": 78,
+              "source": "runoff",
+              "distance": 3.61,
+              "confidence": 1,
+              "lastSeenDay": 922,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 12.23
+            },
+            {
+              "x": 66,
+              "y": 80,
+              "source": "runoff",
+              "distance": 4,
+              "confidence": 1,
+              "lastSeenDay": 922,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.14
+            },
+            {
+              "x": 66,
+              "y": 79,
+              "source": "runoff",
+              "distance": 4.12,
+              "confidence": 1,
+              "lastSeenDay": 922,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 9.13
+            }
+          ],
+          "waterCue": {
+            "x": 63,
+            "y": 80,
+            "distance": 1,
+            "soilWaterMm": 130.56
+          },
+          "action": "forage",
+          "state": "coletando alimento",
+          "x": 62,
+          "y": 80,
+          "kingdomId": null
+        },
+        {
+          "day": 924,
+          "health": 2.65,
+          "hydration": 14.12,
+          "foodReserve": 7.13,
+          "waterTarget": {
+            "x": 62,
+            "y": 81,
+            "distance": 1,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 5.07
+          },
+          "knownWater": [
+            {
+              "x": 62,
+              "y": 81,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 923,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.07
+            },
+            {
+              "x": 61,
+              "y": 81,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 923,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.96
+            },
+            {
+              "x": 63,
+              "y": 81,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 923,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.64
+            },
+            {
+              "x": 62,
+              "y": 82,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 1,
+              "lastSeenDay": 923,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.94
+            },
+            {
+              "x": 64,
+              "y": 81,
+              "source": "runoff",
+              "distance": 2.24,
+              "confidence": 1,
+              "lastSeenDay": 923,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.04
+            }
+          ],
+          "waterCue": {
+            "x": 63,
+            "y": 80,
+            "distance": 1,
+            "soilWaterMm": 132
+          },
+          "action": "forage",
+          "state": "procurando alimento",
+          "x": 63,
+          "y": 81,
+          "kingdomId": null
+        },
+        {
+          "day": 925,
+          "health": 2.65,
+          "hydration": 41.66,
+          "foodReserve": 6.35,
+          "waterTarget": {
+            "x": 63,
+            "y": 81,
+            "distance": 0,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 5.03
+          },
+          "knownWater": [
+            {
+              "x": 63,
+              "y": 81,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 924,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.03
+            },
+            {
+              "x": 64,
+              "y": 81,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 924,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 6.18
+            },
+            {
+              "x": 63,
+              "y": 82,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 924,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.88
+            },
+            {
+              "x": 62,
+              "y": 81,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 923,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 8.1
+            },
+            {
+              "x": 62,
+              "y": 82,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 924,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.48
+            }
+          ],
+          "waterCue": {
+            "x": 64,
+            "y": 81,
+            "distance": 1,
+            "soilWaterMm": 132
+          },
+          "action": "drink",
+          "state": "bebendo água",
+          "x": 63,
+          "y": 81,
+          "kingdomId": null
+        },
+        {
+          "day": 926,
+          "health": 2.65,
+          "hydration": 41.2,
+          "foodReserve": 5.57,
+          "waterTarget": {
+            "x": 63,
+            "y": 81,
+            "distance": 1,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 4.23
+          },
+          "knownWater": [
+            {
+              "x": 63,
+              "y": 81,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 925,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.23
+            },
+            {
+              "x": 64,
+              "y": 81,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 925,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.38
+            },
+            {
+              "x": 63,
+              "y": 82,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 925,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.08
+            },
+            {
+              "x": 62,
+              "y": 82,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 925,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.68
+            },
+            {
+              "x": 64,
+              "y": 82,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 925,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.59
+            }
+          ],
+          "waterCue": {
+            "x": 64,
+            "y": 81,
+            "distance": 0,
+            "soilWaterMm": 132
+          },
+          "action": "forage",
+          "state": "procurando alimento",
+          "x": 64,
+          "y": 81,
+          "kingdomId": null
+        },
+        {
+          "day": 927,
+          "health": 2.65,
+          "hydration": 40.74,
+          "foodReserve": 8.39,
+          "waterTarget": {
+            "x": 64,
+            "y": 81,
+            "distance": 0,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 4.58
+          },
+          "knownWater": [
+            {
+              "x": 64,
+              "y": 81,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 926,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.58
+            },
+            {
+              "x": 64,
+              "y": 82,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 926,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.79
+            },
+            {
+              "x": 65,
+              "y": 81,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 926,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.68
+            },
+            {
+              "x": 63,
+              "y": 81,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 925,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.43
+            },
+            {
+              "x": 65,
+              "y": 82,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 926,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.74
+            }
+          ],
+          "waterCue": {
+            "x": 64,
+            "y": 80,
+            "distance": 1,
+            "soilWaterMm": 88
+          },
+          "action": "forage",
+          "state": "coletando alimento",
+          "x": 64,
+          "y": 81,
+          "kingdomId": null
+        },
+        {
+          "day": 928,
+          "health": 2.65,
+          "hydration": 40.28,
+          "foodReserve": 11.21,
+          "waterTarget": {
+            "x": 64,
+            "y": 81,
+            "distance": 0,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 3.78
+          },
+          "knownWater": [
+            {
+              "x": 64,
+              "y": 81,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 927,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.78
+            },
+            {
+              "x": 64,
+              "y": 82,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 927,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.99
+            },
+            {
+              "x": 65,
+              "y": 81,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 927,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.88
+            },
+            {
+              "x": 65,
+              "y": 82,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 927,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.94
+            },
+            {
+              "x": 66,
+              "y": 81,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 1,
+              "lastSeenDay": 927,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.68
+            }
+          ],
+          "waterCue": {
+            "x": 64,
+            "y": 82,
+            "distance": 1,
+            "soilWaterMm": 131.65
+          },
+          "action": "forage",
+          "state": "coletando alimento",
+          "x": 64,
+          "y": 81,
+          "kingdomId": null
+        },
+        {
+          "day": 929,
+          "health": 2.65,
+          "hydration": 39.82,
+          "foodReserve": 10.43,
+          "waterTarget": {
+            "x": 64,
+            "y": 81,
+            "distance": 1.41,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 2.98
+          },
+          "knownWater": [
+            {
+              "x": 64,
+              "y": 81,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 928,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.98
+            },
+            {
+              "x": 64,
+              "y": 82,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 927,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.19
+            },
+            {
+              "x": 65,
+              "y": 81,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 927,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.08
+            },
+            {
+              "x": 65,
+              "y": 82,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 0.287,
+              "lastSeenDay": 927,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.14
+            },
+            {
+              "x": 66,
+              "y": 81,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 0.287,
+              "lastSeenDay": 927,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 0.88
+            }
+          ],
+          "waterCue": {
+            "x": 64,
+            "y": 82,
+            "distance": 2.24,
+            "soilWaterMm": 131.28
+          },
+          "action": "forage",
+          "state": "levando recursos ao abrigo",
+          "x": 63,
+          "y": 80,
+          "kingdomId": null
+        },
+        {
+          "day": 930,
+          "health": 2.65,
+          "hydration": 39.36,
+          "foodReserve": 9.65,
+          "waterTarget": {
+            "x": 62,
+            "y": 81,
+            "distance": 2,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 4.94
+          },
+          "knownWater": [
+            {
+              "x": 62,
+              "y": 81,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 929,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.94
+            },
+            {
+              "x": 64,
+              "y": 81,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 0.287,
+              "lastSeenDay": 928,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.18
+            },
+            {
+              "x": 61,
+              "y": 81,
+              "source": "runoff",
+              "distance": 2.24,
+              "confidence": 1,
+              "lastSeenDay": 929,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.07
+            },
+            {
+              "x": 65,
+              "y": 79,
+              "source": "runoff",
+              "distance": 2.24,
+              "confidence": 0.287,
+              "lastSeenDay": 928,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 7.09
+            },
+            {
+              "x": 65,
+              "y": 78,
+              "source": "runoff",
+              "distance": 2.83,
+              "confidence": 1,
+              "lastSeenDay": 929,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 6.63
+            }
+          ],
+          "waterCue": {
+            "x": 62,
+            "y": 80,
+            "distance": 1,
+            "soilWaterMm": 132
+          },
+          "action": "forage",
+          "state": "levando recursos ao abrigo",
+          "x": 62,
+          "y": 79,
+          "kingdomId": null
+        },
+        {
+          "day": 976,
+          "health": 2.65,
+          "hydration": 18.2,
+          "foodReserve": 7.6,
+          "waterTarget": {
+            "x": 63,
+            "y": 71,
+            "distance": 4,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 2.14
+          },
+          "knownWater": [
+            {
+              "x": 63,
+              "y": 71,
+              "source": "runoff",
+              "distance": 5,
+              "confidence": 1,
+              "lastSeenDay": 975,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.14
+            },
+            {
+              "x": 62,
+              "y": 71,
+              "source": "runoff",
+              "distance": 5.1,
+              "confidence": 1,
+              "lastSeenDay": 975,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.56
+            },
+            {
+              "x": 65,
+              "y": 71,
+              "source": "runoff",
+              "distance": 5.39,
+              "confidence": 1,
+              "lastSeenDay": 975,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.4
+            },
+            {
+              "x": 67,
+              "y": 72,
+              "source": "runoff",
+              "distance": 5.66,
+              "confidence": 0.287,
+              "lastSeenDay": 974,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 0.8
+            },
+            {
+              "x": 66,
+              "y": 71,
+              "source": "runoff",
+              "distance": 5.83,
+              "confidence": 1,
+              "lastSeenDay": 975,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.89
+            }
+          ],
+          "waterCue": {
+            "x": 63,
+            "y": 77,
+            "distance": 2,
+            "soilWaterMm": 129.74
+          },
+          "action": "forage",
+          "state": "procurando alimento",
+          "x": 63,
+          "y": 75,
+          "kingdomId": null
+        },
+        {
+          "day": 977,
+          "health": 2.65,
+          "hydration": 17.74,
+          "foodReserve": 6.82,
+          "waterTarget": {
+            "x": 63,
+            "y": 75,
+            "distance": 1,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 3.97
+          },
+          "knownWater": [
+            {
+              "x": 63,
+              "y": 75,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 976,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.97
+            },
+            {
+              "x": 63,
+              "y": 74,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 976,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.98
+            },
+            {
+              "x": 62,
+              "y": 75,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 976,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.27
+            },
+            {
+              "x": 64,
+              "y": 75,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 976,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.45
+            },
+            {
+              "x": 62,
+              "y": 74,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 976,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.89
+            }
+          ],
+          "waterCue": {
+            "x": 63,
+            "y": 74,
+            "distance": 1.41,
+            "soilWaterMm": 132
+          },
+          "action": "forage",
+          "state": "procurando alimento",
+          "x": 64,
+          "y": 75,
+          "kingdomId": null
+        },
+        {
+          "day": 978,
+          "health": 2.65,
+          "hydration": 17.28,
+          "foodReserve": 9.64,
+          "waterTarget": {
+            "x": 64,
+            "y": 75,
+            "distance": 0,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 6.27
+          },
+          "knownWater": [
+            {
+              "x": 64,
+              "y": 75,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 977,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 6.27
+            },
+            {
+              "x": 64,
+              "y": 74,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 977,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.66
+            },
+            {
+              "x": 64,
+              "y": 76,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 977,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.89
+            },
+            {
+              "x": 63,
+              "y": 75,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 976,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 6.14
+            },
+            {
+              "x": 65,
+              "y": 75,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 976,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 0.94
+            }
+          ],
+          "waterCue": {
+            "x": 64,
+            "y": 74,
+            "distance": 1,
+            "soilWaterMm": 132
+          },
+          "action": "forage",
+          "state": "coletando alimento",
+          "x": 64,
+          "y": 75,
+          "kingdomId": null
+        },
+        {
+          "day": 979,
+          "health": 2.65,
+          "hydration": 16.82,
+          "foodReserve": 8.86,
+          "waterTarget": {
+            "x": 64,
+            "y": 75,
+            "distance": 1,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 5.47
+          },
+          "knownWater": [
+            {
+              "x": 64,
+              "y": 75,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 978,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.47
+            },
+            {
+              "x": 64,
+              "y": 74,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 978,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.86
+            },
+            {
+              "x": 64,
+              "y": 76,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 978,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.09
+            },
+            {
+              "x": 64,
+              "y": 73,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 1,
+              "lastSeenDay": 978,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 6.13
+            },
+            {
+              "x": 64,
+              "y": 77,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 1,
+              "lastSeenDay": 978,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.09
+            }
+          ],
+          "waterCue": {
+            "x": 64,
+            "y": 74,
+            "distance": 0,
+            "soilWaterMm": 131.68
+          },
+          "action": "forage",
+          "state": "levando recursos ao abrigo",
+          "x": 64,
+          "y": 74,
+          "kingdomId": null
+        },
+        {
+          "day": 980,
+          "health": 2.65,
+          "hydration": 16.36,
+          "foodReserve": 8.08,
+          "waterTarget": {
+            "x": 64,
+            "y": 74,
+            "distance": 1.41,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 4.06
+          },
+          "knownWater": [
+            {
+              "x": 64,
+              "y": 74,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 979,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.06
+            },
+            {
+              "x": 64,
+              "y": 73,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 979,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.33
+            },
+            {
+              "x": 63,
+              "y": 74,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 979,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.39
+            },
+            {
+              "x": 64,
+              "y": 75,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 978,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.67
+            },
+            {
+              "x": 63,
+              "y": 73,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 979,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 6.14
+            }
+          ],
+          "waterCue": {
+            "x": 63,
+            "y": 74,
+            "distance": 1,
+            "soilWaterMm": 131.27
+          },
+          "action": "forage",
+          "state": "levando recursos ao abrigo",
+          "x": 63,
+          "y": 75,
+          "kingdomId": null
+        },
+        {
+          "day": 981,
+          "health": 2.65,
+          "hydration": 15.9,
+          "foodReserve": 10.9,
+          "waterTarget": {
+            "x": 63,
+            "y": 75,
+            "distance": 0,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 6.51
+          },
+          "knownWater": [
+            {
+              "x": 63,
+              "y": 75,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 980,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 6.51
+            },
+            {
+              "x": 62,
+              "y": 75,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 980,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.22
+            },
+            {
+              "x": 63,
+              "y": 76,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 980,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.82
+            },
+            {
+              "x": 63,
+              "y": 74,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 979,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 6.2
+            },
+            {
+              "x": 64,
+              "y": 76,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 980,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.62
+            }
+          ],
+          "waterCue": {
+            "x": 62,
+            "y": 75,
+            "distance": 1,
+            "soilWaterMm": 132
+          },
+          "action": "forage",
+          "state": "coletando alimento",
+          "x": 63,
+          "y": 75,
+          "kingdomId": null
+        },
+        {
+          "day": 982,
+          "health": 2.65,
+          "hydration": 15.44,
+          "foodReserve": 10.12,
+          "waterTarget": {
+            "x": 63,
+            "y": 75,
+            "distance": 1.41,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 5.71
+          },
+          "knownWater": [
+            {
+              "x": 63,
+              "y": 75,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 981,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.71
+            },
+            {
+              "x": 62,
+              "y": 75,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 981,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.42
+            },
+            {
+              "x": 63,
+              "y": 76,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 981,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.02
+            },
+            {
+              "x": 64,
+              "y": 76,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 981,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.82
+            },
+            {
+              "x": 62,
+              "y": 74,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 981,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.85
+            }
+          ],
+          "waterCue": {
+            "x": 62,
+            "y": 75,
+            "distance": 1,
+            "soilWaterMm": 131.67
+          },
+          "action": "forage",
+          "state": "levando recursos ao abrigo",
+          "x": 62,
+          "y": 76,
+          "kingdomId": null
+        },
+        {
+          "day": 983,
+          "health": 2.65,
+          "hydration": 14.98,
+          "foodReserve": 9.34,
+          "waterTarget": {
+            "x": 62,
+            "y": 76,
+            "distance": 1.41,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 5.98
+          },
+          "knownWater": [
+            {
+              "x": 62,
+              "y": 76,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 982,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.98
+            },
+            {
+              "x": 61,
+              "y": 76,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 982,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 6.58
+            },
+            {
+              "x": 62,
+              "y": 77,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 982,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.76
+            },
+            {
+              "x": 62,
+              "y": 75,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 981,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.38
+            },
+            {
+              "x": 63,
+              "y": 76,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 981,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 6.21
+            }
+          ],
+          "waterCue": {
+            "x": 61,
+            "y": 76,
+            "distance": 1,
+            "soilWaterMm": 132
+          },
+          "action": "forage",
+          "state": "levando recursos ao abrigo",
+          "x": 61,
+          "y": 77,
+          "kingdomId": null
+        },
+        {
+          "day": 984,
+          "health": 2.65,
+          "hydration": 14.52,
+          "foodReserve": 8.56,
+          "waterTarget": {
+            "x": 61,
+            "y": 77,
+            "distance": 1,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 6.24
+          },
+          "knownWater": [
+            {
+              "x": 61,
+              "y": 77,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 983,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 6.24
+            },
+            {
+              "x": 60,
+              "y": 77,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 983,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.37
+            },
+            {
+              "x": 61,
+              "y": 78,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 983,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.81
+            },
+            {
+              "x": 61,
+              "y": 76,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 982,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.78
+            },
+            {
+              "x": 62,
+              "y": 77,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 982,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.96
+            }
+          ],
+          "waterCue": {
+            "x": 60,
+            "y": 77,
+            "distance": 1.41,
+            "soilWaterMm": 131.68
+          },
+          "action": "forage",
+          "state": "levando recursos ao abrigo",
+          "x": 61,
+          "y": 78,
+          "kingdomId": null
+        },
+        {
+          "day": 985,
+          "health": 2.65,
+          "hydration": 14.06,
+          "foodReserve": 8.77,
+          "waterTarget": {
+            "x": 61,
+            "y": 78,
+            "distance": 0,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 4.01
+          },
+          "knownWater": [
+            {
+              "x": 61,
+              "y": 78,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 984,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.01
+            },
+            {
+              "x": 60,
+              "y": 78,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 984,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.08
+            },
+            {
+              "x": 62,
+              "y": 78,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 984,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.99
+            },
+            {
+              "x": 61,
+              "y": 79,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 984,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.62
+            },
+            {
+              "x": 61,
+              "y": 77,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 983,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 5.44
+            }
+          ],
+          "waterCue": {
+            "x": 62,
+            "y": 78,
+            "distance": 1,
+            "soilWaterMm": 131.35
+          },
+          "action": "forage",
+          "state": "coletando alimento",
+          "x": 61,
+          "y": 78,
+          "kingdomId": null
+        },
+        {
+          "day": 986,
+          "health": 2.65,
+          "hydration": 41.6,
+          "foodReserve": 7.99,
+          "waterTarget": {
+            "x": 60,
+            "y": 78,
+            "distance": 1,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 3.28
+          },
+          "knownWater": [
+            {
+              "x": 61,
+              "y": 78,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 985,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 0.88
+            },
+            {
+              "x": 60,
+              "y": 78,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 985,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.28
+            },
+            {
+              "x": 62,
+              "y": 78,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 985,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.19
+            },
+            {
+              "x": 61,
+              "y": 79,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 985,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.82
+            },
+            {
+              "x": 60,
+              "y": 79,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 985,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.95
+            }
+          ],
+          "waterCue": {
+            "x": 62,
+            "y": 78,
+            "distance": 1,
+            "soilWaterMm": 131.03
+          },
+          "action": "drink",
+          "state": "bebendo água",
+          "x": 61,
+          "y": 78,
+          "kingdomId": null
+        },
+        {
+          "day": 987,
+          "health": 2.65,
+          "hydration": 41.14,
+          "foodReserve": 7.88,
+          "waterTarget": {
+            "x": 60,
+            "y": 78,
+            "distance": 1,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 2.48
+          },
+          "knownWater": [
+            {
+              "x": 61,
+              "y": 78,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 0.287,
+              "lastSeenDay": 985,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 0.08
+            },
+            {
+              "x": 60,
+              "y": 78,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 986,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.48
+            },
+            {
+              "x": 62,
+              "y": 78,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 986,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.39
+            },
+            {
+              "x": 61,
+              "y": 79,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 986,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 4.02
+            },
+            {
+              "x": 60,
+              "y": 79,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 986,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.15
+            }
+          ],
+          "waterCue": {
+            "x": 62,
+            "y": 78,
+            "distance": 1,
+            "soilWaterMm": 130.7
+          },
+          "action": "forage",
+          "state": "coletando alimento",
+          "x": 61,
+          "y": 78,
+          "kingdomId": null
+        },
+        {
+          "day": 988,
+          "health": 2.65,
+          "hydration": 40.68,
+          "foodReserve": 7.1,
+          "waterTarget": {
+            "x": 60,
+            "y": 78,
+            "distance": 1.41,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 1.68
+          },
+          "knownWater": [
+            {
+              "x": 60,
+              "y": 78,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 987,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.68
+            },
+            {
+              "x": 62,
+              "y": 78,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 987,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.59
+            },
+            {
+              "x": 61,
+              "y": 79,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 987,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 3.22
+            },
+            {
+              "x": 60,
+              "y": 79,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 987,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.35
+            },
+            {
+              "x": 62,
+              "y": 79,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 1,
+              "lastSeenDay": 987,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.22
+            }
+          ],
+          "waterCue": {
+            "x": 62,
+            "y": 78,
+            "distance": 1.41,
+            "soilWaterMm": 130.38
+          },
+          "action": "forage",
+          "state": "procurando alimento",
+          "x": 61,
+          "y": 79,
+          "kingdomId": null
+        },
+        {
+          "day": 989,
+          "health": 2.65,
+          "hydration": 40.22,
+          "foodReserve": 6.32,
+          "waterTarget": {
+            "x": 61,
+            "y": 79,
+            "distance": 1,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 2.42
+          },
+          "knownWater": [
+            {
+              "x": 61,
+              "y": 79,
+              "source": "runoff",
+              "distance": 0,
+              "confidence": 1,
+              "lastSeenDay": 988,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 2.42
+            },
+            {
+              "x": 60,
+              "y": 79,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 1,
+              "lastSeenDay": 988,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.55
+            },
+            {
+              "x": 62,
+              "y": 79,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 987,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.42
+            },
+            {
+              "x": 60,
+              "y": 78,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 0.287,
+              "lastSeenDay": 987,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 0.88
+            },
+            {
+              "x": 62,
+              "y": 78,
+              "source": "runoff",
+              "distance": 1.41,
+              "confidence": 0.287,
+              "lastSeenDay": 987,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.79
+            }
+          ],
+          "waterCue": {
+            "x": 60,
+            "y": 79,
+            "distance": 2,
+            "soilWaterMm": 130.05
+          },
+          "action": "forage",
+          "state": "procurando alimento",
+          "x": 62,
+          "y": 79,
+          "kingdomId": null
+        },
+        {
+          "day": 990,
+          "health": 2.65,
+          "hydration": 39.76,
+          "foodReserve": 6.53,
+          "waterTarget": {
+            "x": 61,
+            "y": 79,
+            "distance": 1,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 1.62
+          },
+          "knownWater": [
+            {
+              "x": 61,
+              "y": 79,
+              "source": "runoff",
+              "distance": 1,
+              "confidence": 0.287,
+              "lastSeenDay": 988,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.62
+            },
+            {
+              "x": 60,
+              "y": 79,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 0.287,
+              "lastSeenDay": 988,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 0.75
+            },
+            {
+              "x": 62,
+              "y": 81,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 0.287,
+              "lastSeenDay": 988,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 0.79
+            },
+            {
+              "x": 65,
+              "y": 79,
+              "source": "runoff",
+              "distance": 3,
+              "confidence": 0.287,
+              "lastSeenDay": 988,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.37
+            },
+            {
+              "x": 65,
+              "y": 78,
+              "source": "runoff",
+              "distance": 3.16,
+              "confidence": 1,
+              "lastSeenDay": 989,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.51
+            }
+          ],
+          "waterCue": {
+            "x": 63,
+            "y": 79,
+            "distance": 1,
+            "soilWaterMm": 129.75
+          },
+          "action": "forage",
+          "state": "coletando alimento",
+          "x": 62,
+          "y": 79,
+          "kingdomId": null
+        },
+        {
+          "day": 991,
+          "health": 2.65,
+          "hydration": 39.3,
+          "foodReserve": 5.75,
+          "waterTarget": {
+            "x": 62,
+            "y": 81,
+            "distance": 1,
+            "terrain": "land",
+            "waterKind": null,
+            "surfaceWaterMm": 1.69
+          },
+          "knownWater": [
+            {
+              "x": 62,
+              "y": 81,
+              "source": "runoff",
+              "distance": 2,
+              "confidence": 1,
+              "lastSeenDay": 990,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.69
+            },
+            {
+              "x": 63,
+              "y": 81,
+              "source": "runoff",
+              "distance": 2.24,
+              "confidence": 1,
+              "lastSeenDay": 990,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.67
+            },
+            {
+              "x": 62,
+              "y": 82,
+              "source": "runoff",
+              "distance": 3,
+              "confidence": 1,
+              "lastSeenDay": 990,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.78
+            },
+            {
+              "x": 63,
+              "y": 82,
+              "source": "runoff",
+              "distance": 3.16,
+              "confidence": 1,
+              "lastSeenDay": 990,
+              "validNow": true,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 1.7
+            },
+            {
+              "x": 65,
+              "y": 78,
+              "source": "runoff",
+              "distance": 3.16,
+              "confidence": 0.287,
+              "lastSeenDay": 989,
+              "validNow": false,
+              "terrain": "land",
+              "waterKind": null,
+              "surfaceWaterMm": 0.71
+            }
+          ],
+          "waterCue": {
+            "x": 62,
+            "y": 80,
+            "distance": 0,
+            "soilWaterMm": 132
+          },
+          "action": "forage",
+          "state": "procurando alimento",
+          "x": 62,
+          "y": 80,
+          "kingdomId": null
+        }
+      ]
+    }
+  ],
+  "focusedKingdomExits": [
+    {
+      "id": 66,
+      "name": "Zuri O",
+      "day": 668,
+      "fromKingdomId": 25,
+      "before": {
+        "x": 66,
+        "y": 74,
+        "foodReserve": 9.61,
+        "energy": 0,
+        "action": "forage",
+        "state": "levando recursos ao abrigo",
+        "awayDays": 163,
+        "dissatisfactionDays": 0,
+        "communitySatisfaction": 0.399
+      },
+      "after": {
+        "x": 66,
+        "y": 73,
+        "foodReserve": 8.83,
+        "energy": 0,
+        "state": "levando recursos ao abrigo",
+        "lesson": "A saída para terra comum ocorreu após ausência de 164 dias com satisfação abaixo de 0,400 (valor 0.399181); reserva pessoal de alimento: 8.8 pontos; estoque comunitário: 0.0 unidades.",
+        "communityId": null
+      }
+    }
+  ]
+}

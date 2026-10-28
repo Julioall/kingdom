@@ -1,0 +1,343 @@
+{
+  "model": "v24.19.0",
+  "adultThresholdDays": 4380,
+  "results": [
+    {
+      "seed": 42,
+      "days": 730,
+      "layout": "default",
+      "layoutPlacements": [],
+      "elapsedSeconds": 43.38,
+      "population": {
+        "living": 49,
+        "dead": 2,
+        "deathsByCause": {
+          "starvation": 0,
+          "dehydration": 0,
+          "age": 0,
+          "injury": 0,
+          "combat": 2,
+          "predation": 0,
+          "harvest": 0,
+          "invasion": 0
+        }
+      },
+      "adultExposure": {
+        "adultDays": 28350,
+        "energyAtOrBelow2": 11117,
+        "energyBelow9": 11982,
+        "energyBelow27": 14491,
+        "reserveAtOrBelow8": 7109,
+        "reserveBelow16": 13171,
+        "reserveBelow20": 14090,
+        "reserveAtOrBelow8AndEnergyAtOrBelow2": 6530,
+        "reserveBelow20AndEnergyBelow27": 13498,
+        "meanEnergy": 18.08,
+        "meanReserve": 28.51
+      },
+      "actions": {
+        "gather": {
+          "adultDays": 531,
+          "meanEnergyChangePerDay": -0.86,
+          "energyAtOrBelow2": 0,
+          "reserveBelow20": 0,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 0
+        },
+        "guard": {
+          "adultDays": 107,
+          "meanEnergyChangePerDay": -0.73,
+          "energyAtOrBelow2": 0,
+          "reserveBelow20": 0,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 0
+        },
+        "collect_log": {
+          "adultDays": 247,
+          "meanEnergyChangePerDay": -0.98,
+          "energyAtOrBelow2": 0,
+          "reserveBelow20": 0,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 0
+        },
+        "forage": {
+          "adultDays": 19682,
+          "meanEnergyChangePerDay": -0.27,
+          "energyAtOrBelow2": 10780,
+          "reserveBelow20": 12979,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 6293
+        },
+        "capture_sheep": {
+          "adultDays": 60,
+          "meanEnergyChangePerDay": -1.24,
+          "energyAtOrBelow2": 0,
+          "reserveBelow20": 0,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 0
+        },
+        "patrol": {
+          "adultDays": 71,
+          "meanEnergyChangePerDay": -0.97,
+          "energyAtOrBelow2": 0,
+          "reserveBelow20": 0,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 0
+        },
+        "migrate": {
+          "adultDays": 47,
+          "meanEnergyChangePerDay": -0.79,
+          "energyAtOrBelow2": 4,
+          "reserveBelow20": 4,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 4
+        },
+        "build": {
+          "adultDays": 967,
+          "meanEnergyChangePerDay": -1.21,
+          "energyAtOrBelow2": 0,
+          "reserveBelow20": 0,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 0
+        },
+        "share": {
+          "adultDays": 7,
+          "meanEnergyChangePerDay": -0.93,
+          "energyAtOrBelow2": 0,
+          "reserveBelow20": 0,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 0
+        },
+        "trade": {
+          "adultDays": 438,
+          "meanEnergyChangePerDay": -0.85,
+          "energyAtOrBelow2": 0,
+          "reserveBelow20": 0,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 0
+        },
+        "drink": {
+          "adultDays": 684,
+          "meanEnergyChangePerDay": -0.52,
+          "energyAtOrBelow2": 293,
+          "reserveBelow20": 340,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 213
+        },
+        "socialize": {
+          "adultDays": 60,
+          "meanEnergyChangePerDay": -0.85,
+          "energyAtOrBelow2": 0,
+          "reserveBelow20": 0,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 0
+        },
+        "rest": {
+          "adultDays": 5280,
+          "meanEnergyChangePerDay": 1.04,
+          "energyAtOrBelow2": 0,
+          "reserveBelow20": 717,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 0
+        },
+        "campaign": {
+          "adultDays": 169,
+          "meanEnergyChangePerDay": -0.92,
+          "energyAtOrBelow2": 40,
+          "reserveBelow20": 50,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 20
+        }
+      },
+      "lowReserveLowEnergySamples": [
+        {
+          "day": 94,
+          "personId": 102,
+          "name": "Bela Z",
+          "kingdomId": 26,
+          "action": "campaign",
+          "state": "marchando para a área disputada",
+          "energy": 0,
+          "reserve": 7.57
+        },
+        {
+          "day": 97,
+          "personId": 70,
+          "name": "Nilo O",
+          "kingdomId": 25,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 7.61
+        },
+        {
+          "day": 97,
+          "personId": 85,
+          "name": "Davi A",
+          "kingdomId": 25,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 7.87
+        },
+        {
+          "day": 98,
+          "personId": 70,
+          "name": "Nilo O",
+          "kingdomId": 25,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 6.83
+        },
+        {
+          "day": 98,
+          "personId": 85,
+          "name": "Davi A",
+          "kingdomId": 25,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 7.09
+        },
+        {
+          "day": 99,
+          "personId": 70,
+          "name": "Nilo O",
+          "kingdomId": 25,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 6.05
+        },
+        {
+          "day": 99,
+          "personId": 85,
+          "name": "Davi A",
+          "kingdomId": 25,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 6.31
+        },
+        {
+          "day": 100,
+          "personId": 70,
+          "name": "Nilo O",
+          "kingdomId": 25,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 5.27
+        },
+        {
+          "day": 100,
+          "personId": 85,
+          "name": "Davi A",
+          "kingdomId": 25,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 5.53
+        },
+        {
+          "day": 101,
+          "personId": 70,
+          "name": "Nilo O",
+          "kingdomId": 25,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 4.49
+        },
+        {
+          "day": 101,
+          "personId": 85,
+          "name": "Davi A",
+          "kingdomId": 25,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 4.75
+        },
+        {
+          "day": 102,
+          "personId": 70,
+          "name": "Nilo O",
+          "kingdomId": 25,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 3.71
+        },
+        {
+          "day": 102,
+          "personId": 85,
+          "name": "Davi A",
+          "kingdomId": 25,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 3.97
+        },
+        {
+          "day": 103,
+          "personId": 70,
+          "name": "Nilo O",
+          "kingdomId": 25,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 2.93
+        },
+        {
+          "day": 103,
+          "personId": 85,
+          "name": "Davi A",
+          "kingdomId": 25,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 3.19
+        },
+        {
+          "day": 104,
+          "personId": 70,
+          "name": "Nilo O",
+          "kingdomId": 25,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 2.15
+        },
+        {
+          "day": 104,
+          "personId": 85,
+          "name": "Davi A",
+          "kingdomId": 25,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 2.41
+        },
+        {
+          "day": 105,
+          "personId": 70,
+          "name": "Nilo O",
+          "kingdomId": 25,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 1.37
+        },
+        {
+          "day": 105,
+          "personId": 85,
+          "name": "Davi A",
+          "kingdomId": 25,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 1.63
+        },
+        {
+          "day": 106,
+          "personId": 70,
+          "name": "Nilo O",
+          "kingdomId": 25,
+          "action": "forage",
+          "state": "procurando alimento",
+          "energy": 0,
+          "reserve": 0.59
+        }
+      ],
+      "unfinishedFarms": []
+    }
+  ]
+}

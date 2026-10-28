@@ -1,0 +1,29 @@
+{
+  "asset": "public/assets/kingdom-autotile/rice-field.png",
+  "dimensions": [
+    128,
+    128
+  ],
+  "cell_size": [
+    64,
+    64
+  ],
+  "grid": [
+    2,
+    2
+  ],
+  "alpha_values": [
+    255
+  ],
+  "unique_colors": 11,
+  "unique_cells": 4,
+  "edge_mismatches_base": {
+    "left_right": 0,
+    "top_bottom": 0
+  },
+  "status": "pass",
+  "visual_review": {
+    "status": "pass",
+    "evidence": "Inspected atlas and 16px game-scale preview: mud, shallow teal water, and rice shoots remain readable; all variants preserve horizontal planting rows."
+  }
+}

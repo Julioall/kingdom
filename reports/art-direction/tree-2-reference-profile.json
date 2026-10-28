@@ -1,0 +1,756 @@
+{
+  "schema_version": "1.0.0",
+  "source": {
+    "filename": "Tree2.png",
+    "sha256": "62de877a4732bee98e170c1a4aac44c3bd39929205923176a4acbec812d2630a"
+  },
+  "coordinate_system": "frame-local, origin top-left; bounding boxes have exclusive x2/y2; indices zero-based",
+  "REFERENCE_PROFILE": {
+    "spritesheet_width": 1536,
+    "spritesheet_height": 256,
+    "frame_count": 8,
+    "layout": {
+      "columns": 8,
+      "rows": 1,
+      "order": "row-major",
+      "margin": 0,
+      "spacing": 0
+    },
+    "frame_size": {
+      "width": 192,
+      "height": 256
+    },
+    "background": {
+      "has_transparent_pixels": true,
+      "partial_alpha_pixels": 6618,
+      "excluded_rgb": null
+    },
+    "object_bounds_range": {
+      "width": [
+        105,
+        106
+      ],
+      "height": [
+        244,
+        244
+      ]
+    },
+    "frames": [
+      {
+        "index": 0,
+        "cell_origin": [
+          0,
+          0
+        ],
+        "bbox_xyxy_exclusive": [
+          43,
+          5,
+          149,
+          249
+        ],
+        "object_size": [
+          106,
+          244
+        ],
+        "opaque_pixel_count": 12998,
+        "centroid": [
+          96.0807,
+          152.7387
+        ],
+        "bottom_pixel_y": 248,
+        "lower_band_centroid_proxy": [
+          94.4461,
+          242.9216
+        ],
+        "band_centroids": [
+          [
+            97.4331,
+            45.2148
+          ],
+          [
+            96.2544,
+            97.9037
+          ],
+          [
+            96.3677,
+            162.2639
+          ],
+          [
+            95.1932,
+            214.4015
+          ]
+        ],
+        "touches_cell_edge": false
+      },
+      {
+        "index": 1,
+        "cell_origin": [
+          192,
+          0
+        ],
+        "bbox_xyxy_exclusive": [
+          44,
+          5,
+          149,
+          249
+        ],
+        "object_size": [
+          105,
+          244
+        ],
+        "opaque_pixel_count": 12994,
+        "centroid": [
+          96.9403,
+          152.6644
+        ],
+        "bottom_pixel_y": 248,
+        "lower_band_centroid_proxy": [
+          94.4461,
+          242.9216
+        ],
+        "band_centroids": [
+          [
+            98.8658,
+            45.2205
+          ],
+          [
+            97.2865,
+            97.9927
+          ],
+          [
+            96.8685,
+            162.2822
+          ],
+          [
+            96.2686,
+            214.4692
+          ]
+        ],
+        "touches_cell_edge": false
+      },
+      {
+        "index": 2,
+        "cell_origin": [
+          384,
+          0
+        ],
+        "bbox_xyxy_exclusive": [
+          45,
+          5,
+          150,
+          249
+        ],
+        "object_size": [
+          105,
+          244
+        ],
+        "opaque_pixel_count": 12978,
+        "centroid": [
+          97.5766,
+          152.6795
+        ],
+        "bottom_pixel_y": 248,
+        "lower_band_centroid_proxy": [
+          94.4461,
+          242.9216
+        ],
+        "band_centroids": [
+          [
+            99.9309,
+            45.178
+          ],
+          [
+            98.324,
+            97.9927
+          ],
+          [
+            97.6016,
+            162.2639
+          ],
+          [
+            96.2993,
+            214.3895
+          ]
+        ],
+        "touches_cell_edge": false
+      },
+      {
+        "index": 3,
+        "cell_origin": [
+          576,
+          0
+        ],
+        "bbox_xyxy_exclusive": [
+          45,
+          5,
+          151,
+          249
+        ],
+        "object_size": [
+          106,
+          244
+        ],
+        "opaque_pixel_count": 12999,
+        "centroid": [
+          97.9178,
+          152.6882
+        ],
+        "bottom_pixel_y": 248,
+        "lower_band_centroid_proxy": [
+          94.4461,
+          242.9216
+        ],
+        "band_centroids": [
+          [
+            100.0058,
+            45.1463
+          ],
+          [
+            99.0027,
+            97.984
+          ],
+          [
+            97.6435,
+            162.2527
+          ],
+          [
+            96.826,
+            214.404
+          ]
+        ],
+        "touches_cell_edge": false
+      },
+      {
+        "index": 4,
+        "cell_origin": [
+          768,
+          0
+        ],
+        "bbox_xyxy_exclusive": [
+          44,
+          5,
+          150,
+          249
+        ],
+        "object_size": [
+          106,
+          244
+        ],
+        "opaque_pixel_count": 12992,
+        "centroid": [
+          97.2779,
+          152.5875
+        ],
+        "bottom_pixel_y": 248,
+        "lower_band_centroid_proxy": [
+          94.4461,
+          242.9216
+        ],
+        "band_centroids": [
+          [
+            98.9489,
+            45.3438
+          ],
+          [
+            98.5961,
+            97.9146
+          ],
+          [
+            96.6639,
+            162.2602
+          ],
+          [
+            96.5545,
+            214.3929
+          ]
+        ],
+        "touches_cell_edge": false
+      },
+      {
+        "index": 5,
+        "cell_origin": [
+          960,
+          0
+        ],
+        "bbox_xyxy_exclusive": [
+          44,
+          5,
+          149,
+          249
+        ],
+        "object_size": [
+          105,
+          244
+        ],
+        "opaque_pixel_count": 12959,
+        "centroid": [
+          96.5276,
+          152.6403
+        ],
+        "bottom_pixel_y": 248,
+        "lower_band_centroid_proxy": [
+          94.4461,
+          242.9216
+        ],
+        "band_centroids": [
+          [
+            97.4331,
+            45.2148
+          ],
+          [
+            97.2529,
+            97.9667
+          ],
+          [
+            96.3014,
+            162.2658
+          ],
+          [
+            95.9739,
+            214.3958
+          ]
+        ],
+        "touches_cell_edge": false
+      },
+      {
+        "index": 6,
+        "cell_origin": [
+          1152,
+          0
+        ],
+        "bbox_xyxy_exclusive": [
+          43,
+          5,
+          149,
+          249
+        ],
+        "object_size": [
+          106,
+          244
+        ],
+        "opaque_pixel_count": 12985,
+        "centroid": [
+          95.8581,
+          152.7137
+        ],
+        "bottom_pixel_y": 248,
+        "lower_band_centroid_proxy": [
+          94.4461,
+          242.9216
+        ],
+        "band_centroids": [
+          [
+            96.2688,
+            45.2148
+          ],
+          [
+            96.1696,
+            97.984
+          ],
+          [
+            95.5239,
+            162.2941
+          ],
+          [
+            95.9592,
+            214.454
+          ]
+        ],
+        "touches_cell_edge": false
+      },
+      {
+        "index": 7,
+        "cell_origin": [
+          1344,
+          0
+        ],
+        "bbox_xyxy_exclusive": [
+          43,
+          5,
+          148,
+          249
+        ],
+        "object_size": [
+          105,
+          244
+        ],
+        "opaque_pixel_count": 12998,
+        "centroid": [
+          95.6115,
+          152.7565
+        ],
+        "bottom_pixel_y": 248,
+        "lower_band_centroid_proxy": [
+          94.4461,
+          242.9216
+        ],
+        "band_centroids": [
+          [
+            96.1542,
+            45.2815
+          ],
+          [
+            95.7407,
+            97.9927
+          ],
+          [
+            95.4554,
+            162.2688
+          ],
+          [
+            95.5894,
+            214.4015
+          ]
+        ],
+        "touches_cell_edge": false
+      }
+    ]
+  },
+  "OBJECT_SIGNATURE": {
+    "measured_geometry": "REFERENCE_PROFILE.frames",
+    "semantic_parts": null,
+    "ground_anchor": {
+      "value": null,
+      "status": "requires_visual_confirmation",
+      "reason": "bottom pixels and lower band may include a shadow"
+    }
+  },
+  "MOTION_SIGNATURE": {
+    "measured_frame_deltas": [
+      {
+        "index": 0,
+        "centroid_delta_from_frame_0": [
+          0.0,
+          0.0
+        ],
+        "lower_band_delta_from_frame_0": [
+          0.0,
+          0.0
+        ],
+        "band_deltas_from_frame_0": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0
+          ]
+        ],
+        "next_index": 1,
+        "next_changed_pixel_ratio": 0.188783,
+        "next_mask_iou": 0.954139
+      },
+      {
+        "index": 1,
+        "centroid_delta_from_frame_0": [
+          0.8596,
+          -0.0743
+        ],
+        "lower_band_delta_from_frame_0": [
+          0.0,
+          0.0
+        ],
+        "band_deltas_from_frame_0": [
+          [
+            1.4327,
+            0.0057
+          ],
+          [
+            1.0321,
+            0.089
+          ],
+          [
+            0.5008,
+            0.0183
+          ],
+          [
+            1.0754,
+            0.0677
+          ]
+        ],
+        "next_index": 2,
+        "next_changed_pixel_ratio": 0.146941,
+        "next_mask_iou": 0.969217
+      },
+      {
+        "index": 2,
+        "centroid_delta_from_frame_0": [
+          1.4959,
+          -0.0592
+        ],
+        "lower_band_delta_from_frame_0": [
+          0.0,
+          0.0
+        ],
+        "band_deltas_from_frame_0": [
+          [
+            2.4978,
+            -0.0368
+          ],
+          [
+            2.0696,
+            0.089
+          ],
+          [
+            1.2339,
+            0.0
+          ],
+          [
+            1.1061,
+            -0.012
+          ]
+        ],
+        "next_index": 3,
+        "next_changed_pixel_ratio": 0.118101,
+        "next_mask_iou": 0.985706
+      },
+      {
+        "index": 3,
+        "centroid_delta_from_frame_0": [
+          1.8371,
+          -0.0505
+        ],
+        "lower_band_delta_from_frame_0": [
+          0.0,
+          0.0
+        ],
+        "band_deltas_from_frame_0": [
+          [
+            2.5727,
+            -0.0685
+          ],
+          [
+            2.7483,
+            0.0803
+          ],
+          [
+            1.2758,
+            -0.0112
+          ],
+          [
+            1.6328,
+            0.0025
+          ]
+        ],
+        "next_index": 4,
+        "next_changed_pixel_ratio": 0.145437,
+        "next_mask_iou": 0.971853
+      },
+      {
+        "index": 4,
+        "centroid_delta_from_frame_0": [
+          1.1972,
+          -0.1512
+        ],
+        "lower_band_delta_from_frame_0": [
+          0.0,
+          0.0
+        ],
+        "band_deltas_from_frame_0": [
+          [
+            1.5158,
+            0.129
+          ],
+          [
+            2.3417,
+            0.0109
+          ],
+          [
+            0.2962,
+            -0.0037
+          ],
+          [
+            1.3613,
+            -0.0086
+          ]
+        ],
+        "next_index": 5,
+        "next_changed_pixel_ratio": 0.181894,
+        "next_mask_iou": 0.961082
+      },
+      {
+        "index": 5,
+        "centroid_delta_from_frame_0": [
+          0.4469,
+          -0.0984
+        ],
+        "lower_band_delta_from_frame_0": [
+          0.0,
+          0.0
+        ],
+        "band_deltas_from_frame_0": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.9985,
+            0.063
+          ],
+          [
+            -0.0663,
+            0.0019
+          ],
+          [
+            0.7807,
+            -0.0057
+          ]
+        ],
+        "next_index": 6,
+        "next_changed_pixel_ratio": 0.165973,
+        "next_mask_iou": 0.964413
+      },
+      {
+        "index": 6,
+        "centroid_delta_from_frame_0": [
+          -0.2226,
+          -0.025
+        ],
+        "lower_band_delta_from_frame_0": [
+          0.0,
+          0.0
+        ],
+        "band_deltas_from_frame_0": [
+          [
+            -1.1643,
+            0.0
+          ],
+          [
+            -0.0848,
+            0.0803
+          ],
+          [
+            -0.8438,
+            0.0302
+          ],
+          [
+            0.766,
+            0.0525
+          ]
+        ],
+        "next_index": 7,
+        "next_changed_pixel_ratio": 0.074708,
+        "next_mask_iou": 0.984799
+      },
+      {
+        "index": 7,
+        "centroid_delta_from_frame_0": [
+          -0.4692,
+          0.0178
+        ],
+        "lower_band_delta_from_frame_0": [
+          0.0,
+          0.0
+        ],
+        "band_deltas_from_frame_0": [
+          [
+            -1.2789,
+            0.0667
+          ],
+          [
+            -0.5137,
+            0.089
+          ],
+          [
+            -0.9123,
+            0.0049
+          ],
+          [
+            0.3962,
+            0.0
+          ]
+        ],
+        "next_index": 0,
+        "next_changed_pixel_ratio": 0.152891,
+        "next_mask_iou": 0.967605
+      }
+    ],
+    "animation_type": "sway of the crown and upper branches with a fixed lower band",
+    "frame_phases": null,
+    "fps": null,
+    "loop_intent": "The game renderer loops the eight frames",
+    "status": "Frame geometry measured; sway interpretation is based on visual review, lower-band proxies and renderer code."
+  },
+  "PALETTE_SIGNATURE": {
+    "unique_visible_rgb_count": 7,
+    "colors": [
+      {
+        "hex": "#44a079",
+        "count": 27625,
+        "fraction": 0.265873,
+        "relative_luminance": 0.27751
+      },
+      {
+        "hex": "#161c2e",
+        "count": 22826,
+        "fraction": 0.219686,
+        "relative_luminance": 0.011983
+      },
+      {
+        "hex": "#39cd6a",
+        "count": 19291,
+        "fraction": 0.185664,
+        "relative_luminance": 0.455731
+      },
+      {
+        "hex": "#68fd6a",
+        "count": 16702,
+        "fraction": 0.160746,
+        "relative_luminance": 0.742342
+      },
+      {
+        "hex": "#416d6d",
+        "count": 8317,
+        "fraction": 0.080046,
+        "relative_luminance": 0.131652
+      },
+      {
+        "hex": "#1a2035",
+        "count": 6618,
+        "fraction": 0.063694,
+        "relative_luminance": 0.015097
+      },
+      {
+        "hex": "#685151",
+        "count": 2524,
+        "fraction": 0.024292,
+        "relative_luminance": 0.09422
+      }
+    ],
+    "material_roles": null,
+    "status": "RGB counts measured; roles require interpretation"
+  },
+  "PIXEL_STYLE_SIGNATURE": {
+    "partial_alpha_pixels": 6618,
+    "anti_aliasing": null,
+    "pixel_scale": null,
+    "outline": null,
+    "status": "binary alpha alone does not prove absence of RGB anti-aliasing"
+  },
+  "interpretations": [
+    {
+      "field": "MOTION_SIGNATURE.animation_type",
+      "value": "wind sway, with upper foliage moving more than the rooted lower band",
+      "method": "visual inspection of all eight frames and review of measured vertical-band centroid proxies",
+      "confidence": "medium",
+      "evidence": "The upper band changes horizontal position through the sequence, while the lower-band centroid delta remains 0,0 for all eight frames; src/ui/game.js selects the tree frame every 100 ms of animation time.",
+      "uncertainties": [
+        "The PNG contains no frame-duration metadata; 100 ms comes from the game renderer, not the file."
+      ]
+    }
+  ],
+  "limitations": [
+    "Grid supplied explicitly; image dimensions alone do not determine frame count.",
+    "Single PNG cannot establish frame duration.",
+    "Band and alpha centroids can move when silhouette changes without physical translation."
+  ]
+}

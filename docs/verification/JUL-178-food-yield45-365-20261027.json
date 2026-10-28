@@ -1,0 +1,1009 @@
+{
+  "runtime": "v24.19.0",
+  "sourceRevision": "cdad7ce9a5fbc238a0dec0d2749d364910d90112",
+  "base": "engine.createWorld + production stepDay",
+  "days": 365,
+  "seeds": [
+    1,
+    42
+  ],
+  "repeatSeed": null,
+  "results": [
+    {
+      "seed": 1,
+      "days": 365,
+      "elapsedSeconds": 70.24,
+      "stateSha256": "ed3c10dc32fb290ec56f2b37e9c445f719bbe276b2f167f645cd5d402eb37342",
+      "stateParts": {
+        "day": "4e47eb5525df25f94da777993dafa41d9ab2bfa80a89e28f76d42cd46ab082e7",
+        "year": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+        "season": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+        "seed": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+        "rngState": "26edb0ca30bd5f1be302886ffe6a81bb7357c4362dd20b4111a573d98ae46687",
+        "nextId": "093434a3ee9e0a010bb2c2aae06c2614dd24894062a1caf26718a01e175569b8",
+        "tiles": "6941bf1855d7d86176a304c72017e27be0bc5e2c101d5eb3682512cc86930919",
+        "regions": "80784f5d3da48efb1105429208f7ccffcdc9c78679e0118bc1d97fcad809bde7",
+        "animals": "aebb093d1d3b89472e49583541d85264da11ce526732aeb84c5ec6fbd217e458",
+        "people": "d5e7bf324ca4801454418eca51d6cc75dba0d36a54aacfcda92288fc9c8effff",
+        "communities": "88c55254bdbf4c916bf48ba0935234428ef8ca003224651936a59fa1b2ee9d6c",
+        "kingdoms": "e8299dc8516bd843500a031393a9c249f5d96e258125ad12cdead697c00175af",
+        "settlements": "63e75e219a0b74fbc4fdce743a0bd9bfa533a2743062c11b515f42a60760236a",
+        "structures": "7cd80c6e7809a494ea120e7b4029cd082e3a3dcd62a21deb2c48d615d30d606a",
+        "wars": "23e3f66ab1dff2b99fccd42f8959517a63ff5ff1b07f297fa756ecf8ad82e11d",
+        "campaigns": "e57d993b01cbe7138955788f869730015aff7afeae228dcfbd395a0d2104758e",
+        "conflicts": "02d20bbd7e394ad5999a4cebabac9619732c343a4cac99470c03e23ba2bdc2bc",
+        "territoryClaims": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "treaties": "5eac80457500ecd9ed7e9b18da59254434f68e1fe4fc3e812d1491b09170ff86",
+        "socialLinks": "0e6bd69523d9b093017886006ba65865774512aa82dff8d87f7c86c55ce3bcf1",
+        "events": "5ae08bb8a6394843cc1201a4995ff82e74a6606d043d99e0f3af0d9f016a67df",
+        "chronicle": "6d6e8242b18f3f64c58d37b3992263d8619da3b96d4d7a5ec345b3eaa5cdac3b",
+        "harvests": "018ba1c9eda32cfbfddbdc0c57bc353258d839f2b739561937138d5afbdd1a45",
+        "ecologyFlows": "4e418dc86e3577efefca149804b132353ef4868b228980215b61a235288e59a1",
+        "deathsByCause": "4e2c847d986f6d49850fad594119b7fd55fefff326556faed40519166ac01793",
+        "tradeRecords": "e413dea4a04fa5c684c115da78ad0fd1440b86667dae96ba962eaea3410fc2d6"
+      },
+      "chronicleSha256": "6d6e8242b18f3f64c58d37b3992263d8619da3b96d4d7a5ec345b3eaa5cdac3b",
+      "determinismVerified": false,
+      "livingPeople": 99,
+      "adultDaysFoodReserveBelow20": 7093,
+      "deathsByCause": {
+        "starvation": 5,
+        "dehydration": 0,
+        "age": 0,
+        "injury": 0,
+        "combat": 1,
+        "predation": 0,
+        "harvest": 0,
+        "invasion": 1
+      },
+      "deathsByActor": {
+        "people": {
+          "total": 2,
+          "byCause": {
+            "combat": 1,
+            "invasion": 1
+          }
+        },
+        "animals": {
+          "total": 5,
+          "byCause": {
+            "starvation": 5
+          }
+        },
+        "domesticatedAnimals": {
+          "total": 0,
+          "byCause": {}
+        },
+        "wildAnimals": {
+          "total": 5,
+          "byCause": {
+            "starvation": 5
+          }
+        }
+      },
+      "campaignLogistics": {
+        "sideCount": 4,
+        "sidesWithoutLedger": 0,
+        "ledgerCoverageComplete": true,
+        "unbalancedSides": 0,
+        "resupplySourceMismatchSides": 0,
+        "totals": {
+          "fieldFoodDeployed": 1153.8938,
+          "fieldFoodResupplied": 7848.3376,
+          "resupplyFromTreasury": 4841.2365,
+          "resupplyFromCommunity": 3007.1012,
+          "fieldFoodConsumed": 8551.8148,
+          "personalReserveRationPoints": 2037.7928,
+          "fieldFoodReturned": 0,
+          "endingFieldFood": 450.4167,
+          "resupplySourceDelta": 0,
+          "fieldFoodBalance": 0
+        },
+        "sides": [
+          {
+            "campaignId": 182,
+            "kingdomId": 25,
+            "role": "attacker",
+            "status": "complete",
+            "ledgerPresent": true,
+            "fieldFoodDeployed": 575,
+            "fieldFoodResupplied": 2393.5647835119635,
+            "resupplyFromTreasury": 2393.5647835119635,
+            "resupplyFromCommunity": 0,
+            "fieldFoodConsumed": 2968.564783512036,
+            "personalReserveRationPoints": 1055.6241874289149,
+            "fieldFoodReturned": 0,
+            "endingFieldFood": 0,
+            "resupplySourceDelta": 0,
+            "fieldFoodBalance": 0
+          },
+          {
+            "campaignId": 182,
+            "kingdomId": 26,
+            "role": "defender",
+            "status": "complete",
+            "ledgerPresent": true,
+            "fieldFoodDeployed": 575,
+            "fieldFoodResupplied": 3488.333333333338,
+            "resupplyFromTreasury": 2376.2531772720754,
+            "resupplyFromCommunity": 1112.0801560612629,
+            "fieldFoodConsumed": 4063.3333333335595,
+            "personalReserveRationPoints": 982.1686431258062,
+            "fieldFoodReturned": 0,
+            "endingFieldFood": 0,
+            "resupplySourceDelta": 0,
+            "fieldFoodBalance": 0
+          },
+          {
+            "campaignId": 206,
+            "kingdomId": 26,
+            "role": "attacker",
+            "status": "marching",
+            "ledgerPresent": true,
+            "fieldFoodDeployed": 3.8938107155408126,
+            "fieldFoodResupplied": 1966.4395226177949,
+            "resupplyFromTreasury": 71.41851256725063,
+            "resupplyFromCommunity": 1895.0210100505442,
+            "fieldFoodConsumed": 1519.9166666666463,
+            "personalReserveRationPoints": 0,
+            "fieldFoodReturned": 0,
+            "endingFieldFood": 450.41666666666555,
+            "resupplySourceDelta": 0,
+            "fieldFoodBalance": 0
+          },
+          {
+            "campaignId": 206,
+            "kingdomId": 25,
+            "role": "defender",
+            "status": "marching",
+            "ledgerPresent": true,
+            "fieldFoodDeployed": 0,
+            "fieldFoodResupplied": 0,
+            "resupplyFromTreasury": 0,
+            "resupplyFromCommunity": 0,
+            "fieldFoodConsumed": 0,
+            "personalReserveRationPoints": 0,
+            "fieldFoodReturned": 0,
+            "endingFieldFood": 0,
+            "resupplySourceDelta": 0,
+            "fieldFoodBalance": 0
+          }
+        ]
+      },
+      "cultivatedFields": {
+        "fieldCount": 2,
+        "completeFieldCount": 1,
+        "totalFieldTiles": 65,
+        "standingBiomass": 5496.92,
+        "cropSeedStored": 8,
+        "cropSeededBiomass": 8,
+        "cropHarvested": 8590.08,
+        "foodDelivered": 7600.98,
+        "fields": [
+          {
+            "id": 186,
+            "communityId": 28,
+            "complete": true,
+            "destroyed": false,
+            "progress": 34,
+            "required": 34,
+            "builtDay": 107,
+            "fieldTileCount": 33,
+            "standingBiomass": 5496.92,
+            "cropSeedStored": 0,
+            "cropSeededBiomass": 8,
+            "cropHarvested": 8590.08,
+            "foodDelivered": 7600.98
+          },
+          {
+            "id": 196,
+            "communityId": 27,
+            "complete": false,
+            "destroyed": false,
+            "progress": 3,
+            "required": 34,
+            "builtDay": null,
+            "fieldTileCount": 32,
+            "standingBiomass": 0,
+            "cropSeedStored": 8,
+            "cropSeededBiomass": 0,
+            "cropHarvested": 0,
+            "foodDelivered": 0
+          }
+        ]
+      },
+      "births": 15,
+      "deaths": 7,
+      "harvests": {
+        "hunting": 0,
+        "fishing": 0,
+        "livestock": 0,
+        "livestockMeat": 0,
+        "plantFoodBiomass": 12236.282684335978,
+        "cultivatedFoodBiomass": 8590.084066152573
+      },
+      "ecologyFlows": {
+        "humanFoodRegrowth": 56977.61401136193,
+        "humanFoodNaturalLoss": 0,
+        "humanFoodSettlementLoss": 0,
+        "humanFoodEcologicalLoss": 0,
+        "humanFoodCultivatedRegrowth": 14079.000254434384,
+        "humanFoodCultivationSeeded": 16,
+        "livestockFeedConsumed": 0
+      },
+      "foodBiomass": 136330.62,
+      "activeCampaigns": 1,
+      "campaignBattles": 55,
+      "marketTransactions": 99,
+      "tradeRecords": 99,
+      "tradeActivity": {
+        "totalTradeRecords": 99,
+        "retainedTradeRecords": 99,
+        "duplicateLedgerRows": 196,
+        "tradeRecordCoverageComplete": true,
+        "marketTransactions": 99,
+        "marketTransactionsRecorded": 99,
+        "marketTransactionCoverageComplete": true,
+        "otherTradeRecords": 0,
+        "byAction": [
+          {
+            "action": "comprou refeição militar",
+            "count": 97,
+            "marketDelta": {
+              "food": -103.9968,
+              "gold": 101.3156
+            }
+          },
+          {
+            "action": "vendeu alimento",
+            "count": 2,
+            "marketDelta": {
+              "food": 20,
+              "gold": -8
+            }
+          }
+        ],
+        "byMarket": [
+          {
+            "ownerType": "kingdom-market",
+            "ownerId": 25,
+            "count": 60,
+            "marketDelta": {
+              "food": -41.9981,
+              "gold": 52.1543
+            }
+          },
+          {
+            "ownerType": "kingdom-market",
+            "ownerId": 26,
+            "count": 39,
+            "marketDelta": {
+              "food": -41.9987,
+              "gold": 41.1613
+            }
+          }
+        ],
+        "byActor": [
+          {
+            "actorType": "person",
+            "actorId": 79,
+            "role": "resident",
+            "communityId": 27,
+            "count": 22,
+            "marketDelta": {
+              "food": -23.8326,
+              "gold": 23.0536
+            }
+          },
+          {
+            "actorType": "person",
+            "actorId": 83,
+            "role": "resident",
+            "communityId": 27,
+            "count": 12,
+            "marketDelta": {
+              "food": -12.9996,
+              "gold": 12.6536
+            }
+          },
+          {
+            "actorType": "person",
+            "actorId": 94,
+            "role": "resident",
+            "communityId": 27,
+            "count": 7,
+            "marketDelta": {
+              "food": -6.7498,
+              "gold": 6.6152
+            }
+          },
+          {
+            "actorType": "person",
+            "actorId": 104,
+            "role": "resident",
+            "communityId": 27,
+            "count": 2,
+            "marketDelta": {
+              "food": 20,
+              "gold": -8
+            }
+          },
+          {
+            "actorType": "person",
+            "actorId": 114,
+            "role": "resident",
+            "communityId": 27,
+            "count": 17,
+            "marketDelta": {
+              "food": -18.4161,
+              "gold": 17.8319
+            }
+          },
+          {
+            "actorType": "person",
+            "actorId": 130,
+            "role": "soldier",
+            "communityId": 28,
+            "count": 12,
+            "marketDelta": {
+              "food": -12.7496,
+              "gold": 12.4954
+            }
+          },
+          {
+            "actorType": "person",
+            "actorId": 134,
+            "role": "soldier",
+            "communityId": 28,
+            "count": 15,
+            "marketDelta": {
+              "food": -16.2495,
+              "gold": 15.9255
+            }
+          },
+          {
+            "actorType": "person",
+            "actorId": 136,
+            "role": "soldier",
+            "communityId": 28,
+            "count": 7,
+            "marketDelta": {
+              "food": -7.5831,
+              "gold": 7.4319
+            }
+          },
+          {
+            "actorType": "person",
+            "actorId": 149,
+            "role": "soldier",
+            "communityId": 28,
+            "count": 3,
+            "marketDelta": {
+              "food": -3.2499,
+              "gold": 3.1851
+            }
+          },
+          {
+            "actorType": "person",
+            "actorId": 156,
+            "role": "soldier",
+            "communityId": 28,
+            "count": 2,
+            "marketDelta": {
+              "food": -2.1666,
+              "gold": 2.1234
+            }
+          }
+        ],
+        "diagnostics": {
+          "marketOpportunityChecks": 26458,
+          "marketOpportunities": 5474,
+          "marketOpportunityBlocked": {
+            "no-exchange-offer": 3764,
+            "station-out-of-range": 17220
+          },
+          "marketApproaches": 56,
+          "marketAttempts": 2,
+          "marketCompleted": 2,
+          "marketBlocked": {
+            "route-blocked": 5
+          },
+          "communityBarterAttempts": 0,
+          "communityBarterCompleted": 0,
+          "communityBarterBlocked": {}
+        }
+      },
+      "stocks": {
+        "communityFood": 675.97,
+        "communityMeat": 0,
+        "treasuryFood": 0,
+        "marketFood": 0,
+        "personalFoodReserve": 2538.55,
+        "carriedFood": 0,
+        "carriedFruit": 0,
+        "carriedMeat": 0,
+        "campaignFieldFood": 450.42
+      },
+      "foodReserveByCommunity": [
+        {
+          "communityId": 27,
+          "kingdomId": 25,
+          "name": "Valedouro",
+          "initialFood": 0,
+          "minimumFood": 0,
+          "maximumFood": 651,
+          "daysBelow300": 242,
+          "daysBelowDemandBuffer": 276,
+          "firstDayBelow300": 124,
+          "endingFood": 0,
+          "minimumCombinedReserveDays": 18.76,
+          "maximumCombinedReserveDays": 120.54,
+          "daysBelowCombinedReserve14": 0,
+          "endingPersonalReservePoints": 606.85,
+          "endingPersonalReserveRawEquivalent": 842.85,
+          "endingAveragePersonalReservePoints": 12.91,
+          "endingResidentsBelow20": 36,
+          "endingPopulation": 47,
+          "endingDailyDemandRawUnits": 44.92,
+          "endingDemandBufferTarget": 628.83,
+          "endingDomesticatedSheep": 0,
+          "endingAdultDomesticatedSheep": 0,
+          "endingFeedStock": 0,
+          "recoveredAbove300AtEnd": false
+        },
+        {
+          "communityId": 28,
+          "kingdomId": 26,
+          "name": "Corvânia",
+          "initialFood": 0,
+          "minimumFood": 0,
+          "maximumFood": 708.65,
+          "daysBelow300": 5,
+          "daysBelowDemandBuffer": 223,
+          "firstDayBelow300": 305,
+          "endingFood": 675.97,
+          "minimumCombinedReserveDays": 60.08,
+          "maximumCombinedReserveDays": 119.39,
+          "daysBelowCombinedReserve14": 0,
+          "endingPersonalReservePoints": 1931.54,
+          "endingPersonalReserveRawEquivalent": 2682.69,
+          "endingAveragePersonalReservePoints": 37.87,
+          "endingResidentsBelow20": 19,
+          "endingPopulation": 51,
+          "endingDailyDemandRawUnits": 47.75,
+          "endingDemandBufferTarget": 668.5,
+          "endingDomesticatedSheep": 0,
+          "endingAdultDomesticatedSheep": 0,
+          "endingFeedStock": 0,
+          "recoveredAbove300AtEnd": true
+        }
+      ]
+    },
+    {
+      "seed": 42,
+      "days": 365,
+      "elapsedSeconds": 81.04,
+      "stateSha256": "1532ff84f3626fc0e36724ee652c7796ef8dc1cda58776679169006f986a174e",
+      "stateParts": {
+        "day": "4e47eb5525df25f94da777993dafa41d9ab2bfa80a89e28f76d42cd46ab082e7",
+        "year": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+        "season": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+        "seed": "73475cb40a568e8da8a045ced110137e159f890ac4da883b6b17dc651b3a8049",
+        "rngState": "95d16c2474b5e1465c88e469e699b4d41756ae06ca411d747dcc8edc7d14c8f2",
+        "nextId": "4621c1d55fa4e86ce0dae4288302641baac86dd53f76227c892df9d300682d41",
+        "tiles": "ab93f6a912f17d172bbc2a4c56cb78b1b7ab7025109ccdc870f625fbf76a8615",
+        "regions": "a225be5ec86df7d51fef4d225b26aa2e54cdf61074e363788f4db332bd919cb0",
+        "animals": "853481da2ce43ea1bac821fe8d5ed3c9f3e23e57469d028b4585e01a56e4948c",
+        "people": "3a313feadf9b029a1ef5fd70e93101c51ff398e8e43da1dca783e86f535d3b84",
+        "communities": "c91d1fe407ba642abf695ad3da6b113afe413b08f9aba8ff205a863c48d2d6dd",
+        "kingdoms": "1cddfaafec53f4ce295d7289228d0a51c1f4f5a25cb1f175f75bb7b0d14e6e92",
+        "settlements": "63e75e219a0b74fbc4fdce743a0bd9bfa533a2743062c11b515f42a60760236a",
+        "structures": "97a4d3c51fd30643a589512a345b56f15fe322de26634854e4b44dd6ca2be750",
+        "wars": "47e21c1900fd7d817fa5f311da795f81b889572a2f2f69e975b2554acdae69b3",
+        "campaigns": "0ddfa07dc48fa4da87a9619ea5f2f3856fa4ff6c21fdace9f29f12512e7ad675",
+        "conflicts": "5316ca1c5ddca8e6ceccfce58f3b8540e540ee22f6180fb89492904051b3d531",
+        "territoryClaims": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "treaties": "fea0c9df87facda66d032bd4d9ae6be3fef6330e4fc6310d8a03d221b4216d99",
+        "socialLinks": "ece212b1b05b850e63c16c08b0decc889cad02ae5242a71060cefe6df74e593f",
+        "events": "5c278ef0deeee7d6ce9331d38de9f5b31c0162ce3024d3d4a9a1e37a5fef682c",
+        "chronicle": "a72512ce450a384ee350c864c740df77381cb72c983b92b1ea31c1c056864bea",
+        "harvests": "27781254d26e6164c45ab559d0b8c774439c117893406d8986cd479b63d7167a",
+        "ecologyFlows": "2a13fd7535155c0a047d71a315a3b6e46e4ff82dbea255f3b06c3351a1350e34",
+        "deathsByCause": "3b37de24e8569ece447792eee53cbd1f8fabd452915e587cd2a00a2beecc5970",
+        "tradeRecords": "e413dea4a04fa5c684c115da78ad0fd1440b86667dae96ba962eaea3410fc2d6"
+      },
+      "chronicleSha256": "a72512ce450a384ee350c864c740df77381cb72c983b92b1ea31c1c056864bea",
+      "determinismVerified": false,
+      "livingPeople": 95,
+      "adultDaysFoodReserveBelow20": 7513,
+      "deathsByCause": {
+        "starvation": 1,
+        "dehydration": 0,
+        "age": 0,
+        "injury": 0,
+        "combat": 3,
+        "predation": 0,
+        "harvest": 0,
+        "invasion": 0
+      },
+      "deathsByActor": {
+        "people": {
+          "total": 4,
+          "byCause": {
+            "combat": 3,
+            "starvation": 1
+          }
+        },
+        "animals": {
+          "total": 0,
+          "byCause": {}
+        },
+        "domesticatedAnimals": {
+          "total": 0,
+          "byCause": {}
+        },
+        "wildAnimals": {
+          "total": 0,
+          "byCause": {}
+        }
+      },
+      "campaignLogistics": {
+        "sideCount": 4,
+        "sidesWithoutLedger": 0,
+        "ledgerCoverageComplete": true,
+        "unbalancedSides": 0,
+        "resupplySourceMismatchSides": 0,
+        "totals": {
+          "fieldFoodDeployed": 1150,
+          "fieldFoodResupplied": 10131.1083,
+          "resupplyFromTreasury": 4472.1444,
+          "resupplyFromCommunity": 5658.9639,
+          "fieldFoodConsumed": 10342.8032,
+          "personalReserveRationPoints": 1905.9572,
+          "fieldFoodReturned": 0,
+          "endingFieldFood": 938.3051,
+          "resupplySourceDelta": 0,
+          "fieldFoodBalance": 0
+        },
+        "sides": [
+          {
+            "campaignId": 181,
+            "kingdomId": 25,
+            "role": "attacker",
+            "status": "complete",
+            "ledgerPresent": true,
+            "fieldFoodDeployed": 575,
+            "fieldFoodResupplied": 2206.9018657331994,
+            "resupplyFromTreasury": 2110.1666666666524,
+            "resupplyFromCommunity": 96.73519906654698,
+            "fieldFoodConsumed": 2781.901865733264,
+            "personalReserveRationPoints": 1029.0687455658945,
+            "fieldFoodReturned": 0,
+            "endingFieldFood": 0,
+            "resupplySourceDelta": 0,
+            "fieldFoodBalance": 0
+          },
+          {
+            "campaignId": 181,
+            "kingdomId": 26,
+            "role": "defender",
+            "status": "complete",
+            "ledgerPresent": true,
+            "fieldFoodDeployed": 575,
+            "fieldFoodResupplied": 3088.4427086900605,
+            "resupplyFromTreasury": 2277.5736725216493,
+            "resupplyFromCommunity": 810.8690361684113,
+            "fieldFoodConsumed": 3663.4427086902247,
+            "personalReserveRationPoints": 841.9892497431396,
+            "fieldFoodReturned": 0,
+            "endingFieldFood": 0,
+            "resupplySourceDelta": 0,
+            "fieldFoodBalance": 0
+          },
+          {
+            "campaignId": 196,
+            "kingdomId": 26,
+            "role": "attacker",
+            "status": "engaged",
+            "ledgerPresent": true,
+            "fieldFoodDeployed": 0,
+            "fieldFoodResupplied": 2609.416666666657,
+            "resupplyFromTreasury": 74.99468112238021,
+            "resupplyFromCommunity": 2534.4219855442766,
+            "fieldFoodConsumed": 2107.0833333332844,
+            "personalReserveRationPoints": 0,
+            "fieldFoodReturned": 0,
+            "endingFieldFood": 502.3333333333322,
+            "resupplySourceDelta": 0,
+            "fieldFoodBalance": 0
+          },
+          {
+            "campaignId": 196,
+            "kingdomId": 25,
+            "role": "defender",
+            "status": "engaged",
+            "ledgerPresent": true,
+            "fieldFoodDeployed": 0,
+            "fieldFoodResupplied": 2226.347047656378,
+            "resupplyFromTreasury": 9.409352575540451,
+            "resupplyFromCommunity": 2216.9376950808373,
+            "fieldFoodConsumed": 1790.3753040175568,
+            "personalReserveRationPoints": 34.89920947265627,
+            "fieldFoodReturned": 0,
+            "endingFieldFood": 435.97174363880373,
+            "resupplySourceDelta": 0,
+            "fieldFoodBalance": 0
+          }
+        ]
+      },
+      "cultivatedFields": {
+        "fieldCount": 2,
+        "completeFieldCount": 2,
+        "totalFieldTiles": 56,
+        "standingBiomass": 9415.95,
+        "cropSeedStored": 0,
+        "cropSeededBiomass": 16,
+        "cropHarvested": 12948.15,
+        "foodDelivered": 11992.72,
+        "fields": [
+          {
+            "id": 183,
+            "communityId": 28,
+            "complete": true,
+            "destroyed": false,
+            "progress": 34,
+            "required": 34,
+            "builtDay": 121,
+            "fieldTileCount": 32,
+            "standingBiomass": 5470.52,
+            "cropSeedStored": 0,
+            "cropSeededBiomass": 8,
+            "cropHarvested": 8371.71,
+            "foodDelivered": 7907.07
+          },
+          {
+            "id": 184,
+            "communityId": 27,
+            "complete": true,
+            "destroyed": false,
+            "progress": 34,
+            "required": 34,
+            "builtDay": 126,
+            "fieldTileCount": 24,
+            "standingBiomass": 3945.43,
+            "cropSeedStored": 0,
+            "cropSeededBiomass": 8,
+            "cropHarvested": 4576.44,
+            "foodDelivered": 4085.65
+          }
+        ]
+      },
+      "births": 11,
+      "deaths": 4,
+      "harvests": {
+        "hunting": 0,
+        "fishing": 0,
+        "livestock": 0,
+        "livestockMeat": 0,
+        "plantFoodBiomass": 15259.120804574708,
+        "cultivatedFoodBiomass": 12948.148037672043
+      },
+      "ecologyFlows": {
+        "humanFoodRegrowth": 66329.19928941569,
+        "humanFoodNaturalLoss": 0,
+        "humanFoodSettlementLoss": 0,
+        "humanFoodEcologicalLoss": 0,
+        "humanFoodCultivatedRegrowth": 22348.10084139716,
+        "humanFoodCultivationSeeded": 16,
+        "livestockFeedConsumed": 89.15999999999944
+      },
+      "foodBiomass": 145753.42,
+      "activeCampaigns": 1,
+      "campaignBattles": 81,
+      "marketTransactions": 87,
+      "tradeRecords": 87,
+      "tradeActivity": {
+        "totalTradeRecords": 87,
+        "retainedTradeRecords": 87,
+        "duplicateLedgerRows": 162,
+        "tradeRecordCoverageComplete": true,
+        "marketTransactions": 87,
+        "marketTransactionsRecorded": 87,
+        "marketTransactionCoverageComplete": true,
+        "otherTradeRecords": 0,
+        "byAction": [
+          {
+            "action": "comprou alimento",
+            "count": 1,
+            "marketDelta": {
+              "food": -12,
+              "gold": 6
+            }
+          },
+          {
+            "action": "comprou madeira",
+            "count": 1,
+            "marketDelta": {
+              "wood": -10,
+              "gold": 6
+            }
+          },
+          {
+            "action": "comprou pedra",
+            "count": 1,
+            "marketDelta": {
+              "stone": -8,
+              "gold": 7
+            }
+          },
+          {
+            "action": "comprou ração",
+            "count": 1,
+            "marketDelta": {
+              "gold": 4,
+              "feed": -10
+            }
+          },
+          {
+            "action": "comprou refeição militar",
+            "count": 75,
+            "marketDelta": {
+              "food": -151.9977,
+              "gold": 118.6285
+            }
+          },
+          {
+            "action": "vendeu alimento",
+            "count": 8,
+            "marketDelta": {
+              "food": 80,
+              "gold": -32
+            }
+          }
+        ],
+        "byMarket": [
+          {
+            "ownerType": "kingdom-market",
+            "ownerId": 25,
+            "count": 48,
+            "marketDelta": {
+              "food": -41.999,
+              "gold": 68.4672,
+              "feed": -10,
+              "stone": -8,
+              "wood": -10
+            }
+          },
+          {
+            "ownerType": "kingdom-market",
+            "ownerId": 26,
+            "count": 39,
+            "marketDelta": {
+              "food": -41.9987,
+              "gold": 41.1613
+            }
+          }
+        ],
+        "byActor": [
+          {
+            "actorType": "person",
+            "actorId": 70,
+            "role": "resident",
+            "communityId": 27,
+            "count": 3,
+            "marketDelta": {
+              "food": 30,
+              "gold": -12
+            }
+          },
+          {
+            "actorType": "person",
+            "actorId": 77,
+            "role": "resident",
+            "communityId": 27,
+            "count": 1,
+            "marketDelta": {
+              "food": -12,
+              "gold": 6
+            }
+          },
+          {
+            "actorType": "person",
+            "actorId": 94,
+            "role": "resident",
+            "communityId": 27,
+            "count": 1,
+            "marketDelta": {
+              "wood": -10,
+              "gold": 6
+            }
+          },
+          {
+            "actorType": "person",
+            "actorId": 103,
+            "role": "soldier",
+            "communityId": 27,
+            "count": 28,
+            "marketDelta": {
+              "food": -30.3324,
+              "gold": 20.1072
+            }
+          },
+          {
+            "actorType": "person",
+            "actorId": 106,
+            "role": "soldier",
+            "communityId": 27,
+            "count": 7,
+            "marketDelta": {
+              "food": -78.5833,
+              "gold": 56.58
+            }
+          },
+          {
+            "actorType": "person",
+            "actorId": 109,
+            "role": "soldier",
+            "communityId": 27,
+            "count": 1,
+            "marketDelta": {
+              "food": -1.0833,
+              "gold": 0.78
+            }
+          },
+          {
+            "actorType": "person",
+            "actorId": 116,
+            "role": "resident",
+            "communityId": 27,
+            "count": 7,
+            "marketDelta": {
+              "food": 50,
+              "gold": -9,
+              "feed": -10,
+              "stone": -8
+            }
+          },
+          {
+            "actorType": "person",
+            "actorId": 149,
+            "role": "soldier",
+            "communityId": 28,
+            "count": 1,
+            "marketDelta": {
+              "food": -1.0833,
+              "gold": 1.0617
+            }
+          },
+          {
+            "actorType": "person",
+            "actorId": 151,
+            "role": "soldier",
+            "communityId": 28,
+            "count": 7,
+            "marketDelta": {
+              "food": -7.5831,
+              "gold": 7.4319
+            }
+          },
+          {
+            "actorType": "person",
+            "actorId": 155,
+            "role": "soldier",
+            "communityId": 28,
+            "count": 11,
+            "marketDelta": {
+              "food": -11.6663,
+              "gold": 11.4337
+            }
+          },
+          {
+            "actorType": "person",
+            "actorId": 157,
+            "role": "soldier",
+            "communityId": 28,
+            "count": 14,
+            "marketDelta": {
+              "food": -15.1662,
+              "gold": 14.8638
+            }
+          },
+          {
+            "actorType": "person",
+            "actorId": 162,
+            "role": "soldier",
+            "communityId": 28,
+            "count": 6,
+            "marketDelta": {
+              "food": -6.4998,
+              "gold": 6.3702
+            }
+          }
+        ],
+        "diagnostics": {
+          "marketOpportunityChecks": 26759,
+          "marketOpportunities": 7467,
+          "marketOpportunityBlocked": {
+            "no-exchange-offer": 1885,
+            "station-out-of-range": 17407
+          },
+          "marketApproaches": 67,
+          "marketAttempts": 13,
+          "marketCompleted": 12,
+          "marketBlocked": {
+            "no-executable-exchange": 1,
+            "route-blocked": 3
+          },
+          "communityBarterAttempts": 0,
+          "communityBarterCompleted": 0,
+          "communityBarterBlocked": {}
+        }
+      },
+      "stocks": {
+        "communityFood": 508.51,
+        "communityMeat": 0,
+        "treasuryFood": 0,
+        "marketFood": 0,
+        "personalFoodReserve": 2841.67,
+        "carriedFood": 0,
+        "carriedFruit": 0,
+        "carriedMeat": 0,
+        "campaignFieldFood": 938.31
+      },
+      "foodReserveByCommunity": [
+        {
+          "communityId": 27,
+          "kingdomId": 25,
+          "name": "Valedouro",
+          "initialFood": 0,
+          "minimumFood": 0,
+          "maximumFood": 658,
+          "daysBelow300": 240,
+          "daysBelowDemandBuffer": 277,
+          "firstDayBelow300": 120,
+          "endingFood": 127.31,
+          "minimumCombinedReserveDays": 25.66,
+          "maximumCombinedReserveDays": 119.8,
+          "daysBelowCombinedReserve14": 0,
+          "endingPersonalReservePoints": 921.47,
+          "endingPersonalReserveRawEquivalent": 1279.82,
+          "endingAveragePersonalReservePoints": 20.48,
+          "endingResidentsBelow20": 30,
+          "endingPopulation": 45,
+          "endingDailyDemandRawUnits": 44.75,
+          "endingDemandBufferTarget": 626.5,
+          "endingDomesticatedSheep": 2,
+          "endingAdultDomesticatedSheep": 2,
+          "endingFeedStock": 10,
+          "recoveredAbove300AtEnd": false
+        },
+        {
+          "communityId": 28,
+          "kingdomId": 26,
+          "name": "Corvânia",
+          "initialFood": 0,
+          "minimumFood": 0,
+          "maximumFood": 718.89,
+          "daysBelow300": 101,
+          "daysBelowDemandBuffer": 258,
+          "firstDayBelow300": 121,
+          "endingFood": 381.2,
+          "minimumCombinedReserveDays": 55.31,
+          "maximumCombinedReserveDays": 122.59,
+          "daysBelowCombinedReserve14": 0,
+          "endingPersonalReservePoints": 1920.19,
+          "endingPersonalReserveRawEquivalent": 2666.94,
+          "endingAveragePersonalReservePoints": 38.4,
+          "endingResidentsBelow20": 19,
+          "endingPopulation": 50,
+          "endingDailyDemandRawUnits": 47.17,
+          "endingDemandBufferTarget": 660.33,
+          "endingDomesticatedSheep": 3,
+          "endingAdultDomesticatedSheep": 2,
+          "endingFeedStock": 15,
+          "recoveredAbove300AtEnd": true
+        }
+      ]
+    }
+  ]
+}

@@ -21,6 +21,7 @@ export function createBrowserEngine(options = {}) {
   let nextRequestId = 1;
   let disposed = false;
   let settled = false;
+  let currentDevice = null;
   let resolveReady;
   let rejectReady;
   const ready = new Promise((resolve, reject) => {
@@ -36,10 +37,15 @@ export function createBrowserEngine(options = {}) {
   worker.addEventListener('message', event => {
     const message = event.data || {};
     if (message.type === 'status') {
+      if (message.status?.device) currentDevice = message.status.device;
+      if (message.status?.recovering) {
+        for (const operation of pending.values()) operation.recover();
+      }
       onStatus(message.status || {});
       return;
     }
     if (message.type === 'ready') {
+      currentDevice = message.device;
       if (settled) return;
       settled = true;
       resolveReady({ provider: message.provider, model: message.model, device: message.device });
@@ -58,8 +64,15 @@ export function createBrowserEngine(options = {}) {
     const operation = pending.get(message.requestId);
     if (!operation) return;
     pending.delete(message.requestId);
-    if (message.type === 'error') operation.reject(new Error(message.message || 'A inferência no navegador falhou.'));
-    else operation.resolve(message.response);
+    if (message.type === 'error') {
+      const error = new Error(message.message || 'A inferência no navegador falhou.');
+      if (message.name) error.name = message.name;
+      operation.reject(error);
+      if (message.fatal) { failPending(error); dispose(); }
+    } else {
+      if (message.response?.device) currentDevice = message.response.device;
+      operation.resolve(message.response);
+    }
   });
 
   worker.addEventListener('error', event => {
@@ -92,15 +105,22 @@ export function createBrowserEngine(options = {}) {
       if (disposed || signal?.aborted) throw createAbortError();
       const requestId = nextRequestId++;
       return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          const operation = pending.get(requestId);
-          if (!operation) return;
-          pending.delete(requestId);
-          const error = new Error('A inferência no navegador excedeu ' + Math.round(decisionTimeoutMs / 1000) + ' segundos.');
-          error.name = 'TimeoutError';
-          operation.reject(error);
-          dispose();
-        }, decisionTimeoutMs);
+        let timeout;
+        let recovering = false;
+        const armTimeout = milliseconds => {
+          clearTimeout(timeout);
+          timeout = setTimeout(() => {
+            const operation = pending.get(requestId);
+            if (!operation) return;
+            pending.delete(requestId);
+            const error = new Error('A inferência no navegador excedeu ' + Math.round(milliseconds / 1000) + ' segundos.');
+            error.name = 'TimeoutError';
+            operation.reject(error);
+            dispose();
+          }, milliseconds);
+        };
+        armTimeout(!options.decisionTimeoutMs && currentDevice === 'CPU/WASM'
+          ? model.cpuInferenceTimeoutMs || decisionTimeoutMs : decisionTimeoutMs);
         const abort = () => {
           clearTimeout(timeout);
           pending.delete(requestId);
@@ -109,6 +129,11 @@ export function createBrowserEngine(options = {}) {
         };
         if (signal) signal.addEventListener('abort', abort, { once: true });
         pending.set(requestId, {
+          recover: () => {
+            if (recovering) return;
+            recovering = true;
+            armTimeout(options.recoveryTimeoutMs || model.recoveryTimeoutMs || decisionTimeoutMs);
+          },
           resolve: response => {
             clearTimeout(timeout);
             signal?.removeEventListener('abort', abort);

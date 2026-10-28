@@ -1,0 +1,76 @@
+{
+  "runtime": "v24.19.0",
+  "seed": 42,
+  "determinism": {
+    "seeds": [
+      42
+    ],
+    "comparedDays": 10,
+    "fullWorldState": true,
+    "passed": true
+  },
+  "configuration": {
+    "width": 128,
+    "height": 128,
+    "cells": 16384,
+    "kingdoms": 2,
+    "residents": 202,
+    "animals": 25,
+    "structures": 44,
+    "warmupDays": 5,
+    "measuredDaysPerRepeat": 90,
+    "repeats": 3
+  },
+  "observationsAfterMeasuredRun": {
+    "day": 95,
+    "aliveResidents": 200,
+    "logs": 50,
+    "events": 64
+  },
+  "throughput": {
+    "samples": [
+      {
+        "elapsedMs": 23741.62,
+        "daysPerSecond": 3.79
+      },
+      {
+        "elapsedMs": 32372.32,
+        "daysPerSecond": 2.78
+      },
+      {
+        "elapsedMs": 31838.81,
+        "daysPerSecond": 2.83
+      }
+    ],
+    "medianDaysPerSecond": 2.83
+  },
+  "memory": {
+    "beforeCreateMiB": {
+      "rss": 412.32,
+      "heapTotal": 138.99,
+      "heapUsed": 9.1,
+      "external": 2.14,
+      "arrayBuffers": 0.13
+    },
+    "afterCreateMiB": {
+      "rss": 417.42,
+      "heapTotal": 155.17,
+      "heapUsed": 25.02,
+      "external": 2.26,
+      "arrayBuffers": 0.13
+    },
+    "afterWarmupAndSimulationMiB": {
+      "rss": 444.08,
+      "heapTotal": 251.18,
+      "heapUsed": 41.97,
+      "external": 2.38,
+      "arrayBuffers": 0.13
+    },
+    "deltasMiB": {
+      "heapUsedAfterCreation": 15.92,
+      "heapUsedAfterSimulation": 16.95,
+      "rssDuringSimulation": 26.66,
+      "externalDuringSimulation": 0.12
+    }
+  }
+}

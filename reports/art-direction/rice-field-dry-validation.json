@@ -1,0 +1,61 @@
+{
+  "source_file": "exec-bd1d2c93-548e-4140-ae34-b6b1d318f9b5.png",
+  "source_sha256": "13f24aee9de3c2ea87f67d6a455fe67b20b5994d04c9d446abe102f602e61c48",
+  "atlas_file": "public/assets/kingdom-autotile/rice-field-dry.png",
+  "animated_overlay_file": "public/assets/kingdom-autotile/rice-field-dry-plants.png",
+  "atlas_size": [
+    128,
+    128
+  ],
+  "layout": "2x2 row-major; each static tile is 64x64",
+  "format": "RGBA composite atlas over crop-field soil plus transparent rice overlay for wind animation",
+  "animated_overlay_size": [
+    1024,
+    128
+  ],
+  "animated_overlay_layout": "8 horizontal frames; each 128x128 frame contains four 64x64 variants in a 2x2 atlas",
+  "plant_body_alpha": "opaque except for slight transparency on the outer lateral edges",
+  "soil_center": "visible through the transparent gap between the two rice rows in every tile",
+  "wind_animation": "8 pixel-snapped, height-weighted bend frames based on the tree reference loop; roots and soil remain fixed",
+  "wind_reference_profile": "reports/art-direction/tree-1-reference-profile.json",
+  "wind_frame_duration_ms": 100,
+  "wind_frame_count": 8,
+  "wind_distinct_frame_count": 8,
+  "wind_top_offsets_px": [
+    0,
+    1,
+    2,
+    3,
+    2,
+    0,
+    -1,
+    -1
+  ],
+  "wind_tip_offsets_px": [
+    0,
+    1,
+    0,
+    -1,
+    1,
+    -1,
+    1,
+    0
+  ],
+  "wind_root_start_y": 56,
+  "wind_roots_unchanged": true,
+  "wind_preview_file": "reports/art-direction/rice-field-dry-wind-preview.gif",
+  "wind_frames_preview_file": "reports/art-direction/rice-field-dry-wind-frames.png",
+  "overlay_opaque_pixels": 10583,
+  "overlay_semi_transparent_pixels": 1130,
+  "overlay_transparent_pixels": 4671,
+  "overlay_unique_colors": 12,
+  "overlay_colors_all_in_kingdom_palette": true,
+  "unique_cell_variations": 4,
+  "cell_sha256": [
+    "326736f079c29bc8f5faea57a6f549d341317215cc8003a4609ac83f40117577",
+    "e82f783d22343ae0d56e81556cca45362d5c82de2edae0c259a64c7c5f3e2f5f",
+    "ca29eb7e3b7b5b48008198db65ebdad2ce613f63d8dcb29f54381c9d3755a63d",
+    "2f1f1adf6f715a524208d3114941d106aa699810c13698b86a2b5c03e08c5261"
+  ],
+  "manual_visual_review": "composite and eight-frame contact sheet confirm tall rice, visible center soil, low root earth, lateral transparency, and canopy-led motion; pixel checks confirm the bottom eight rows are unchanged; live motion still needs confirmation on a mature crop in the game"
+}

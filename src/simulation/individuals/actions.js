@@ -38,6 +38,7 @@ import { indicateKnownWaterReference } from '../society/water-indication.js';
 import { consumePersonEnergy } from './energy.js';
 import { chooseMilitaryAction, learnMilitaryOutcome, militaryTrainingPairs, trainMilitaryPair } from '../kingdoms/military-learning.js';
 import { advanceSocialIntention, defineSocialIntention, maintainSocialIntentions, physicalIntentionBlockers } from '../society/social-evidence.js';
+import { foodAidEvidenceIds, selectFoodHelper, selectSocialPlanAction } from '../society/plan-execution.js';
 
 const STARVATION_HEALTH_LOSS_PER_POINT = .035;
 const PERSONAL_FOOD_PRESSURE_THRESHOLD = 42;
@@ -70,11 +71,13 @@ function hideCollectedBush(w, tile, plantId) {
   }
 
 function findPersonById(w, id) {
+    // Social records use string IDs; runtime maps use numeric person IDs.
+    const key = typeof id === 'string' && /^\d+$/.test(id) ? Number(id) : id;
     if (w.peopleById instanceof Map) {
-      const person = w.peopleById.get(id);
+      const person = w.peopleById.get(key);
       return person?.alive ? person : undefined;
     }
-    return w.people.find(person => person.id === id && person.alive);
+    return w.people.find(person => person.id === key && person.alive);
   }
 
 
@@ -996,17 +999,9 @@ function updatePeopleCore(w) {
         : null;
       const currentFoodAidPlan = (p.socialIntentions || []).find(item => item.type === 'seek_food_aid'
         && ['active', 'suspended'].includes(item.status));
-      const perceivedFoodHelper = p.foodReserve < 40
-        ? (p.perception?.people || []).filter(sighting => sighting.visible && sighting.distance <= 14
-          && sighting.visibleSignals?.foodSurplus === true && !socialMeetingParticipants.has(sighting.id))
-          .map(sighting => findPersonById(w, sighting.id)).filter(Boolean)
-          .sort((a, b) => distance(p, a) - distance(p, b) || a.id - b.id)[0] || null
-        : null;
-      const aidPlan = currentFoodAidPlan
-        ? { intention: currentFoodAidPlan }
-        : perceivedFoodHelper ? ensureFoodAidPlan(w, p, perceivedFoodHelper) : null;
-      const aidPlanIntention = aidPlan?.intention || currentFoodAidPlan;
-      const aidPlanTarget = aidPlanIntention ? findPersonById(w, aidPlanIntention.targetId) : null;
+      const perceivedFoodHelper = selectFoodHelper(w, p, socialMeetingParticipants);
+      let aidPlanIntention = currentFoodAidPlan;
+      let aidPlanTarget = aidPlanIntention ? findPersonById(w, aidPlanIntention.targetId) : null;
       const groupFood = communityFoodStock(community);
       const groupMaterial = community ? communityMaterialStock(community) : 0;
       const browseFood = bestSheepFeedCell(w, p, 8);
@@ -1158,8 +1153,32 @@ function updatePeopleCore(w) {
       // Food and water require resupply or drinking, never an endless sleep.
       const returnToGarrison = peacetimeSoldier && p.foodReserve < GARRISON_RECOVERY.food
         && garrisonFoodAvailable > .01 && militaryCenter && distance(p, militaryCenter) > 2;
+      const planContext = {
+        militaryDuty: !!campaignOrder || !!p.towerMounted || !!p.towerDutyId,
+        urgentNeeds: !!(survivalAction || carrierMaintenanceAction)
+          || p.role === 'soldier' && p.hydration < 40 && !!waterTarget,
+        rest: homeRest, cargo: carryingGoods || !!p.leadingSheepId,
+        resupply: returnToGarrison, busy: socialMeetingParticipants
+      };
+      // Propose only when there is an opportunity to execute the first step today.
+      // Existing plans survive interruptions, but duties do not generate new impossible promises.
+      if (!aidPlanIntention && perceivedFoodHelper && !physicalIntentionBlockers(p, w.day).length
+          && !planContext.militaryDuty && !planContext.urgentNeeds && !planContext.rest
+          && !planContext.cargo && !planContext.resupply && !socialMeetingParticipants.has(p.id)) {
+        aidPlanIntention = ensureFoodAidPlan(w, p, perceivedFoodHelper, {
+          evidenceEventIds: foodAidEvidenceIds(w, p, perceivedFoodHelper.id)
+        })?.intention || null;
+        aidPlanTarget = aidPlanIntention ? findPersonById(w, aidPlanIntention.targetId) : null;
+      }
+      const socialPlan = selectSocialPlanAction(w, p, planContext);
+      // The scheduler can replace an immutable intention record while recording its impediment.
+      if (aidPlanIntention) aidPlanIntention = p.socialIntentions.find(item => item.intentionId === aidPlanIntention.intentionId);
+      if (socialPlan && assignment) {
+        assignment.pauseReason = 'plano individual em execução';
+        assignment.lastPausedDay = w.day;
+      }
       if (p.militaryBrain) p.militaryBrain.pending = null;
-      const militaryAction = p.role === 'soldier' && (!homeRest || returnToGarrison)
+      const militaryAction = !socialPlan && p.role === 'soldier' && (!homeRest || returnToGarrison)
         && (!survivalAction || returnToGarrison)
         ? chooseMilitaryAction(w, p, { campaign: !!campaignOrder?.campaign, resupply: returnToGarrison,
           thirst: p.hydration < 40 && !!waterTarget, patrol: patrolDuty,
@@ -1168,7 +1187,7 @@ function updatePeopleCore(w) {
       const action = campaignOrder && campaignOrder.withdrawing && !homeRest && survivalAction !== 'drink'
         ? 'campaign'
         : returnToGarrison && peacetimeSoldierAction === 'return_garrison' ? peacetimeSoldierAction
-        : survivalAction || carrierMaintenanceAction || (homeRest ? 'rest' : peacetimeSoldier ? peacetimeSoldierAction : (droppedLoot && !assignment && !carryingGoods && p.energy >= 9
+        : survivalAction || carrierMaintenanceAction || (homeRest ? 'rest' : socialPlan ? socialPlan.action : peacetimeSoldier ? peacetimeSoldierAction : (droppedLoot && !assignment && !carryingGoods && p.energy >= 9
           && (!campaignOrder || !campaignOrder.withdrawing && distance(p, droppedLoot) <= 1.6) ? 'collect_loot'
           : campaignOrder ? militaryAction || 'campaign' : cargoAction || foodDuty || (p.leadingSheepId ? 'lead_sheep'
           : assignedBuildDuty ? 'build'
@@ -1182,7 +1201,7 @@ function updatePeopleCore(w) {
         p.brain.lastAction = action;
         if (militaryAction !== action) p.lastDecision = { action, scores: null, inputs: inputs.slice(), day: w.day };
       }
-      if (survivalAction || homeRest || carryingGoods || foodDuty || assignedBuildDuty) {
+      if (survivalAction || homeRest || carryingGoods || foodDuty || assignedBuildDuty || socialPlan) {
         // Forced survival and recovery actions bypass the neural policy; discard
         // interrupted samples so rewards cannot train the wrong action.
         p.brain.pending = null;
@@ -1384,6 +1403,9 @@ function updatePeopleCore(w) {
           if (indication.transferred) {
             p.state = 'indicando água conhecida';
             p.lastLesson = 'A referência veio de uma fonte que você já conhecia; o relato conserva quem transmitiu e o lugar observado.';
+          } else if (meeting.report) {
+            p.state = 'compartilhando experiência de ajuda';
+            p.lastLesson = 'O encontro transmitiu uma experiência conhecida de ajuda alimentar, com fonte identificada; um relato tem menos peso que a observação direta.';
           }
         } else if (socialTarget && !meeting && distance(p, socialTarget) > 2.1) {
           moveOne(w, p, cellAt(w, socialTarget.x, socialTarget.y), false); p.state = 'procurando companhia';

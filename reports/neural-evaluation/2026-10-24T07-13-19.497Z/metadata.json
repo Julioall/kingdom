@@ -1,0 +1,32 @@
+{
+  "startedAt": "2026-10-24T07:13:19.497Z",
+  "runtime": "v24.19.0",
+  "map": {
+    "width": 128,
+    "height": 128
+  },
+  "days": 5,
+  "seeds": [
+    1
+  ],
+  "candidates": [
+    {
+      "name": "rules",
+      "hiddenSize": 9
+    },
+    {
+      "name": "network-4",
+      "hiddenSize": 4
+    },
+    {
+      "name": "network-6",
+      "hiddenSize": 6
+    },
+    {
+      "name": "network-9",
+      "hiddenSize": 9
+    }
+  ],
+  "control": "regras determinísticas sem contribuição neural para residentes; governantes permanecem na configuração original",
+  "note": "Execução pareada exploratória. O relatório não seleciona tamanho; tamanho inicial e parâmetros de atualização são os mesmos salvo a largura da camada oculta."
+}

@@ -13,6 +13,8 @@ let currentModelConfig = null;
 let currentProcessor = null;
 let loading = null;
 let fallbackLoading = null;
+let operationQueue = Promise.resolve();
+let backendError = null;
 const cancelled = new Set();
 
 function postStatus(text, progress) {
@@ -41,7 +43,7 @@ function modelOptions(model, device) {
   return {
     revision: model.revision,
     device,
-    dtype: model.dtype,
+    dtype: device === 'wasm' ? model.fallbackDtype || model.dtype : model.dtype,
     progress_callback: reportProgress
   };
 }
@@ -95,7 +97,7 @@ async function loadModel(model) {
     } catch (error) {
       if (device !== 'webgpu') throw error;
       webGpuError = error;
-      try { generator?.dispose?.(); } catch { /* Dispose any partially initialized WebGPU session. */ }
+      try { await generator?.dispose?.(); } catch { /* Dispose any partially initialized WebGPU session. */ }
       generator = null;
       currentProcessor = null;
       currentModelConfig = null;
@@ -105,6 +107,7 @@ async function loadModel(model) {
 }
 
 async function ensureModel(model) {
+  if (backendError) throw backendError;
   if (generator && currentModel === model.modelId) return generator;
   if (!loading) {
     loading = loadModel(model).finally(() => { loading = null; });
@@ -201,6 +204,7 @@ async function runGeneration(modelPipeline, request, schemaProcessor, model) {
     const prepared = await prepareBoundedQwenInputs(request, model);
     const { inputs, inputLength } = prepared;
     let output;
+    let generatedTokens;
     try {
       output = await modelPipeline.generate({
         ...inputs,
@@ -208,8 +212,9 @@ async function runGeneration(modelPipeline, request, schemaProcessor, model) {
         do_sample: false,
         logits_processor: schemaProcessor
       });
+      generatedTokens = output.slice(null, [inputLength, null]);
       const generated = currentProcessor.batch_decode(
-        output.slice(null, [inputLength, null]),
+        generatedTokens,
         { skip_special_tokens: true }
       );
       return {
@@ -220,6 +225,7 @@ async function runGeneration(modelPipeline, request, schemaProcessor, model) {
       };
     } finally {
       disposeTensorTree(inputs);
+      disposeTensorTree(generatedTokens);
       disposeTensorTree(output);
     }
   }
@@ -246,11 +252,29 @@ async function decide(requestId, request, model) {
     result = await runGeneration(modelPipeline, request, schemaProcessor, model);
   } catch (error) {
     if (currentDevice !== 'WebGPU' || ['AI_CONTEXT_TOO_LONG', 'AI_CONTEXT_BUDGET_UNAVAILABLE'].includes(error?.code)) throw error;
-    postStatus('A geração WebGPU falhou; transferindo a decisão para CPU/WASM…', 0);
-    try { modelPipeline.dispose?.(); } catch { /* Release partial GPU state when supported. */ }
-    modelPipeline = await loadFallbackModel(model);
-    schemaProcessor = createSchemaProcessor(modelPipeline, request);
-    result = await runGeneration(modelPipeline, request, schemaProcessor, model);
+    // Cancellation suppresses a response, but cannot interrupt an OrtRun already in progress.
+    // Wait for its completion and release before another request touches these sessions.
+    generator = null;
+    currentProcessor = null;
+    currentDevice = null;
+    try { await modelPipeline.dispose?.(); } catch { /* A lost GPU may also reject release. */ }
+    if (cancelled.delete(requestId)) return;
+    self.postMessage({ type: 'status', status: { phase: 'loading', recovering: true,
+      text: 'A GPU falhou durante a geração. Recuperando a IA em CPU/WASM…', progress: 0 } });
+    try {
+      modelPipeline = await loadFallbackModel(model);
+      schemaProcessor = createSchemaProcessor(modelPipeline, request);
+      result = await runGeneration(modelPipeline, request, schemaProcessor, model);
+    } catch (fallbackError) {
+      try { await generator?.dispose?.(); } catch { /* Keep both inference failures as diagnostics. */ }
+      generator = null;
+      currentProcessor = null;
+      backendError = new Error('Não foi possível recuperar a IA em CPU/WASM. GPU: '
+        + String(error?.message || error).slice(0, 240) + ' CPU: ' + String(fallbackError?.message || fallbackError).slice(0, 240));
+      backendError.name = 'InferenceBackendError';
+      backendError.code = 'AI_BACKEND_UNAVAILABLE';
+      throw backendError;
+    }
   }
   if (cancelled.delete(requestId)) return;
   const rawContent = result?.content;
@@ -286,6 +310,11 @@ async function decide(requestId, request, model) {
   });
 }
 
+function reportError(error, requestId) {
+  self.postMessage({ type: 'error', requestId, message: String(error?.message || error),
+    name: error?.name, code: error?.code, fatal: error?.code === 'AI_BACKEND_UNAVAILABLE' });
+}
+
 self.addEventListener('message', event => {
   const message = event.data || {};
   if (message.type === 'cancel') {
@@ -293,20 +322,20 @@ self.addEventListener('message', event => {
     return;
   }
   if (message.type === 'initialize') {
-    ensureModel(message.model).then(() => {
+    operationQueue = operationQueue.then(() => ensureModel(message.model)).then(() => {
       self.postMessage({ type: 'ready', provider: 'transformers-js-browser', model: currentModel, device: currentDevice });
       self.postMessage({ type: 'status', status: { phase: 'ready', text: 'Modelo pronto no navegador · ' + currentDevice + '. Ollama não é necessário.', progress: 1, device: currentDevice } });
     }).catch(error => {
-      self.postMessage({ type: 'error', requestId: null, message: String(error?.message || error) });
+      reportError(error, null);
     });
     return;
   }
   if (message.type === 'decide') {
-    if (!currentModelConfig) {
-      self.postMessage({ type: 'error', requestId: message.requestId, message: 'O modelo ainda não terminou de carregar.' });
-      return;
-    }
-    decide(message.requestId, message.request, currentModelConfig)
-      .catch(error => self.postMessage({ type: 'error', requestId: message.requestId, message: String(error?.message || error) }));
+    operationQueue = operationQueue.then(async () => {
+      if (cancelled.delete(message.requestId)) return;
+      if (backendError) throw backendError;
+      if (!currentModelConfig) throw new Error('O modelo ainda não terminou de carregar.');
+      await decide(message.requestId, message.request, currentModelConfig);
+    }).catch(error => reportError(error, message.requestId));
   }
 });

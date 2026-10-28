@@ -18,9 +18,13 @@ export const AI_MODEL_MANIFEST = Object.freeze({
       decoder_model_merged: 'q4f16',
       vision_encoder: 'fp16'
     }),
+    // The pinned repository also ships q4 graphs with float32 activations for WASM.
+    fallbackDtype: Object.freeze({ embed_tokens: 'q4', decoder_model_merged: 'q4', vision_encoder: 'q4' }),
     approximateDownloadBytes: 1170000000,
     devicePreference: 'webgpu',
-    inferenceTimeoutMs: 30000
+    inferenceTimeoutMs: 30000,
+    cpuInferenceTimeoutMs: 90000,
+    recoveryTimeoutMs: 120000
   }),
   models: Object.freeze({
     king: Object.freeze({

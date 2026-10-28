@@ -1,0 +1,36 @@
+npm notice run kingdom@0.1.0 test
+npm notice run node --test tests/*.test.mjs
+✔ phases, confirmed damage, independent IDs and idempotent resolution (6.582ms)
+✔ guerreiro: front shield blocks, rear bypasses, inactive guard does not block (0.8466ms)
+✔ guerreiro: misses outside range and after lateral dodge (0.5111ms)
+✔ lanceiro: front shield blocks, rear bypasses, inactive guard does not block (0.6522ms)
+✔ lanceiro: misses outside range and after lateral dodge (0.3744ms)
+✔ arqueiro: front shield blocks, rear bypasses, inactive guard does not block (0.5383ms)
+✔ arqueiro: misses outside range and after lateral dodge (0.3203ms)
+✔ spear only hits in front; its guard intercepts melee but does not block arrows (0.3691ms)
+✔ sword chooses the earliest angular contact, rather than the closest body later in the same step (0.4032ms)
+✔ projectile hits the first enemy along the flight and never an ally or sheltered person (0.4864ms)
+✔ ground melee misses the tower platform, arrows reach the platform (0.5354ms)
+✔ descending arrows cannot hit a body while still above it, even across a substep (1.4103ms)
+✔ earliest sword contact remains consistent through rotations and reversed candidate order (1.2519ms)
+✔ death cancels preparation, but death immediately after arrow release does not cancel the flight (0.3776ms)
+✔ history is bounded and bodies already dead cannot receive another contact (1.5086ms)
+✔ tactical attack counts one impact and pays stamina once despite repeated rounds (1.7033ms)
+✔ siege applies contact damage, cooldown and allegiance restrictions (1.975ms)
+✔ effects wait for release/contact, expire, and do not replay on redraw or reset (1.2515ms)
+✔ movement must use snapshot arrival time even while the animation clock pauses or accelerates (0.8996ms)
+✔ capture damage stops at 25%, then five days of uncontested occupation transfer ownership without destruction (663.1594ms)
+✔ lethal siege destroys once, releases the sentry and does not duplicate loot or attack damage (414.3659ms)
+✔ lethal tactical hit records one casualty, victory and health impact (183.0718ms)
+✔ exhausted soldiers cannot create attacks; area healing spends mana once and respects cooldown (216.7016ms)
+✔ projectile presentation stops at actual interception height and skips obsolete batched events (1.977ms)
+✔ production Worker: determinism, real campaign contacts, pause, batching, reset and stale epoch rejection (63690.1624ms)
+ℹ Seed 42: day 192, 28 combat actions, 1 campaigns
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 64079.9815

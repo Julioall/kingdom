@@ -1,0 +1,5128 @@
+{
+  "model": "v24.19.0",
+  "adultAgeDays": 4380,
+  "results": [
+    {
+      "seed": 42,
+      "days": 1460,
+      "elapsedSeconds": 77.24,
+      "population": {
+        "living": 44,
+        "deathsByCause": {
+          "starvation": 2,
+          "dehydration": 0,
+          "age": 0,
+          "injury": 2,
+          "combat": 2,
+          "predation": 0,
+          "harvest": 0,
+          "invasion": 1
+        }
+      },
+      "emergencyFoodPolicy": {
+        "totalCarriedFoodConsumed": 165.09,
+        "peopleRationed": 15
+      },
+      "starvationDeaths": [
+        {
+          "id": 66,
+          "name": "Zuri O",
+          "cause": "starvation",
+          "day": 923,
+          "ageDays": 6916.676772993058,
+          "ageYears": 18.95,
+          "dependent": false,
+          "role": "resident",
+          "kingdom": null,
+          "kingdomId": null,
+          "community": null,
+          "communityId": null,
+          "position": {
+            "x": 61,
+            "y": 78
+          },
+          "health": 0,
+          "reserve": 7.17,
+          "hydration": 9.27,
+          "energy": 0,
+          "injury": 0,
+          "action": "forage",
+          "state": "coletando alimento",
+          "assignment": null,
+          "carried": {
+            "food": 0,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 74,
+              "name": "Zuri P",
+              "distance": 2.24,
+              "reserve": 3.44,
+              "energy": 0,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 82,
+              "name": "Uira C",
+              "distance": 5,
+              "reserve": 14.55,
+              "energy": 3.61,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 68,
+              "name": "Oru K",
+              "distance": 5.83,
+              "reserve": 5.73,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 77,
+              "name": "Lina Z",
+              "distance": 7.21,
+              "reserve": 14.58,
+              "energy": 3.72,
+              "action": "drink",
+              "state": "buscando água",
+              "onCampaign": false
+            },
+            {
+              "id": 87,
+              "name": "Iara V",
+              "distance": 7.21,
+              "reserve": 8.88,
+              "energy": 0,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 61,
+              "y": 79
+            },
+            "nearestFood": [
+              {
+                "x": 61,
+                "y": 79,
+                "distance": 1,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 63,
+                "y": 78,
+                "distance": 2,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 63,
+                "y": 80,
+                "distance": 2.83,
+                "availableBiomass": 2.75,
+                "harvestableBiomass": 2.75,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 62,
+                "y": 81,
+                "distance": 3.16,
+                "availableBiomass": 2.75,
+                "harvestableBiomass": 2.75,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 63,
+                "y": 81,
+                "distance": 3.61,
+                "availableBiomass": 2.75,
+                "harvestableBiomass": 2.75,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          },
+          "recentHistory": [
+            {
+              "day": 864,
+              "x": 64,
+              "y": 73,
+              "target": {
+                "x": 63,
+                "y": 73
+              },
+              "reserve": 5.29,
+              "energy": 0,
+              "hydration": 8.41,
+              "health": 3.99,
+              "action": "drink",
+              "state": "buscando água",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 865,
+              "x": 64,
+              "y": 72,
+              "target": {
+                "x": 63,
+                "y": 73
+              },
+              "reserve": 4.51,
+              "energy": 0,
+              "hydration": 7.95,
+              "health": 3.36,
+              "action": "drink",
+              "state": "buscando água",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 866,
+              "x": 64,
+              "y": 71,
+              "target": {
+                "x": 63,
+                "y": 73
+              },
+              "reserve": 3.73,
+              "energy": 0,
+              "hydration": 7.49,
+              "health": 2.73,
+              "action": "drink",
+              "state": "buscando água",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 867,
+              "x": 63,
+              "y": 72,
+              "target": {
+                "x": 63,
+                "y": 73
+              },
+              "reserve": 2.95,
+              "energy": 0,
+              "hydration": 7.03,
+              "health": 2.1,
+              "action": "drink",
+              "state": "buscando água",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 868,
+              "x": 63,
+              "y": 72,
+              "target": {
+                "x": 63,
+                "y": 73
+              },
+              "reserve": 2.17,
+              "energy": 0,
+              "hydration": 34.57,
+              "health": 1.47,
+              "action": "drink",
+              "state": "bebendo água",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 869,
+              "x": 63,
+              "y": 72,
+              "target": null,
+              "reserve": 4.99,
+              "energy": 0.68,
+              "hydration": 34.11,
+              "health": 1.46,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 870,
+              "x": 63,
+              "y": 72,
+              "target": null,
+              "reserve": 7.81,
+              "energy": 0.68,
+              "hydration": 33.65,
+              "health": 1.45,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 871,
+              "x": 63,
+              "y": 72,
+              "target": null,
+              "reserve": 10.63,
+              "energy": 0.68,
+              "hydration": 33.19,
+              "health": 1.44,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 872,
+              "x": 62,
+              "y": 73,
+              "target": null,
+              "reserve": 9.85,
+              "energy": 0,
+              "hydration": 32.73,
+              "health": 1.43,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 873,
+              "x": 61,
+              "y": 74,
+              "target": null,
+              "reserve": 9.07,
+              "energy": 0,
+              "hydration": 32.27,
+              "health": 1.42,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 874,
+              "x": 61,
+              "y": 75,
+              "target": null,
+              "reserve": 8.29,
+              "energy": 0,
+              "hydration": 31.81,
+              "health": 1.41,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 875,
+              "x": 60,
+              "y": 76,
+              "target": {
+                "x": 58,
+                "y": 76
+              },
+              "reserve": 7.51,
+              "energy": 0,
+              "hydration": 31.35,
+              "health": 1.4,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 876,
+              "x": 59,
+              "y": 76,
+              "target": {
+                "x": 58,
+                "y": 76
+              },
+              "reserve": 6.73,
+              "energy": 0,
+              "hydration": 30.89,
+              "health": 1.39,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 877,
+              "x": 59,
+              "y": 76,
+              "target": null,
+              "reserve": 9.24,
+              "energy": 0.6,
+              "hydration": 30.43,
+              "health": 1.38,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 878,
+              "x": 60,
+              "y": 77,
+              "target": null,
+              "reserve": 8.46,
+              "energy": 0,
+              "hydration": 29.97,
+              "health": 1.37,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 879,
+              "x": 61,
+              "y": 76,
+              "target": {
+                "x": 62,
+                "y": 74
+              },
+              "reserve": 7.68,
+              "energy": 0,
+              "hydration": 29.51,
+              "health": 1.36,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 880,
+              "x": 62,
+              "y": 75,
+              "target": {
+                "x": 62,
+                "y": 74
+              },
+              "reserve": 6.9,
+              "energy": 0,
+              "hydration": 29.05,
+              "health": 1.36,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 881,
+              "x": 62,
+              "y": 75,
+              "target": null,
+              "reserve": 7.12,
+              "energy": 0.03,
+              "hydration": 28.59,
+              "health": 1.35,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 882,
+              "x": 63,
+              "y": 74,
+              "target": {
+                "x": 63,
+                "y": 73
+              },
+              "reserve": 6.34,
+              "energy": 0,
+              "hydration": 28.13,
+              "health": 1.34,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 883,
+              "x": 63,
+              "y": 74,
+              "target": null,
+              "reserve": 9.16,
+              "energy": 0.68,
+              "hydration": 27.67,
+              "health": 1.33,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 884,
+              "x": 63,
+              "y": 75,
+              "target": null,
+              "reserve": 8.38,
+              "energy": 0,
+              "hydration": 27.21,
+              "health": 1.32,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 885,
+              "x": 64,
+              "y": 75,
+              "target": {
+                "x": 65,
+                "y": 75
+              },
+              "reserve": 7.6,
+              "energy": 0,
+              "hydration": 26.75,
+              "health": 1.32,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 886,
+              "x": 64,
+              "y": 75,
+              "target": null,
+              "reserve": 10.42,
+              "energy": 0.68,
+              "hydration": 26.29,
+              "health": 1.31,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 887,
+              "x": 64,
+              "y": 74,
+              "target": null,
+              "reserve": 9.64,
+              "energy": 0,
+              "hydration": 25.83,
+              "health": 1.3,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 888,
+              "x": 63,
+              "y": 75,
+              "target": null,
+              "reserve": 8.86,
+              "energy": 0,
+              "hydration": 25.37,
+              "health": 1.3,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 889,
+              "x": 62,
+              "y": 76,
+              "target": null,
+              "reserve": 8.08,
+              "energy": 0,
+              "hydration": 24.91,
+              "health": 1.29,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 890,
+              "x": 62,
+              "y": 76,
+              "target": null,
+              "reserve": 7.96,
+              "energy": 0,
+              "hydration": 24.45,
+              "health": 1.28,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 891,
+              "x": 61,
+              "y": 75,
+              "target": {
+                "x": 60,
+                "y": 74
+              },
+              "reserve": 7.18,
+              "energy": 0,
+              "hydration": 23.99,
+              "health": 1.28,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 892,
+              "x": 61,
+              "y": 75,
+              "target": null,
+              "reserve": 9.04,
+              "energy": 0.44,
+              "hydration": 23.53,
+              "health": 1.27,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 893,
+              "x": 61,
+              "y": 76,
+              "target": null,
+              "reserve": 8.26,
+              "energy": 0,
+              "hydration": 23.07,
+              "health": 1.27,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 894,
+              "x": 62,
+              "y": 75,
+              "target": {
+                "x": 65,
+                "y": 75
+              },
+              "reserve": 7.48,
+              "energy": 0,
+              "hydration": 22.61,
+              "health": 1.26,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 895,
+              "x": 63,
+              "y": 75,
+              "target": {
+                "x": 65,
+                "y": 75
+              },
+              "reserve": 6.7,
+              "energy": 0,
+              "hydration": 22.15,
+              "health": 1.26,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 896,
+              "x": 64,
+              "y": 75,
+              "target": {
+                "x": 65,
+                "y": 75
+              },
+              "reserve": 5.92,
+              "energy": 0,
+              "hydration": 21.69,
+              "health": 1.25,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 897,
+              "x": 64,
+              "y": 75,
+              "target": null,
+              "reserve": 8.74,
+              "energy": 0.68,
+              "hydration": 21.23,
+              "health": 1.25,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 898,
+              "x": 64,
+              "y": 75,
+              "target": null,
+              "reserve": 11.56,
+              "energy": 0.68,
+              "hydration": 20.77,
+              "health": 1.24,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 899,
+              "x": 64,
+              "y": 74,
+              "target": null,
+              "reserve": 10.78,
+              "energy": 0,
+              "hydration": 20.31,
+              "health": 1.24,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 900,
+              "x": 63,
+              "y": 75,
+              "target": null,
+              "reserve": 10,
+              "energy": 0,
+              "hydration": 19.85,
+              "health": 1.23,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 901,
+              "x": 62,
+              "y": 76,
+              "target": null,
+              "reserve": 9.22,
+              "energy": 0,
+              "hydration": 19.39,
+              "health": 1.23,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 902,
+              "x": 61,
+              "y": 77,
+              "target": null,
+              "reserve": 8.44,
+              "energy": 0,
+              "hydration": 18.93,
+              "health": 1.23,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 903,
+              "x": 61,
+              "y": 77,
+              "target": null,
+              "reserve": 8.65,
+              "energy": 0.03,
+              "hydration": 18.47,
+              "health": 1.22,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 904,
+              "x": 60,
+              "y": 76,
+              "target": {
+                "x": 58,
+                "y": 76
+              },
+              "reserve": 7.87,
+              "energy": 0,
+              "hydration": 18.01,
+              "health": 1.22,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 905,
+              "x": 59,
+              "y": 76,
+              "target": {
+                "x": 58,
+                "y": 76
+              },
+              "reserve": 7.09,
+              "energy": 0,
+              "hydration": 17.55,
+              "health": 1.22,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 906,
+              "x": 59,
+              "y": 76,
+              "target": null,
+              "reserve": 7.64,
+              "energy": 0.11,
+              "hydration": 17.09,
+              "health": 1.22,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 907,
+              "x": 58,
+              "y": 76,
+              "target": {
+                "x": 58,
+                "y": 74
+              },
+              "reserve": 6.86,
+              "energy": 0,
+              "hydration": 16.63,
+              "health": 1.21,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 908,
+              "x": 58,
+              "y": 75,
+              "target": {
+                "x": 58,
+                "y": 74
+              },
+              "reserve": 6.08,
+              "energy": 0,
+              "hydration": 16.17,
+              "health": 1.21,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 909,
+              "x": 58,
+              "y": 75,
+              "target": null,
+              "reserve": 8.9,
+              "energy": 0.68,
+              "hydration": 15.71,
+              "health": 1.21,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 910,
+              "x": 58,
+              "y": 74,
+              "target": null,
+              "reserve": 8.12,
+              "energy": 0,
+              "hydration": 15.25,
+              "health": 1.21,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 911,
+              "x": 58,
+              "y": 74,
+              "target": null,
+              "reserve": 10.94,
+              "energy": 0.68,
+              "hydration": 14.79,
+              "health": 1.21,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 912,
+              "x": 59,
+              "y": 74,
+              "target": null,
+              "reserve": 10.16,
+              "energy": 0,
+              "hydration": 14.33,
+              "health": 1.2,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 913,
+              "x": 60,
+              "y": 74,
+              "target": null,
+              "reserve": 9.38,
+              "energy": 0,
+              "hydration": 13.87,
+              "health": 1.2,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 914,
+              "x": 61,
+              "y": 75,
+              "target": null,
+              "reserve": 8.6,
+              "energy": 0,
+              "hydration": 13.41,
+              "health": 1.2,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 915,
+              "x": 61,
+              "y": 75,
+              "target": null,
+              "reserve": 8.48,
+              "energy": 0,
+              "hydration": 12.95,
+              "health": 1.2,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 916,
+              "x": 62,
+              "y": 74,
+              "target": {
+                "x": 63,
+                "y": 73
+              },
+              "reserve": 7.7,
+              "energy": 0,
+              "hydration": 12.49,
+              "health": 1.2,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 917,
+              "x": 62,
+              "y": 74,
+              "target": null,
+              "reserve": 10.52,
+              "energy": 0.68,
+              "hydration": 12.03,
+              "health": 1.2,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 918,
+              "x": 62,
+              "y": 75,
+              "target": null,
+              "reserve": 9.74,
+              "energy": 0,
+              "hydration": 11.57,
+              "health": 1.2,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 919,
+              "x": 61,
+              "y": 76,
+              "target": null,
+              "reserve": 8.96,
+              "energy": 0,
+              "hydration": 11.11,
+              "health": 1.2,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 920,
+              "x": 61,
+              "y": 77,
+              "target": null,
+              "reserve": 8.18,
+              "energy": 0,
+              "hydration": 10.65,
+              "health": 1.2,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 921,
+              "x": 61,
+              "y": 77,
+              "target": null,
+              "reserve": 8.07,
+              "energy": 0,
+              "hydration": 10.19,
+              "health": 1.2,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 922,
+              "x": 61,
+              "y": 78,
+              "target": {
+                "x": 61,
+                "y": 79
+              },
+              "reserve": 7.29,
+              "energy": 0,
+              "hydration": 9.73,
+              "health": 0.58,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 923,
+              "x": 61,
+              "y": 78,
+              "target": null,
+              "reserve": 7.17,
+              "energy": 0,
+              "hydration": 9.27,
+              "health": 0,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            }
+          ],
+          "emergencyFoodConsumed": 0
+        },
+        {
+          "id": 67,
+          "name": "Nilo H",
+          "cause": "starvation",
+          "day": 1329,
+          "ageDays": 6219.046892873943,
+          "ageYears": 17.04,
+          "dependent": false,
+          "role": "resident",
+          "kingdom": "Valedouro",
+          "kingdomId": 25,
+          "community": "Valedouro",
+          "communityId": 27,
+          "position": {
+            "x": 81,
+            "y": 74
+          },
+          "health": 0,
+          "reserve": 5.5,
+          "hydration": 29.23,
+          "energy": 0,
+          "injury": 3.7,
+          "action": "drink",
+          "state": "bebendo água",
+          "assignment": null,
+          "carried": {
+            "food": 0,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 78,
+              "name": "Jaci Q",
+              "distance": 4.47,
+              "reserve": 8.5,
+              "energy": 0,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "onCampaign": false
+            },
+            {
+              "id": 65,
+              "name": "Nilo I",
+              "distance": 14.87,
+              "reserve": 5.86,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 70,
+              "name": "Nilo O",
+              "distance": 15.23,
+              "reserve": 63.1,
+              "energy": 15.37,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 76,
+              "name": "Ravi C",
+              "distance": 25.81,
+              "reserve": 60.41,
+              "energy": 11.12,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 83,
+              "name": "Bela N",
+              "distance": 32.25,
+              "reserve": 48.73,
+              "energy": 4.36,
+              "action": "rest",
+              "state": "descansando",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 82,
+              "y": 74
+            },
+            "nearestFood": [
+              {
+                "x": 82,
+                "y": 74,
+                "distance": 1,
+                "availableBiomass": 3.66,
+                "harvestableBiomass": 3.66,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 82,
+                "y": 73,
+                "distance": 1.41,
+                "availableBiomass": 3.66,
+                "harvestableBiomass": 3.66,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 81,
+                "y": 72,
+                "distance": 2,
+                "availableBiomass": 3.66,
+                "harvestableBiomass": 3.66,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 84,
+                "y": 74,
+                "distance": 3,
+                "availableBiomass": 3.66,
+                "harvestableBiomass": 3.66,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 82,
+                "y": 71,
+                "distance": 3.16,
+                "availableBiomass": 173.35,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          },
+          "recentHistory": [
+            {
+              "day": 1270,
+              "x": 66,
+              "y": 77,
+              "target": {
+                "x": 64,
+                "y": 76
+              },
+              "reserve": 4.92,
+              "energy": 0,
+              "hydration": 9.57,
+              "health": 6.34,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1271,
+              "x": 66,
+              "y": 77,
+              "target": null,
+              "reserve": 7.74,
+              "energy": 0.68,
+              "hydration": 9.11,
+              "health": 5.66,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1272,
+              "x": 67,
+              "y": 78,
+              "target": null,
+              "reserve": 6.96,
+              "energy": 0,
+              "hydration": 8.65,
+              "health": 4.98,
+              "action": "drink",
+              "state": "buscando água",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1273,
+              "x": 67,
+              "y": 78,
+              "target": null,
+              "reserve": 6.18,
+              "energy": 0,
+              "hydration": 34.54,
+              "health": 4.31,
+              "action": "drink",
+              "state": "bebendo água",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1274,
+              "x": 67,
+              "y": 78,
+              "target": null,
+              "reserve": 9,
+              "energy": 0.68,
+              "hydration": 34.08,
+              "health": 4.25,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1275,
+              "x": 67,
+              "y": 77,
+              "target": null,
+              "reserve": 8.22,
+              "energy": 0,
+              "hydration": 33.62,
+              "health": 4.19,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1276,
+              "x": 66,
+              "y": 78,
+              "target": {
+                "x": 64,
+                "y": 76
+              },
+              "reserve": 7.44,
+              "energy": 0,
+              "hydration": 33.16,
+              "health": 4.14,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1277,
+              "x": 66,
+              "y": 79,
+              "target": {
+                "x": 64,
+                "y": 76
+              },
+              "reserve": 6.66,
+              "energy": 0,
+              "hydration": 32.7,
+              "health": 4.08,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1278,
+              "x": 66,
+              "y": 79,
+              "target": null,
+              "reserve": 9.48,
+              "energy": 0.68,
+              "hydration": 32.24,
+              "health": 4.03,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1279,
+              "x": 67,
+              "y": 78,
+              "target": null,
+              "reserve": 8.7,
+              "energy": 0,
+              "hydration": 31.78,
+              "health": 3.97,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1280,
+              "x": 67,
+              "y": 78,
+              "target": null,
+              "reserve": 11.52,
+              "energy": 0.68,
+              "hydration": 31.32,
+              "health": 3.92,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1281,
+              "x": 66,
+              "y": 77,
+              "target": null,
+              "reserve": 10.74,
+              "energy": 0,
+              "hydration": 30.86,
+              "health": 3.86,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1282,
+              "x": 66,
+              "y": 76,
+              "target": null,
+              "reserve": 9.96,
+              "energy": 0,
+              "hydration": 30.4,
+              "health": 3.81,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1283,
+              "x": 66,
+              "y": 75,
+              "target": null,
+              "reserve": 9.18,
+              "energy": 0,
+              "hydration": 29.94,
+              "health": 3.75,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1284,
+              "x": 66,
+              "y": 74,
+              "target": null,
+              "reserve": 8.47,
+              "energy": 0,
+              "hydration": 29.48,
+              "health": 3.7,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1285,
+              "x": 67,
+              "y": 75,
+              "target": {
+                "x": 64,
+                "y": 73
+              },
+              "reserve": 7.69,
+              "energy": 0,
+              "hydration": 29.02,
+              "health": 3.64,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1286,
+              "x": 67,
+              "y": 75,
+              "target": null,
+              "reserve": 7.57,
+              "energy": 0,
+              "hydration": 28.56,
+              "health": 3.59,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1287,
+              "x": 68,
+              "y": 75,
+              "target": {
+                "x": 70,
+                "y": 75
+              },
+              "reserve": 6.79,
+              "energy": 0,
+              "hydration": 28.1,
+              "health": 3.54,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1288,
+              "x": 69,
+              "y": 75,
+              "target": {
+                "x": 70,
+                "y": 75
+              },
+              "reserve": 6.01,
+              "energy": 0,
+              "hydration": 27.64,
+              "health": 3.48,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1289,
+              "x": 69,
+              "y": 75,
+              "target": null,
+              "reserve": 6.56,
+              "energy": 0.11,
+              "hydration": 27.18,
+              "health": 3.43,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1290,
+              "x": 70,
+              "y": 74,
+              "target": {
+                "x": 71,
+                "y": 73
+              },
+              "reserve": 5.78,
+              "energy": 0,
+              "hydration": 26.72,
+              "health": 3.38,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1291,
+              "x": 70,
+              "y": 74,
+              "target": null,
+              "reserve": 6.65,
+              "energy": 0.19,
+              "hydration": 26.26,
+              "health": 3.33,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1292,
+              "x": 70,
+              "y": 73,
+              "target": {
+                "x": 70,
+                "y": 72
+              },
+              "reserve": 5.87,
+              "energy": 0,
+              "hydration": 25.8,
+              "health": 3.27,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1293,
+              "x": 70,
+              "y": 73,
+              "target": null,
+              "reserve": 6.75,
+              "energy": 0.19,
+              "hydration": 25.34,
+              "health": 3.22,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1294,
+              "x": 71,
+              "y": 73,
+              "target": {
+                "x": 72,
+                "y": 73
+              },
+              "reserve": 5.97,
+              "energy": 0,
+              "hydration": 24.88,
+              "health": 3.17,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1295,
+              "x": 71,
+              "y": 73,
+              "target": null,
+              "reserve": 7.5,
+              "energy": 0.36,
+              "hydration": 24.42,
+              "health": 3.12,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1296,
+              "x": 72,
+              "y": 74,
+              "target": {
+                "x": 74,
+                "y": 75
+              },
+              "reserve": 6.72,
+              "energy": 0,
+              "hydration": 23.96,
+              "health": 3.07,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1297,
+              "x": 73,
+              "y": 75,
+              "target": {
+                "x": 74,
+                "y": 75
+              },
+              "reserve": 5.94,
+              "energy": 0,
+              "hydration": 23.5,
+              "health": 3.01,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1298,
+              "x": 73,
+              "y": 75,
+              "target": null,
+              "reserve": 8.25,
+              "energy": 0.36,
+              "hydration": 23.04,
+              "health": 2.96,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1299,
+              "x": 74,
+              "y": 76,
+              "target": {
+                "x": 74,
+                "y": 78
+              },
+              "reserve": 7.47,
+              "energy": 0,
+              "hydration": 22.58,
+              "health": 2.91,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1300,
+              "x": 74,
+              "y": 77,
+              "target": {
+                "x": 74,
+                "y": 78
+              },
+              "reserve": 6.69,
+              "energy": 0,
+              "hydration": 22.12,
+              "health": 2.86,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1301,
+              "x": 74,
+              "y": 77,
+              "target": null,
+              "reserve": 9.51,
+              "energy": 0.68,
+              "hydration": 21.66,
+              "health": 2.81,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1302,
+              "x": 73,
+              "y": 76,
+              "target": null,
+              "reserve": 8.73,
+              "energy": 0,
+              "hydration": 21.2,
+              "health": 2.76,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1303,
+              "x": 73,
+              "y": 75,
+              "target": {
+                "x": 70,
+                "y": 75
+              },
+              "reserve": 7.95,
+              "energy": 0,
+              "hydration": 20.74,
+              "health": 2.71,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1304,
+              "x": 74,
+              "y": 74,
+              "target": {
+                "x": 75,
+                "y": 73
+              },
+              "reserve": 7.17,
+              "energy": 0,
+              "hydration": 20.28,
+              "health": 2.66,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1305,
+              "x": 74,
+              "y": 74,
+              "target": null,
+              "reserve": 8.04,
+              "energy": 0.19,
+              "hydration": 19.82,
+              "health": 2.61,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1306,
+              "x": 75,
+              "y": 74,
+              "target": {
+                "x": 76,
+                "y": 73
+              },
+              "reserve": 7.26,
+              "energy": 0,
+              "hydration": 19.36,
+              "health": 2.56,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1307,
+              "x": 75,
+              "y": 74,
+              "target": null,
+              "reserve": 8.14,
+              "energy": 0.19,
+              "hydration": 18.9,
+              "health": 2.51,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1308,
+              "x": 76,
+              "y": 75,
+              "target": {
+                "x": 77,
+                "y": 75
+              },
+              "reserve": 7.36,
+              "energy": 0,
+              "hydration": 18.44,
+              "health": 2.46,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1309,
+              "x": 76,
+              "y": 75,
+              "target": null,
+              "reserve": 9.21,
+              "energy": 0.44,
+              "hydration": 17.98,
+              "health": 2.41,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1310,
+              "x": 75,
+              "y": 75,
+              "target": null,
+              "reserve": 8.43,
+              "energy": 0,
+              "hydration": 17.52,
+              "health": 2.37,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1311,
+              "x": 75,
+              "y": 75,
+              "target": null,
+              "reserve": 8.32,
+              "energy": 0,
+              "hydration": 17.06,
+              "health": 2.32,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1312,
+              "x": 74,
+              "y": 76,
+              "target": {
+                "x": 74,
+                "y": 78
+              },
+              "reserve": 7.54,
+              "energy": 0,
+              "hydration": 16.6,
+              "health": 2.27,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1313,
+              "x": 74,
+              "y": 77,
+              "target": {
+                "x": 74,
+                "y": 78
+              },
+              "reserve": 6.76,
+              "energy": 0,
+              "hydration": 16.14,
+              "health": 2.22,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1314,
+              "x": 74,
+              "y": 77,
+              "target": null,
+              "reserve": 6.66,
+              "energy": 0,
+              "hydration": 15.68,
+              "health": 2.17,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1315,
+              "x": 75,
+              "y": 78,
+              "target": {
+                "x": 76,
+                "y": 80
+              },
+              "reserve": 5.88,
+              "energy": 0,
+              "hydration": 15.22,
+              "health": 2.13,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1316,
+              "x": 76,
+              "y": 79,
+              "target": {
+                "x": 76,
+                "y": 80
+              },
+              "reserve": 5.1,
+              "energy": 0,
+              "hydration": 14.76,
+              "health": 2.08,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1317,
+              "x": 76,
+              "y": 79,
+              "target": null,
+              "reserve": 6.63,
+              "energy": 0.36,
+              "hydration": 14.3,
+              "health": 2.03,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1318,
+              "x": 76,
+              "y": 79,
+              "target": null,
+              "reserve": 8.48,
+              "energy": 0.44,
+              "hydration": 13.84,
+              "health": 1.99,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1319,
+              "x": 77,
+              "y": 80,
+              "target": {
+                "x": 79,
+                "y": 80
+              },
+              "reserve": 7.7,
+              "energy": 0,
+              "hydration": 13.38,
+              "health": 1.94,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1320,
+              "x": 78,
+              "y": 80,
+              "target": {
+                "x": 79,
+                "y": 80
+              },
+              "reserve": 6.92,
+              "energy": 0,
+              "hydration": 12.92,
+              "health": 1.89,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1321,
+              "x": 78,
+              "y": 80,
+              "target": null,
+              "reserve": 8.78,
+              "energy": 0.44,
+              "hydration": 12.46,
+              "health": 1.85,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1322,
+              "x": 77,
+              "y": 79,
+              "target": null,
+              "reserve": 8,
+              "energy": 0,
+              "hydration": 12,
+              "health": 1.8,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1323,
+              "x": 78,
+              "y": 78,
+              "target": {
+                "x": 78,
+                "y": 76
+              },
+              "reserve": 7.22,
+              "energy": 0,
+              "hydration": 11.54,
+              "health": 1.75,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1324,
+              "x": 78,
+              "y": 77,
+              "target": {
+                "x": 78,
+                "y": 76
+              },
+              "reserve": 6.44,
+              "energy": 0,
+              "hydration": 11.08,
+              "health": 1.71,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1325,
+              "x": 79,
+              "y": 76,
+              "target": {
+                "x": 80,
+                "y": 76
+              },
+              "reserve": 5.66,
+              "energy": 0,
+              "hydration": 10.62,
+              "health": 1.66,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1326,
+              "x": 79,
+              "y": 76,
+              "target": null,
+              "reserve": 7.84,
+              "energy": 0.52,
+              "hydration": 10.16,
+              "health": 1.62,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1327,
+              "x": 80,
+              "y": 75,
+              "target": {
+                "x": 82,
+                "y": 74
+              },
+              "reserve": 7.06,
+              "energy": 0,
+              "hydration": 9.7,
+              "health": 0.95,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1328,
+              "x": 81,
+              "y": 74,
+              "target": {
+                "x": 82,
+                "y": 74
+              },
+              "reserve": 6.28,
+              "energy": 0,
+              "hydration": 9.24,
+              "health": 0.29,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 1329,
+              "x": 81,
+              "y": 74,
+              "target": {
+                "x": 82,
+                "y": 74
+              },
+              "reserve": 5.5,
+              "energy": 0,
+              "hydration": 29.23,
+              "health": 0,
+              "action": "drink",
+              "state": "bebendo água",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            }
+          ],
+          "emergencyFoodConsumed": 0
+        }
+      ],
+      "otherDeaths": [
+        {
+          "id": 86,
+          "name": "Luma V",
+          "cause": "invasion",
+          "day": 67,
+          "ageDays": 5583.721266206354,
+          "ageYears": 15.3,
+          "dependent": false,
+          "role": "resident",
+          "kingdom": "Valedouro",
+          "kingdomId": 25,
+          "community": "Valedouro",
+          "communityId": 27,
+          "position": {
+            "x": 58,
+            "y": 65
+          },
+          "health": 100,
+          "reserve": 59.45,
+          "hydration": 64.84,
+          "energy": 13.32,
+          "injury": 0,
+          "action": "forage",
+          "state": "levando recursos ao abrigo",
+          "assignment": null,
+          "carried": {
+            "food": 3.18,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 85,
+              "name": "Davi A",
+              "distance": 5.39,
+              "reserve": 32.05,
+              "energy": 9.33,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "onCampaign": true
+            },
+            {
+              "id": 70,
+              "name": "Nilo O",
+              "distance": 6.08,
+              "reserve": 31.79,
+              "energy": 3.1,
+              "action": "rest",
+              "state": "descansando",
+              "onCampaign": true
+            },
+            {
+              "id": 76,
+              "name": "Ravi C",
+              "distance": 6.32,
+              "reserve": 36.08,
+              "energy": 13.25,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "onCampaign": false
+            },
+            {
+              "id": 87,
+              "name": "Iara V",
+              "distance": 6.4,
+              "reserve": 39.89,
+              "energy": 31.65,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "onCampaign": false
+            },
+            {
+              "id": 88,
+              "name": "Zuri X",
+              "distance": 6.4,
+              "reserve": 36.28,
+              "energy": 19.13,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 58,
+              "y": 63
+            },
+            "nearestFood": [
+              {
+                "x": 58,
+                "y": 63,
+                "distance": 2.24,
+                "availableBiomass": 1.54,
+                "harvestableBiomass": 1.54,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 57,
+                "y": 68,
+                "distance": 3,
+                "availableBiomass": 58.88,
+                "harvestableBiomass": 3.19,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 59,
+                "y": 68,
+                "distance": 3.61,
+                "availableBiomass": 57.5,
+                "harvestableBiomass": 3.19,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 57,
+                "y": 69,
+                "distance": 4,
+                "availableBiomass": 52.2,
+                "harvestableBiomass": 3.19,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 60,
+                "y": 62,
+                "distance": 4.24,
+                "availableBiomass": 26.54,
+                "harvestableBiomass": 3.19,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          },
+          "recentHistory": [],
+          "emergencyFoodConsumed": 0
+        },
+        {
+          "id": 109,
+          "name": "Luma B",
+          "cause": "combat",
+          "day": 71,
+          "ageDays": 9797.198181929067,
+          "ageYears": 26.84,
+          "dependent": false,
+          "role": "soldier",
+          "kingdom": "Corvânia",
+          "kingdomId": 26,
+          "community": "Corvânia",
+          "communityId": 28,
+          "position": {
+            "x": 60,
+            "y": 59
+          },
+          "health": 85.28,
+          "reserve": 51.4,
+          "hydration": 34.03,
+          "energy": 9.35,
+          "injury": 1.47,
+          "action": "campaign",
+          "state": "defendendo a área disputada",
+          "assignment": null,
+          "carried": {
+            "food": 0,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 5.94,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 102,
+              "name": "Bela Z",
+              "distance": 10.05,
+              "reserve": 36.91,
+              "energy": 1.67,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "onCampaign": true
+            },
+            {
+              "id": 111,
+              "name": "Ema T",
+              "distance": 28.43,
+              "reserve": 61.03,
+              "energy": 39.47,
+              "action": "capture_sheep",
+              "state": "conduzindo ovelha ao curral",
+              "onCampaign": false
+            },
+            {
+              "id": 106,
+              "name": "Ema L",
+              "distance": 35.47,
+              "reserve": 63.16,
+              "energy": 27.42,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 94,
+              "name": "Jaci Y",
+              "distance": 36.24,
+              "reserve": 65.33,
+              "energy": 28.64,
+              "action": "rest",
+              "state": "descansando",
+              "onCampaign": false
+            },
+            {
+              "id": 107,
+              "name": "Noa P",
+              "distance": 37.01,
+              "reserve": 67.16,
+              "energy": 27.38,
+              "action": "socialize",
+              "state": "conversando",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 59,
+              "y": 59
+            },
+            "nearestFood": [
+              {
+                "x": 59,
+                "y": 59,
+                "distance": 1,
+                "availableBiomass": 61.75,
+                "harvestableBiomass": 2.42,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 60,
+                "y": 58,
+                "distance": 1,
+                "availableBiomass": 1.53,
+                "harvestableBiomass": 1.53,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 61,
+                "y": 59,
+                "distance": 1,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 58,
+                "y": 58,
+                "distance": 2.24,
+                "availableBiomass": 17.94,
+                "harvestableBiomass": 2.42,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 59,
+                "y": 57,
+                "distance": 2.24,
+                "availableBiomass": 0.93,
+                "harvestableBiomass": 0.93,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          },
+          "recentHistory": [],
+          "emergencyFoodConsumed": 0
+        },
+        {
+          "id": 85,
+          "name": "Davi A",
+          "cause": "combat",
+          "day": 82,
+          "ageDays": 5964.811387721449,
+          "ageYears": 16.34,
+          "dependent": false,
+          "role": "soldier",
+          "kingdom": "Valedouro",
+          "kingdomId": 25,
+          "community": "Valedouro",
+          "communityId": 27,
+          "position": {
+            "x": 60,
+            "y": 60
+          },
+          "health": 88.53,
+          "reserve": 19.57,
+          "hydration": 29.84,
+          "energy": 0,
+          "injury": 1.48,
+          "action": "campaign",
+          "state": "ocupando a área disputada",
+          "assignment": null,
+          "carried": {
+            "food": 0,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 70,
+              "name": "Nilo O",
+              "distance": 1.41,
+              "reserve": 19.31,
+              "energy": 0,
+              "action": "campaign",
+              "state": "ocupando a área disputada",
+              "onCampaign": true
+            },
+            {
+              "id": 89,
+              "name": "Nilo C",
+              "distance": 2.24,
+              "reserve": 52.71,
+              "energy": 19.28,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "onCampaign": false
+            },
+            {
+              "id": 74,
+              "name": "Zuri P",
+              "distance": 2.83,
+              "reserve": 52.36,
+              "energy": 16.47,
+              "action": "gather",
+              "state": "levando recursos ao abrigo",
+              "onCampaign": false
+            },
+            {
+              "id": 73,
+              "name": "Caí K",
+              "distance": 3,
+              "reserve": 58.95,
+              "energy": 18.39,
+              "action": "gather",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 81,
+              "name": "Cora N",
+              "distance": 3,
+              "reserve": 57.51,
+              "energy": 12.13,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 60,
+              "y": 60
+            },
+            "nearestFood": [
+              {
+                "x": 60,
+                "y": 60,
+                "distance": 0,
+                "availableBiomass": 61.7,
+                "harvestableBiomass": 2.55,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 61,
+                "y": 60,
+                "distance": 1,
+                "availableBiomass": 71.71,
+                "harvestableBiomass": 2.55,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 59,
+                "y": 59,
+                "distance": 1.41,
+                "availableBiomass": 62.06,
+                "harvestableBiomass": 2.55,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 61,
+                "y": 59,
+                "distance": 1.41,
+                "availableBiomass": 1.38,
+                "harvestableBiomass": 1.38,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 60,
+                "y": 58,
+                "distance": 2,
+                "availableBiomass": 1.99,
+                "harvestableBiomass": 1.99,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          },
+          "recentHistory": [
+            {
+              "day": 56,
+              "x": 55,
+              "y": 80,
+              "target": null,
+              "reserve": 39.85,
+              "energy": 20.7,
+              "hydration": 41.8,
+              "health": 97.37,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 57,
+              "x": 56,
+              "y": 79,
+              "target": null,
+              "reserve": 39.07,
+              "energy": 19.82,
+              "hydration": 41.34,
+              "health": 97.39,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 58,
+              "x": 56,
+              "y": 78,
+              "target": null,
+              "reserve": 38.29,
+              "energy": 18.94,
+              "hydration": 40.88,
+              "health": 97.42,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 59,
+              "x": 56,
+              "y": 77,
+              "target": null,
+              "reserve": 37.51,
+              "energy": 18.06,
+              "hydration": 40.42,
+              "health": 97.44,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 60,
+              "x": 56,
+              "y": 76,
+              "target": null,
+              "reserve": 36.73,
+              "energy": 17.17,
+              "hydration": 39.96,
+              "health": 97.47,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 61,
+              "x": 56,
+              "y": 75,
+              "target": null,
+              "reserve": 35.95,
+              "energy": 16.29,
+              "hydration": 39.5,
+              "health": 97.49,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 62,
+              "x": 56,
+              "y": 74,
+              "target": null,
+              "reserve": 35.17,
+              "energy": 15.41,
+              "hydration": 39.04,
+              "health": 97.52,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 63,
+              "x": 56,
+              "y": 73,
+              "target": null,
+              "reserve": 34.39,
+              "energy": 14.53,
+              "hydration": 38.58,
+              "health": 97.54,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 64,
+              "x": 56,
+              "y": 72,
+              "target": null,
+              "reserve": 33.61,
+              "energy": 12.79,
+              "hydration": 38.12,
+              "health": 97.57,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 65,
+              "x": 56,
+              "y": 71,
+              "target": null,
+              "reserve": 32.83,
+              "energy": 11.06,
+              "hydration": 37.66,
+              "health": 97.59,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 66,
+              "x": 56,
+              "y": 70,
+              "target": null,
+              "reserve": 32.05,
+              "energy": 9.33,
+              "hydration": 37.2,
+              "health": 97.62,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 67,
+              "x": 56,
+              "y": 69,
+              "target": null,
+              "reserve": 31.27,
+              "energy": 7.6,
+              "hydration": 36.74,
+              "health": 97.64,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 68,
+              "x": 57,
+              "y": 68,
+              "target": null,
+              "reserve": 30.49,
+              "energy": 5.87,
+              "hydration": 36.28,
+              "health": 97.67,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 69,
+              "x": 58,
+              "y": 67,
+              "target": null,
+              "reserve": 29.71,
+              "energy": 4.13,
+              "hydration": 35.82,
+              "health": 97.69,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 70,
+              "x": 59,
+              "y": 66,
+              "target": null,
+              "reserve": 28.93,
+              "energy": 2.52,
+              "hydration": 35.36,
+              "health": 97.72,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 71,
+              "x": 59,
+              "y": 66,
+              "target": null,
+              "reserve": 28.15,
+              "energy": 5.04,
+              "hydration": 34.9,
+              "health": 97.74,
+              "action": "rest",
+              "state": "descansando",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 72,
+              "x": 60,
+              "y": 65,
+              "target": null,
+              "reserve": 27.37,
+              "energy": 3.43,
+              "hydration": 34.44,
+              "health": 97.74,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 73,
+              "x": 60,
+              "y": 64,
+              "target": null,
+              "reserve": 26.59,
+              "energy": 1.82,
+              "hydration": 33.98,
+              "health": 97.74,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 74,
+              "x": 60,
+              "y": 64,
+              "target": null,
+              "reserve": 25.81,
+              "energy": 4.34,
+              "hydration": 33.52,
+              "health": 97.74,
+              "action": "rest",
+              "state": "descansando",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 75,
+              "x": 60,
+              "y": 63,
+              "target": null,
+              "reserve": 25.03,
+              "energy": 2.72,
+              "hydration": 33.06,
+              "health": 97.74,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 76,
+              "x": 60,
+              "y": 62,
+              "target": null,
+              "reserve": 24.25,
+              "energy": 1.11,
+              "hydration": 32.6,
+              "health": 97.74,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 77,
+              "x": 60,
+              "y": 62,
+              "target": null,
+              "reserve": 23.47,
+              "energy": 3.63,
+              "hydration": 32.14,
+              "health": 97.74,
+              "action": "rest",
+              "state": "descansando",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 78,
+              "x": 60,
+              "y": 61,
+              "target": null,
+              "reserve": 22.69,
+              "energy": 2.02,
+              "hydration": 31.68,
+              "health": 97.74,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 79,
+              "x": 60,
+              "y": 61,
+              "target": null,
+              "reserve": 21.91,
+              "energy": 4.42,
+              "hydration": 31.22,
+              "health": 97.74,
+              "action": "rest",
+              "state": "descansando",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 80,
+              "x": 60,
+              "y": 60,
+              "target": null,
+              "reserve": 21.13,
+              "energy": 2.69,
+              "hydration": 30.76,
+              "health": 97.74,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 81,
+              "x": 60,
+              "y": 60,
+              "target": null,
+              "reserve": 20.35,
+              "energy": 5.09,
+              "hydration": 30.3,
+              "health": 97.74,
+              "action": "rest",
+              "state": "descansando",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 82,
+              "x": 60,
+              "y": 60,
+              "target": null,
+              "reserve": 19.57,
+              "energy": 0,
+              "hydration": 29.84,
+              "health": 88.53,
+              "action": "campaign",
+              "state": "ocupando a área disputada",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            }
+          ],
+          "emergencyFoodConsumed": 0
+        },
+        {
+          "id": 89,
+          "name": "Nilo C",
+          "cause": "injury",
+          "day": 846,
+          "ageDays": 8165.35414923355,
+          "ageYears": 22.37,
+          "dependent": false,
+          "role": "resident",
+          "kingdom": "Valedouro",
+          "kingdomId": 25,
+          "community": "Valedouro",
+          "communityId": 27,
+          "position": {
+            "x": 58,
+            "y": 66
+          },
+          "health": 0,
+          "reserve": 0,
+          "hydration": 36.07,
+          "energy": 0,
+          "injury": 7.95,
+          "action": "drink",
+          "state": "bebendo água",
+          "assignment": null,
+          "carried": {
+            "food": 0,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 65,
+              "name": "Nilo I",
+              "distance": 1.41,
+              "reserve": 13.66,
+              "energy": 4.34,
+              "action": "rest",
+              "state": "levando recursos ao abrigo",
+              "onCampaign": false
+            },
+            {
+              "id": 70,
+              "name": "Nilo O",
+              "distance": 4.24,
+              "reserve": 4.4,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 78,
+              "name": "Jaci Q",
+              "distance": 6.08,
+              "reserve": 10.53,
+              "energy": 0,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "onCampaign": false
+            },
+            {
+              "id": 76,
+              "name": "Ravi C",
+              "distance": 6.32,
+              "reserve": 7.68,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 81,
+              "name": "Cora N",
+              "distance": 8.49,
+              "reserve": 2.51,
+              "energy": 0.03,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 53,
+              "y": 66
+            },
+            "nearestFood": [
+              {
+                "x": 53,
+                "y": 66,
+                "distance": 5,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 55,
+                "y": 61,
+                "distance": 5.83,
+                "availableBiomass": 1.84,
+                "harvestableBiomass": 1.84,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 55,
+                "y": 60,
+                "distance": 6.71,
+                "availableBiomass": 1.38,
+                "harvestableBiomass": 1.38,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 58,
+                "y": 59,
+                "distance": 7,
+                "availableBiomass": 2.37,
+                "harvestableBiomass": 2.37,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 51,
+                "y": 66,
+                "distance": 7,
+                "availableBiomass": 1.84,
+                "harvestableBiomass": 1.84,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          },
+          "recentHistory": [
+            {
+              "day": 787,
+              "x": 57,
+              "y": 68,
+              "target": null,
+              "reserve": 1.09,
+              "energy": 0,
+              "hydration": 35.21,
+              "health": 24.51,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 788,
+              "x": 57,
+              "y": 68,
+              "target": {
+                "x": 57,
+                "y": 71
+              },
+              "reserve": 0.31,
+              "energy": 0,
+              "hydration": 34.75,
+              "health": 24.41,
+              "action": "forage",
+              "state": "expulso do território de Corvânia",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 789,
+              "x": 58,
+              "y": 69,
+              "target": {
+                "x": 57,
+                "y": 71
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 34.29,
+              "health": 24.11,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 790,
+              "x": 59,
+              "y": 69,
+              "target": {
+                "x": 57,
+                "y": 71
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 33.83,
+              "health": 23.66,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 791,
+              "x": 60,
+              "y": 69,
+              "target": {
+                "x": 59,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 33.37,
+              "health": 23.22,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 792,
+              "x": 57,
+              "y": 68,
+              "target": {
+                "x": 60,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 32.91,
+              "health": 22.77,
+              "action": "forage",
+              "state": "expulso do território de Corvânia",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 793,
+              "x": 58,
+              "y": 69,
+              "target": {
+                "x": 60,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 32.45,
+              "health": 22.33,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 794,
+              "x": 59,
+              "y": 69,
+              "target": {
+                "x": 60,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 31.99,
+              "health": 21.88,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 795,
+              "x": 60,
+              "y": 69,
+              "target": {
+                "x": 60,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 31.53,
+              "health": 21.44,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 796,
+              "x": 61,
+              "y": 69,
+              "target": {
+                "x": 60,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 31.07,
+              "health": 20.99,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 797,
+              "x": 62,
+              "y": 69,
+              "target": {
+                "x": 63,
+                "y": 73
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 30.61,
+              "health": 20.55,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 798,
+              "x": 57,
+              "y": 68,
+              "target": {
+                "x": 63,
+                "y": 73
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 30.15,
+              "health": 20.1,
+              "action": "forage",
+              "state": "expulso do território de Corvânia",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 799,
+              "x": 57,
+              "y": 68,
+              "target": null,
+              "reserve": 0.66,
+              "energy": 0,
+              "hydration": 29.69,
+              "health": 19.66,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 800,
+              "x": 57,
+              "y": 68,
+              "target": null,
+              "reserve": 0.66,
+              "energy": 0,
+              "hydration": 29.23,
+              "health": 19.51,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 801,
+              "x": 58,
+              "y": 69,
+              "target": {
+                "x": 59,
+                "y": 68
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 28.77,
+              "health": 19.36,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 802,
+              "x": 58,
+              "y": 69,
+              "target": null,
+              "reserve": 0.66,
+              "energy": 0,
+              "hydration": 28.31,
+              "health": 18.92,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 803,
+              "x": 59,
+              "y": 69,
+              "target": {
+                "x": 57,
+                "y": 71
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 27.85,
+              "health": 18.77,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 804,
+              "x": 59,
+              "y": 69,
+              "target": null,
+              "reserve": 0.66,
+              "energy": 0,
+              "hydration": 27.39,
+              "health": 18.32,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 805,
+              "x": 60,
+              "y": 69,
+              "target": {
+                "x": 59,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 26.93,
+              "health": 18.18,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 806,
+              "x": 61,
+              "y": 69,
+              "target": {
+                "x": 60,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 26.47,
+              "health": 17.73,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 807,
+              "x": 62,
+              "y": 69,
+              "target": {
+                "x": 63,
+                "y": 73
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 26.01,
+              "health": 17.29,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 808,
+              "x": 63,
+              "y": 69,
+              "target": {
+                "x": 63,
+                "y": 73
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 25.55,
+              "health": 16.85,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 809,
+              "x": 57,
+              "y": 68,
+              "target": {
+                "x": 63,
+                "y": 73
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 25.09,
+              "health": 16.4,
+              "action": "forage",
+              "state": "expulso do território de Corvânia",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 810,
+              "x": 58,
+              "y": 69,
+              "target": {
+                "x": 59,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 24.63,
+              "health": 15.96,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 811,
+              "x": 59,
+              "y": 69,
+              "target": {
+                "x": 59,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 24.17,
+              "health": 15.51,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 812,
+              "x": 60,
+              "y": 69,
+              "target": {
+                "x": 59,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 23.71,
+              "health": 15.07,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 813,
+              "x": 60,
+              "y": 69,
+              "target": null,
+              "reserve": 0.66,
+              "energy": 0,
+              "hydration": 23.25,
+              "health": 14.62,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 814,
+              "x": 61,
+              "y": 69,
+              "target": {
+                "x": 60,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 22.79,
+              "health": 14.47,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 815,
+              "x": 57,
+              "y": 68,
+              "target": {
+                "x": 63,
+                "y": 73
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 22.33,
+              "health": 14.03,
+              "action": "forage",
+              "state": "expulso do território de Corvânia",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 816,
+              "x": 57,
+              "y": 68,
+              "target": null,
+              "reserve": 0.66,
+              "energy": 0,
+              "hydration": 21.87,
+              "health": 13.58,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 817,
+              "x": 58,
+              "y": 69,
+              "target": {
+                "x": 59,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 21.41,
+              "health": 13.44,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 818,
+              "x": 57,
+              "y": 68,
+              "target": {
+                "x": 59,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 20.95,
+              "health": 12.99,
+              "action": "forage",
+              "state": "expulso do território de Corvânia",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 819,
+              "x": 57,
+              "y": 69,
+              "target": {
+                "x": 59,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 20.49,
+              "health": 12.54,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 820,
+              "x": 58,
+              "y": 69,
+              "target": {
+                "x": 59,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 20.03,
+              "health": 12.1,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 821,
+              "x": 59,
+              "y": 69,
+              "target": {
+                "x": 59,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 19.57,
+              "health": 11.65,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 822,
+              "x": 60,
+              "y": 69,
+              "target": {
+                "x": 59,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 19.11,
+              "health": 11.21,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 823,
+              "x": 61,
+              "y": 69,
+              "target": {
+                "x": 60,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 18.65,
+              "health": 10.76,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 824,
+              "x": 62,
+              "y": 69,
+              "target": {
+                "x": 63,
+                "y": 73
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 18.19,
+              "health": 10.32,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 825,
+              "x": 63,
+              "y": 69,
+              "target": {
+                "x": 63,
+                "y": 73
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 17.73,
+              "health": 9.87,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 826,
+              "x": 64,
+              "y": 69,
+              "target": {
+                "x": 63,
+                "y": 73
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 17.27,
+              "health": 9.43,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 827,
+              "x": 65,
+              "y": 69,
+              "target": {
+                "x": 63,
+                "y": 73
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 16.81,
+              "health": 8.99,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 828,
+              "x": 66,
+              "y": 68,
+              "target": {
+                "x": 66,
+                "y": 66
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 16.35,
+              "health": 8.54,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 829,
+              "x": 57,
+              "y": 68,
+              "target": {
+                "x": 66,
+                "y": 66
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 15.89,
+              "health": 8.1,
+              "action": "forage",
+              "state": "expulso do território de Corvânia",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 830,
+              "x": 57,
+              "y": 68,
+              "target": null,
+              "reserve": 0.66,
+              "energy": 0,
+              "hydration": 15.43,
+              "health": 7.65,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 831,
+              "x": 58,
+              "y": 69,
+              "target": {
+                "x": 59,
+                "y": 68
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 14.97,
+              "health": 7.51,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 832,
+              "x": 57,
+              "y": 68,
+              "target": null,
+              "reserve": 0.66,
+              "energy": 0,
+              "hydration": 14.51,
+              "health": 7.06,
+              "action": "forage",
+              "state": "expulso do território de Corvânia",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 833,
+              "x": 57,
+              "y": 68,
+              "target": null,
+              "reserve": 1,
+              "energy": 0.03,
+              "hydration": 14.05,
+              "health": 6.91,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 834,
+              "x": 58,
+              "y": 69,
+              "target": {
+                "x": 57,
+                "y": 71
+              },
+              "reserve": 0.22,
+              "energy": 0,
+              "hydration": 13.59,
+              "health": 6.82,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 835,
+              "x": 59,
+              "y": 69,
+              "target": {
+                "x": 57,
+                "y": 71
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 13.13,
+              "health": 6.47,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 836,
+              "x": 59,
+              "y": 69,
+              "target": null,
+              "reserve": 1,
+              "energy": 0.03,
+              "hydration": 12.67,
+              "health": 6.02,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 837,
+              "x": 60,
+              "y": 69,
+              "target": {
+                "x": 59,
+                "y": 72
+              },
+              "reserve": 0.22,
+              "energy": 0,
+              "hydration": 12.21,
+              "health": 5.93,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 838,
+              "x": 57,
+              "y": 68,
+              "target": {
+                "x": 60,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 11.75,
+              "health": 5.58,
+              "action": "forage",
+              "state": "expulso do território de Corvânia",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 839,
+              "x": 58,
+              "y": 69,
+              "target": {
+                "x": 60,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 11.29,
+              "health": 5.13,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 840,
+              "x": 59,
+              "y": 69,
+              "target": {
+                "x": 60,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 10.83,
+              "health": 4.69,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 841,
+              "x": 57,
+              "y": 68,
+              "target": {
+                "x": 60,
+                "y": 72
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 10.37,
+              "health": 4.24,
+              "action": "forage",
+              "state": "expulso do território de Corvânia",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 842,
+              "x": 57,
+              "y": 68,
+              "target": null,
+              "reserve": 0.66,
+              "energy": 0,
+              "hydration": 9.91,
+              "health": 3.18,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 843,
+              "x": 57,
+              "y": 68,
+              "target": {
+                "x": 59,
+                "y": 68
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 9.45,
+              "health": 2.41,
+              "action": "forage",
+              "state": "expulso do território de Corvânia",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 844,
+              "x": 58,
+              "y": 67,
+              "target": {
+                "x": 59,
+                "y": 68
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 8.99,
+              "health": 1.34,
+              "action": "drink",
+              "state": "buscando água",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 845,
+              "x": 58,
+              "y": 66,
+              "target": {
+                "x": 59,
+                "y": 68
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 8.53,
+              "health": 0.28,
+              "action": "drink",
+              "state": "buscando água",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 846,
+              "x": 58,
+              "y": 66,
+              "target": {
+                "x": 59,
+                "y": 68
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 36.07,
+              "health": 0,
+              "action": "drink",
+              "state": "bebendo água",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            }
+          ],
+          "emergencyFoodConsumed": 14.72
+        },
+        {
+          "id": 81,
+          "name": "Cora N",
+          "cause": "injury",
+          "day": 889,
+          "ageDays": 9289.315338466316,
+          "ageYears": 25.45,
+          "dependent": false,
+          "role": "resident",
+          "kingdom": "Valedouro",
+          "kingdomId": 25,
+          "community": "Valedouro",
+          "communityId": 27,
+          "position": {
+            "x": 48,
+            "y": 73
+          },
+          "health": 0,
+          "reserve": 3.9,
+          "hydration": 36.94,
+          "energy": 0,
+          "injury": 6.79,
+          "action": "drink",
+          "state": "bebendo água",
+          "assignment": null,
+          "carried": {
+            "food": 0,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 67,
+              "name": "Nilo H",
+              "distance": 8.25,
+              "reserve": 2.17,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 65,
+              "name": "Nilo I",
+              "distance": 10.3,
+              "reserve": 0.74,
+              "energy": 0,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 70,
+              "name": "Nilo O",
+              "distance": 10.3,
+              "reserve": 0.66,
+              "energy": 0,
+              "action": "forage",
+              "state": "expulso do território de Corvânia",
+              "onCampaign": false
+            },
+            {
+              "id": 76,
+              "name": "Ravi C",
+              "distance": 16.4,
+              "reserve": 9.24,
+              "energy": 0.68,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 78,
+              "name": "Jaci Q",
+              "distance": 17.69,
+              "reserve": 9.44,
+              "energy": 0,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 46,
+              "y": 74
+            },
+            "nearestFood": [
+              {
+                "x": 46,
+                "y": 74,
+                "distance": 2.24,
+                "availableBiomass": 2.3,
+                "harvestableBiomass": 2.3,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 46,
+                "y": 75,
+                "distance": 2.83,
+                "availableBiomass": 3.19,
+                "harvestableBiomass": 3.19,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 46,
+                "y": 71,
+                "distance": 2.83,
+                "availableBiomass": 2.3,
+                "harvestableBiomass": 2.3,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 46,
+                "y": 76,
+                "distance": 3.61,
+                "availableBiomass": 97.44,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 45,
+                "y": 75,
+                "distance": 3.61,
+                "availableBiomass": 46.19,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          },
+          "recentHistory": [
+            {
+              "day": 830,
+              "x": 55,
+              "y": 66,
+              "target": null,
+              "reserve": 1,
+              "energy": 0.03,
+              "hydration": 36.08,
+              "health": 8.15,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 831,
+              "x": 54,
+              "y": 66,
+              "target": {
+                "x": 53,
+                "y": 66
+              },
+              "reserve": 0.22,
+              "energy": 0,
+              "hydration": 35.62,
+              "health": 8.06,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 832,
+              "x": 54,
+              "y": 66,
+              "target": null,
+              "reserve": 0.66,
+              "energy": 0,
+              "hydration": 35.16,
+              "health": 7.71,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 833,
+              "x": 54,
+              "y": 66,
+              "target": null,
+              "reserve": 1,
+              "energy": 0.03,
+              "hydration": 34.7,
+              "health": 7.56,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 834,
+              "x": 54,
+              "y": 67,
+              "target": {
+                "x": 54,
+                "y": 68
+              },
+              "reserve": 0.22,
+              "energy": 0,
+              "hydration": 34.24,
+              "health": 7.47,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 835,
+              "x": 54,
+              "y": 67,
+              "target": null,
+              "reserve": 1,
+              "energy": 0.03,
+              "hydration": 33.78,
+              "health": 7.12,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 836,
+              "x": 55,
+              "y": 68,
+              "target": {
+                "x": 55,
+                "y": 69
+              },
+              "reserve": 0.22,
+              "energy": 0,
+              "hydration": 33.32,
+              "health": 7.03,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 837,
+              "x": 55,
+              "y": 68,
+              "target": null,
+              "reserve": 1.33,
+              "energy": 0.11,
+              "hydration": 32.86,
+              "health": 6.69,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 838,
+              "x": 54,
+              "y": 69,
+              "target": {
+                "x": 54,
+                "y": 71
+              },
+              "reserve": 0.55,
+              "energy": 0,
+              "hydration": 32.4,
+              "health": 6.59,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 839,
+              "x": 54,
+              "y": 70,
+              "target": {
+                "x": 54,
+                "y": 71
+              },
+              "reserve": 0,
+              "energy": 0,
+              "hydration": 31.94,
+              "health": 6.4,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 840,
+              "x": 54,
+              "y": 70,
+              "target": null,
+              "reserve": 1,
+              "energy": 0.03,
+              "hydration": 31.48,
+              "health": 5.95,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 841,
+              "x": 53,
+              "y": 71,
+              "target": {
+                "x": 52,
+                "y": 71
+              },
+              "reserve": 0.22,
+              "energy": 0,
+              "hydration": 31.02,
+              "health": 5.86,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 842,
+              "x": 53,
+              "y": 71,
+              "target": null,
+              "reserve": 1.98,
+              "energy": 0.28,
+              "hydration": 30.56,
+              "health": 5.52,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 843,
+              "x": 53,
+              "y": 71,
+              "target": null,
+              "reserve": 2.2,
+              "energy": 0.03,
+              "hydration": 30.1,
+              "health": 5.42,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 844,
+              "x": 52,
+              "y": 72,
+              "target": {
+                "x": 51,
+                "y": 72
+              },
+              "reserve": 1.42,
+              "energy": 0,
+              "hydration": 29.64,
+              "health": 5.33,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 845,
+              "x": 52,
+              "y": 72,
+              "target": null,
+              "reserve": 2.29,
+              "energy": 0.19,
+              "hydration": 29.18,
+              "health": 5.24,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 846,
+              "x": 52,
+              "y": 72,
+              "target": null,
+              "reserve": 2.51,
+              "energy": 0.03,
+              "hydration": 28.72,
+              "health": 5.15,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 847,
+              "x": 51,
+              "y": 73,
+              "target": {
+                "x": 49,
+                "y": 73
+              },
+              "reserve": 1.73,
+              "energy": 0,
+              "hydration": 28.26,
+              "health": 5.06,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 848,
+              "x": 50,
+              "y": 73,
+              "target": {
+                "x": 49,
+                "y": 73
+              },
+              "reserve": 0.95,
+              "energy": 0,
+              "hydration": 27.8,
+              "health": 4.97,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 849,
+              "x": 50,
+              "y": 73,
+              "target": null,
+              "reserve": 2.15,
+              "energy": 0.28,
+              "hydration": 27.34,
+              "health": 4.88,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 850,
+              "x": 50,
+              "y": 73,
+              "target": null,
+              "reserve": 3.35,
+              "energy": 0.28,
+              "hydration": 26.88,
+              "health": 4.79,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 851,
+              "x": 49,
+              "y": 74,
+              "target": {
+                "x": 49,
+                "y": 75
+              },
+              "reserve": 2.57,
+              "energy": 0,
+              "hydration": 26.42,
+              "health": 4.7,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 852,
+              "x": 49,
+              "y": 74,
+              "target": null,
+              "reserve": 5.39,
+              "energy": 0.68,
+              "hydration": 25.96,
+              "health": 4.61,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 853,
+              "x": 48,
+              "y": 74,
+              "target": {
+                "x": 47,
+                "y": 74
+              },
+              "reserve": 4.61,
+              "energy": 0,
+              "hydration": 25.5,
+              "health": 4.52,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 854,
+              "x": 48,
+              "y": 74,
+              "target": null,
+              "reserve": 6.15,
+              "energy": 0.36,
+              "hydration": 25.04,
+              "health": 4.43,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 855,
+              "x": 48,
+              "y": 74,
+              "target": null,
+              "reserve": 7.68,
+              "energy": 0.36,
+              "hydration": 24.58,
+              "health": 4.34,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 856,
+              "x": 47,
+              "y": 74,
+              "target": {
+                "x": 46,
+                "y": 74
+              },
+              "reserve": 6.9,
+              "energy": 0,
+              "hydration": 24.12,
+              "health": 4.26,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 857,
+              "x": 47,
+              "y": 74,
+              "target": null,
+              "reserve": 9.4,
+              "energy": 0.6,
+              "hydration": 23.66,
+              "health": 4.17,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 858,
+              "x": 48,
+              "y": 73,
+              "target": null,
+              "reserve": 8.62,
+              "energy": 0,
+              "hydration": 23.2,
+              "health": 4.08,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 859,
+              "x": 47,
+              "y": 72,
+              "target": {
+                "x": 46,
+                "y": 71
+              },
+              "reserve": 7.84,
+              "energy": 0,
+              "hydration": 22.74,
+              "health": 3.99,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 860,
+              "x": 47,
+              "y": 72,
+              "target": null,
+              "reserve": 8.06,
+              "energy": 0.03,
+              "hydration": 22.28,
+              "health": 3.9,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 861,
+              "x": 46,
+              "y": 73,
+              "target": {
+                "x": 45,
+                "y": 75
+              },
+              "reserve": 7.28,
+              "energy": 0,
+              "hydration": 21.82,
+              "health": 3.82,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 862,
+              "x": 45,
+              "y": 74,
+              "target": {
+                "x": 45,
+                "y": 75
+              },
+              "reserve": 6.5,
+              "energy": 0,
+              "hydration": 21.36,
+              "health": 3.73,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 863,
+              "x": 45,
+              "y": 74,
+              "target": null,
+              "reserve": 9.32,
+              "energy": 0.68,
+              "hydration": 20.9,
+              "health": 3.64,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 864,
+              "x": 46,
+              "y": 74,
+              "target": null,
+              "reserve": 8.54,
+              "energy": 0,
+              "hydration": 20.44,
+              "health": 3.55,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 865,
+              "x": 46,
+              "y": 74,
+              "target": null,
+              "reserve": 11.36,
+              "energy": 0.68,
+              "hydration": 19.98,
+              "health": 3.47,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 866,
+              "x": 47,
+              "y": 73,
+              "target": null,
+              "reserve": 10.58,
+              "energy": 0,
+              "hydration": 19.52,
+              "health": 3.38,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 867,
+              "x": 48,
+              "y": 72,
+              "target": null,
+              "reserve": 9.8,
+              "energy": 0,
+              "hydration": 19.06,
+              "health": 3.29,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 868,
+              "x": 49,
+              "y": 71,
+              "target": null,
+              "reserve": 9.02,
+              "energy": 0,
+              "hydration": 18.6,
+              "health": 3.21,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 869,
+              "x": 50,
+              "y": 70,
+              "target": null,
+              "reserve": 8.24,
+              "energy": 0,
+              "hydration": 18.14,
+              "health": 3.12,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 870,
+              "x": 50,
+              "y": 70,
+              "target": null,
+              "reserve": 9.11,
+              "energy": 0.19,
+              "hydration": 17.68,
+              "health": 3.04,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 871,
+              "x": 51,
+              "y": 70,
+              "target": null,
+              "reserve": 8.33,
+              "energy": 0,
+              "hydration": 17.22,
+              "health": 2.95,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 872,
+              "x": 51,
+              "y": 70,
+              "target": null,
+              "reserve": 8.88,
+              "energy": 0.11,
+              "hydration": 16.76,
+              "health": 2.87,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 873,
+              "x": 52,
+              "y": 69,
+              "target": null,
+              "reserve": 8.1,
+              "energy": 0,
+              "hydration": 16.3,
+              "health": 2.78,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 874,
+              "x": 53,
+              "y": 69,
+              "target": {
+                "x": 55,
+                "y": 69
+              },
+              "reserve": 7.32,
+              "energy": 0,
+              "hydration": 15.84,
+              "health": 2.7,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 875,
+              "x": 54,
+              "y": 69,
+              "target": {
+                "x": 55,
+                "y": 69
+              },
+              "reserve": 6.54,
+              "energy": 0,
+              "hydration": 15.38,
+              "health": 2.61,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 876,
+              "x": 54,
+              "y": 69,
+              "target": null,
+              "reserve": 6.75,
+              "energy": 0.03,
+              "hydration": 14.92,
+              "health": 2.53,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 877,
+              "x": 54,
+              "y": 70,
+              "target": {
+                "x": 54,
+                "y": 71
+              },
+              "reserve": 5.97,
+              "energy": 0,
+              "hydration": 14.46,
+              "health": 2.44,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 878,
+              "x": 54,
+              "y": 70,
+              "target": null,
+              "reserve": 5.86,
+              "energy": 0,
+              "hydration": 14,
+              "health": 2.36,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 879,
+              "x": 53,
+              "y": 71,
+              "target": {
+                "x": 53,
+                "y": 72
+              },
+              "reserve": 5.08,
+              "energy": 0,
+              "hydration": 13.54,
+              "health": 2.28,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 880,
+              "x": 53,
+              "y": 71,
+              "target": null,
+              "reserve": 5.95,
+              "energy": 0.19,
+              "hydration": 13.08,
+              "health": 2.19,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 881,
+              "x": 52,
+              "y": 72,
+              "target": {
+                "x": 51,
+                "y": 72
+              },
+              "reserve": 5.17,
+              "energy": 0,
+              "hydration": 12.62,
+              "health": 2.11,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 882,
+              "x": 52,
+              "y": 72,
+              "target": null,
+              "reserve": 6.38,
+              "energy": 0.28,
+              "hydration": 12.16,
+              "health": 2.03,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 883,
+              "x": 51,
+              "y": 73,
+              "target": {
+                "x": 49,
+                "y": 73
+              },
+              "reserve": 5.6,
+              "energy": 0,
+              "hydration": 11.7,
+              "health": 1.94,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 884,
+              "x": 50,
+              "y": 73,
+              "target": {
+                "x": 49,
+                "y": 73
+              },
+              "reserve": 4.82,
+              "energy": 0,
+              "hydration": 11.24,
+              "health": 1.86,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 885,
+              "x": 50,
+              "y": 73,
+              "target": null,
+              "reserve": 5.69,
+              "energy": 0.19,
+              "hydration": 10.78,
+              "health": 1.78,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 886,
+              "x": 49,
+              "y": 73,
+              "target": {
+                "x": 47,
+                "y": 73
+              },
+              "reserve": 4.91,
+              "energy": 0,
+              "hydration": 10.32,
+              "health": 1.7,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 887,
+              "x": 48,
+              "y": 73,
+              "target": {
+                "x": 47,
+                "y": 73
+              },
+              "reserve": 4.13,
+              "energy": 0,
+              "hydration": 9.86,
+              "health": 0.99,
+              "action": "forage",
+              "state": "procurando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 888,
+              "x": 48,
+              "y": 73,
+              "target": null,
+              "reserve": 4.68,
+              "energy": 0.11,
+              "hydration": 9.4,
+              "health": 0.29,
+              "action": "forage",
+              "state": "coletando alimento",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            },
+            {
+              "day": 889,
+              "x": 48,
+              "y": 73,
+              "target": null,
+              "reserve": 3.9,
+              "energy": 0,
+              "hydration": 36.94,
+              "health": 0,
+              "action": "drink",
+              "state": "bebendo água",
+              "carriedFood": 0,
+              "movementCooldown": 0
+            }
+          ],
+          "emergencyFoodConsumed": 0
+        }
+      ]
+    }
+  ]
+}

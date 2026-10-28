@@ -1,0 +1,402 @@
+{
+  "seed": 42,
+  "days": 120,
+  "person": {
+    "id": 135,
+    "name": "Oru P",
+    "role": "resident",
+    "alive": true
+  },
+  "plans": [
+    {
+      "schemaVersion": 1,
+      "worldSeed": 42,
+      "worldEpoch": 0,
+      "dueDay": 133,
+      "createdDay": 112,
+      "updatedDay": 117,
+      "intentionId": "42:epoch:0:intention:10",
+      "ownerId": "135",
+      "type": "seek_food_aid",
+      "priority": 0.7,
+      "targetId": "158",
+      "commitmentId": "42:epoch:0:commitment:10",
+      "destination": null,
+      "steps": [
+        {
+          "action": "approach_helper",
+          "targetId": "158"
+        },
+        {
+          "action": "request_food",
+          "targetId": "158"
+        },
+        {
+          "action": "receive_food",
+          "targetId": "158"
+        }
+      ],
+      "progress": 1,
+      "blockers": [],
+      "evidenceIds": [],
+      "endsWhen": "aid_delivered_or_deadline",
+      "status": "active",
+      "transitionEventIds": [
+        "42:epoch:0:social:69",
+        "42:epoch:0:social:72",
+        "42:epoch:0:social:75"
+      ]
+    }
+  ],
+  "openDays": 8,
+  "actions": {
+    "socialize": 6,
+    "build": 2
+  },
+  "openPlanDaysByRole": {
+    "resident": {
+      "socialize": 38,
+      "build": 9,
+      "rest": 10,
+      "forage": 6
+    },
+    "soldier": {
+      "return_garrison": 15,
+      "campaign": 32,
+      "guard": 2,
+      "rest": 1,
+      "drink": 1
+    }
+  },
+  "trace": [
+    {
+      "executedDay": 112,
+      "snapshotDay": 113,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.77907384579588,
+      "hydration": 51.5701554282758,
+      "energy": 40.64966240038518,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 127,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:10",
+        "created": 112,
+        "due": 133,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9.055385138137417,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 113,
+      "snapshotDay": 114,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.77907384579588,
+      "hydration": 51.2701554282758,
+      "energy": 40.285342400414685,
+      "position": {
+        "x": 68,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 128,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:10",
+        "created": 112,
+        "due": 133,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 114,
+      "snapshotDay": 115,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.77907384579588,
+      "hydration": 50.9701554282758,
+      "energy": 39.92102240044419,
+      "position": {
+        "x": 68,
+        "y": 91
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 129,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:10",
+        "created": 112,
+        "due": 133,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 8,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 115,
+      "snapshotDay": 116,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "indo para o ponto de construção",
+      "food": 39.77907384579588,
+      "hydration": 50.670155428275805,
+      "energy": 39.55670240047369,
+      "position": {
+        "x": 68,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 130,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:10",
+        "created": 112,
+        "due": 133,
+        "status": "suspended",
+        "progress": 1,
+        "blockers": [
+          "target_not_visible"
+        ]
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 116,
+      "snapshotDay": 117,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "indo para o ponto de construção",
+      "food": 39.77907384579588,
+      "hydration": 50.37015542827581,
+      "energy": 39.19238240050319,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 131,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:10",
+        "created": 112,
+        "due": 133,
+        "status": "suspended",
+        "progress": 1,
+        "blockers": [
+          "target_not_visible"
+        ]
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9.055385138137417,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 117,
+      "snapshotDay": 118,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.77907384579588,
+      "hydration": 50.07015542827581,
+      "energy": 38.828062400532694,
+      "position": {
+        "x": 68,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 132,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:10",
+        "created": 112,
+        "due": 133,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 118,
+      "snapshotDay": 119,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.77907384579588,
+      "hydration": 49.770155428275814,
+      "energy": 38.4637424005622,
+      "position": {
+        "x": 68,
+        "y": 91
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 133,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:10",
+        "created": 112,
+        "due": 133,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 8,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 119,
+      "snapshotDay": 120,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.77907384579588,
+      "hydration": 49.47015542827582,
+      "energy": 38.0994224005917,
+      "position": {
+        "x": 68,
+        "y": 90
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 134,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:10",
+        "created": 112,
+        "due": 133,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 7,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    }
+  ],
+  "commitments": [
+    {
+      "schemaVersion": 1,
+      "worldSeed": 42,
+      "worldEpoch": 0,
+      "day": 112,
+      "proposedBy": "135",
+      "parties": [
+        "135",
+        "158"
+      ],
+      "object": "food",
+      "quantity": 2.5,
+      "dueDay": 133,
+      "status": "proposed",
+      "deliveredQuantity": 0,
+      "deliveryEventIds": [],
+      "transitionEventIds": [],
+      "resourceReferences": [],
+      "evidenceEventIds": [],
+      "commitmentId": "42:epoch:0:commitment:10"
+    }
+  ]
+}

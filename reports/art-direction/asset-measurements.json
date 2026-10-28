@@ -1,0 +1,1223 @@
+{
+  "scope": "20 representative files; first-frame palette uses opaque pixels only; atlas palette uses full atlas; no global palette limit inferred",
+  "assets": [
+    {
+      "path": "tiny-swords/people/blue/pawn_idle.png",
+      "sha256": "4019a57ff37da93ad1bd5b1f79e9076aa5f1749e2111fddfd4b1bf3dfa084007",
+      "canvas": [
+        1536,
+        192
+      ],
+      "frame": [
+        192,
+        192
+      ],
+      "frames": 8,
+      "runtime_fps": 10,
+      "anchor": {
+        "x": 96,
+        "y": 135
+      },
+      "first_frame_alpha_bbox": [
+        69,
+        64,
+        121,
+        135
+      ],
+      "first_frame_unique_opaque_rgb": 9,
+      "first_frame_partial_alpha_pixels": 394,
+      "top_opaque_colors": [
+        {
+          "hex": "#161C2E",
+          "pixels": 685
+        },
+        {
+          "hex": "#977B6B",
+          "pixels": 651
+        },
+        {
+          "hex": "#5E5455",
+          "pixels": 499
+        },
+        {
+          "hex": "#C8A876",
+          "pixels": 168
+        },
+        {
+          "hex": "#EFE1AB",
+          "pixels": 162
+        },
+        {
+          "hex": "#485884",
+          "pixels": 144
+        },
+        {
+          "hex": "#ADA081",
+          "pixels": 63
+        },
+        {
+          "hex": "#474144",
+          "pixels": 58
+        },
+        {
+          "hex": "#4697AC",
+          "pixels": 52
+        }
+      ]
+    },
+    {
+      "path": "tiny-swords/military/blue/Warrior/Warrior_Idle.png",
+      "sha256": "708f3a9f8ab9f0dc5af69623d9a35b1cc6a6d00e21863ed17388aac378049124",
+      "canvas": [
+        1536,
+        192
+      ],
+      "frame": [
+        192,
+        192
+      ],
+      "frames": 8,
+      "runtime_fps": 10,
+      "anchor": {
+        "x": 96,
+        "y": 135
+      },
+      "first_frame_alpha_bbox": [
+        62,
+        48,
+        141,
+        137
+      ],
+      "first_frame_unique_opaque_rgb": 9,
+      "first_frame_partial_alpha_pixels": 356,
+      "top_opaque_colors": [
+        {
+          "hex": "#161C2E",
+          "pixels": 1309
+        },
+        {
+          "hex": "#EFE1AB",
+          "pixels": 673
+        },
+        {
+          "hex": "#485884",
+          "pixels": 607
+        },
+        {
+          "hex": "#4697AC",
+          "pixels": 563
+        },
+        {
+          "hex": "#C8A876",
+          "pixels": 469
+        },
+        {
+          "hex": "#9CBEAA",
+          "pixels": 226
+        },
+        {
+          "hex": "#D4EDC2",
+          "pixels": 129
+        },
+        {
+          "hex": "#FFFFFF",
+          "pixels": 84
+        },
+        {
+          "hex": "#688C8A",
+          "pixels": 64
+        }
+      ]
+    },
+    {
+      "path": "tiny-swords/military/blue/Lancer/Lancer_Idle.png",
+      "sha256": "cb87fca40fc3402fd9f109343bcce0e2a08fe3c7f778c022f87a645a209992b1",
+      "canvas": [
+        3840,
+        320
+      ],
+      "frame": [
+        320,
+        320
+      ],
+      "frames": 12,
+      "runtime_fps": 10,
+      "anchor": {
+        "x": 160,
+        "y": 199
+      },
+      "first_frame_alpha_bbox": [
+        115,
+        48,
+        184,
+        198
+      ],
+      "first_frame_unique_opaque_rgb": 9,
+      "first_frame_partial_alpha_pixels": 272,
+      "top_opaque_colors": [
+        {
+          "hex": "#161C2E",
+          "pixels": 1479
+        },
+        {
+          "hex": "#9CBEAA",
+          "pixels": 645
+        },
+        {
+          "hex": "#688C8A",
+          "pixels": 499
+        },
+        {
+          "hex": "#485884",
+          "pixels": 384
+        },
+        {
+          "hex": "#4697AC",
+          "pixels": 241
+        },
+        {
+          "hex": "#EFE1AB",
+          "pixels": 145
+        },
+        {
+          "hex": "#C8A876",
+          "pixels": 116
+        },
+        {
+          "hex": "#D4EDC2",
+          "pixels": 81
+        },
+        {
+          "hex": "#FFFFFF",
+          "pixels": 32
+        }
+      ]
+    },
+    {
+      "path": "tiny-swords/sheep/sheep_idle.png",
+      "sha256": "57650ace564c71233fae0abb7446b6d5b5220b4081efc41d305d55bbb4f16f61",
+      "canvas": [
+        768,
+        128
+      ],
+      "frame": [
+        128,
+        128
+      ],
+      "frames": 6,
+      "runtime_fps": 5.555555555555555,
+      "anchor": {
+        "x": 64,
+        "y": 84
+      },
+      "first_frame_alpha_bbox": [
+        41,
+        40,
+        86,
+        84
+      ],
+      "first_frame_unique_opaque_rgb": 6,
+      "first_frame_partial_alpha_pixels": 286,
+      "top_opaque_colors": [
+        {
+          "hex": "#FFFFFF",
+          "pixels": 427
+        },
+        {
+          "hex": "#161C2E",
+          "pixels": 306
+        },
+        {
+          "hex": "#E9D8C9",
+          "pixels": 223
+        },
+        {
+          "hex": "#586C7B",
+          "pixels": 169
+        },
+        {
+          "hex": "#90B7AF",
+          "pixels": 124
+        },
+        {
+          "hex": "#3F4C56",
+          "pixels": 41
+        }
+      ]
+    },
+    {
+      "path": "tiny-swords/buildings/blue/castle.png",
+      "sha256": "9234627cd80922658346e537bc0e8fd9ce02402206d6ac44650302e1b842fe1d",
+      "canvas": [
+        320,
+        256
+      ],
+      "frame": [
+        320,
+        256
+      ],
+      "frames": null,
+      "runtime_fps": null,
+      "anchor": null,
+      "first_frame_alpha_bbox": [
+        4,
+        41,
+        316,
+        249
+      ],
+      "first_frame_unique_opaque_rgb": 17,
+      "first_frame_partial_alpha_pixels": 2788,
+      "top_opaque_colors": [
+        {
+          "hex": "#4C5C8B",
+          "pixels": 8763
+        },
+        {
+          "hex": "#161C2E",
+          "pixels": 8523
+        },
+        {
+          "hex": "#4795A7",
+          "pixels": 6135
+        },
+        {
+          "hex": "#D09862",
+          "pixels": 4185
+        },
+        {
+          "hex": "#9B7260",
+          "pixels": 3524
+        },
+        {
+          "hex": "#BBAE93",
+          "pixels": 2875
+        },
+        {
+          "hex": "#E1DCA3",
+          "pixels": 2785
+        },
+        {
+          "hex": "#54726F",
+          "pixels": 2781
+        },
+        {
+          "hex": "#63B7BA",
+          "pixels": 2083
+        },
+        {
+          "hex": "#3F4A50",
+          "pixels": 1980
+        },
+        {
+          "hex": "#E9BC7F",
+          "pixels": 1644
+        },
+        {
+          "hex": "#809E94",
+          "pixels": 1547
+        },
+        {
+          "hex": "#805953",
+          "pixels": 1120
+        },
+        {
+          "hex": "#404156",
+          "pixels": 1116
+        },
+        {
+          "hex": "#8BD8C8",
+          "pixels": 479
+        },
+        {
+          "hex": "#988E84",
+          "pixels": 315
+        },
+        {
+          "hex": "#A4B9AA",
+          "pixels": 148
+        }
+      ]
+    },
+    {
+      "path": "tiny-swords/buildings/blue/house1.png",
+      "sha256": "02c96f9224002ec4027d14b163d53498199a386b7ba37ae51a9560a620abd5d0",
+      "canvas": [
+        128,
+        192
+      ],
+      "frame": [
+        128,
+        192
+      ],
+      "frames": null,
+      "runtime_fps": null,
+      "anchor": null,
+      "first_frame_alpha_bbox": [
+        8,
+        16,
+        120,
+        173
+      ],
+      "first_frame_unique_opaque_rgb": 10,
+      "first_frame_partial_alpha_pixels": 899,
+      "top_opaque_colors": [
+        {
+          "hex": "#161C2E",
+          "pixels": 2744
+        },
+        {
+          "hex": "#8D6857",
+          "pixels": 2450
+        },
+        {
+          "hex": "#BD8A59",
+          "pixels": 1691
+        },
+        {
+          "hex": "#4795A7",
+          "pixels": 1633
+        },
+        {
+          "hex": "#4C5C8B",
+          "pixels": 1368
+        },
+        {
+          "hex": "#74514B",
+          "pixels": 691
+        },
+        {
+          "hex": "#BBAE93",
+          "pixels": 540
+        },
+        {
+          "hex": "#E1DCA3",
+          "pixels": 526
+        },
+        {
+          "hex": "#E5BE76",
+          "pixels": 287
+        },
+        {
+          "hex": "#63B7BA",
+          "pixels": 110
+        }
+      ]
+    },
+    {
+      "path": "tiny-swords/buildings/red/house1.png",
+      "sha256": "0df0b31167418536232d606393ece290bd56ca57570cd6d316752bd7869fc14f",
+      "canvas": [
+        128,
+        192
+      ],
+      "frame": [
+        128,
+        192
+      ],
+      "frames": null,
+      "runtime_fps": null,
+      "anchor": null,
+      "first_frame_alpha_bbox": [
+        8,
+        16,
+        120,
+        173
+      ],
+      "first_frame_unique_opaque_rgb": 10,
+      "first_frame_partial_alpha_pixels": 899,
+      "top_opaque_colors": [
+        {
+          "hex": "#161C2E",
+          "pixels": 2744
+        },
+        {
+          "hex": "#8D4848",
+          "pixels": 2450
+        },
+        {
+          "hex": "#C06D50",
+          "pixels": 1691
+        },
+        {
+          "hex": "#DE5454",
+          "pixels": 1633
+        },
+        {
+          "hex": "#924159",
+          "pixels": 1368
+        },
+        {
+          "hex": "#65323B",
+          "pixels": 691
+        },
+        {
+          "hex": "#C8A876",
+          "pixels": 540
+        },
+        {
+          "hex": "#EFE1AB",
+          "pixels": 526
+        },
+        {
+          "hex": "#D5AA60",
+          "pixels": 287
+        },
+        {
+          "hex": "#F4A47B",
+          "pixels": 110
+        }
+      ]
+    },
+    {
+      "path": "tiny-swords/buildings/yellow/house1.png",
+      "sha256": "0e22f159ecc9b16236b6311a67a2dc2b4d9e5be6d396b796acc2de8ad1d2e474",
+      "canvas": [
+        128,
+        192
+      ],
+      "frame": [
+        128,
+        192
+      ],
+      "frames": null,
+      "runtime_fps": null,
+      "anchor": null,
+      "first_frame_alpha_bbox": [
+        8,
+        16,
+        120,
+        173
+      ],
+      "first_frame_unique_opaque_rgb": 10,
+      "first_frame_partial_alpha_pixels": 899,
+      "top_opaque_colors": [
+        {
+          "hex": "#161C2E",
+          "pixels": 2744
+        },
+        {
+          "hex": "#97763D",
+          "pixels": 2450
+        },
+        {
+          "hex": "#BDA759",
+          "pixels": 1691
+        },
+        {
+          "hex": "#DCAA46",
+          "pixels": 1633
+        },
+        {
+          "hex": "#98694E",
+          "pixels": 1368
+        },
+        {
+          "hex": "#6C513A",
+          "pixels": 691
+        },
+        {
+          "hex": "#BBAE93",
+          "pixels": 540
+        },
+        {
+          "hex": "#E1DCA3",
+          "pixels": 526
+        },
+        {
+          "hex": "#E1D968",
+          "pixels": 287
+        },
+        {
+          "hex": "#F9E279",
+          "pixels": 110
+        }
+      ]
+    },
+    {
+      "path": "tiny-swords/buildings/purple/house1.png",
+      "sha256": "a54aca1ce29782ef1c08add19255486d23c1285591eda6d76d0a4f9e2c90a9fe",
+      "canvas": [
+        128,
+        192
+      ],
+      "frame": [
+        128,
+        192
+      ],
+      "frames": null,
+      "runtime_fps": null,
+      "anchor": null,
+      "first_frame_alpha_bbox": [
+        8,
+        16,
+        120,
+        173
+      ],
+      "first_frame_unique_opaque_rgb": 10,
+      "first_frame_partial_alpha_pixels": 899,
+      "top_opaque_colors": [
+        {
+          "hex": "#161C2E",
+          "pixels": 2744
+        },
+        {
+          "hex": "#895669",
+          "pixels": 2450
+        },
+        {
+          "hex": "#A46F79",
+          "pixels": 1691
+        },
+        {
+          "hex": "#A37096",
+          "pixels": 1633
+        },
+        {
+          "hex": "#5C547E",
+          "pixels": 1368
+        },
+        {
+          "hex": "#5C4054",
+          "pixels": 691
+        },
+        {
+          "hex": "#BBAE93",
+          "pixels": 540
+        },
+        {
+          "hex": "#E1DCA3",
+          "pixels": 526
+        },
+        {
+          "hex": "#B08B8B",
+          "pixels": 287
+        },
+        {
+          "hex": "#C88BAD",
+          "pixels": 110
+        }
+      ]
+    },
+    {
+      "path": "tiny-swords/buildings/black/house1.png",
+      "sha256": "ebbcf94663a25b08a26520d01fb602d3ca6f57ad00e26c89bc3399d5d00d67c6",
+      "canvas": [
+        128,
+        192
+      ],
+      "frame": [
+        128,
+        192
+      ],
+      "frames": null,
+      "runtime_fps": null,
+      "anchor": null,
+      "first_frame_alpha_bbox": [
+        8,
+        16,
+        120,
+        173
+      ],
+      "first_frame_unique_opaque_rgb": 10,
+      "first_frame_partial_alpha_pixels": 899,
+      "top_opaque_colors": [
+        {
+          "hex": "#161C2E",
+          "pixels": 2744
+        },
+        {
+          "hex": "#4B595A",
+          "pixels": 2450
+        },
+        {
+          "hex": "#6E7675",
+          "pixels": 1691
+        },
+        {
+          "hex": "#54667E",
+          "pixels": 1633
+        },
+        {
+          "hex": "#413E52",
+          "pixels": 1368
+        },
+        {
+          "hex": "#333D41",
+          "pixels": 691
+        },
+        {
+          "hex": "#C8A876",
+          "pixels": 540
+        },
+        {
+          "hex": "#EFE1AB",
+          "pixels": 526
+        },
+        {
+          "hex": "#959B78",
+          "pixels": 287
+        },
+        {
+          "hex": "#7D95A5",
+          "pixels": 110
+        }
+      ]
+    },
+    {
+      "path": "tiny-swords/trees/tree-1.png",
+      "sha256": "712f818b3347eebac06eb6317a835ee9fd83dc69856b94c039f72c8570b3c205",
+      "canvas": [
+        1536,
+        256
+      ],
+      "frame": [
+        192,
+        256
+      ],
+      "frames": 8,
+      "runtime_fps": 10,
+      "anchor": {
+        "x": 96,
+        "y": 241
+      },
+      "first_frame_alpha_bbox": [
+        37,
+        51,
+        156,
+        241
+      ],
+      "first_frame_unique_opaque_rgb": 6,
+      "first_frame_partial_alpha_pixels": 554,
+      "top_opaque_colors": [
+        {
+          "hex": "#2D8381",
+          "pixels": 3164
+        },
+        {
+          "hex": "#161C2E",
+          "pixels": 2974
+        },
+        {
+          "hex": "#37AE7B",
+          "pixels": 1727
+        },
+        {
+          "hex": "#315A6D",
+          "pixels": 1392
+        },
+        {
+          "hex": "#68D367",
+          "pixels": 1068
+        },
+        {
+          "hex": "#685151",
+          "pixels": 294
+        }
+      ]
+    },
+    {
+      "path": "tiny-swords/trees/tree-3.png",
+      "sha256": "faec961ebf6e92c6db5f4e95eb80742ea13d9e2d0e5810998ca84357c6352dbd",
+      "canvas": [
+        1536,
+        192
+      ],
+      "frame": [
+        192,
+        192
+      ],
+      "frames": 8,
+      "runtime_fps": 10,
+      "anchor": {
+        "x": 96,
+        "y": 170
+      },
+      "first_frame_alpha_bbox": [
+        51,
+        24,
+        141,
+        170
+      ],
+      "first_frame_unique_opaque_rgb": 8,
+      "first_frame_partial_alpha_pixels": 520,
+      "top_opaque_colors": [
+        {
+          "hex": "#699157",
+          "pixels": 2191
+        },
+        {
+          "hex": "#BBBC41",
+          "pixels": 1545
+        },
+        {
+          "hex": "#49655C",
+          "pixels": 1416
+        },
+        {
+          "hex": "#F1D15F",
+          "pixels": 1348
+        },
+        {
+          "hex": "#161C2E",
+          "pixels": 1098
+        },
+        {
+          "hex": "#D6B6A5",
+          "pixels": 107
+        },
+        {
+          "hex": "#FFF2E2",
+          "pixels": 89
+        },
+        {
+          "hex": "#7E9AA0",
+          "pixels": 74
+        }
+      ]
+    },
+    {
+      "path": "tiny-swords/minerals/gold-stone-1.png",
+      "sha256": "ad5fcfaa515296181772db9f1c7fc3c942be29e3b0d74420d86d86daf907dac3",
+      "canvas": [
+        128,
+        128
+      ],
+      "frame": [
+        128,
+        128
+      ],
+      "frames": null,
+      "runtime_fps": null,
+      "anchor": null,
+      "first_frame_alpha_bbox": [
+        48,
+        50,
+        80,
+        79
+      ],
+      "first_frame_unique_opaque_rgb": 5,
+      "first_frame_partial_alpha_pixels": 110,
+      "top_opaque_colors": [
+        {
+          "hex": "#E9F044",
+          "pixels": 142
+        },
+        {
+          "hex": "#CEA554",
+          "pixels": 137
+        },
+        {
+          "hex": "#161C2E",
+          "pixels": 121
+        },
+        {
+          "hex": "#AC7A58",
+          "pixels": 95
+        },
+        {
+          "hex": "#FFFFFF",
+          "pixels": 48
+        }
+      ]
+    },
+    {
+      "path": "tiny-swords/fences/tileset-fences-1.png",
+      "sha256": "2aaea446e4cfa182820673b3747e162f71160fe94b732a3717c77eb670b267bf",
+      "canvas": [
+        352,
+        768
+      ],
+      "frame": [
+        352,
+        768
+      ],
+      "frames": null,
+      "runtime_fps": null,
+      "anchor": null,
+      "first_frame_alpha_bbox": [
+        0,
+        6,
+        333,
+        768
+      ],
+      "first_frame_unique_opaque_rgb": 27,
+      "first_frame_partial_alpha_pixels": 4500,
+      "top_opaque_colors": [
+        {
+          "hex": "#7E6151",
+          "pixels": 13104
+        },
+        {
+          "hex": "#5C4A44",
+          "pixels": 12996
+        },
+        {
+          "hex": "#6B5052",
+          "pixels": 11880
+        },
+        {
+          "hex": "#3A3A50",
+          "pixels": 10404
+        },
+        {
+          "hex": "#B5754D",
+          "pixels": 4950
+        },
+        {
+          "hex": "#C3AC90",
+          "pixels": 4302
+        },
+        {
+          "hex": "#46465E",
+          "pixels": 4140
+        },
+        {
+          "hex": "#916662",
+          "pixels": 3852
+        },
+        {
+          "hex": "#E0B870",
+          "pixels": 3582
+        },
+        {
+          "hex": "#A85F46",
+          "pixels": 3474
+        },
+        {
+          "hex": "#D5935E",
+          "pixels": 3195
+        },
+        {
+          "hex": "#BDA766",
+          "pixels": 3096
+        },
+        {
+          "hex": "#F1CE8E",
+          "pixels": 2907
+        },
+        {
+          "hex": "#CCC890",
+          "pixels": 2844
+        },
+        {
+          "hex": "#D9A16A",
+          "pixels": 2763
+        },
+        {
+          "hex": "#AC7949",
+          "pixels": 2754
+        },
+        {
+          "hex": "#C78C59",
+          "pixels": 2745
+        },
+        {
+          "hex": "#D0BE9C",
+          "pixels": 2727
+        }
+      ]
+    },
+    {
+      "path": "kingdom-autotile/Tilemap_color1.png",
+      "sha256": "231a70fc521684adba786d8821b0fe3ec215e45c1188e93c47d1bfaa5307cdc5",
+      "canvas": [
+        576,
+        384
+      ],
+      "frame": [
+        576,
+        384
+      ],
+      "frames": null,
+      "runtime_fps": null,
+      "anchor": null,
+      "first_frame_alpha_bbox": [
+        0,
+        0,
+        576,
+        384
+      ],
+      "first_frame_unique_opaque_rgb": 10,
+      "first_frame_partial_alpha_pixels": 0,
+      "top_opaque_colors": [
+        {
+          "hex": "#9BB94E",
+          "pixels": 49280
+        },
+        {
+          "hex": "#80AC5E",
+          "pixels": 45027
+        },
+        {
+          "hex": "#669D9D",
+          "pixels": 17221
+        },
+        {
+          "hex": "#B8B958",
+          "pixels": 16068
+        },
+        {
+          "hex": "#486F66",
+          "pixels": 14120
+        },
+        {
+          "hex": "#354F59",
+          "pixels": 8321
+        },
+        {
+          "hex": "#161C2E",
+          "pixels": 7669
+        },
+        {
+          "hex": "#C6F0DB",
+          "pixels": 3803
+        },
+        {
+          "hex": "#8CC3C4",
+          "pixels": 3380
+        },
+        {
+          "hex": "#618559",
+          "pixels": 643
+        }
+      ]
+    },
+    {
+      "path": "kingdom-autotile/water-background.png",
+      "sha256": "2293fd2994e1eb3b6af818a74d71815a83a6d440f5dc979c69529687b7707931",
+      "canvas": [
+        64,
+        64
+      ],
+      "frame": [
+        64,
+        64
+      ],
+      "frames": null,
+      "runtime_fps": null,
+      "anchor": null,
+      "first_frame_alpha_bbox": [
+        0,
+        0,
+        64,
+        64
+      ],
+      "first_frame_unique_opaque_rgb": 1,
+      "first_frame_partial_alpha_pixels": 0,
+      "top_opaque_colors": [
+        {
+          "hex": "#47ABA9",
+          "pixels": 4096
+        }
+      ]
+    },
+    {
+      "path": "kingdom-ui/paper.png",
+      "sha256": "9250e8f4384ec319c837d38fdf799c8fd7181a4b0b9d4da95123b2d1cab117ee",
+      "canvas": [
+        192,
+        192
+      ],
+      "frame": [
+        192,
+        192
+      ],
+      "frames": null,
+      "runtime_fps": null,
+      "anchor": null,
+      "first_frame_alpha_bbox": [
+        12,
+        20,
+        180,
+        173
+      ],
+      "first_frame_unique_opaque_rgb": 4,
+      "first_frame_partial_alpha_pixels": 0,
+      "top_opaque_colors": [
+        {
+          "hex": "#EEE1C6",
+          "pixels": 21671
+        },
+        {
+          "hex": "#E2D0C2",
+          "pixels": 1765
+        },
+        {
+          "hex": "#161C2E",
+          "pixels": 1307
+        },
+        {
+          "hex": "#C4B2AF",
+          "pixels": 463
+        }
+      ]
+    },
+    {
+      "path": "kingdom-ui/wood-panel.png",
+      "sha256": "19b4f56e1263907ab110cfd22c247718832ed3e47bc0d18c5e493854d55b0429",
+      "canvas": [
+        232,
+        252
+      ],
+      "frame": [
+        232,
+        252
+      ],
+      "frames": null,
+      "runtime_fps": null,
+      "anchor": null,
+      "first_frame_alpha_bbox": [
+        0,
+        0,
+        232,
+        252
+      ],
+      "first_frame_unique_opaque_rgb": 13,
+      "first_frame_partial_alpha_pixels": 0,
+      "top_opaque_colors": [
+        {
+          "hex": "#9B6253",
+          "pixels": 18581
+        },
+        {
+          "hex": "#A47658",
+          "pixels": 15400
+        },
+        {
+          "hex": "#161C2E",
+          "pixels": 6249
+        },
+        {
+          "hex": "#D7B888",
+          "pixels": 3594
+        },
+        {
+          "hex": "#6E4D4D",
+          "pixels": 2488
+        },
+        {
+          "hex": "#C59E83",
+          "pixels": 2167
+        },
+        {
+          "hex": "#A3836B",
+          "pixels": 1577
+        },
+        {
+          "hex": "#53373C",
+          "pixels": 1408
+        },
+        {
+          "hex": "#AADBBF",
+          "pixels": 1149
+        },
+        {
+          "hex": "#E4F8E4",
+          "pixels": 749
+        },
+        {
+          "hex": "#769E99",
+          "pixels": 490
+        },
+        {
+          "hex": "#66787C",
+          "pixels": 453
+        },
+        {
+          "hex": "#ABC4BB",
+          "pixels": 332
+        }
+      ]
+    },
+    {
+      "path": "kingdom-ui/crest-cyan.png",
+      "sha256": "6044b37499e7e582feab7943e58c24a81cc26b2268429384210fc63f7e0a150d",
+      "canvas": [
+        320,
+        320
+      ],
+      "frame": [
+        320,
+        320
+      ],
+      "frames": null,
+      "runtime_fps": null,
+      "anchor": null,
+      "first_frame_alpha_bbox": [
+        51,
+        26,
+        269,
+        294
+      ],
+      "first_frame_unique_opaque_rgb": 4,
+      "first_frame_partial_alpha_pixels": 0,
+      "top_opaque_colors": [
+        {
+          "hex": "#3F8C9B",
+          "pixels": 6220
+        },
+        {
+          "hex": "#4D7084",
+          "pixels": 5756
+        },
+        {
+          "hex": "#425062",
+          "pixels": 4723
+        },
+        {
+          "hex": "#161C2E",
+          "pixels": 3649
+        }
+      ]
+    },
+    {
+      "path": "kingdom-ui/button-red-regular.png",
+      "sha256": "008e89d51c159fbc2313feb381072209c53ef7436de73bd4cce70d1869d46bd8",
+      "canvas": [
+        192,
+        192
+      ],
+      "frame": [
+        192,
+        192
+      ],
+      "frames": null,
+      "runtime_fps": null,
+      "anchor": null,
+      "first_frame_alpha_bbox": [
+        19,
+        17,
+        173,
+        175
+      ],
+      "first_frame_unique_opaque_rgb": 6,
+      "first_frame_partial_alpha_pixels": 0,
+      "top_opaque_colors": [
+        {
+          "hex": "#F65555",
+          "pixels": 18600
+        },
+        {
+          "hex": "#FFF657",
+          "pixels": 1912
+        },
+        {
+          "hex": "#161C2E",
+          "pixels": 1381
+        },
+        {
+          "hex": "#BA4954",
+          "pixels": 1034
+        },
+        {
+          "hex": "#D79C68",
+          "pixels": 676
+        },
+        {
+          "hex": "#8D4874",
+          "pixels": 630
+        }
+      ]
+    }
+  ]
+}

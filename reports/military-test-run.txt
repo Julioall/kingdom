@@ -1,0 +1,217 @@
+✔ the AutoTile island and its elevation layers reproduce for a seed (100.0322ms)
+✔ the island, kingdom starts, and initial structures remain connected across seeds (886.939ms)
+✔ movement cannot cross an elevation edge without a ramp and can use the marked ramp both ways (35.1472ms)
+✔ a blocked straight route does not oscillate between the same two tiles (12.1618ms)
+✔ ocean water is perceived, retained as a source, and restores hydration (103.8929ms)
+✔ render snapshots preserve elevation, ramp, palette, and ocean fields (285.9933ms)
+✖ a border report provisions a campaign from finite treasury stock and gives soldiers a known objective (317.4762ms)
+✔ campaign formations open into a line on an open front and close into a column in a narrow passage (192.994ms)
+✔ a fallen formation leader is replaced and the living slots reorganize with the casualty recorded (151.5ms)
+✔ the general receives a role-specific request with an isolated report and versioned campaign order (133.4401ms)
+✔ two campaigns keep their general queue entries and decisions isolated (157.9521ms)
+✔ a general cannot issue unlisted orders, and withdrawal resolves only through a legal campaign decision (265.1482ms)
+✔ a failed general request records deterministic fallback and disabling clears experimental orders (113.7557ms)
+✔ a war without a locally observed incident cannot create a campaign (129.596ms)
+✔ a war with no available attackers waits for soldiers instead of creating an empty campaign (96.7564ms)
+✔ a war without a mobilizable force settles as a status quo armistice after 180 days (80.3713ms)
+✔ a later war does not reopen an older war already settled without force (92.8208ms)
+✔ a pending force request autonomously trains a soldier and pays campaign resupply from the treasury (2855.4753ms)
+✔ campaign resupply can use community surplus while preserving two days of civilian food (98.0336ms)
+✔ mobilization days do not count as a failed campaign route (60.7815ms)
+✔ field supply coverage includes rations carried by each soldier (58.1935ms)
+✔ a starving soldier follows the withdrawal route instead of foraging indefinitely (187.6548ms)
+✔ a withdrawing soldier with no full field ration leaves before their personal reserve is exhausted (55.9743ms)
+✔ a returned soldier can use the post ration while the campaign remains tracked (84.0179ms)
+✔ a soldier blocked on the withdrawal route is released after four failed moves (67.0729ms)
+✖ repeated reported resource disputes can cause a war with the losing kingdom objective on record (52.1644ms)
+✖ a peace settlement cannot reuse old dispute reports, but fresh losses can break the ceasefire (55.2644ms)
+✔ an expelled resident avoids foreign territory unless survival is critical (52.7043ms)
+✔ an unopposed force can occupy the reported area and end the war through an armistice (64.2661ms)
+✔ an attacker does not claim a border while living defenders are still marching to reinforce it (57.8325ms)
+✔ an observed frontline battle costs equipment, affects cohesion, and records its losses (55.9453ms)
+✔ unpaid fortification maintenance degrades and eventually removes territorial coverage (105.8746ms)
+✔ paid fortification maintenance records exact treasury costs without reporting integrity loss (134.1469ms)
+✔ fortification maintenance ledger keeps only its latest 24 monthly records (57.6399ms)
+✖ a lethal border incursion kills the resident and records an invasion death (54.3227ms)
+✔ human death events retain the observed vital conditions alongside the primary label (56.7928ms)
+✔ recent health records distinguish applied losses, recovery and their source (57.2399ms)
+✔ health history expires entries older than the 30-day death window (53.2788ms)
+✖ a border watch post expels a resident without lethal force when no soldier is nearby (52.9113ms)
+✖ an intruder is not detected where no soldier or watch post can observe them, even during war (50.3224ms)
+✖ line and column formations give stable, spaced positions along their heading (4.4559ms)
+✔ formation states record explicit transitions and reject unknown states (0.5914ms)
+✖ formation metrics measure spacing, exposed posts and blocked movement (1.7164ms)
+✔ training completion releases civil duties, cargo and livestock and starts paid military service (319.4978ms)
+✔ salary respects service months, retries unpaid debt and never duplicates a payment (154.5762ms)
+✔ military meals spend salary at the market and stop when money or food is unavailable (183.2322ms)
+✔ deployed soldiers cannot bypass field rations by buying food from their home market (130.0151ms)
+✔ soldiers choose military duty or personal recovery instead of civilian work (2516.6405ms)
+✔ all mapped military sheets exist in every palette and use complete square frames (64.7332ms)
+ℹ tests 49
+ℹ suites 0
+ℹ pass 41
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6472.8216
+
+✖ failing tests:
+
+test at tests\integration\kingdom-campaigns.test.mjs:87:1
+✖ a border report provisions a campaign from finite treasury stock and gives soldiers a known objective (317.4762ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   x: 104.86156382440129,
+  +   y: 63.40763197494295
+  -   x: 103,
+  -   y: 69
+    }
+  
+      at TestContext.<anonymous> (file:///C:/Users/Julio/OneDrive/Documentos/ChatGPT/Kingdom/tests/integration/kingdom-campaigns.test.mjs:119:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { x: 104.86156382440129, y: 63.40763197494295 },
+    expected: { x: 103, y: 69 },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests\integration\kingdom-campaigns.test.mjs:600:1
+✖ repeated reported resource disputes can cause a war with the losing kingdom objective on record (52.1644ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///C:/Users/Julio/OneDrive/Documentos/ChatGPT/Kingdom/tests/integration/kingdom-campaigns.test.mjs:615:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\integration\kingdom-campaigns.test.mjs:622:1
+✖ a peace settlement cannot reuse old dispute reports, but fresh losses can break the ceasefire (55.2644ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///C:/Users/Julio/OneDrive/Documentos/ChatGPT/Kingdom/tests/integration/kingdom-campaigns.test.mjs:642:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\integration\kingdom-campaigns.test.mjs:817:1
+✖ a lethal border incursion kills the resident and records an invasion death (54.3227ms)
+  TypeError: Cannot read properties of undefined (reading 'length')
+      at TestContext.<anonymous> (file:///C:/Users/Julio/OneDrive/Documentos/ChatGPT/Kingdom/tests/integration/kingdom-campaigns.test.mjs:838:26)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at tests\integration\kingdom-campaigns.test.mjs:898:1
+✖ a border watch post expels a resident without lethal force when no soldier is nearby (52.9113ms)
+  TypeError: Cannot read properties of undefined (reading 'length')
+      at TestContext.<anonymous> (file:///C:/Users/Julio/OneDrive/Documentos/ChatGPT/Kingdom/tests/integration/kingdom-campaigns.test.mjs:921:26)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at tests\integration\kingdom-campaigns.test.mjs:930:1
+✖ an intruder is not detected where no soldier or watch post can observe them, even during war (50.3224ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  
+  undefined !== []
+  
+      at TestContext.<anonymous> (file:///C:/Users/Julio/OneDrive/Documentos/ChatGPT/Kingdom/tests/integration/kingdom-campaigns.test.mjs:951:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests\integration\military-formations.test.mjs:8:1
+✖ line and column formations give stable, spaced positions along their heading (4.4559ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      10,
+  +   10,
+  +   10,
+      8.85,
+  -   7.7,
+  -   6.55
+    ]
+  
+      at TestContext.<anonymous> (file:///C:/Users/Julio/OneDrive/Documentos/ChatGPT/Kingdom/tests/integration/military-formations.test.mjs:12:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 10, 10, 10, 8.85 ],
+    expected: [ 10, 8.85, 7.7, 6.55 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests\integration\military-formations.test.mjs:33:1
+✖ formation metrics measure spacing, exposed posts and blocked movement (1.7164ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0.5 !== 1
+  
+      at TestContext.<anonymous> (file:///C:/Users/Julio/OneDrive/Documentos/ChatGPT/Kingdom/tests/integration/military-formations.test.mjs:40:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0.5,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

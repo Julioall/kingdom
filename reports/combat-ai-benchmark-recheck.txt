@@ -1,0 +1,12 @@
+✔ benchmark fixtures have unique IDs and reachable editorial answers (1.5393ms)
+✔ scoring separates correct choice, parser fallback, contract and truncation (0.5426ms)
+✔ summary includes request errors in the score denominator (0.6205ms)
+✔ CLI sends isolated requests and saves complete reports against an Ollama fixture (4904.5256ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5160.4245

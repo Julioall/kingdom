@@ -1,0 +1,37 @@
+✔ kingdoms fund a frontier post only on neutral land and assign an existing guard (10133.9532ms)
+✔ frontier expansion waits when reserves or neutral land are unavailable (193.7815ms)
+✔ an active war pauses autonomous frontier investment (99.2143ms)
+✔ a collapsed completed frontier post does not restart construction for free (156.4423ms)
+✔ kingdom reports expose aggregate evidence and produce deterministic fallback plans (874.6775ms)
+✔ a roça investment delegates a builder whose movement cooldown will expire during the assignment (233.2047ms)
+✔ kingdom strategy delegates a market barter when shared food is low and finite food stock is reachable (971.9079ms)
+✔ a replaceable kingdom planner delegates only to resident workers and leaves individual brains intact (773.1429ms)
+✔ invalid strategic tasks are refused with a reason and deterministic fallback (171.5526ms)
+✔ one day records a report-based kingdom objective and worker delegation in the chronicle (530.1146ms)
+✔ blocked shared-food delegation explains occupied, depleted, and unobserved workers (145.882ms)
+✔ blocked communal forage diagnoses perceived food below the energy cutoff without assigning it (365.4834ms)
+✔ autonomous reinforcement lets the civil reserve refill before spending on a soldier (153.8588ms)
+✔ shared meals are held for residents below the personal food pressure threshold (1193.3202ms)
+✔ hungry residents keep a profitable forage target while moving toward it (583.519ms)
+✔ shared-food orders expose personal recovery, communal collection, and delivery phases (164.4637ms)
+✔ one safe worker is reserved for a funded project while the kingdom keeps food first (99.787ms)
+✔ a worker below the individual build-energy cutoff is not reserved for a project (91.172ms)
+✔ an out-of-range strategic builder is diagnosed as approaching or remote, not delegated (95.9761ms)
+✔ the project diagnosis explains a far assigned worker without changing the assignment (100.1189ms)
+✔ the project diagnosis records why no safe nearby worker can continue construction (81.6014ms)
+✔ community construction dates the most recent day of real progress (111.2426ms)
+✔ treasury food delivery is dated, quantified, and explains the emergency reserve release (490.4926ms)
+✔ all initial towers have life and construction sites start vulnerable (490.0316ms)
+✔ attack range, class, allegiance, recovery and attack cooldown constrain siege damage (342.0787ms)
+✔ an unopposed attacker must damage a tower rather than annex it intact (287.8614ms)
+✔ zero tower life destroys the objective, removes its domain and ends the siege (252.4849ms)
+✔ destroyed construction sites cannot revive for free (178.1985ms)
+✔ defenders intercept the soldiers attacking the tower and ranged troops keep distance (117.9962ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 29
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11063.3518

@@ -15,6 +15,10 @@ test('Qwen3.5 browser candidate is pinned, quantized, shared, and experimental',
     decoder_model_merged: 'q4f16',
     vision_encoder: 'fp16'
   });
+  assert.deepEqual(AI_MODEL_MANIFEST.browser.fallbackDtype, {
+    embed_tokens: 'q4', decoder_model_merged: 'q4', vision_encoder: 'q4'
+  });
+  assert.ok(AI_MODEL_MANIFEST.browser.recoveryTimeoutMs > AI_MODEL_MANIFEST.browser.inferenceTimeoutMs);
 
   const king = getAiModelForRole('king');
   const general = getAiModelForRole('general');

@@ -1,0 +1,1739 @@
+{
+  "seed": 42,
+  "days": 120,
+  "person": {
+    "id": 135,
+    "name": "Oru P",
+    "role": "resident",
+    "alive": true
+  },
+  "plans": [
+    {
+      "schemaVersion": 1,
+      "worldSeed": 42,
+      "worldEpoch": 0,
+      "dueDay": 84,
+      "createdDay": 81,
+      "updatedDay": 85,
+      "intentionId": "42:epoch:0:intention:2",
+      "ownerId": "135",
+      "type": "seek_food_aid",
+      "priority": 0.7,
+      "targetId": "150",
+      "commitmentId": "42:epoch:0:commitment:1",
+      "destination": null,
+      "steps": [
+        {
+          "action": "approach_helper",
+          "targetId": "150"
+        },
+        {
+          "action": "request_food",
+          "targetId": "150"
+        },
+        {
+          "action": "receive_food",
+          "targetId": "150"
+        }
+      ],
+      "progress": 0,
+      "blockers": [
+        "deadline_expired"
+      ],
+      "evidenceIds": [],
+      "endsWhen": "aid_delivered_or_deadline",
+      "status": "abandoned",
+      "transitionEventIds": [
+        "42:epoch:0:social:27"
+      ],
+      "terminationReason": "deadline_expired"
+    },
+    {
+      "schemaVersion": 1,
+      "worldSeed": 42,
+      "worldEpoch": 0,
+      "dueDay": 88,
+      "createdDay": 85,
+      "updatedDay": 89,
+      "intentionId": "42:epoch:0:intention:4",
+      "ownerId": "135",
+      "type": "seek_food_aid",
+      "priority": 0.7,
+      "targetId": "150",
+      "commitmentId": "42:epoch:0:commitment:3",
+      "destination": null,
+      "steps": [
+        {
+          "action": "approach_helper",
+          "targetId": "150"
+        },
+        {
+          "action": "request_food",
+          "targetId": "150"
+        },
+        {
+          "action": "receive_food",
+          "targetId": "150"
+        }
+      ],
+      "progress": 0,
+      "blockers": [
+        "deadline_expired"
+      ],
+      "evidenceIds": [],
+      "endsWhen": "aid_delivered_or_deadline",
+      "status": "abandoned",
+      "transitionEventIds": [
+        "42:epoch:0:social:31"
+      ],
+      "terminationReason": "deadline_expired"
+    },
+    {
+      "schemaVersion": 1,
+      "worldSeed": 42,
+      "worldEpoch": 0,
+      "dueDay": 92,
+      "createdDay": 89,
+      "updatedDay": 93,
+      "intentionId": "42:epoch:0:intention:5",
+      "ownerId": "135",
+      "type": "seek_food_aid",
+      "priority": 0.7,
+      "targetId": "150",
+      "commitmentId": "42:epoch:0:commitment:4",
+      "destination": null,
+      "steps": [
+        {
+          "action": "approach_helper",
+          "targetId": "150"
+        },
+        {
+          "action": "request_food",
+          "targetId": "150"
+        },
+        {
+          "action": "receive_food",
+          "targetId": "150"
+        }
+      ],
+      "progress": 0,
+      "blockers": [
+        "deadline_expired"
+      ],
+      "evidenceIds": [],
+      "endsWhen": "aid_delivered_or_deadline",
+      "status": "abandoned",
+      "transitionEventIds": [
+        "42:epoch:0:social:33"
+      ],
+      "terminationReason": "deadline_expired"
+    },
+    {
+      "schemaVersion": 1,
+      "worldSeed": 42,
+      "worldEpoch": 0,
+      "dueDay": 96,
+      "createdDay": 93,
+      "updatedDay": 97,
+      "intentionId": "42:epoch:0:intention:7",
+      "ownerId": "135",
+      "type": "seek_food_aid",
+      "priority": 0.7,
+      "targetId": "150",
+      "commitmentId": "42:epoch:0:commitment:6",
+      "destination": null,
+      "steps": [
+        {
+          "action": "approach_helper",
+          "targetId": "150"
+        },
+        {
+          "action": "request_food",
+          "targetId": "150"
+        },
+        {
+          "action": "receive_food",
+          "targetId": "150"
+        }
+      ],
+      "progress": 0,
+      "blockers": [
+        "deadline_expired"
+      ],
+      "evidenceIds": [],
+      "endsWhen": "aid_delivered_or_deadline",
+      "status": "abandoned",
+      "transitionEventIds": [
+        "42:epoch:0:social:36",
+        "42:epoch:0:social:40"
+      ],
+      "terminationReason": "deadline_expired"
+    }
+  ],
+  "openDays": 16,
+  "actions": {
+    "build": 13,
+    "forage": 3
+  },
+  "openPlanDaysByRole": {
+    "resident": {
+      "build": 18,
+      "forage": 4
+    },
+    "soldier": {
+      "return_garrison": 12,
+      "rest": 1,
+      "drink": 1,
+      "guard": 1
+    }
+  },
+  "trace": [
+    {
+      "executedDay": 81,
+      "snapshotDay": 82,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "construindo roça",
+      "food": 39.463826531129165,
+      "hydration": 60.87015542827571,
+      "energy": 46.85358203213387,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 96,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:2",
+        "created": 81,
+        "due": 84,
+        "status": "active",
+        "progress": 0,
+        "blockers": []
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 7.615773105863909,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 82,
+      "snapshotDay": 83,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "construindo roça",
+      "food": 39.063826531129166,
+      "hydration": 60.57015542827571,
+      "energy": 45.709582032133866,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 97,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:2",
+        "created": 81,
+        "due": 84,
+        "status": "active",
+        "progress": 0,
+        "blockers": []
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 7.615773105863909,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 83,
+      "snapshotDay": 84,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "construindo roça",
+      "food": 38.66382653112917,
+      "hydration": 60.270155428275714,
+      "energy": 44.56558203213386,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 98,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:2",
+        "created": 81,
+        "due": 84,
+        "status": "active",
+        "progress": 0,
+        "blockers": []
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 7.615773105863909,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 84,
+      "snapshotDay": 85,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "construindo roça",
+      "food": 38.26382653112917,
+      "hydration": 59.97015542827572,
+      "energy": 43.421582032133855,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 99,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:2",
+        "created": 81,
+        "due": 84,
+        "status": "active",
+        "progress": 0,
+        "blockers": []
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 7.615773105863909,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 85,
+      "snapshotDay": 86,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "auxiliando na construção de roça",
+      "food": 38.26382653112917,
+      "hydration": 59.67015542827572,
+      "energy": 43.15758203213385,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 100,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:4",
+        "created": 85,
+        "due": 88,
+        "status": "active",
+        "progress": 0,
+        "blockers": []
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 7.615773105863909,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 86,
+      "snapshotDay": 87,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "construindo roça",
+      "food": 37.86382653112917,
+      "hydration": 59.37015542827572,
+      "energy": 42.01358203213385,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 101,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:4",
+        "created": 85,
+        "due": 88,
+        "status": "active",
+        "progress": 0,
+        "blockers": []
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 7.615773105863909,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 87,
+      "snapshotDay": 88,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "construindo roça",
+      "food": 37.46382653112917,
+      "hydration": 59.070155428275726,
+      "energy": 40.86958203213384,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 102,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:4",
+        "created": 85,
+        "due": 88,
+        "status": "active",
+        "progress": 0,
+        "blockers": []
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 7.615773105863909,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 88,
+      "snapshotDay": 89,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "construindo roça",
+      "food": 37.06382653112917,
+      "hydration": 58.77015542827573,
+      "energy": 39.725582032133836,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 103,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:4",
+        "created": 85,
+        "due": 88,
+        "status": "active",
+        "progress": 0,
+        "blockers": []
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 7.615773105863909,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 89,
+      "snapshotDay": 90,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "construindo roça",
+      "food": 36.663826531129175,
+      "hydration": 58.47015542827573,
+      "energy": 38.58158203213383,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 104,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 89,
+        "due": 92,
+        "status": "active",
+        "progress": 0,
+        "blockers": []
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 7.615773105863909,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 90,
+      "snapshotDay": 91,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "construindo roça",
+      "food": 36.263826531129176,
+      "hydration": 58.170155428275734,
+      "energy": 37.437582032133825,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 105,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 89,
+        "due": 92,
+        "status": "active",
+        "progress": 0,
+        "blockers": []
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 7.615773105863909,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 91,
+      "snapshotDay": 92,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "construindo roça",
+      "food": 35.86382653112918,
+      "hydration": 57.87015542827574,
+      "energy": 36.29358203213382,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 106,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 89,
+        "due": 92,
+        "status": "active",
+        "progress": 0,
+        "blockers": []
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 7.615773105863909,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 92,
+      "snapshotDay": 93,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "auxiliando na construção de roça",
+      "food": 35.86382653112918,
+      "hydration": 57.57015542827574,
+      "energy": 36.02958203213382,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 107,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 89,
+        "due": 92,
+        "status": "active",
+        "progress": 0,
+        "blockers": []
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 7.615773105863909,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 93,
+      "snapshotDay": 94,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "construindo roça",
+      "food": 35.46382653112918,
+      "hydration": 57.27015542827574,
+      "energy": 34.88558203213381,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": null,
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "active",
+        "progress": 0,
+        "blockers": []
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 7.615773105863909,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 94,
+      "snapshotDay": 95,
+      "role": "resident",
+      "alive": true,
+      "action": "forage",
+      "scoredDecision": true,
+      "state": "coletando alimento",
+      "food": 37.22607580735141,
+      "hydration": 56.970155428275746,
+      "energy": 34.941144351189365,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": null,
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "active",
+        "progress": 0,
+        "blockers": []
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 7.615773105863909,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 95,
+      "snapshotDay": 96,
+      "role": "resident",
+      "alive": true,
+      "action": "forage",
+      "scoredDecision": true,
+      "state": "procurando alimento",
+      "food": 37.22607580735141,
+      "hydration": 56.67015542827575,
+      "energy": 34.57682435121887,
+      "position": {
+        "x": 69,
+        "y": 93
+      },
+      "assignment": null,
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "active",
+        "progress": 0,
+        "blockers": []
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 8.54400374531753,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 96,
+      "snapshotDay": 97,
+      "role": "resident",
+      "alive": true,
+      "action": "forage",
+      "scoredDecision": true,
+      "state": "procurando alimento",
+      "food": 37.22607580735141,
+      "hydration": 56.37015542827575,
+      "energy": 34.21250435124837,
+      "position": {
+        "x": 68,
+        "y": 94
+      },
+      "assignment": null,
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "suspended",
+        "progress": 0,
+        "blockers": [
+          "target_not_visible"
+        ]
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 9.219544457292889,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 97,
+      "snapshotDay": 98,
+      "role": "resident",
+      "alive": true,
+      "action": "forage",
+      "scoredDecision": true,
+      "state": "coletando alimento",
+      "food": 38.99754108357364,
+      "hydration": 56.070155428275754,
+      "energy": 34.27037067030392,
+      "position": {
+        "x": 68,
+        "y": 94
+      },
+      "assignment": null,
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 9.219544457292889,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 98,
+      "snapshotDay": 99,
+      "role": "resident",
+      "alive": true,
+      "action": "forage",
+      "scoredDecision": true,
+      "state": "procurando alimento",
+      "food": 38.99754108357364,
+      "hydration": 55.77015542827576,
+      "energy": 33.90605067033342,
+      "position": {
+        "x": 69,
+        "y": 94
+      },
+      "assignment": null,
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 9.486832980505138,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 99,
+      "snapshotDay": 100,
+      "role": "resident",
+      "alive": true,
+      "action": "forage",
+      "scoredDecision": true,
+      "state": "procurando alimento",
+      "food": 38.99754108357364,
+      "hydration": 55.47015542827576,
+      "energy": 33.541730670362924,
+      "position": {
+        "x": 70,
+        "y": 94
+      },
+      "assignment": null,
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 9.848857801796104,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 100,
+      "snapshotDay": 101,
+      "role": "resident",
+      "alive": true,
+      "action": "forage",
+      "scoredDecision": true,
+      "state": "procurando alimento",
+      "food": 38.99754108357364,
+      "hydration": 55.17015542827576,
+      "energy": 33.177410670392426,
+      "position": {
+        "x": 71,
+        "y": 95
+      },
+      "assignment": null,
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 11.180339887498949,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 101,
+      "snapshotDay": 102,
+      "role": "resident",
+      "alive": true,
+      "action": "forage",
+      "scoredDecision": true,
+      "state": "coletando alimento",
+      "food": 40.77822235979587,
+      "hydration": 54.870155428275766,
+      "energy": 33.23758098944798,
+      "position": {
+        "x": 71,
+        "y": 95
+      },
+      "assignment": null,
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 11.180339887498949
+      }
+    },
+    {
+      "executedDay": 102,
+      "snapshotDay": 103,
+      "role": "resident",
+      "alive": true,
+      "action": "forage",
+      "scoredDecision": true,
+      "state": "procurando alimento",
+      "food": 40.77822235979587,
+      "hydration": 54.57015542827577,
+      "energy": 32.87326098947748,
+      "position": {
+        "x": 71,
+        "y": 96
+      },
+      "assignment": null,
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 12.08304597359457
+      }
+    },
+    {
+      "executedDay": 103,
+      "snapshotDay": 104,
+      "role": "resident",
+      "alive": true,
+      "action": "forage",
+      "scoredDecision": true,
+      "state": "procurando alimento",
+      "food": 40.77822235979587,
+      "hydration": 54.27015542827577,
+      "energy": 32.50894098950698,
+      "position": {
+        "x": 71,
+        "y": 97
+      },
+      "assignment": null,
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 13
+      }
+    },
+    {
+      "executedDay": 104,
+      "snapshotDay": 105,
+      "role": "resident",
+      "alive": true,
+      "action": "forage",
+      "scoredDecision": true,
+      "state": "coletando alimento",
+      "food": 42.568119636018096,
+      "hydration": 53.970155428275774,
+      "energy": 32.571415308562536,
+      "position": {
+        "x": 71,
+        "y": 97
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 119,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 13
+      }
+    },
+    {
+      "executedDay": 105,
+      "snapshotDay": 106,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "indo para o ponto de construção",
+      "food": 41.788119636018095,
+      "hydration": 53.67015542827578,
+      "energy": 32.20709530859204,
+      "position": {
+        "x": 71,
+        "y": 96
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 120,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 12.08304597359457
+      }
+    },
+    {
+      "executedDay": 106,
+      "snapshotDay": 107,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "indo para o ponto de construção",
+      "food": 41.788119636018095,
+      "hydration": 53.37015542827578,
+      "energy": 31.842775308621544,
+      "position": {
+        "x": 71,
+        "y": 95
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 121,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 11.180339887498949
+      }
+    },
+    {
+      "executedDay": 107,
+      "snapshotDay": 108,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "indo para o ponto de construção",
+      "food": 41.788119636018095,
+      "hydration": 53.07015542827578,
+      "energy": 31.47845530865105,
+      "position": {
+        "x": 70,
+        "y": 94
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 122,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 9.848857801796104
+      }
+    },
+    {
+      "executedDay": 108,
+      "snapshotDay": 109,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "indo para o ponto de construção",
+      "food": 41.788119636018095,
+      "hydration": 52.770155428275785,
+      "energy": 31.114135308680556,
+      "position": {
+        "x": 70,
+        "y": 93
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 123,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 8.94427190999916,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 109,
+      "snapshotDay": 110,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "indo para o ponto de construção",
+      "food": 41.788119636018095,
+      "hydration": 52.47015542827579,
+      "energy": 30.749815308710062,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 124,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 7.615773105863909,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 110,
+      "snapshotDay": 111,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "construindo roça",
+      "food": 41.3881196360181,
+      "hydration": 52.17015542827579,
+      "energy": 29.605815308710064,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 125,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 7.615773105863909,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 111,
+      "snapshotDay": 112,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "construindo roça",
+      "food": 40.9881196360181,
+      "hydration": 51.870155428275794,
+      "energy": 28.461815308710065,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 126,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 7.615773105863909,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 112,
+      "snapshotDay": 113,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "construindo roça",
+      "food": 40.5881196360181,
+      "hydration": 51.5701554282758,
+      "energy": 27.317815308710067,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 127,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 7.615773105863909,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 113,
+      "snapshotDay": 114,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "construindo roça",
+      "food": 40.1881196360181,
+      "hydration": 51.2701554282758,
+      "energy": 26.17381530871007,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": null,
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 7.615773105863909,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 114,
+      "snapshotDay": 115,
+      "role": "resident",
+      "alive": true,
+      "action": "forage",
+      "scoredDecision": true,
+      "state": "procurando alimento",
+      "food": 40.1881196360181,
+      "hydration": 50.9701554282758,
+      "energy": 25.809495308739574,
+      "position": {
+        "x": 68,
+        "y": 92
+      },
+      "assignment": null,
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 7.280109889280519,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 115,
+      "snapshotDay": 116,
+      "role": "resident",
+      "alive": true,
+      "action": "forage",
+      "scoredDecision": true,
+      "state": "coletando alimento",
+      "food": 41.98723291224033,
+      "hydration": 50.670155428275805,
+      "energy": 25.874273627795134,
+      "position": {
+        "x": 68,
+        "y": 92
+      },
+      "assignment": null,
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 7.280109889280519,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 116,
+      "snapshotDay": 117,
+      "role": "resident",
+      "alive": true,
+      "action": "forage",
+      "scoredDecision": true,
+      "state": "procurando alimento",
+      "food": 41.98723291224033,
+      "hydration": 50.37015542827581,
+      "energy": 25.50995362782464,
+      "position": {
+        "x": 68,
+        "y": 93
+      },
+      "assignment": null,
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 8.246211251235321,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 117,
+      "snapshotDay": 118,
+      "role": "resident",
+      "alive": true,
+      "action": "forage",
+      "scoredDecision": true,
+      "state": "coletando alimento",
+      "food": 43.79556218846256,
+      "hydration": 50.07015542827581,
+      "energy": 25.577035946880198,
+      "position": {
+        "x": 68,
+        "y": 93
+      },
+      "assignment": null,
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 8.246211251235321,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 118,
+      "snapshotDay": 119,
+      "role": "resident",
+      "alive": true,
+      "action": "forage",
+      "scoredDecision": true,
+      "state": "procurando alimento",
+      "food": 43.01556218846256,
+      "hydration": 49.770155428275814,
+      "energy": 25.212715946909704,
+      "position": {
+        "x": 69,
+        "y": 93
+      },
+      "assignment": null,
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 8.54400374531753,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 119,
+      "snapshotDay": 120,
+      "role": "resident",
+      "alive": true,
+      "action": "forage",
+      "scoredDecision": true,
+      "state": "coletando alimento",
+      "food": 44.053107464684786,
+      "hydration": 49.47015542827582,
+      "energy": 25.282102265965264,
+      "position": {
+        "x": 69,
+        "y": 93
+      },
+      "assignment": null,
+      "plan": {
+        "id": "42:epoch:0:intention:7",
+        "created": 93,
+        "due": 96,
+        "status": "abandoned",
+        "progress": 0,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 150,
+        "name": "Dara V",
+        "alive": true,
+        "distanceAfterActions": 8.54400374531753,
+        "visibleAtObservation": false
+      }
+    }
+  ],
+  "commitments": [
+    {
+      "schemaVersion": 1,
+      "worldSeed": 42,
+      "worldEpoch": 0,
+      "day": 81,
+      "proposedBy": "135",
+      "parties": [
+        "135",
+        "150"
+      ],
+      "object": "food",
+      "quantity": 2.5,
+      "dueDay": 84,
+      "status": "expired",
+      "deliveredQuantity": 0,
+      "deliveryEventIds": [],
+      "transitionEventIds": [
+        "42:epoch:0:social:26"
+      ],
+      "resourceReferences": [],
+      "evidenceEventIds": [],
+      "commitmentId": "42:epoch:0:commitment:1",
+      "resolvedDay": 85,
+      "updatedDay": 85,
+      "lastTransitionEventId": "42:epoch:0:social:26"
+    },
+    {
+      "schemaVersion": 1,
+      "worldSeed": 42,
+      "worldEpoch": 0,
+      "day": 85,
+      "proposedBy": "135",
+      "parties": [
+        "135",
+        "150"
+      ],
+      "object": "food",
+      "quantity": 2.5,
+      "dueDay": 88,
+      "status": "expired",
+      "deliveredQuantity": 0,
+      "deliveryEventIds": [],
+      "transitionEventIds": [
+        "42:epoch:0:social:30"
+      ],
+      "resourceReferences": [],
+      "evidenceEventIds": [],
+      "commitmentId": "42:epoch:0:commitment:3",
+      "resolvedDay": 89,
+      "updatedDay": 89,
+      "lastTransitionEventId": "42:epoch:0:social:30"
+    },
+    {
+      "schemaVersion": 1,
+      "worldSeed": 42,
+      "worldEpoch": 0,
+      "day": 89,
+      "proposedBy": "135",
+      "parties": [
+        "135",
+        "150"
+      ],
+      "object": "food",
+      "quantity": 2.5,
+      "dueDay": 92,
+      "status": "expired",
+      "deliveredQuantity": 0,
+      "deliveryEventIds": [],
+      "transitionEventIds": [
+        "42:epoch:0:social:32"
+      ],
+      "resourceReferences": [],
+      "evidenceEventIds": [],
+      "commitmentId": "42:epoch:0:commitment:4",
+      "resolvedDay": 93,
+      "updatedDay": 93,
+      "lastTransitionEventId": "42:epoch:0:social:32"
+    },
+    {
+      "schemaVersion": 1,
+      "worldSeed": 42,
+      "worldEpoch": 0,
+      "day": 93,
+      "proposedBy": "135",
+      "parties": [
+        "135",
+        "150"
+      ],
+      "object": "food",
+      "quantity": 2.5,
+      "dueDay": 96,
+      "status": "expired",
+      "deliveredQuantity": 0,
+      "deliveryEventIds": [],
+      "transitionEventIds": [
+        "42:epoch:0:social:39"
+      ],
+      "resourceReferences": [],
+      "evidenceEventIds": [],
+      "commitmentId": "42:epoch:0:commitment:6",
+      "resolvedDay": 97,
+      "updatedDay": 97,
+      "lastTransitionEventId": "42:epoch:0:social:39"
+    }
+  ]
+}

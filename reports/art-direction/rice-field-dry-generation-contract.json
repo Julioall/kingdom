@@ -1,0 +1,63 @@
+{
+  "schema_version": "1.0.0",
+  "mode": "terrain_tile_variant",
+  "request": "Create a mature dry rice field tile with tall rice, visible soil in the center, low root mounds, slight lateral transparency, and a gentle wind sway.",
+  "reference_assets": [
+    "public/assets/kingdom-autotile/rice-field.png",
+    "public/assets/kingdom-autotile/crop-field.png",
+    "public/assets/tiny-swords/bushes/bush-1.png",
+    "docs/art-direction.md",
+    "reports/art-direction/kingdom-palette.gpl"
+  ],
+  "immutable": {
+    "canvas": "128x128 RGBA composite atlas plus a 128x128 RGBA plant overlay",
+    "layout": "2x2 equal atlas cells, row-major",
+    "tile_size": "64x64 per terrain tile",
+    "tile_fill": "crop-field soil remains visible in the center between the tall rice rows",
+    "shadow": "subtle transparency is limited to the lateral rice silhouettes",
+    "variants": 4,
+    "motion_events": "Renderer loops eight pixel-snapped, height-weighted wind frames every 100 ms, matching the tree sprite cadence; roots and soil stay fixed."
+  },
+  "allowed_changes": [
+    "dense ripe rice heads and stems",
+    "dry golden ochre and straw-brown color ramp",
+    "tall ripe rice heads and stems",
+    "lower, thinner rough earth ridge at the roots",
+    "visible tilled soil in the center between crop rows",
+    "slight lateral transparency on the plant silhouette",
+    "eight-frame horizontal wind sway with upper rice bending more than the rooted lower stems",
+    "small position and shading variations among tiles"
+  ],
+  "identity_to_preserve": [
+    "Kingdom cozy medieval cartoon pixel-art language",
+    "crisp pixel clusters and dark navy outline",
+    "warm earthy materials with controlled highlights",
+    "the 64x64 tile format used by the existing crop and rice field atlases"
+  ],
+  "palette": [
+    "#161C2E", "#53373C", "#6E4D4D", "#74514B", "#8D6857", "#BD8A59",
+    "#E5BE76", "#AC7A58", "#CEA554", "#98694E", "#DCAA46", "#F9E279"
+  ],
+  "excluded": [
+    "water",
+    "mud furrows",
+    "green seedlings",
+    "buildings",
+    "tools",
+    "rocks",
+    "grass",
+    "ramps",
+    "cliffs",
+    "text"
+  ],
+  "tolerances": {
+    "canvas_pixels": 0,
+    "columns": 0,
+    "rows": 0,
+    "tile_size_pixels": 0,
+    "transparent_pixels": "limited to small irregular corner/edge gaps",
+    "semi_transparent_shadow": "left and lower edge only",
+    "colors_outside_kingdom_palette": 0
+  },
+  "validation_status": "tree reference measured as an eight-frame loop; rice wind atlas has eight distinct 100 ms frames with unchanged root pixels; production build passes; live motion still needs an in-game mature crop tile for visual confirmation"
+}

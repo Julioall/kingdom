@@ -1,0 +1,369 @@
+{
+  "model": "v24.19.0",
+  "adultThresholdDays": 4380,
+  "results": [
+    {
+      "seed": 42,
+      "days": 730,
+      "layout": "default",
+      "layoutPlacements": [],
+      "elapsedSeconds": 41.82,
+      "population": {
+        "living": 48,
+        "dead": 3,
+        "deathsByCause": {
+          "starvation": 0,
+          "dehydration": 0,
+          "age": 0,
+          "injury": 0,
+          "combat": 2,
+          "predation": 0,
+          "harvest": 0,
+          "invasion": 1
+        }
+      },
+      "adultExposure": {
+        "adultDays": 27675,
+        "energyAtOrBelow2": 10908,
+        "energyBelow9": 18734,
+        "energyBelow27": 24227,
+        "reserveAtOrBelow8": 6737,
+        "reserveBelow16": 11348,
+        "reserveBelow20": 11707,
+        "reserveAtOrBelow8AndEnergyAtOrBelow2": 6698,
+        "reserveBelow20AndEnergyBelow27": 11637,
+        "meanEnergy": 10.44,
+        "meanReserve": 33.13
+      },
+      "actions": {
+        "gather": {
+          "adultDays": 745,
+          "meanEnergyChangePerDay": -0.85,
+          "energyAtOrBelow2": 1,
+          "reserveBelow20": 0,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 0
+        },
+        "guard": {
+          "adultDays": 124,
+          "meanEnergyChangePerDay": -0.72,
+          "energyAtOrBelow2": 0,
+          "reserveBelow20": 20,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 0
+        },
+        "collect_log": {
+          "adultDays": 325,
+          "meanEnergyChangePerDay": -0.96,
+          "energyAtOrBelow2": 0,
+          "reserveBelow20": 0,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 0
+        },
+        "forage": {
+          "adultDays": 20536,
+          "meanEnergyChangePerDay": -0.3,
+          "energyAtOrBelow2": 10513,
+          "reserveBelow20": 10867,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 6469
+        },
+        "capture_sheep": {
+          "adultDays": 123,
+          "meanEnergyChangePerDay": -1.1,
+          "energyAtOrBelow2": 0,
+          "reserveBelow20": 0,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 0
+        },
+        "patrol": {
+          "adultDays": 67,
+          "meanEnergyChangePerDay": -0.97,
+          "energyAtOrBelow2": 0,
+          "reserveBelow20": 0,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 0
+        },
+        "migrate": {
+          "adultDays": 55,
+          "meanEnergyChangePerDay": -0.85,
+          "energyAtOrBelow2": 2,
+          "reserveBelow20": 5,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 2
+        },
+        "build": {
+          "adultDays": 850,
+          "meanEnergyChangePerDay": -1.1,
+          "energyAtOrBelow2": 0,
+          "reserveBelow20": 0,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 0
+        },
+        "share": {
+          "adultDays": 7,
+          "meanEnergyChangePerDay": -0.93,
+          "energyAtOrBelow2": 0,
+          "reserveBelow20": 0,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 0
+        },
+        "trade": {
+          "adultDays": 317,
+          "meanEnergyChangePerDay": -0.9,
+          "energyAtOrBelow2": 0,
+          "reserveBelow20": 0,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 0
+        },
+        "drink": {
+          "adultDays": 709,
+          "meanEnergyChangePerDay": -0.56,
+          "energyAtOrBelow2": 269,
+          "reserveBelow20": 278,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 211
+        },
+        "socialize": {
+          "adultDays": 97,
+          "meanEnergyChangePerDay": -0.84,
+          "energyAtOrBelow2": 0,
+          "reserveBelow20": 0,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 0
+        },
+        "rest": {
+          "adultDays": 3518,
+          "meanEnergyChangePerDay": 1.8,
+          "energyAtOrBelow2": 74,
+          "reserveBelow20": 464,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 3
+        },
+        "campaign": {
+          "adultDays": 202,
+          "meanEnergyChangePerDay": -0.96,
+          "energyAtOrBelow2": 49,
+          "reserveBelow20": 73,
+          "reserveAtOrBelow8AndEnergyAtOrBelow2": 13
+        }
+      },
+      "lowReserveLowEnergySamples": [
+        {
+          "day": 96,
+          "personId": 77,
+          "name": "Lina Z",
+          "kingdomId": 25,
+          "action": "rest",
+          "state": "levando recursos ao abrigo",
+          "energy": 0.23,
+          "reserve": 7.79
+        },
+        {
+          "day": 96,
+          "personId": 102,
+          "name": "Bela Z",
+          "kingdomId": 26,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 7.09
+        },
+        {
+          "day": 97,
+          "personId": 77,
+          "name": "Lina Z",
+          "kingdomId": 25,
+          "action": "forage",
+          "state": "coletando alimento",
+          "energy": 0.01,
+          "reserve": 7.92
+        },
+        {
+          "day": 97,
+          "personId": 102,
+          "name": "Bela Z",
+          "kingdomId": 26,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 5.47
+        },
+        {
+          "day": 98,
+          "personId": 102,
+          "name": "Bela Z",
+          "kingdomId": 26,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 3.85
+        },
+        {
+          "day": 99,
+          "personId": 77,
+          "name": "Lina Z",
+          "kingdomId": 25,
+          "action": "forage",
+          "state": "levando recursos ao abrigo",
+          "energy": 0,
+          "reserve": 7.95
+        },
+        {
+          "day": 99,
+          "personId": 102,
+          "name": "Bela Z",
+          "kingdomId": 26,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 2.23
+        },
+        {
+          "day": 100,
+          "personId": 102,
+          "name": "Bela Z",
+          "kingdomId": 26,
+          "action": "campaign",
+          "state": "retornando da campanha",
+          "energy": 0,
+          "reserve": 0.61
+        },
+        {
+          "day": 101,
+          "personId": 77,
+          "name": "Lina Z",
+          "kingdomId": 25,
+          "action": "forage",
+          "state": "levando recursos ao abrigo",
+          "energy": 0,
+          "reserve": 7.98
+        },
+        {
+          "day": 101,
+          "personId": 102,
+          "name": "Bela Z",
+          "kingdomId": 26,
+          "action": "forage",
+          "state": "coletando alimento",
+          "energy": 0.07,
+          "reserve": 1.14
+        },
+        {
+          "day": 102,
+          "personId": 102,
+          "name": "Bela Z",
+          "kingdomId": 26,
+          "action": "forage",
+          "state": "coletando alimento",
+          "energy": 0.08,
+          "reserve": 1.5
+        },
+        {
+          "day": 103,
+          "personId": 102,
+          "name": "Bela Z",
+          "kingdomId": 26,
+          "action": "forage",
+          "state": "coletando alimento",
+          "energy": 0.08,
+          "reserve": 1.88
+        },
+        {
+          "day": 104,
+          "personId": 102,
+          "name": "Bela Z",
+          "kingdomId": 26,
+          "action": "forage",
+          "state": "coletando alimento",
+          "energy": 0.08,
+          "reserve": 2.26
+        },
+        {
+          "day": 105,
+          "personId": 102,
+          "name": "Bela Z",
+          "kingdomId": 26,
+          "action": "forage",
+          "state": "coletando alimento",
+          "energy": 0.08,
+          "reserve": 2.65
+        },
+        {
+          "day": 106,
+          "personId": 77,
+          "name": "Lina Z",
+          "kingdomId": 25,
+          "action": "forage",
+          "state": "coletando alimento",
+          "energy": 0,
+          "reserve": 7.55
+        },
+        {
+          "day": 106,
+          "personId": 102,
+          "name": "Bela Z",
+          "kingdomId": 26,
+          "action": "forage",
+          "state": "coletando alimento",
+          "energy": 0.09,
+          "reserve": 3.06
+        },
+        {
+          "day": 107,
+          "personId": 77,
+          "name": "Lina Z",
+          "kingdomId": 25,
+          "action": "forage",
+          "state": "coletando alimento",
+          "energy": 0.01,
+          "reserve": 7.68
+        },
+        {
+          "day": 107,
+          "personId": 102,
+          "name": "Bela Z",
+          "kingdomId": 26,
+          "action": "forage",
+          "state": "coletando alimento",
+          "energy": 0.09,
+          "reserve": 3.47
+        },
+        {
+          "day": 108,
+          "personId": 77,
+          "name": "Lina Z",
+          "kingdomId": 25,
+          "action": "forage",
+          "state": "procurando alimento",
+          "energy": 0,
+          "reserve": 6.48
+        },
+        {
+          "day": 108,
+          "personId": 102,
+          "name": "Bela Z",
+          "kingdomId": 26,
+          "action": "forage",
+          "state": "coletando alimento",
+          "energy": 0.09,
+          "reserve": 3.89
+        }
+      ],
+      "unfinishedFarms": [
+        {
+          "id": 145,
+          "communityId": 27,
+          "progress": 20,
+          "required": 34,
+          "lastProgressDay": 425,
+          "nearbyWorkerCount": 2,
+          "eligibleWorkerCount": 1,
+          "strongestNearbyWorkers": [
+            {
+              "id": 83,
+              "name": "Bela N",
+              "energy": 70.44,
+              "reserve": 66.33,
+              "action": "forage"
+            },
+            {
+              "id": 76,
+              "name": "Ravi C",
+              "energy": 0.19,
+              "reserve": 7.01,
+              "action": "forage"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

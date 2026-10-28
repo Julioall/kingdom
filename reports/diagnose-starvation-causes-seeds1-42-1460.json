@@ -1,0 +1,2791 @@
+{
+  "model": "v24.19.0",
+  "adultAgeDays": 4380,
+  "results": [
+    {
+      "seed": 1,
+      "days": 1460,
+      "elapsedSeconds": 73.01,
+      "population": {
+        "living": 43,
+        "deathsByCause": {
+          "starvation": 5,
+          "dehydration": 1,
+          "age": 0,
+          "injury": 3,
+          "combat": 0,
+          "predation": 0,
+          "harvest": 0,
+          "invasion": 0
+        }
+      },
+      "starvationDeaths": [
+        {
+          "id": 75,
+          "name": "Luma L",
+          "cause": "starvation",
+          "day": 818,
+          "ageDays": 12857.919109037146,
+          "ageYears": 35.23,
+          "dependent": false,
+          "role": "resident",
+          "kingdom": "Valedouro",
+          "kingdomId": 25,
+          "community": "Valedouro",
+          "communityId": 27,
+          "position": {
+            "x": 61,
+            "y": 73
+          },
+          "health": 0,
+          "reserve": 0,
+          "hydration": 26.47,
+          "energy": 0,
+          "injury": 0,
+          "action": "forage",
+          "state": "procurando alimento",
+          "assignment": null,
+          "carried": {
+            "food": 2.8,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 77,
+              "name": "Nilo H",
+              "distance": 0,
+              "reserve": 0.66,
+              "energy": 0,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 68,
+              "name": "Noa A",
+              "distance": 7.62,
+              "reserve": 2.78,
+              "energy": 0,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 80,
+              "name": "Ravi J",
+              "distance": 9,
+              "reserve": 2.82,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 72,
+              "name": "Aru M",
+              "distance": 9.85,
+              "reserve": 0.22,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 60,
+              "y": 73
+            },
+            "nearestFood": [
+              {
+                "x": 60,
+                "y": 73,
+                "distance": 2,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 60,
+                "y": 72,
+                "distance": 2.24,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 59,
+                "y": 73,
+                "distance": 3,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 58,
+                "y": 72,
+                "distance": 4.12,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 62,
+                "y": 79,
+                "distance": 6,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "id": 88,
+          "name": "Tainá J",
+          "cause": "starvation",
+          "day": 828,
+          "ageDays": 9268.660902718082,
+          "ageYears": 25.39,
+          "dependent": false,
+          "role": "resident",
+          "kingdom": null,
+          "kingdomId": null,
+          "community": null,
+          "communityId": null,
+          "position": {
+            "x": 62,
+            "y": 71
+          },
+          "health": 0,
+          "reserve": 0,
+          "hydration": 31.5,
+          "energy": 0,
+          "injury": 0,
+          "action": "forage",
+          "state": "procurando alimento",
+          "assignment": null,
+          "carried": {
+            "food": 2.97,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 76,
+              "name": "Zuri K",
+              "distance": 1,
+              "reserve": 0,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 74,
+              "name": "Lina Q",
+              "distance": 5,
+              "reserve": 1,
+              "energy": 0.03,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 78,
+              "name": "Luma G",
+              "distance": 9.43,
+              "reserve": 22.74,
+              "energy": 4.81,
+              "action": "rest",
+              "state": "descansando",
+              "onCampaign": false
+            },
+            {
+              "id": 66,
+              "name": "Eni A",
+              "distance": 11.4,
+              "reserve": 89.02,
+              "energy": 39.02,
+              "action": "rest",
+              "state": "descansando",
+              "onCampaign": false
+            },
+            {
+              "id": 67,
+              "name": "Iara L",
+              "distance": 11.4,
+              "reserve": 90.58,
+              "energy": 35.33,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 63,
+              "y": 71
+            },
+            "nearestFood": [
+              {
+                "x": 63,
+                "y": 71,
+                "distance": 2,
+                "availableBiomass": 1.38,
+                "harvestableBiomass": 1.38,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 63,
+                "y": 74,
+                "distance": 3.61,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 65,
+                "y": 71,
+                "distance": 4,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 65,
+                "y": 72,
+                "distance": 4.12,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 65,
+                "y": 68,
+                "distance": 5,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "id": 77,
+          "name": "Nilo H",
+          "cause": "starvation",
+          "day": 864,
+          "ageDays": 8578.994151564315,
+          "ageYears": 23.5,
+          "dependent": false,
+          "role": "resident",
+          "kingdom": "Valedouro",
+          "kingdomId": 25,
+          "community": "Valedouro",
+          "communityId": 27,
+          "position": {
+            "x": 61,
+            "y": 71
+          },
+          "health": 0,
+          "reserve": 0,
+          "hydration": 32.2,
+          "energy": 0,
+          "injury": 0,
+          "action": "forage",
+          "state": "procurando alimento",
+          "assignment": null,
+          "carried": {
+            "food": 0,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 72,
+              "name": "Aru M",
+              "distance": 5,
+              "reserve": 3,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 80,
+              "name": "Ravi J",
+              "distance": 9.43,
+              "reserve": 7.39,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 68,
+              "name": "Noa A",
+              "distance": 12.81,
+              "reserve": 7.75,
+              "energy": 0,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 63,
+              "y": 71
+            },
+            "nearestFood": [
+              {
+                "x": 63,
+                "y": 71,
+                "distance": 3.16,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 65,
+                "y": 72,
+                "distance": 5,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 63,
+                "y": 76,
+                "distance": 5,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 65,
+                "y": 71,
+                "distance": 5.1,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 64,
+                "y": 76,
+                "distance": 5.66,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "id": 174,
+          "name": "Lina Filho",
+          "cause": "starvation",
+          "day": 1154,
+          "ageDays": 404,
+          "ageYears": 1.11,
+          "dependent": true,
+          "role": "resident",
+          "kingdom": null,
+          "kingdomId": null,
+          "community": null,
+          "communityId": null,
+          "position": {
+            "x": 63,
+            "y": 73
+          },
+          "health": 96.14,
+          "reserve": 0,
+          "hydration": 100,
+          "energy": 65,
+          "injury": 0,
+          "action": "explore",
+          "state": "recebendo cuidado",
+          "assignment": null,
+          "carried": {
+            "food": 0,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [
+            {
+              "id": 67,
+              "name": "Iara L",
+              "alive": true,
+              "ageYears": 25.39,
+              "distance": 9.43,
+              "reserve": 90.7,
+              "action": "forage",
+              "state": "coletando alimento"
+            },
+            {
+              "id": 70,
+              "name": "Tainá C",
+              "alive": true,
+              "ageYears": 19.29,
+              "distance": 0,
+              "reserve": 0,
+              "action": "forage",
+              "state": "procurando alimento"
+            }
+          ],
+          "nearbyAdults": [
+            {
+              "id": 70,
+              "name": "Tainá C",
+              "distance": 0,
+              "reserve": 0,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 73,
+              "name": "Oru A",
+              "distance": 9,
+              "reserve": 1.86,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 85,
+              "name": "Eni O",
+              "distance": 9,
+              "reserve": 0.66,
+              "energy": 0,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 67,
+              "name": "Iara L",
+              "distance": 9.43,
+              "reserve": 90.7,
+              "energy": 38.47,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 66,
+              "name": "Eni A",
+              "distance": 9.85,
+              "reserve": 89.28,
+              "energy": 40.37,
+              "action": "drink",
+              "state": "bebendo água",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": null,
+            "nearestFood": []
+          }
+        },
+        {
+          "id": 71,
+          "name": "Oru E",
+          "cause": "starvation",
+          "day": 1427,
+          "ageDays": 3671.0955966711044,
+          "ageYears": 10.06,
+          "dependent": true,
+          "role": "resident",
+          "kingdom": "Valedouro",
+          "kingdomId": 25,
+          "community": "Valedouro",
+          "communityId": 27,
+          "position": {
+            "x": 71,
+            "y": 69
+          },
+          "health": 64.47,
+          "reserve": 0,
+          "hydration": 39.28,
+          "energy": 41.89,
+          "injury": 0,
+          "action": "explore",
+          "state": "sem cuidador próximo",
+          "assignment": null,
+          "carried": {
+            "food": 0,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [
+            {
+              "id": 68,
+              "name": "Noa A",
+              "alive": false,
+              "ageYears": 15.16,
+              "distance": 1.41,
+              "reserve": 9.64,
+              "action": "forage",
+              "state": "coletando alimento"
+            }
+          ],
+          "nearbyAdults": [],
+          "foodPerception": {
+            "selectedTarget": null,
+            "nearestFood": []
+          }
+        }
+      ],
+      "otherDeaths": [
+        {
+          "id": 84,
+          "name": "Lina H",
+          "cause": "injury",
+          "day": 938,
+          "ageDays": 8664.428235368803,
+          "ageYears": 23.74,
+          "dependent": false,
+          "role": "resident",
+          "kingdom": null,
+          "kingdomId": null,
+          "community": null,
+          "communityId": null,
+          "position": {
+            "x": 79,
+            "y": 78
+          },
+          "health": 0.05,
+          "reserve": 10.1,
+          "hydration": 13.83,
+          "energy": 0,
+          "injury": 4.11,
+          "action": "forage",
+          "state": "levando recursos ao abrigo",
+          "assignment": null,
+          "carried": {
+            "food": 0,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 83,
+              "name": "Ayo N",
+              "distance": 6.32,
+              "reserve": 8.46,
+              "energy": 0,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "onCampaign": false
+            },
+            {
+              "id": 76,
+              "name": "Zuri K",
+              "distance": 8.94,
+              "reserve": 0,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 78,
+              "name": "Luma G",
+              "distance": 17.49,
+              "reserve": 64.79,
+              "energy": 43.49,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 81,
+              "name": "Zuri V",
+              "distance": 18.87,
+              "reserve": 36.84,
+              "energy": 4.54,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 70,
+              "name": "Tainá C",
+              "distance": 19.03,
+              "reserve": 48.57,
+              "energy": 18.29,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 80,
+              "y": 79
+            },
+            "nearestFood": [
+              {
+                "x": 80,
+                "y": 79,
+                "distance": 1.41,
+                "availableBiomass": 44.94,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 78,
+                "y": 77,
+                "distance": 1.41,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 78,
+                "y": 80,
+                "distance": 2.24,
+                "availableBiomass": 77.87,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 81,
+                "y": 80,
+                "distance": 2.83,
+                "availableBiomass": 90.41,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 77,
+                "y": 80,
+                "distance": 2.83,
+                "availableBiomass": 44.33,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "id": 72,
+          "name": "Aru M",
+          "cause": "dehydration",
+          "day": 968,
+          "ageDays": 6359.697447933257,
+          "ageYears": 17.42,
+          "dependent": false,
+          "role": "resident",
+          "kingdom": "Valedouro",
+          "kingdomId": 25,
+          "community": "Valedouro",
+          "communityId": 27,
+          "position": {
+            "x": 57,
+            "y": 79
+          },
+          "health": 0,
+          "reserve": 0,
+          "hydration": 2.47,
+          "energy": 0,
+          "injury": 0,
+          "action": "drink",
+          "state": "buscando água",
+          "assignment": null,
+          "carried": {
+            "food": 0,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 68,
+              "name": "Noa A",
+              "distance": 17.72,
+              "reserve": 4.35,
+              "energy": 0,
+              "action": "forage",
+              "state": "expulso do território de Corvânia",
+              "onCampaign": false
+            },
+            {
+              "id": 80,
+              "name": "Ravi J",
+              "distance": 18.44,
+              "reserve": 2,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 57,
+              "y": 78
+            },
+            "nearestFood": [
+              {
+                "x": 57,
+                "y": 78,
+                "distance": 1.41,
+                "availableBiomass": 1.84,
+                "harvestableBiomass": 1.84,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 58,
+                "y": 77,
+                "distance": 2,
+                "availableBiomass": 2.3,
+                "harvestableBiomass": 2.3,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 57,
+                "y": 82,
+                "distance": 3.16,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 56,
+                "y": 76,
+                "distance": 3.61,
+                "availableBiomass": 2.75,
+                "harvestableBiomass": 2.75,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 58,
+                "y": 83,
+                "distance": 4,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "id": 80,
+          "name": "Ravi J",
+          "cause": "injury",
+          "day": 1056,
+          "ageDays": 12877.947598550469,
+          "ageYears": 35.28,
+          "dependent": false,
+          "role": "resident",
+          "kingdom": "Valedouro",
+          "kingdomId": 25,
+          "community": "Valedouro",
+          "communityId": 27,
+          "position": {
+            "x": 71,
+            "y": 75
+          },
+          "health": 0.1,
+          "reserve": 1,
+          "hydration": 25.64,
+          "energy": 0.03,
+          "injury": 4.18,
+          "action": "forage",
+          "state": "coletando alimento",
+          "assignment": null,
+          "carried": {
+            "food": 2.76,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 68,
+              "name": "Noa A",
+              "distance": 11,
+              "reserve": 8.72,
+              "energy": 0,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 71,
+              "y": 74
+            },
+            "nearestFood": [
+              {
+                "x": 71,
+                "y": 74,
+                "distance": 1,
+                "availableBiomass": 1.38,
+                "harvestableBiomass": 1.38,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 72,
+                "y": 75,
+                "distance": 1,
+                "availableBiomass": 1.38,
+                "harvestableBiomass": 1.38,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 72,
+                "y": 74,
+                "distance": 1.41,
+                "availableBiomass": 1.38,
+                "harvestableBiomass": 1.38,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 73,
+                "y": 77,
+                "distance": 2.83,
+                "availableBiomass": 1.38,
+                "harvestableBiomass": 1.38,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 70,
+                "y": 72,
+                "distance": 3.16,
+                "availableBiomass": 1.84,
+                "harvestableBiomass": 1.84,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "id": 68,
+          "name": "Noa A",
+          "cause": "injury",
+          "day": 1175,
+          "ageDays": 5534.921264881268,
+          "ageYears": 15.16,
+          "dependent": false,
+          "role": "resident",
+          "kingdom": "Valedouro",
+          "kingdomId": 25,
+          "community": "Valedouro",
+          "communityId": 27,
+          "position": {
+            "x": 72,
+            "y": 70
+          },
+          "health": 0,
+          "reserve": 9.64,
+          "hydration": 15.94,
+          "energy": 0.68,
+          "injury": 6.82,
+          "action": "forage",
+          "state": "coletando alimento",
+          "assignment": null,
+          "carried": {
+            "food": 2.77,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [
+            {
+              "id": 66,
+              "name": "Eni A",
+              "alive": true,
+              "ageYears": 22.8,
+              "distance": 7.81,
+              "reserve": 91,
+              "action": "forage",
+              "state": "coletando alimento"
+            }
+          ],
+          "nearbyAdults": [],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 73,
+              "y": 70
+            },
+            "nearestFood": [
+              {
+                "x": 73,
+                "y": 70,
+                "distance": 1,
+                "availableBiomass": 107.23,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 73,
+                "y": 69,
+                "distance": 1.41,
+                "availableBiomass": 106.48,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 73,
+                "y": 71,
+                "distance": 1.41,
+                "availableBiomass": 4.73,
+                "harvestableBiomass": 4.73,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 74,
+                "y": 71,
+                "distance": 2.24,
+                "availableBiomass": 61.63,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 74,
+                "y": 72,
+                "distance": 2.83,
+                "availableBiomass": 6.71,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "seed": 42,
+      "days": 1460,
+      "elapsedSeconds": 70.01,
+      "population": {
+        "living": 37,
+        "deathsByCause": {
+          "starvation": 10,
+          "dehydration": 0,
+          "age": 0,
+          "injury": 1,
+          "combat": 2,
+          "predation": 0,
+          "harvest": 0,
+          "invasion": 1
+        }
+      },
+      "starvationDeaths": [
+        {
+          "id": 81,
+          "name": "Cora N",
+          "cause": "starvation",
+          "day": 795,
+          "ageDays": 9195.315338466316,
+          "ageYears": 25.19,
+          "dependent": false,
+          "role": "resident",
+          "kingdom": "Valedouro",
+          "kingdomId": 25,
+          "community": "Valedouro",
+          "communityId": 27,
+          "position": {
+            "x": 62,
+            "y": 76
+          },
+          "health": 0.08,
+          "reserve": 0,
+          "hydration": 12.72,
+          "energy": 0,
+          "injury": 2.02,
+          "action": "forage",
+          "state": "procurando alimento",
+          "assignment": null,
+          "carried": {
+            "food": 0,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 72,
+              "name": "Cora U",
+              "distance": 1.41,
+              "reserve": 1.73,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 82,
+              "name": "Uira C",
+              "distance": 5,
+              "reserve": 10.38,
+              "energy": 0.58,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 89,
+              "name": "Nilo C",
+              "distance": 8,
+              "reserve": 7.37,
+              "energy": 0.58,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 74,
+              "name": "Zuri P",
+              "distance": 9.06,
+              "reserve": 0.22,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 88,
+              "name": "Zuri X",
+              "distance": 9.49,
+              "reserve": 9.43,
+              "energy": 0,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 67,
+              "y": 75
+            },
+            "nearestFood": [
+              {
+                "x": 65,
+                "y": 78,
+                "distance": 3.61,
+                "availableBiomass": 1.38,
+                "harvestableBiomass": 1.38,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 67,
+                "y": 75,
+                "distance": 4,
+                "availableBiomass": 80.48,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 67,
+                "y": 78,
+                "distance": 5,
+                "availableBiomass": 42.03,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 58,
+                "y": 74,
+                "distance": 5.1,
+                "availableBiomass": 1.38,
+                "harvestableBiomass": 1.38,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 58,
+                "y": 76,
+                "distance": 5.1,
+                "availableBiomass": 1.38,
+                "harvestableBiomass": 1.38,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "id": 66,
+          "name": "Zuri O",
+          "cause": "starvation",
+          "day": 856,
+          "ageDays": 6849.676772993058,
+          "ageYears": 18.77,
+          "dependent": false,
+          "role": "resident",
+          "kingdom": null,
+          "kingdomId": null,
+          "community": null,
+          "communityId": null,
+          "position": {
+            "x": 61,
+            "y": 57
+          },
+          "health": 0,
+          "reserve": 7.24,
+          "hydration": 8.35,
+          "energy": 0,
+          "injury": 2.49,
+          "action": "drink",
+          "state": "buscando água",
+          "assignment": null,
+          "carried": {
+            "food": 0,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 76,
+              "name": "Ravi C",
+              "distance": 5.39,
+              "reserve": 4.76,
+              "energy": 0.11,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 83,
+              "name": "Bela N",
+              "distance": 6.08,
+              "reserve": 21.22,
+              "energy": 2.51,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 67,
+              "name": "Nilo H",
+              "distance": 7.07,
+              "reserve": 3.67,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 87,
+              "name": "Iara V",
+              "distance": 9.9,
+              "reserve": 4.25,
+              "energy": 0,
+              "action": "drink",
+              "state": "buscando água",
+              "onCampaign": false
+            },
+            {
+              "id": 79,
+              "name": "Cora G",
+              "distance": 20,
+              "reserve": 43.54,
+              "energy": 10.31,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 60,
+              "y": 56
+            },
+            "nearestFood": [
+              {
+                "x": 60,
+                "y": 56,
+                "distance": 1,
+                "availableBiomass": 1.38,
+                "harvestableBiomass": 1.38,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 59,
+                "y": 56,
+                "distance": 2,
+                "availableBiomass": 1.38,
+                "harvestableBiomass": 1.38,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 63,
+                "y": 56,
+                "distance": 2,
+                "availableBiomass": 1.38,
+                "harvestableBiomass": 1.38,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 59,
+                "y": 57,
+                "distance": 2.24,
+                "availableBiomass": 1.38,
+                "harvestableBiomass": 1.38,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 60,
+                "y": 58,
+                "distance": 2.24,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "id": 72,
+          "name": "Cora U",
+          "cause": "starvation",
+          "day": 901,
+          "ageDays": 10275.915744597092,
+          "ageYears": 28.15,
+          "dependent": false,
+          "role": "resident",
+          "kingdom": "Valedouro",
+          "kingdomId": 25,
+          "community": "Valedouro",
+          "communityId": 27,
+          "position": {
+            "x": 79,
+            "y": 76
+          },
+          "health": 0.01,
+          "reserve": 0,
+          "hydration": 14.45,
+          "energy": 0,
+          "injury": 0,
+          "action": "forage",
+          "state": "procurando alimento",
+          "assignment": null,
+          "carried": {
+            "food": 3.62,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 82,
+              "name": "Uira C",
+              "distance": 0,
+              "reserve": 1.22,
+              "energy": 0.09,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 89,
+              "name": "Nilo C",
+              "distance": 0,
+              "reserve": 3.6,
+              "energy": 0.68,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 88,
+              "name": "Zuri X",
+              "distance": 1,
+              "reserve": 0,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 74,
+              "name": "Zuri P",
+              "distance": 15.65,
+              "reserve": 0,
+              "energy": 0,
+              "action": "drink",
+              "state": "bebendo água",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 80,
+              "y": 76
+            },
+            "nearestFood": [
+              {
+                "x": 80,
+                "y": 76,
+                "distance": 2,
+                "availableBiomass": 7.28,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 80,
+                "y": 75,
+                "distance": 2.24,
+                "availableBiomass": 7.28,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 82,
+                "y": 77,
+                "distance": 4.12,
+                "availableBiomass": 6.81,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 77,
+                "y": 80,
+                "distance": 4.12,
+                "availableBiomass": 2.3,
+                "harvestableBiomass": 2.3,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 79,
+                "y": 80,
+                "distance": 4.12,
+                "availableBiomass": 2.3,
+                "harvestableBiomass": 2.3,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "id": 89,
+          "name": "Nilo C",
+          "cause": "starvation",
+          "day": 914,
+          "ageDays": 8233.35414923355,
+          "ageYears": 22.56,
+          "dependent": false,
+          "role": "resident",
+          "kingdom": "Valedouro",
+          "kingdomId": 25,
+          "community": "Valedouro",
+          "communityId": 27,
+          "position": {
+            "x": 83,
+            "y": 74
+          },
+          "health": 0,
+          "reserve": 0.26,
+          "hydration": 26.63,
+          "energy": 0,
+          "injury": 0.21,
+          "action": "drink",
+          "state": "bebendo água",
+          "assignment": null,
+          "carried": {
+            "food": 3.07,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 82,
+              "name": "Uira C",
+              "distance": 1.41,
+              "reserve": 4.02,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 88,
+              "name": "Zuri X",
+              "distance": 8.94,
+              "reserve": 0,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 74,
+              "name": "Zuri P",
+              "distance": 22.85,
+              "reserve": 6.78,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 81,
+              "y": 72
+            },
+            "nearestFood": [
+              {
+                "x": 81,
+                "y": 72,
+                "distance": 2.83,
+                "availableBiomass": 7.25,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 83,
+                "y": 71,
+                "distance": 3,
+                "availableBiomass": 168.96,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 82,
+                "y": 71,
+                "distance": 3.16,
+                "availableBiomass": 178.71,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 84,
+                "y": 71,
+                "distance": 3.16,
+                "availableBiomass": 174.63,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 80,
+                "y": 75,
+                "distance": 3.16,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "id": 88,
+          "name": "Zuri X",
+          "cause": "starvation",
+          "day": 935,
+          "ageDays": 9889.177492717281,
+          "ageYears": 27.09,
+          "dependent": false,
+          "role": "resident",
+          "kingdom": "Valedouro",
+          "kingdomId": 25,
+          "community": "Valedouro",
+          "communityId": 27,
+          "position": {
+            "x": 82,
+            "y": 72
+          },
+          "health": 0,
+          "reserve": 0,
+          "hydration": 20.4,
+          "energy": 0,
+          "injury": 1.1,
+          "action": "forage",
+          "state": "procurando alimento",
+          "assignment": null,
+          "carried": {
+            "food": 3.3,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 82,
+              "name": "Uira C",
+              "distance": 15.13,
+              "reserve": 0.49,
+              "energy": 0,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 74,
+              "name": "Zuri P",
+              "distance": 28,
+              "reserve": 3.13,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 82,
+              "y": 71
+            },
+            "nearestFood": [
+              {
+                "x": 81,
+                "y": 72,
+                "distance": 1.41,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 82,
+                "y": 71,
+                "distance": 2,
+                "availableBiomass": 71.23,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 83,
+                "y": 71,
+                "distance": 2.24,
+                "availableBiomass": 170.88,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 84,
+                "y": 71,
+                "distance": 2.83,
+                "availableBiomass": 175.45,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 82,
+                "y": 70,
+                "distance": 3,
+                "availableBiomass": 178.72,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "id": 144,
+          "name": "Ayo Filha",
+          "cause": "starvation",
+          "day": 968,
+          "ageDays": 908,
+          "ageYears": 2.49,
+          "dependent": true,
+          "role": "resident",
+          "kingdom": "Valedouro",
+          "kingdomId": 25,
+          "community": "Valedouro",
+          "communityId": 27,
+          "position": {
+            "x": 83,
+            "y": 78
+          },
+          "health": 100,
+          "reserve": 0,
+          "hydration": 100,
+          "energy": 62.45,
+          "injury": 0,
+          "action": "explore",
+          "state": "recebendo cuidado",
+          "assignment": null,
+          "carried": {
+            "food": 0,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [
+            {
+              "id": 74,
+              "name": "Zuri P",
+              "alive": true,
+              "ageYears": 31.64,
+              "distance": 34.89,
+              "reserve": 8.84,
+              "action": "forage",
+              "state": "coletando alimento"
+            },
+            {
+              "id": 89,
+              "name": "Nilo C",
+              "alive": false,
+              "ageYears": 22.56,
+              "distance": 4,
+              "reserve": 0.26,
+              "action": "drink",
+              "state": "bebendo água"
+            },
+            {
+              "id": 82,
+              "name": "Uira C",
+              "alive": true,
+              "ageYears": 35.95,
+              "distance": 0,
+              "reserve": 0,
+              "action": "forage",
+              "state": "procurando alimento"
+            }
+          ],
+          "nearbyAdults": [
+            {
+              "id": 82,
+              "name": "Uira C",
+              "distance": 0,
+              "reserve": 0,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 74,
+              "name": "Zuri P",
+              "distance": 34.89,
+              "reserve": 8.84,
+              "energy": 0.68,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": null,
+            "nearestFood": []
+          }
+        },
+        {
+          "id": 78,
+          "name": "Jaci Q",
+          "cause": "starvation",
+          "day": 1017,
+          "ageDays": 13377.403665527701,
+          "ageYears": 36.65,
+          "dependent": false,
+          "role": "ruler",
+          "kingdom": null,
+          "kingdomId": null,
+          "community": null,
+          "communityId": null,
+          "position": {
+            "x": 60,
+            "y": 74
+          },
+          "health": 0,
+          "reserve": 2.31,
+          "hydration": 31.37,
+          "energy": 0.36,
+          "injury": 0,
+          "action": "forage",
+          "state": "coletando alimento",
+          "assignment": null,
+          "carried": {
+            "food": 0,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 65,
+              "name": "Nilo I",
+              "distance": 0,
+              "reserve": 49.34,
+              "energy": 5.3,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 70,
+              "name": "Nilo O",
+              "distance": 4.47,
+              "reserve": 8.43,
+              "energy": 0,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "onCampaign": false
+            },
+            {
+              "id": 67,
+              "name": "Nilo H",
+              "distance": 7.62,
+              "reserve": 7.53,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 73,
+              "name": "Caí K",
+              "distance": 8.94,
+              "reserve": 61.32,
+              "energy": 28.08,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 71,
+              "name": "Oru U",
+              "distance": 10.2,
+              "reserve": 64.62,
+              "energy": 34.23,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 59,
+              "y": 73
+            },
+            "nearestFood": [
+              {
+                "x": 59,
+                "y": 73,
+                "distance": 1.41,
+                "availableBiomass": 3.21,
+                "harvestableBiomass": 3.21,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 60,
+                "y": 72,
+                "distance": 2,
+                "availableBiomass": 3.21,
+                "harvestableBiomass": 3.21,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 58,
+                "y": 74,
+                "distance": 2,
+                "availableBiomass": 2.75,
+                "harvestableBiomass": 2.75,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 62,
+                "y": 74,
+                "distance": 2,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 59,
+                "y": 72,
+                "distance": 2.24,
+                "availableBiomass": 3.21,
+                "harvestableBiomass": 3.21,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "id": 74,
+          "name": "Zuri P",
+          "cause": "starvation",
+          "day": 1064,
+          "ageDays": 11642.927110601217,
+          "ageYears": 31.9,
+          "dependent": false,
+          "role": "resident",
+          "kingdom": "Valedouro",
+          "kingdomId": 25,
+          "community": "Valedouro",
+          "communityId": 27,
+          "position": {
+            "x": 54,
+            "y": 51
+          },
+          "health": 0,
+          "reserve": 7.11,
+          "hydration": 9.42,
+          "energy": 0.68,
+          "injury": 0,
+          "action": "forage",
+          "state": "coletando alimento",
+          "assignment": null,
+          "carried": {
+            "food": 0,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 82,
+              "name": "Uira C",
+              "distance": 48.37,
+              "reserve": 9.67,
+              "energy": 0,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 54,
+              "y": 50
+            },
+            "nearestFood": [
+              {
+                "x": 54,
+                "y": 50,
+                "distance": 1,
+                "availableBiomass": 47.49,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 52,
+                "y": 49,
+                "distance": 2.83,
+                "availableBiomass": 100.98,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 54,
+                "y": 48,
+                "distance": 3,
+                "availableBiomass": 95.57,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 57,
+                "y": 50,
+                "distance": 3.16,
+                "availableBiomass": 37.96,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 57,
+                "y": 49,
+                "distance": 3.61,
+                "availableBiomass": 98.67,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "id": 76,
+          "name": "Ravi C",
+          "cause": "starvation",
+          "day": 1125,
+          "ageDays": 10068.914127722383,
+          "ageYears": 27.59,
+          "dependent": false,
+          "role": "resident",
+          "kingdom": null,
+          "kingdomId": null,
+          "community": null,
+          "communityId": null,
+          "position": {
+            "x": 87,
+            "y": 71
+          },
+          "health": 0,
+          "reserve": 9.84,
+          "hydration": 9.42,
+          "energy": 0,
+          "injury": 0,
+          "action": "forage",
+          "state": "levando recursos ao abrigo",
+          "assignment": null,
+          "carried": {
+            "food": 3.21,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 77,
+              "name": "Lina Z",
+              "distance": 1,
+              "reserve": 88.1,
+              "energy": 38.54,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 80,
+              "name": "Tainá F",
+              "distance": 8.06,
+              "reserve": 82.42,
+              "energy": 28.3,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "onCampaign": false
+            },
+            {
+              "id": 67,
+              "name": "Nilo H",
+              "distance": 11.18,
+              "reserve": 55.49,
+              "energy": 5.74,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 65,
+              "name": "Nilo I",
+              "distance": 25.5,
+              "reserve": 43.19,
+              "energy": 3.61,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 70,
+              "name": "Nilo O",
+              "distance": 28.16,
+              "reserve": 7.86,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 85,
+              "y": 70
+            },
+            "nearestFood": [
+              {
+                "x": 86,
+                "y": 70,
+                "distance": 1,
+                "availableBiomass": 2.52,
+                "harvestableBiomass": 2.52,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 85,
+                "y": 70,
+                "distance": 1.41,
+                "availableBiomass": 149.14,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 87,
+                "y": 72,
+                "distance": 1.41,
+                "availableBiomass": 1.84,
+                "harvestableBiomass": 1.84,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 86,
+                "y": 69,
+                "distance": 2,
+                "availableBiomass": 25.28,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 85,
+                "y": 69,
+                "distance": 2.24,
+                "availableBiomass": 252.46,
+                "harvestableBiomass": 5,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "id": 82,
+          "name": "Uira C",
+          "cause": "starvation",
+          "day": 1340,
+          "ageDays": 13493.630721801892,
+          "ageYears": 36.97,
+          "dependent": false,
+          "role": "resident",
+          "kingdom": "Valedouro",
+          "kingdomId": 25,
+          "community": "Valedouro",
+          "communityId": 27,
+          "position": {
+            "x": 56,
+            "y": 60
+          },
+          "health": 0.1,
+          "reserve": 1.33,
+          "hydration": 19.04,
+          "energy": 0.11,
+          "injury": 0.16,
+          "action": "forage",
+          "state": "coletando alimento",
+          "assignment": null,
+          "carried": {
+            "food": 3.03,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 57,
+              "y": 60
+            },
+            "nearestFood": [
+              {
+                "x": 57,
+                "y": 60,
+                "distance": 1,
+                "availableBiomass": 1.84,
+                "harvestableBiomass": 1.84,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 58,
+                "y": 58,
+                "distance": 2.83,
+                "availableBiomass": 3.21,
+                "harvestableBiomass": 3.21,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 59,
+                "y": 59,
+                "distance": 3.16,
+                "availableBiomass": 3.66,
+                "harvestableBiomass": 3.66,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 59,
+                "y": 61,
+                "distance": 3.16,
+                "availableBiomass": 2.3,
+                "harvestableBiomass": 2.3,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 58,
+                "y": 63,
+                "distance": 3.61,
+                "availableBiomass": 2.3,
+                "harvestableBiomass": 2.3,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          }
+        }
+      ],
+      "otherDeaths": [
+        {
+          "id": 86,
+          "name": "Luma V",
+          "cause": "invasion",
+          "day": 67,
+          "ageDays": 5583.721266206354,
+          "ageYears": 15.3,
+          "dependent": false,
+          "role": "resident",
+          "kingdom": "Valedouro",
+          "kingdomId": 25,
+          "community": "Valedouro",
+          "communityId": 27,
+          "position": {
+            "x": 58,
+            "y": 65
+          },
+          "health": 100,
+          "reserve": 59.45,
+          "hydration": 64.84,
+          "energy": 13.32,
+          "injury": 0,
+          "action": "forage",
+          "state": "levando recursos ao abrigo",
+          "assignment": null,
+          "carried": {
+            "food": 3.18,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 85,
+              "name": "Davi A",
+              "distance": 5.39,
+              "reserve": 32.05,
+              "energy": 9.33,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "onCampaign": true
+            },
+            {
+              "id": 70,
+              "name": "Nilo O",
+              "distance": 6.08,
+              "reserve": 31.79,
+              "energy": 3.1,
+              "action": "rest",
+              "state": "descansando",
+              "onCampaign": true
+            },
+            {
+              "id": 76,
+              "name": "Ravi C",
+              "distance": 6.32,
+              "reserve": 36.08,
+              "energy": 13.25,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "onCampaign": false
+            },
+            {
+              "id": 87,
+              "name": "Iara V",
+              "distance": 6.4,
+              "reserve": 39.89,
+              "energy": 31.65,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "onCampaign": false
+            },
+            {
+              "id": 88,
+              "name": "Zuri X",
+              "distance": 6.4,
+              "reserve": 36.28,
+              "energy": 19.13,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 58,
+              "y": 63
+            },
+            "nearestFood": [
+              {
+                "x": 58,
+                "y": 63,
+                "distance": 2.24,
+                "availableBiomass": 1.54,
+                "harvestableBiomass": 1.54,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 57,
+                "y": 68,
+                "distance": 3,
+                "availableBiomass": 58.88,
+                "harvestableBiomass": 3.19,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 59,
+                "y": 68,
+                "distance": 3.61,
+                "availableBiomass": 57.5,
+                "harvestableBiomass": 3.19,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 57,
+                "y": 69,
+                "distance": 4,
+                "availableBiomass": 52.2,
+                "harvestableBiomass": 3.19,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 60,
+                "y": 62,
+                "distance": 4.24,
+                "availableBiomass": 26.54,
+                "harvestableBiomass": 3.19,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "id": 109,
+          "name": "Luma B",
+          "cause": "combat",
+          "day": 71,
+          "ageDays": 9797.198181929067,
+          "ageYears": 26.84,
+          "dependent": false,
+          "role": "soldier",
+          "kingdom": "Corvânia",
+          "kingdomId": 26,
+          "community": "Corvânia",
+          "communityId": 28,
+          "position": {
+            "x": 60,
+            "y": 59
+          },
+          "health": 85.28,
+          "reserve": 51.4,
+          "hydration": 34.03,
+          "energy": 9.35,
+          "injury": 1.47,
+          "action": "campaign",
+          "state": "defendendo a área disputada",
+          "assignment": null,
+          "carried": {
+            "food": 0,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 5.94,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 102,
+              "name": "Bela Z",
+              "distance": 10.05,
+              "reserve": 36.91,
+              "energy": 1.67,
+              "action": "campaign",
+              "state": "marchando para a área disputada",
+              "onCampaign": true
+            },
+            {
+              "id": 111,
+              "name": "Ema T",
+              "distance": 28.43,
+              "reserve": 61.03,
+              "energy": 39.47,
+              "action": "capture_sheep",
+              "state": "conduzindo ovelha ao curral",
+              "onCampaign": false
+            },
+            {
+              "id": 106,
+              "name": "Ema L",
+              "distance": 35.47,
+              "reserve": 63.16,
+              "energy": 27.42,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 94,
+              "name": "Jaci Y",
+              "distance": 36.24,
+              "reserve": 65.33,
+              "energy": 28.64,
+              "action": "rest",
+              "state": "descansando",
+              "onCampaign": false
+            },
+            {
+              "id": 107,
+              "name": "Noa P",
+              "distance": 37.01,
+              "reserve": 67.16,
+              "energy": 27.38,
+              "action": "socialize",
+              "state": "conversando",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 59,
+              "y": 59
+            },
+            "nearestFood": [
+              {
+                "x": 59,
+                "y": 59,
+                "distance": 1,
+                "availableBiomass": 61.75,
+                "harvestableBiomass": 2.42,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 60,
+                "y": 58,
+                "distance": 1,
+                "availableBiomass": 1.53,
+                "harvestableBiomass": 1.53,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 61,
+                "y": 59,
+                "distance": 1,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 58,
+                "y": 58,
+                "distance": 2.24,
+                "availableBiomass": 17.94,
+                "harvestableBiomass": 2.42,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 59,
+                "y": 57,
+                "distance": 2.24,
+                "availableBiomass": 0.93,
+                "harvestableBiomass": 0.93,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "id": 85,
+          "name": "Davi A",
+          "cause": "combat",
+          "day": 82,
+          "ageDays": 5964.811387721449,
+          "ageYears": 16.34,
+          "dependent": false,
+          "role": "soldier",
+          "kingdom": "Valedouro",
+          "kingdomId": 25,
+          "community": "Valedouro",
+          "communityId": 27,
+          "position": {
+            "x": 60,
+            "y": 60
+          },
+          "health": 88.53,
+          "reserve": 19.57,
+          "hydration": 29.84,
+          "energy": 0,
+          "injury": 1.48,
+          "action": "campaign",
+          "state": "ocupando a área disputada",
+          "assignment": null,
+          "carried": {
+            "food": 0,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 70,
+              "name": "Nilo O",
+              "distance": 1.41,
+              "reserve": 19.31,
+              "energy": 0,
+              "action": "campaign",
+              "state": "ocupando a área disputada",
+              "onCampaign": true
+            },
+            {
+              "id": 89,
+              "name": "Nilo C",
+              "distance": 2.24,
+              "reserve": 52.71,
+              "energy": 19.28,
+              "action": "forage",
+              "state": "levando recursos ao abrigo",
+              "onCampaign": false
+            },
+            {
+              "id": 74,
+              "name": "Zuri P",
+              "distance": 2.83,
+              "reserve": 52.36,
+              "energy": 16.47,
+              "action": "gather",
+              "state": "levando recursos ao abrigo",
+              "onCampaign": false
+            },
+            {
+              "id": 73,
+              "name": "Caí K",
+              "distance": 3,
+              "reserve": 58.95,
+              "energy": 18.39,
+              "action": "gather",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 81,
+              "name": "Cora N",
+              "distance": 3,
+              "reserve": 57.51,
+              "energy": 12.13,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 60,
+              "y": 60
+            },
+            "nearestFood": [
+              {
+                "x": 60,
+                "y": 60,
+                "distance": 0,
+                "availableBiomass": 61.7,
+                "harvestableBiomass": 2.55,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 61,
+                "y": 60,
+                "distance": 1,
+                "availableBiomass": 71.71,
+                "harvestableBiomass": 2.55,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 59,
+                "y": 59,
+                "distance": 1.41,
+                "availableBiomass": 62.06,
+                "harvestableBiomass": 2.55,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 61,
+                "y": 59,
+                "distance": 1.41,
+                "availableBiomass": 1.38,
+                "harvestableBiomass": 1.38,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 60,
+                "y": 58,
+                "distance": 2,
+                "availableBiomass": 1.99,
+                "harvestableBiomass": 1.99,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          }
+        },
+        {
+          "id": 69,
+          "name": "Noa X",
+          "cause": "injury",
+          "day": 751,
+          "ageDays": 7807.967642810196,
+          "ageYears": 21.39,
+          "dependent": false,
+          "role": "resident",
+          "kingdom": "Valedouro",
+          "kingdomId": 25,
+          "community": "Valedouro",
+          "communityId": 27,
+          "position": {
+            "x": 55,
+            "y": 76
+          },
+          "health": 0,
+          "reserve": 0,
+          "hydration": 15.3,
+          "energy": 0,
+          "injury": 4.04,
+          "action": "forage",
+          "state": "procurando alimento",
+          "assignment": null,
+          "carried": {
+            "food": 3.09,
+            "fruit": 0,
+            "meat": 0
+          },
+          "communityFood": 0,
+          "kingdomTreasuryFood": 0,
+          "family": [],
+          "nearbyAdults": [
+            {
+              "id": 65,
+              "name": "Nilo I",
+              "distance": 0,
+              "reserve": 0,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 74,
+              "name": "Zuri P",
+              "distance": 2.24,
+              "reserve": 3.57,
+              "energy": 0,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 72,
+              "name": "Cora U",
+              "distance": 3.61,
+              "reserve": 0.22,
+              "energy": 0,
+              "action": "forage",
+              "state": "procurando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 81,
+              "name": "Cora N",
+              "distance": 8.06,
+              "reserve": 0.66,
+              "energy": 0,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            },
+            {
+              "id": 82,
+              "name": "Uira C",
+              "distance": 8.06,
+              "reserve": 2.25,
+              "energy": 0,
+              "action": "forage",
+              "state": "coletando alimento",
+              "onCampaign": false
+            }
+          ],
+          "foodPerception": {
+            "selectedTarget": {
+              "x": 54,
+              "y": 76
+            },
+            "nearestFood": [
+              {
+                "x": 54,
+                "y": 76,
+                "distance": 2.24,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 58,
+                "y": 76,
+                "distance": 2.24,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 52,
+                "y": 75,
+                "distance": 4,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 57,
+                "y": 79,
+                "distance": 4.12,
+                "availableBiomass": 0.92,
+                "harvestableBiomass": 0.92,
+                "slope": 0.02,
+                "visible": true
+              },
+              {
+                "x": 58,
+                "y": 80,
+                "distance": 5.39,
+                "availableBiomass": 1.38,
+                "harvestableBiomass": 1.38,
+                "slope": 0.02,
+                "visible": true
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

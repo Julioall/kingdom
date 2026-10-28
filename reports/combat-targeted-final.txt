@@ -1,0 +1,32 @@
+✔ area healing centers on the most injured reachable ally and heals only injured friends in its radius (6.3419ms)
+✔ cooldown prevents repeated spells and healing respects full health and death (0.8773ms)
+✔ clerics heal without enemies present, both in tactical rounds and during daily support (3.1461ms)
+✔ each spell recipient receives its own non-looping particles, without replaying on redraws or reset (1.7032ms)
+✔ mana is spent once per area spell, exhausted clerics stop and regenerate (10.7899ms)
+✔ attacks require stamina and cannot be duplicated by campaign and sentry rounds (13.7856ms)
+✔ tower posts increase range, preserve initial peace and replace exhausted sentries with defensive reserves (6.6159ms)
+✔ each archer shot produces a rotated projectile with its own lifetime and no replay on redraw (1.2803ms)
+✔ archer identities resolve to archer idle, run and shooting sheets for every kingdom palette (1.9311ms)
+✔ all initial military classes start with stamina and clerics also have mana (411.968ms)
+✔ two populated capitals start at opposite ends with combined infantry, spears and healers (1198.8482ms)
+✔ a dead general and commander are succeeded by the surviving member with most merit (148.5028ms)
+✔ schools gate specialist training and the king trains archers after the initial patrol period (123.8581ms)
+✔ archers fire at range, infantry cannot, healers recover allies without attacking (188.8729ms)
+✔ tower works have a civilian team and military escort, and observed towers trigger raids after peace (236.6424ms)
+✔ damage bars last five real seconds, refresh on a new attack and clear on reset (0.6792ms)
+✔ all initial towers have life and construction sites start vulnerable (512.2663ms)
+✔ attack range, class, allegiance, recovery and attack cooldown constrain siege damage (487.2968ms)
+✔ an unopposed attacker must damage a tower rather than annex it intact (181.0274ms)
+✔ zero tower life destroys the objective, removes its domain and ends the siege (168.568ms)
+✔ destroyed construction sites cannot revive for free (272.4227ms)
+✔ community builders cannot bypass the royal tower worksite and its siege restrictions (499.2935ms)
+✔ defenders intercept the soldiers attacking the tower and ranged troops keep distance (184.0601ms)
+✔ a destroyed castle drops its stock once and nearby people can collect within cargo capacity (112.9333ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2877.4312

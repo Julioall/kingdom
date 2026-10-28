@@ -1,0 +1,16 @@
+{
+  "width": 1280,
+  "height": 644,
+  "changedPixels": 282,
+  "totalPixels": 824320,
+  "changedPercent": 0.03421001552795031,
+  "maxChannelDifference": 212,
+  "meanMaximumChannelDifference": 0.01484860248447205,
+  "boundingBox": [
+    319,
+    27,
+    1063,
+    237
+  ],
+  "source": "Lossless Canvas PNG; seed 42, day 0, paused, fixed effects, zoom 200%"
+}

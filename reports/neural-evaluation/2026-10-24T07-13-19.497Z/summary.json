@@ -1,0 +1,152 @@
+{
+  "metadata": {
+    "startedAt": "2026-10-24T07:13:19.497Z",
+    "runtime": "v24.19.0",
+    "map": {
+      "width": 128,
+      "height": 128
+    },
+    "days": 5,
+    "seeds": [
+      1
+    ],
+    "candidates": [
+      {
+        "name": "rules",
+        "hiddenSize": 9
+      },
+      {
+        "name": "network-4",
+        "hiddenSize": 4
+      },
+      {
+        "name": "network-6",
+        "hiddenSize": 6
+      },
+      {
+        "name": "network-9",
+        "hiddenSize": 9
+      }
+    ],
+    "control": "regras determinísticas sem contribuição neural para residentes; governantes permanecem na configuração original",
+    "note": "Execução pareada exploratória. O relatório não seleciona tamanho; tamanho inicial e parâmetros de atualização são os mesmos salvo a largura da camada oculta."
+  },
+  "summaries": [
+    {
+      "candidate": "rules",
+      "hiddenSize": 9,
+      "runs": 1,
+      "meanLivingPeople": 50,
+      "meanDeaths": 0,
+      "pairedDeltaVsRules": {
+        "livingPeople": {
+          "n": 1,
+          "mean": 0,
+          "ci95": null
+        },
+        "deaths": {
+          "n": 1,
+          "mean": 0,
+          "ci95": null
+        },
+        "plantFoodHarvested": {
+          "n": 1,
+          "mean": 0,
+          "ci95": null
+        },
+        "cultivatedFoodHarvested": {
+          "n": 1,
+          "mean": 0,
+          "ci95": null
+        }
+      }
+    },
+    {
+      "candidate": "network-4",
+      "hiddenSize": 4,
+      "runs": 1,
+      "meanLivingPeople": 50,
+      "meanDeaths": 0,
+      "pairedDeltaVsRules": {
+        "livingPeople": {
+          "n": 1,
+          "mean": 0,
+          "ci95": null
+        },
+        "deaths": {
+          "n": 1,
+          "mean": 0,
+          "ci95": null
+        },
+        "plantFoodHarvested": {
+          "n": 1,
+          "mean": 0,
+          "ci95": null
+        },
+        "cultivatedFoodHarvested": {
+          "n": 1,
+          "mean": 0,
+          "ci95": null
+        }
+      }
+    },
+    {
+      "candidate": "network-6",
+      "hiddenSize": 6,
+      "runs": 1,
+      "meanLivingPeople": 50,
+      "meanDeaths": 0,
+      "pairedDeltaVsRules": {
+        "livingPeople": {
+          "n": 1,
+          "mean": 0,
+          "ci95": null
+        },
+        "deaths": {
+          "n": 1,
+          "mean": 0,
+          "ci95": null
+        },
+        "plantFoodHarvested": {
+          "n": 1,
+          "mean": 0,
+          "ci95": null
+        },
+        "cultivatedFoodHarvested": {
+          "n": 1,
+          "mean": 0,
+          "ci95": null
+        }
+      }
+    },
+    {
+      "candidate": "network-9",
+      "hiddenSize": 9,
+      "runs": 1,
+      "meanLivingPeople": 50,
+      "meanDeaths": 0,
+      "pairedDeltaVsRules": {
+        "livingPeople": {
+          "n": 1,
+          "mean": 0,
+          "ci95": null
+        },
+        "deaths": {
+          "n": 1,
+          "mean": 0,
+          "ci95": null
+        },
+        "plantFoodHarvested": {
+          "n": 1,
+          "mean": 0,
+          "ci95": null
+        },
+        "cultivatedFoodHarvested": {
+          "n": 1,
+          "mean": 0,
+          "ci95": null
+        }
+      }
+    }
+  ]
+}

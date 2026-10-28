@@ -482,7 +482,9 @@ export function getSocialCommitment(world, commitmentId) {
 
 function commitmentTransition(world, entry, { status, type, outcome, details = {} }) {
   const current = entry.record;
-  const witnessIds = current.parties.filter(partyId => personById(world, partyId)?.alive);
+  const witnessIds = current.parties.filter(partyId => personById(world, partyId)?.alive
+    && (current.status !== 'proposed' || !['social_commitment_expired', 'social_commitment_cancelled'].includes(type)
+      || partyId === current.proposedBy));
   const fact = recordSocialFact(world, {
     idempotencyKey: 'social-commitment:' + current.commitmentId + ':' + type + ':' + world.day + ':' + JSON.stringify(outcome),
     type,
@@ -742,6 +744,14 @@ export function physicalIntentionBlockers(person, currentDay) {
   return blockers;
 }
 
+function cancelIntentionCommitment(world, person, intention) {
+  const commitment = getSocialCommitment(world, intention.commitmentId);
+  if (commitment && ['proposed', 'accepted'].includes(commitment.status)
+      && commitment.parties.includes(String(person.id))) {
+    cancelSocialCommitment(world, person.id, commitment.commitmentId);
+  }
+}
+
 export function maintainSocialIntentions(world, person) {
   if (!person || !Array.isArray(person.socialIntentions)) return 0;
   let changes = 0;
@@ -755,6 +765,7 @@ export function maintainSocialIntentions(world, person) {
       continue;
     }
     if (!person.alive) {
+      cancelIntentionCommitment(world, person, current);
       advanceSocialIntention(world, person.id, current.intentionId, { status: 'abandoned',
         blockers: ['owner_dead'], terminationReason: 'owner_dead' });
       changes++;
@@ -778,6 +789,7 @@ export function maintainSocialIntentions(world, person) {
     if (current.type === 'seek_food_aid' && current.targetId != null) {
       const target = personById(world, current.targetId);
       if (!target?.alive) {
+        cancelIntentionCommitment(world, person, current);
         advanceSocialIntention(world, person.id, current.intentionId, { status: 'abandoned',
           blockers: ['target_unavailable'], terminationReason: 'target_unavailable' });
         changes++;
@@ -832,6 +844,7 @@ export function abandonSocialIntentionsForPerson(world, person, reason = 'owner_
   let abandoned = 0;
   for (const current of person.socialIntentions.slice()) {
     if (TERMINAL_INTENTION_STATUSES.has(current.status)) continue;
+    cancelIntentionCommitment(world, person, current);
     advanceSocialIntention(world, person.id, current.intentionId, { status: 'abandoned',
       blockers: [reason], terminationReason: reason });
     abandoned++;

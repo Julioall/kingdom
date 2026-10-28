@@ -1,0 +1,35 @@
+{
+  "source_file": "Texto colado.txt",
+  "source_origin": {
+    "col": -3,
+    "row": 309
+  },
+  "canvas_size": [
+    195,
+    77
+  ],
+  "visible_bounds_local_xyxy": [
+    12,
+    0,
+    195,
+    75
+  ],
+  "pixel_entries": 15015,
+  "visible_pixels": 8172,
+  "encoding": "uint32 read as little-endian RGBA bytes (R in the least-significant byte); transparent rgba string preserved",
+  "palette_hex": [
+    "#3A3A50",
+    "#6B5052",
+    "#A85F46",
+    "#B5754D",
+    "#C78C59",
+    "#DAA463",
+    "#DE7010",
+    "#E0B870",
+    "#ED931E",
+    "#F1CE8E",
+    "#F2B22B",
+    "#F8D239"
+  ],
+  "source_time": 1792968976464
+}

@@ -1,0 +1,138 @@
+{
+  "source_file": "Texto colado.txt",
+  "source_sha256": "5f0f9ef9ec5cbcd182d2ffcf47325f565229c44f16f8473e1a3503ab53570fc8",
+  "source_coordinate_bounds": {
+    "col": [
+      -3,
+      191
+    ],
+    "row": [
+      309,
+      385
+    ]
+  },
+  "pixel_color_encoding": "uint32 decoded as little-endian RGBA; transparent rgba string preserved",
+  "source_growth_frame_count": 4,
+  "source_growth_frame_width": 48,
+  "source_growth_frame_height": 75,
+  "source_growth_frame_bboxes": [
+    [
+      9,
+      27,
+      36,
+      75
+    ],
+    [
+      0,
+      15,
+      48,
+      75
+    ],
+    [
+      0,
+      6,
+      48,
+      75
+    ],
+    [
+      0,
+      0,
+      48,
+      75
+    ]
+  ],
+  "terrain_reference_file": "1_Terrains_48x48 (1).png",
+  "terrain_reference_sha256": "5dc7c3f77ada47e0156f70e2f193dc62484279763e2e36bb13334fc5bf62d275",
+  "generated_texture_reference": "C:\\Users\\Julio\\.codex\\generated_images\\01a16f45-6a60-73c3-a444-695fd9ccc1bf\\exec-c8bdcb54-9124-4a97-a6eb-91554c117af6.png",
+  "palette_reference": "reports/art-direction/kingdom-palette.gpl",
+  "soil_description": "near-square raised earth plot with irregular pixel-stepped edges, dark outline, subtle lower-left shadow and no plow furrows",
+  "soil_tile_size": [
+    48,
+    48
+  ],
+  "terrain_variant_count": 4,
+  "terrain_atlas": "public/assets/kingdom-autotile/rice-field-ground.png",
+  "terrain_atlas_size": [
+    96,
+    96
+  ],
+  "static_growth_atlas": "public/assets/kingdom-autotile/rice-growth-stages.png",
+  "static_growth_atlas_size": [
+    64,
+    256
+  ],
+  "growth_frame_size": [
+    64,
+    64
+  ],
+  "growth_frame_display_size": [
+    48,
+    48
+  ],
+  "plant_centering": {
+    "centered_in_frame": true,
+    "placement": [
+      14,
+      5
+    ],
+    "source_art_size": [
+      35,
+      54
+    ],
+    "clipped_to_plot_inner_mask": true
+  },
+  "wind_animation_atlas": "public/assets/kingdom-autotile/rice-growth-wind.png",
+  "wind_animation_atlas_size": [
+    1024,
+    256
+  ],
+  "wind_animation_layout": "16 columns by 4 rows; columns are eased wind phases and rows are growth stages 1 through 4",
+  "wind_frame_duration_ms": 50,
+  "wind_top_offsets_px": [
+    0,
+    0.5,
+    1,
+    1.5,
+    2,
+    1.5,
+    1,
+    0.5,
+    0,
+    -0.5,
+    -1,
+    -1.5,
+    -2,
+    -1.5,
+    -1,
+    -0.5
+  ],
+  "stage_wind_scale": [
+    0.8,
+    0.85,
+    0.9,
+    0.75
+  ],
+  "rice_growth_palette_excluded_colors": [
+    "#924159",
+    "#9B6253",
+    "#DE5454",
+    "#F4A47B"
+  ],
+  "root_band_start_y": 56,
+  "root_band_unchanged": true,
+  "distinct_wind_frames_per_stage": [
+    7,
+    7,
+    7,
+    7
+  ],
+  "stage_thresholds": {
+    "stage_1": "0.8 <= cropMass < 24",
+    "stage_2": "24 <= cropMass < 50",
+    "stage_3": "50 <= cropMass < 80",
+    "stage_4": "cropMass >= 80"
+  },
+  "ground_preview": "reports/art-direction/rice-field-ground-preview.png",
+  "contact_sheet": "reports/art-direction/rice-growth-stages-preview.png",
+  "animated_preview": "reports/art-direction/rice-growth-wind-preview.gif"
+}

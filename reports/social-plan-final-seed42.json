@@ -1,0 +1,2917 @@
+{
+  "seed": 42,
+  "days": 180,
+  "person": {
+    "id": 135,
+    "name": "Oru P",
+    "role": "resident",
+    "alive": true
+  },
+  "plans": [
+    {
+      "schemaVersion": 1,
+      "worldSeed": 42,
+      "worldEpoch": 0,
+      "dueDay": 133,
+      "createdDay": 112,
+      "updatedDay": 129,
+      "intentionId": "42:epoch:0:intention:5",
+      "ownerId": "135",
+      "type": "seek_food_aid",
+      "priority": 0.7,
+      "targetId": "158",
+      "commitmentId": "42:epoch:0:commitment:5",
+      "destination": null,
+      "steps": [
+        {
+          "action": "approach_helper",
+          "targetId": "158"
+        },
+        {
+          "action": "request_food",
+          "targetId": "158"
+        },
+        {
+          "action": "receive_food",
+          "targetId": "158"
+        }
+      ],
+      "progress": 3,
+      "blockers": [],
+      "evidenceIds": [
+        "42:epoch:0:social:42"
+      ],
+      "endsWhen": "aid_delivered_or_deadline",
+      "status": "completed",
+      "transitionEventIds": [
+        "42:epoch:0:social:31",
+        "42:epoch:0:social:33",
+        "42:epoch:0:social:34",
+        "42:epoch:0:social:37",
+        "42:epoch:0:social:38",
+        "42:epoch:0:social:44"
+      ],
+      "terminationReason": "aid_delivered"
+    },
+    {
+      "schemaVersion": 1,
+      "worldSeed": 42,
+      "worldEpoch": 0,
+      "dueDay": 164,
+      "createdDay": 143,
+      "updatedDay": 165,
+      "intentionId": "42:epoch:0:intention:6",
+      "ownerId": "135",
+      "type": "seek_food_aid",
+      "priority": 0.7,
+      "targetId": "158",
+      "commitmentId": "42:epoch:0:commitment:6",
+      "destination": null,
+      "steps": [
+        {
+          "action": "approach_helper",
+          "targetId": "158"
+        },
+        {
+          "action": "request_food",
+          "targetId": "158"
+        },
+        {
+          "action": "receive_food",
+          "targetId": "158"
+        }
+      ],
+      "progress": 1,
+      "blockers": [
+        "deadline_expired"
+      ],
+      "evidenceIds": [
+        "42:epoch:0:social:41",
+        "42:epoch:0:social:42"
+      ],
+      "endsWhen": "aid_delivered_or_deadline",
+      "status": "abandoned",
+      "transitionEventIds": [
+        "42:epoch:0:social:45",
+        "42:epoch:0:social:54",
+        "42:epoch:0:social:55",
+        "42:epoch:0:social:56",
+        "42:epoch:0:social:83",
+        "42:epoch:0:social:87",
+        "42:epoch:0:social:88",
+        "42:epoch:0:social:98"
+      ],
+      "terminationReason": "deadline_expired"
+    },
+    {
+      "schemaVersion": 1,
+      "worldSeed": 42,
+      "worldEpoch": 0,
+      "dueDay": 185,
+      "createdDay": 178,
+      "updatedDay": 179,
+      "intentionId": "42:epoch:0:intention:23",
+      "ownerId": "135",
+      "type": "seek_food_aid",
+      "priority": 0.7,
+      "targetId": "138",
+      "commitmentId": "42:epoch:0:commitment:23",
+      "destination": null,
+      "steps": [
+        {
+          "action": "approach_helper",
+          "targetId": "138"
+        },
+        {
+          "action": "request_food",
+          "targetId": "138"
+        },
+        {
+          "action": "receive_food",
+          "targetId": "138"
+        }
+      ],
+      "progress": 1,
+      "blockers": [
+        "helper_without_visible_surplus"
+      ],
+      "evidenceIds": [],
+      "endsWhen": "aid_delivered_or_deadline",
+      "status": "suspended",
+      "transitionEventIds": [
+        "42:epoch:0:social:165",
+        "42:epoch:0:social:178"
+      ]
+    }
+  ],
+  "openDays": 41,
+  "actions": {
+    "socialize": 24,
+    "build": 2,
+    "rest": 14,
+    "forage": 1
+  },
+  "openPlanDaysByRole": {
+    "resident": {
+      "socialize": 95,
+      "build": 9,
+      "rest": 41,
+      "forage": 18,
+      "drink": 1,
+      "trade": 2
+    },
+    "soldier": {
+      "socialize": 3,
+      "rest": 14,
+      "patrol": 3,
+      "guard": 2
+    }
+  },
+  "aidPlanOutcomes": {
+    "resident:completed": 16,
+    "soldier:abandoned": 1,
+    "resident:abandoned": 4,
+    "resident:active": 2,
+    "resident:suspended": 2
+  },
+  "commitmentOutcomes": {
+    "expired": 4,
+    "fulfilled": 16,
+    "cancelled": 1,
+    "proposed": 4
+  },
+  "reportedMemories": 0,
+  "trace": [
+    {
+      "executedDay": 112,
+      "snapshotDay": 113,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.77907384579588,
+      "hydration": 51.5701554282758,
+      "energy": 40.64966240038518,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 127,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9.055385138137417,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 113,
+      "snapshotDay": 114,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.77907384579588,
+      "hydration": 51.2701554282758,
+      "energy": 40.285342400414685,
+      "position": {
+        "x": 68,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 128,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 114,
+      "snapshotDay": 115,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.77907384579588,
+      "hydration": 50.9701554282758,
+      "energy": 39.92102240044419,
+      "position": {
+        "x": 68,
+        "y": 91
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 129,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 8,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 115,
+      "snapshotDay": 116,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "indo para o ponto de construção",
+      "food": 39.77907384579588,
+      "hydration": 50.670155428275805,
+      "energy": 39.55670240047369,
+      "position": {
+        "x": 68,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 130,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "suspended",
+        "progress": 1,
+        "blockers": [
+          "target_not_visible"
+        ]
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 116,
+      "snapshotDay": 117,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "indo para o ponto de construção",
+      "food": 39.77907384579588,
+      "hydration": 50.37015542827581,
+      "energy": 39.19238240050319,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 131,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "suspended",
+        "progress": 1,
+        "blockers": [
+          "target_not_visible"
+        ]
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9.055385138137417,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 117,
+      "snapshotDay": 118,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.77907384579588,
+      "hydration": 50.07015542827581,
+      "energy": 38.828062400532694,
+      "position": {
+        "x": 68,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 132,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 118,
+      "snapshotDay": 119,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.77907384579588,
+      "hydration": 49.770155428275814,
+      "energy": 38.4637424005622,
+      "position": {
+        "x": 68,
+        "y": 91
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 133,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 8,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 119,
+      "snapshotDay": 120,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.77907384579588,
+      "hydration": 49.47015542827582,
+      "energy": 38.0994224005917,
+      "position": {
+        "x": 68,
+        "y": 90
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 134,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 7,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 120,
+      "snapshotDay": 121,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.77907384579588,
+      "hydration": 49.17015542827582,
+      "energy": 37.7351024006212,
+      "position": {
+        "x": 68,
+        "y": 89
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 135,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 6,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 121,
+      "snapshotDay": 122,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.77907384579588,
+      "hydration": 48.87015542827582,
+      "energy": 37.370782400650704,
+      "position": {
+        "x": 68,
+        "y": 88
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 136,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 5,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 122,
+      "snapshotDay": 123,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.77907384579588,
+      "hydration": 48.570155428275825,
+      "energy": 37.006462400680206,
+      "position": {
+        "x": 68,
+        "y": 87
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 137,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 4,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 123,
+      "snapshotDay": 124,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.77907384579588,
+      "hydration": 48.27015542827583,
+      "energy": 36.64214240070971,
+      "position": {
+        "x": 68,
+        "y": 86
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 138,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 3,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 124,
+      "snapshotDay": 125,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.77907384579588,
+      "hydration": 47.97015542827583,
+      "energy": 36.27782240073921,
+      "position": {
+        "x": 68,
+        "y": 85
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 139,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 2,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 125,
+      "snapshotDay": 126,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "rota de ajuda inviável",
+      "food": 39.77907384579588,
+      "hydration": 47.670155428275834,
+      "energy": 36.01382240073921,
+      "position": {
+        "x": 68,
+        "y": 85
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 140,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "suspended",
+        "progress": 1,
+        "blockers": [
+          "route_infeasible"
+        ]
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 2,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 126,
+      "snapshotDay": 127,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "rota de ajuda inviável",
+      "food": 39.77907384579588,
+      "hydration": 47.37015542827584,
+      "energy": 35.749822400739205,
+      "position": {
+        "x": 68,
+        "y": 85
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 141,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "suspended",
+        "progress": 1,
+        "blockers": [
+          "route_infeasible"
+        ]
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 2,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 127,
+      "snapshotDay": 128,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "rota de ajuda inviável",
+      "food": 39.77907384579588,
+      "hydration": 47.07015542827584,
+      "energy": 35.4858224007392,
+      "position": {
+        "x": 68,
+        "y": 85
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 142,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "suspended",
+        "progress": 1,
+        "blockers": [
+          "route_infeasible"
+        ]
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 2,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 128,
+      "snapshotDay": 129,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.77907384579588,
+      "hydration": 46.77015542827584,
+      "energy": 35.121502400768705,
+      "position": {
+        "x": 69,
+        "y": 84
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 143,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 1.4142135623730951,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 129,
+      "snapshotDay": 130,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "pedido de alimento aceito",
+      "food": 42.27907384579588,
+      "hydration": 46.470155428275845,
+      "energy": 34.8575024007687,
+      "position": {
+        "x": 69,
+        "y": 84
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 144,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "completed",
+        "progress": 3,
+        "blockers": [],
+        "reason": "aid_delivered"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 1.4142135623730951,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 130,
+      "snapshotDay": 131,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "indo para o ponto de construção",
+      "food": 41.49907384579588,
+      "hydration": 46.17015542827585,
+      "energy": 34.493182400798204,
+      "position": {
+        "x": 69,
+        "y": 85
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 145,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "completed",
+        "progress": 3,
+        "blockers": [],
+        "reason": "aid_delivered"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 2.23606797749979,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 131,
+      "snapshotDay": 132,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "indo para o ponto de construção",
+      "food": 41.49907384579588,
+      "hydration": 45.87015542827585,
+      "energy": 34.12886240082771,
+      "position": {
+        "x": 69,
+        "y": 86
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 146,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "completed",
+        "progress": 3,
+        "blockers": [],
+        "reason": "aid_delivered"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 3.1622776601683795,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 132,
+      "snapshotDay": 133,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "indo para o ponto de construção",
+      "food": 41.49907384579588,
+      "hydration": 45.570155428275854,
+      "energy": 33.76454240085721,
+      "position": {
+        "x": 69,
+        "y": 87
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 147,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "completed",
+        "progress": 3,
+        "blockers": [],
+        "reason": "aid_delivered"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 4.123105625617661,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 133,
+      "snapshotDay": 134,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "indo para o ponto de construção",
+      "food": 41.49907384579588,
+      "hydration": 45.27015542827586,
+      "energy": 33.40022240088671,
+      "position": {
+        "x": 69,
+        "y": 88
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 148,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "completed",
+        "progress": 3,
+        "blockers": [],
+        "reason": "aid_delivered"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 5.099019513592785,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 134,
+      "snapshotDay": 135,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "indo para o ponto de construção",
+      "food": 41.49907384579588,
+      "hydration": 44.97015542827586,
+      "energy": 33.035902400916214,
+      "position": {
+        "x": 68,
+        "y": 89
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 149,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "completed",
+        "progress": 3,
+        "blockers": [],
+        "reason": "aid_delivered"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 6,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 135,
+      "snapshotDay": 136,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "indo para o ponto de construção",
+      "food": 41.49907384579588,
+      "hydration": 44.67015542827586,
+      "energy": 32.67158240094572,
+      "position": {
+        "x": 68,
+        "y": 90
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 150,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "completed",
+        "progress": 3,
+        "blockers": [],
+        "reason": "aid_delivered"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 7,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 136,
+      "snapshotDay": 137,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "indo para o ponto de construção",
+      "food": 41.49907384579588,
+      "hydration": 44.370155428275865,
+      "energy": 32.30726240097522,
+      "position": {
+        "x": 68,
+        "y": 91
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 151,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "completed",
+        "progress": 3,
+        "blockers": [],
+        "reason": "aid_delivered"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 8
+      }
+    },
+    {
+      "executedDay": 137,
+      "snapshotDay": 138,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "indo para o ponto de construção",
+      "food": 41.49907384579588,
+      "hydration": 44.07015542827587,
+      "energy": 31.94294240100472,
+      "position": {
+        "x": 68,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 152,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "completed",
+        "progress": 3,
+        "blockers": [],
+        "reason": "aid_delivered"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9
+      }
+    },
+    {
+      "executedDay": 138,
+      "snapshotDay": 139,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "indo para o ponto de construção",
+      "food": 41.49907384579588,
+      "hydration": 43.77015542827587,
+      "energy": 31.578622401034227,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 153,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "completed",
+        "progress": 3,
+        "blockers": [],
+        "reason": "aid_delivered"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9.055385138137417
+      }
+    },
+    {
+      "executedDay": 139,
+      "snapshotDay": 140,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "construindo roça",
+      "food": 41.09907384579588,
+      "hydration": 43.47015542827587,
+      "energy": 30.43462240103423,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 154,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "completed",
+        "progress": 3,
+        "blockers": [],
+        "reason": "aid_delivered"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9.055385138137417,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 140,
+      "snapshotDay": 141,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "construindo roça",
+      "food": 40.69907384579588,
+      "hydration": 43.170155428275876,
+      "energy": 29.29062240103423,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 155,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "completed",
+        "progress": 3,
+        "blockers": [],
+        "reason": "aid_delivered"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9.055385138137417,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 141,
+      "snapshotDay": 142,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "construindo roça",
+      "food": 40.29907384579588,
+      "hydration": 42.87015542827588,
+      "energy": 28.146622401034232,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 156,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "completed",
+        "progress": 3,
+        "blockers": [],
+        "reason": "aid_delivered"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9.055385138137417,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 142,
+      "snapshotDay": 143,
+      "role": "resident",
+      "alive": true,
+      "action": "build",
+      "scoredDecision": false,
+      "state": "construindo roça",
+      "food": 39.89907384579588,
+      "hydration": 42.57015542827588,
+      "energy": 27.002622401034234,
+      "position": {
+        "x": 69,
+        "y": 92
+      },
+      "assignment": {
+        "action": "build",
+        "source": "community-project",
+        "expiresDay": 157,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:5",
+        "created": 112,
+        "due": 133,
+        "status": "completed",
+        "progress": 3,
+        "blockers": [],
+        "reason": "aid_delivered"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9.055385138137417,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 143,
+      "snapshotDay": 144,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.89907384579588,
+      "hydration": 42.270155428275885,
+      "energy": 26.63830240106374,
+      "position": {
+        "x": 68,
+        "y": 92
+      },
+      "assignment": null,
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 144,
+      "snapshotDay": 145,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.89907384579588,
+      "hydration": 41.97015542827589,
+      "energy": 26.273982401093246,
+      "position": {
+        "x": 68,
+        "y": 91
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 151,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 8,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 145,
+      "snapshotDay": 146,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.89907384579588,
+      "hydration": 41.67015542827589,
+      "energy": 25.909662401122752,
+      "position": {
+        "x": 68,
+        "y": 90
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 151,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 7,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 146,
+      "snapshotDay": 147,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.89907384579588,
+      "hydration": 41.37015542827589,
+      "energy": 25.545342401152258,
+      "position": {
+        "x": 68,
+        "y": 89
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 151,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 6,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 147,
+      "snapshotDay": 148,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.89907384579588,
+      "hydration": 41.070155428275896,
+      "energy": 25.181022401181764,
+      "position": {
+        "x": 68,
+        "y": 88
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 151,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 5,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 148,
+      "snapshotDay": 149,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.89907384579588,
+      "hydration": 40.7701554282759,
+      "energy": 24.81670240121127,
+      "position": {
+        "x": 68,
+        "y": 87
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 151,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 4,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 149,
+      "snapshotDay": 150,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.89907384579588,
+      "hydration": 40.4701554282759,
+      "energy": 24.452382401240776,
+      "position": {
+        "x": 68,
+        "y": 86
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 151,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 3,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 150,
+      "snapshotDay": 151,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 39.89907384579588,
+      "hydration": 40.170155428275905,
+      "energy": 24.08806240127028,
+      "position": {
+        "x": 68,
+        "y": 85
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 151,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 2,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 151,
+      "snapshotDay": 152,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "indo descansar na casa",
+      "food": 39.89907384579588,
+      "hydration": 39.87015542827591,
+      "energy": 23.723742401299788,
+      "position": {
+        "x": 68,
+        "y": 86
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 151,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "suspended",
+        "progress": 1,
+        "blockers": [
+          "rest_required"
+        ]
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 3,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 152,
+      "snapshotDay": 153,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "indo descansar na casa",
+      "food": 39.89907384579588,
+      "hydration": 39.57015542827591,
+      "energy": 23.359422401329294,
+      "position": {
+        "x": 67,
+        "y": 86
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 159,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "suspended",
+        "progress": 1,
+        "blockers": [
+          "target_not_visible",
+          "rest_required"
+        ]
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 3.1622776601683795,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 153,
+      "snapshotDay": 154,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "indo descansar na casa",
+      "food": 39.89907384579588,
+      "hydration": 39.27015542827591,
+      "energy": 22.9951024013588,
+      "position": {
+        "x": 66,
+        "y": 86
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 159,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "suspended",
+        "progress": 1,
+        "blockers": [
+          "target_not_visible",
+          "rest_required"
+        ]
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 3.6055512754639896,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 154,
+      "snapshotDay": 155,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "indo descansar na casa",
+      "food": 39.89907384579588,
+      "hydration": 38.970155428275916,
+      "energy": 22.630782401388306,
+      "position": {
+        "x": 65,
+        "y": 86
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 159,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "suspended",
+        "progress": 1,
+        "blockers": [
+          "target_not_visible",
+          "rest_required"
+        ]
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 4.242640687119286,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 155,
+      "snapshotDay": 156,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "indo descansar na casa",
+      "food": 39.89907384579588,
+      "hydration": 38.67015542827592,
+      "energy": 22.26646240141781,
+      "position": {
+        "x": 64,
+        "y": 86
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 159,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "suspended",
+        "progress": 1,
+        "blockers": [
+          "target_not_visible",
+          "rest_required"
+        ]
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 5,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 156,
+      "snapshotDay": 157,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "indo descansar na casa",
+      "food": 39.11907384579588,
+      "hydration": 38.37015542827592,
+      "energy": 21.902142401447318,
+      "position": {
+        "x": 63,
+        "y": 86
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 159,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "suspended",
+        "progress": 1,
+        "blockers": [
+          "target_not_visible",
+          "rest_required"
+        ]
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 5.8309518948453,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 157,
+      "snapshotDay": 158,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "indo descansar na casa",
+      "food": 38.33907384579588,
+      "hydration": 38.070155428275925,
+      "energy": 21.63814240144732,
+      "position": {
+        "x": 63,
+        "y": 86
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 159,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "suspended",
+        "progress": 1,
+        "blockers": [
+          "target_not_visible",
+          "rest_required"
+        ]
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 5.8309518948453
+      }
+    },
+    {
+      "executedDay": 158,
+      "snapshotDay": 159,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "indo descansar na casa",
+      "food": 37.55907384579588,
+      "hydration": 37.77015542827593,
+      "energy": 21.37414240144732,
+      "position": {
+        "x": 63,
+        "y": 86
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 159,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "suspended",
+        "progress": 1,
+        "blockers": [
+          "target_not_visible",
+          "rest_required"
+        ]
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 5.8309518948453
+      }
+    },
+    {
+      "executedDay": 159,
+      "snapshotDay": 160,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "indo descansar na casa",
+      "food": 36.77907384579588,
+      "hydration": 37.47015542827593,
+      "energy": 21.11014240144732,
+      "position": {
+        "x": 63,
+        "y": 86
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 159,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "suspended",
+        "progress": 1,
+        "blockers": [
+          "target_not_visible",
+          "rest_required"
+        ]
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 5.8309518948453
+      }
+    },
+    {
+      "executedDay": 160,
+      "snapshotDay": 161,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "indo descansar na casa",
+      "food": 35.99907384579588,
+      "hydration": 37.17015542827593,
+      "energy": 20.745822401476826,
+      "position": {
+        "x": 63,
+        "y": 85
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 167,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "suspended",
+        "progress": 1,
+        "blockers": [
+          "target_not_visible",
+          "rest_required"
+        ]
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 5.385164807134505
+      }
+    },
+    {
+      "executedDay": 161,
+      "snapshotDay": 162,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "indo descansar na casa",
+      "food": 35.219073845795876,
+      "hydration": 36.870155428275936,
+      "energy": 20.38150240150633,
+      "position": {
+        "x": 64,
+        "y": 84
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 167,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "suspended",
+        "progress": 1,
+        "blockers": [
+          "rest_required"
+        ]
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 4.123105625617661,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 162,
+      "snapshotDay": 163,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "indo descansar na casa",
+      "food": 34.439073845795875,
+      "hydration": 36.57015542827594,
+      "energy": 20.017182401535837,
+      "position": {
+        "x": 63,
+        "y": 83
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 167,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "suspended",
+        "progress": 1,
+        "blockers": [
+          "rest_required"
+        ]
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 5,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 163,
+      "snapshotDay": 164,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "indo descansar na casa",
+      "food": 33.659073845795874,
+      "hydration": 36.27015542827594,
+      "energy": 19.652862401565343,
+      "position": {
+        "x": 62,
+        "y": 83
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 167,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "suspended",
+        "progress": 1,
+        "blockers": [
+          "target_not_visible",
+          "rest_required"
+        ]
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 6,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 164,
+      "snapshotDay": 165,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "indo descansar na casa",
+      "food": 32.87907384579587,
+      "hydration": 35.970155428275945,
+      "energy": 19.28854240159485,
+      "position": {
+        "x": 61,
+        "y": 83
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 167,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "suspended",
+        "progress": 1,
+        "blockers": [
+          "target_not_visible",
+          "rest_required"
+        ]
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 7,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 165,
+      "snapshotDay": 166,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "indo descansar na casa",
+      "food": 32.09907384579587,
+      "hydration": 35.67015542827595,
+      "energy": 18.924222401624355,
+      "position": {
+        "x": 60,
+        "y": 83
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 167,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "abandoned",
+        "progress": 1,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 8,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 166,
+      "snapshotDay": 167,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "indo descansar na casa",
+      "food": 31.31907384579587,
+      "hydration": 35.37015542827595,
+      "energy": 18.55990240165386,
+      "position": {
+        "x": 59,
+        "y": 84
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 167,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "abandoned",
+        "progress": 1,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9.055385138137417,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 167,
+      "snapshotDay": 168,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "indo descansar na casa",
+      "food": 30.53907384579587,
+      "hydration": 35.07015542827595,
+      "energy": 18.195582401683367,
+      "position": {
+        "x": 59,
+        "y": 83
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 167,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "abandoned",
+        "progress": 1,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 168,
+      "snapshotDay": 169,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "indo descansar na casa",
+      "food": 29.759073845795868,
+      "hydration": 34.770155428275956,
+      "energy": 17.931582401683368,
+      "position": {
+        "x": 59,
+        "y": 83
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 175,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "abandoned",
+        "progress": 1,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 169,
+      "snapshotDay": 170,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "indo descansar na casa",
+      "food": 28.979073845795867,
+      "hydration": 34.47015542827596,
+      "energy": 17.66758240168337,
+      "position": {
+        "x": 59,
+        "y": 83
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 175,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "abandoned",
+        "progress": 1,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9,
+        "visibleAtObservation": false
+      }
+    },
+    {
+      "executedDay": 170,
+      "snapshotDay": 171,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "indo descansar na casa",
+      "food": 28.199073845795866,
+      "hydration": 34.17015542827596,
+      "energy": 17.40358240168337,
+      "position": {
+        "x": 59,
+        "y": 83
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 175,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "abandoned",
+        "progress": 1,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 171,
+      "snapshotDay": 172,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "indo descansar na casa",
+      "food": 27.419073845795864,
+      "hydration": 33.870155428275964,
+      "energy": 17.039262401712875,
+      "position": {
+        "x": 59,
+        "y": 84
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 175,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "abandoned",
+        "progress": 1,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 9.055385138137417,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 172,
+      "snapshotDay": 173,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "indo descansar na casa",
+      "food": 26.639073845795863,
+      "hydration": 33.57015542827597,
+      "energy": 16.67494240174238,
+      "position": {
+        "x": 60,
+        "y": 85
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 175,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "abandoned",
+        "progress": 1,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 8.246211251235321,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 173,
+      "snapshotDay": 174,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "descansando dentro da casa",
+      "food": 25.859073845795862,
+      "hydration": 33.27015542827597,
+      "energy": 30.410942401742382,
+      "position": {
+        "x": 60,
+        "y": 85
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 175,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "abandoned",
+        "progress": 1,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 8.246211251235321,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 174,
+      "snapshotDay": 175,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "descansando dentro da casa",
+      "food": 25.07907384579586,
+      "hydration": 32.97015542827597,
+      "energy": 44.14694240174238,
+      "position": {
+        "x": 60,
+        "y": 85
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 175,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "abandoned",
+        "progress": 1,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 8.246211251235321,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 175,
+      "snapshotDay": 176,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "descansando dentro da casa",
+      "food": 24.29907384579586,
+      "hydration": 32.670155428275976,
+      "energy": 57.882942401742376,
+      "position": {
+        "x": 60,
+        "y": 85
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 175,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "abandoned",
+        "progress": 1,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 8.246211251235321,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 176,
+      "snapshotDay": 177,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "descansando dentro da casa",
+      "food": 23.51907384579586,
+      "hydration": 32.37015542827598,
+      "energy": 71.61894240174237,
+      "position": {
+        "x": 60,
+        "y": 85
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 183,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "abandoned",
+        "progress": 1,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 8.246211251235321,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 177,
+      "snapshotDay": 178,
+      "role": "resident",
+      "alive": true,
+      "action": "rest",
+      "scoredDecision": false,
+      "state": "descansando dentro da casa",
+      "food": 22.739073845795858,
+      "hydration": 32.07015542827598,
+      "energy": 85.35494240174238,
+      "position": {
+        "x": 60,
+        "y": 85
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 183,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:6",
+        "created": 143,
+        "due": 164,
+        "status": "abandoned",
+        "progress": 1,
+        "blockers": [
+          "deadline_expired"
+        ],
+        "reason": "deadline_expired"
+      },
+      "helper": {
+        "id": 158,
+        "name": "Cora I",
+        "alive": true,
+        "distanceAfterActions": 8.246211251235321,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 178,
+      "snapshotDay": 179,
+      "role": "resident",
+      "alive": true,
+      "action": "socialize",
+      "scoredDecision": false,
+      "state": "indo pedir ajuda alimentar",
+      "food": 21.959073845795857,
+      "hydration": 31.77015542827598,
+      "energy": 84.99062240177189,
+      "position": {
+        "x": 60,
+        "y": 86
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 183,
+        "pauseReason": "plano individual em execução"
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:23",
+        "created": 178,
+        "due": 185,
+        "status": "active",
+        "progress": 1,
+        "blockers": []
+      },
+      "helper": {
+        "id": 138,
+        "name": "Uira L",
+        "alive": true,
+        "distanceAfterActions": 1.4142135623730951,
+        "visibleAtObservation": true,
+        "surplusAtObservation": true
+      }
+    },
+    {
+      "executedDay": 179,
+      "snapshotDay": 180,
+      "role": "resident",
+      "alive": true,
+      "action": "forage",
+      "scoredDecision": true,
+      "state": "coletando alimento",
+      "food": 23.051915122018084,
+      "hydration": 31.47015542827598,
+      "energy": 85.07383272082745,
+      "position": {
+        "x": 60,
+        "y": 86
+      },
+      "assignment": {
+        "action": "forage",
+        "source": "kingdom-strategy",
+        "expiresDay": 183,
+        "pauseReason": null
+      },
+      "plan": {
+        "id": "42:epoch:0:intention:23",
+        "created": 178,
+        "due": 185,
+        "status": "suspended",
+        "progress": 1,
+        "blockers": [
+          "helper_without_visible_surplus"
+        ]
+      },
+      "helper": {
+        "id": 138,
+        "name": "Uira L",
+        "alive": true,
+        "distanceAfterActions": 1.4142135623730951,
+        "visibleAtObservation": true,
+        "surplusAtObservation": false
+      }
+    }
+  ],
+  "commitments": [
+    {
+      "schemaVersion": 1,
+      "worldSeed": 42,
+      "worldEpoch": 0,
+      "day": 112,
+      "proposedBy": "135",
+      "parties": [
+        "135",
+        "158"
+      ],
+      "object": "food",
+      "quantity": 2.5,
+      "dueDay": 133,
+      "status": "fulfilled",
+      "deliveredQuantity": 2.5,
+      "deliveryEventIds": [
+        "42:epoch:0:social:42"
+      ],
+      "transitionEventIds": [
+        "42:epoch:0:social:40",
+        "42:epoch:0:social:43"
+      ],
+      "resourceReferences": [],
+      "evidenceEventIds": [],
+      "commitmentId": "42:epoch:0:commitment:5",
+      "acceptedBy": "158",
+      "acceptedDay": 129,
+      "updatedDay": 129,
+      "lastTransitionEventId": "42:epoch:0:social:43",
+      "resolvedDay": 129,
+      "resolutionEventId": "42:epoch:0:social:42"
+    },
+    {
+      "schemaVersion": 1,
+      "worldSeed": 42,
+      "worldEpoch": 0,
+      "day": 143,
+      "proposedBy": "135",
+      "parties": [
+        "135",
+        "158"
+      ],
+      "object": "food",
+      "quantity": 2.5,
+      "dueDay": 164,
+      "status": "expired",
+      "deliveredQuantity": 0,
+      "deliveryEventIds": [],
+      "transitionEventIds": [
+        "42:epoch:0:social:90"
+      ],
+      "resourceReferences": [],
+      "evidenceEventIds": [],
+      "commitmentId": "42:epoch:0:commitment:6",
+      "resolvedDay": 165,
+      "updatedDay": 165,
+      "lastTransitionEventId": "42:epoch:0:social:90"
+    },
+    {
+      "schemaVersion": 1,
+      "worldSeed": 42,
+      "worldEpoch": 0,
+      "day": 178,
+      "proposedBy": "135",
+      "parties": [
+        "135",
+        "138"
+      ],
+      "object": "food",
+      "quantity": 2.5,
+      "dueDay": 185,
+      "status": "proposed",
+      "deliveredQuantity": 0,
+      "deliveryEventIds": [],
+      "transitionEventIds": [],
+      "resourceReferences": [],
+      "evidenceEventIds": [],
+      "commitmentId": "42:epoch:0:commitment:23"
+    }
+  ]
+}

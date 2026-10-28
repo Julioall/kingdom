@@ -1,0 +1,61 @@
+GIMP Palette
+Name: Kingdom reference assets
+Columns: 6
+# Selected opaque colors; measured from current assets
+ 22  28  46  #161C2E Contorno
+200 168 118  #C8A876 Pele / tecido
+239 225 171  #EFE1AB Pele / tecido
+ 94  84  85  #5E5455 Pele / tecido
+151 123 107  #977B6B Pele / tecido
+173 160 129  #ADA081 Pele / tecido
+116  81  75  #74514B Madeira / alvenaria
+141 104  87  #8D6857 Madeira / alvenaria
+189 138  89  #BD8A59 Madeira / alvenaria
+229 190 118  #E5BE76 Madeira / alvenaria
+187 174 147  #BBAE93 Madeira / alvenaria
+225 220 163  #E1DCA3 Madeira / alvenaria
+104 140 138  #688C8A Metal
+156 190 170  #9CBEAA Metal
+212 237 194  #D4EDC2 Metal
+ 49  90 109  #315A6D Conifera
+ 45 131 129  #2D8381 Conifera
+ 55 174 123  #37AE7B Conifera
+104 211 103  #68D367 Conifera
+ 73 101  92  #49655C Copa amarelada
+105 145  87  #699157 Copa amarelada
+187 188  65  #BBBC41 Copa amarelada
+241 209  95  #F1D15F Copa amarelada
+128 172  94  #80AC5E Grama / agua
+155 185  78  #9BB94E Grama / agua
+184 185  88  #B8B958 Grama / agua
+ 71 171 169  #47ABA9 Grama / agua
+ 53  79  89  #354F59 Rocha
+ 72 111 102  #486F66 Rocha
+102 157 157  #669D9D Rocha
+140 195 196  #8CC3C4 Rocha
+172 122  88  #AC7A58 Ouro
+206 165  84  #CEA554 Ouro
+233 240  68  #E9F044 Ouro
+255 255 255  #FFFFFF Ouro
+196 178 175  #C4B2AF Pergaminho
+226 208 194  #E2D0C2 Pergaminho
+238 225 198  #EEE1C6 Pergaminho
+ 83  55  60  #53373C Madeira UI
+110  77  77  #6E4D4D Madeira UI
+155  98  83  #9B6253 Madeira UI
+215 184 136  #D7B888 Madeira UI
+ 76  92 139  #4C5C8B Faccao azul
+ 71 149 167  #4795A7 Faccao azul
+ 99 183 186  #63B7BA Faccao azul
+146  65  89  #924159 Faccao vermelha
+222  84  84  #DE5454 Faccao vermelha
+244 164 123  #F4A47B Faccao vermelha
+152 105  78  #98694E Faccao amarela
+220 170  70  #DCAA46 Faccao amarela
+249 226 121  #F9E279 Faccao amarela
+ 92  84 126  #5C547E Faccao roxa
+163 112 150  #A37096 Faccao roxa
+200 139 173  #C88BAD Faccao roxa
+ 65  62  82  #413E52 Faccao ardosia
+ 84 102 126  #54667E Faccao ardosia
+125 149 165  #7D95A5 Faccao ardosia

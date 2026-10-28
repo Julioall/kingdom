@@ -1,0 +1,47 @@
+✖ kingdoms fund a frontier post only on neutral land and assign an existing guard (18200.7887ms)
+✔ frontier expansion waits when reserves or neutral land are unavailable (195.0167ms)
+✔ an active war pauses autonomous frontier investment (129.0333ms)
+✔ a collapsed completed frontier post does not restart construction for free (180.8768ms)
+✔ two populated capitals start at opposite ends with combined infantry, spears and healers (1611.9987ms)
+✔ a dead general and commander are succeeded by the surviving member with most merit (171.6651ms)
+✔ schools gate specialist training and the king trains archers after the initial patrol period (306.6348ms)
+✔ archers fire at range, infantry cannot, healers recover allies without attacking (909.0736ms)
+✔ tower works have a civilian team and military escort, and observed towers trigger raids after peace (727.762ms)
+✔ damage bars last five real seconds, refresh on a new attack and clear on reset (0.5369ms)
+✔ all initial towers have life and construction sites start vulnerable (653.6826ms)
+✔ attack range, class, allegiance, recovery and attack cooldown constrain siege damage (368.665ms)
+✔ an unopposed attacker must damage a tower rather than annex it intact (219.6512ms)
+✔ zero tower life destroys the objective, removes its domain and ends the siege (186.0752ms)
+✔ destroyed construction sites cannot revive for free (352.432ms)
+✔ community builders cannot bypass the royal tower worksite and its siege restrictions (576.3183ms)
+✔ defenders intercept the soldiers attacking the tower and ranged troops keep distance (990.1508ms)
+✔ a destroyed castle drops its stock once and nearby people can collect within cargo capacity (329.9189ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 17
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 19931.9474
+
+✖ failing tests:
+
+test at tests\integration\kingdom-frontier.test.mjs:9:1
+✖ kingdoms fund a frontier post only on neutral land and assign an existing guard (18200.7887ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///C:/Users/Julio/OneDrive/Documentos/ChatGPT/Kingdom/tests/integration/kingdom-frontier.test.mjs:40:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

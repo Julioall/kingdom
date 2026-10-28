@@ -1,0 +1,91 @@
+{
+  "day": 180,
+  "alive": 202,
+  "towers": [
+    {
+      "id": 44,
+      "health": 6000,
+      "maxHealth": 6000,
+      "damage": 0,
+      "complete": true
+    },
+    {
+      "id": 45,
+      "health": 6000,
+      "maxHealth": 6000,
+      "damage": 0,
+      "complete": true
+    },
+    {
+      "id": 46,
+      "health": 6000,
+      "maxHealth": 6000,
+      "damage": 0,
+      "complete": true
+    },
+    {
+      "id": 47,
+      "health": 6000,
+      "maxHealth": 6000,
+      "damage": 0,
+      "complete": true
+    },
+    {
+      "id": 64,
+      "health": 6000,
+      "maxHealth": 6000,
+      "damage": 0,
+      "complete": true
+    },
+    {
+      "id": 65,
+      "health": 6000,
+      "maxHealth": 6000,
+      "damage": 0,
+      "complete": true
+    },
+    {
+      "id": 66,
+      "health": 6000,
+      "maxHealth": 6000,
+      "damage": 0,
+      "complete": true
+    },
+    {
+      "id": 67,
+      "health": 6000,
+      "maxHealth": 6000,
+      "damage": 0,
+      "complete": true
+    },
+    {
+      "id": 332,
+      "health": 0,
+      "maxHealth": 4000,
+      "damage": 1000,
+      "destroyed": 87,
+      "complete": false
+    },
+    {
+      "id": 333,
+      "health": 4000,
+      "maxHealth": 4000,
+      "damage": 0,
+      "complete": true
+    }
+  ],
+  "campaigns": [
+    {
+      "status": "complete",
+      "reason": "A torre foi destruída; sua área de influência deixou de proteger a fronteira.",
+      "battles": 12,
+      "objectiveId": 332
+    },
+    {
+      "status": "withdrawing",
+      "reason": "A campanha atacante ficou sem abastecimento ou coesão para sustentar a marcha.",
+      "battles": 0,
+      "objectiveId": 44
+    }
+  ]
+}

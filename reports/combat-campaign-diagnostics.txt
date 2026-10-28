@@ -1,0 +1,51 @@
+withdrawal combat actions: 0
+recovery combat actions: 0
+✖ a starving soldier follows the withdrawal route instead of foraging indefinitely (708.6315ms)
+✖ campaign recovery sends tired soldiers into their own house and restores energy before duty resumes (371.433ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1321.3646
+
+✖ failing tests:
+
+test at .local\combat-campaign-diagnostics.test.mjs:616:1
+✖ a starving soldier follows the withdrawal route instead of foraging indefinitely (708.6315ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(distance(soldier, campaign.attacker.home) < before)
+  
+      at TestContext.<anonymous> (file:///C:/Users/Julio/OneDrive/Documentos/ChatGPT/Kingdom/.local/combat-campaign-diagnostics.test.mjs:631:80)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at .local\combat-campaign-diagnostics.test.mjs:678:1
+✖ campaign recovery sends tired soldiers into their own house and restores energy before duty resumes (371.433ms)
+  AssertionError [ERR_ASSERTION]: marching
+  
+  null !== 34
+  
+      at TestContext.<anonymous> (file:///C:/Users/Julio/OneDrive/Documentos/ChatGPT/Kingdom/.local/combat-campaign-diagnostics.test.mjs:709:80)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: 34,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -1,0 +1,93 @@
+{
+  "schema_version": "1.0.0",
+  "source_image": "public/assets/kingdom-autotile/crop-field.png",
+  "source_sha256": "9f12f5659268e2952ce0542dfcb2b52c927b3abffebfb6bcbeeecf6ecdae4b80",
+  "measurement_method": "Pillow metadata and color inspection; the bundled analyser was not used because this is an opaque terrain texture with no confirmed background color to segment.",
+  "canvas": {
+    "width": 128,
+    "height": 128,
+    "alpha": "fully opaque"
+  },
+  "layout": {
+    "columns": 2,
+    "rows": 2,
+    "cell_width": 64,
+    "cell_height": 64,
+    "order": "row-major",
+    "basis": "renderer reads 64x64 cells from crop-field.png"
+  },
+  "cells": [
+    {
+      "index": 0,
+      "origin": [
+        0,
+        0
+      ],
+      "bbox": [
+        0,
+        0,
+        64,
+        64
+      ],
+      "occupancy": "full opaque terrain"
+    },
+    {
+      "index": 1,
+      "origin": [
+        64,
+        0
+      ],
+      "bbox": [
+        64,
+        0,
+        128,
+        64
+      ],
+      "occupancy": "full opaque terrain"
+    },
+    {
+      "index": 2,
+      "origin": [
+        0,
+        64
+      ],
+      "bbox": [
+        0,
+        64,
+        64,
+        128
+      ],
+      "occupancy": "full opaque terrain"
+    },
+    {
+      "index": 3,
+      "origin": [
+        64,
+        64
+      ],
+      "bbox": [
+        64,
+        64,
+        128,
+        128
+      ],
+      "occupancy": "full opaque terrain"
+    }
+  ],
+  "palette": [
+    "#563A30",
+    "#694330",
+    "#915835",
+    "#A87547",
+    "#795238",
+    "#BD8A59"
+  ],
+  "ground_landmarks": [
+    "full-cell soil surface",
+    "broad horizontal furrow ridges"
+  ],
+  "motion_events": null,
+  "uncertainties": [
+    "No animation or biological anchor applies to this static tile; exact furrow positions are visual texture details, not world-grid anchors."
+  ]
+}

@@ -1,0 +1,444 @@
+{
+  "scope": "selected reference palette, not exhaustive or mandatory",
+  "colors": [
+    {
+      "hex": "#161C2E",
+      "group": "Contorno",
+      "sources": [
+        "tiny-swords/people/blue/pawn_idle.png",
+        "tiny-swords/military/blue/Warrior/Warrior_Idle.png",
+        "tiny-swords/military/blue/Lancer/Lancer_Idle.png",
+        "tiny-swords/sheep/sheep_idle.png",
+        "tiny-swords/buildings/blue/castle.png",
+        "tiny-swords/buildings/blue/house1.png",
+        "tiny-swords/buildings/red/house1.png",
+        "tiny-swords/buildings/yellow/house1.png",
+        "tiny-swords/buildings/purple/house1.png",
+        "tiny-swords/buildings/black/house1.png",
+        "tiny-swords/trees/tree-1.png",
+        "tiny-swords/trees/tree-3.png",
+        "tiny-swords/minerals/gold-stone-1.png",
+        "kingdom-autotile/Tilemap_color1.png",
+        "kingdom-ui/paper.png",
+        "kingdom-ui/wood-panel.png",
+        "kingdom-ui/crest-cyan.png",
+        "kingdom-ui/button-red-regular.png"
+      ]
+    },
+    {
+      "hex": "#C8A876",
+      "group": "Pele / tecido",
+      "sources": [
+        "tiny-swords/people/blue/pawn_idle.png",
+        "tiny-swords/military/blue/Warrior/Warrior_Idle.png",
+        "tiny-swords/military/blue/Lancer/Lancer_Idle.png",
+        "tiny-swords/buildings/red/house1.png",
+        "tiny-swords/buildings/black/house1.png"
+      ]
+    },
+    {
+      "hex": "#EFE1AB",
+      "group": "Pele / tecido",
+      "sources": [
+        "tiny-swords/people/blue/pawn_idle.png",
+        "tiny-swords/military/blue/Warrior/Warrior_Idle.png",
+        "tiny-swords/military/blue/Lancer/Lancer_Idle.png",
+        "tiny-swords/buildings/red/house1.png",
+        "tiny-swords/buildings/black/house1.png"
+      ]
+    },
+    {
+      "hex": "#5E5455",
+      "group": "Pele / tecido",
+      "sources": [
+        "tiny-swords/people/blue/pawn_idle.png"
+      ]
+    },
+    {
+      "hex": "#977B6B",
+      "group": "Pele / tecido",
+      "sources": [
+        "tiny-swords/people/blue/pawn_idle.png"
+      ]
+    },
+    {
+      "hex": "#ADA081",
+      "group": "Pele / tecido",
+      "sources": [
+        "tiny-swords/people/blue/pawn_idle.png"
+      ]
+    },
+    {
+      "hex": "#74514B",
+      "group": "Madeira / alvenaria",
+      "sources": [
+        "tiny-swords/buildings/blue/house1.png"
+      ]
+    },
+    {
+      "hex": "#8D6857",
+      "group": "Madeira / alvenaria",
+      "sources": [
+        "tiny-swords/buildings/blue/house1.png"
+      ]
+    },
+    {
+      "hex": "#BD8A59",
+      "group": "Madeira / alvenaria",
+      "sources": [
+        "tiny-swords/buildings/blue/house1.png"
+      ]
+    },
+    {
+      "hex": "#E5BE76",
+      "group": "Madeira / alvenaria",
+      "sources": [
+        "tiny-swords/buildings/blue/house1.png"
+      ]
+    },
+    {
+      "hex": "#BBAE93",
+      "group": "Madeira / alvenaria",
+      "sources": [
+        "tiny-swords/buildings/blue/castle.png",
+        "tiny-swords/buildings/blue/house1.png",
+        "tiny-swords/buildings/yellow/house1.png",
+        "tiny-swords/buildings/purple/house1.png"
+      ]
+    },
+    {
+      "hex": "#E1DCA3",
+      "group": "Madeira / alvenaria",
+      "sources": [
+        "tiny-swords/buildings/blue/castle.png",
+        "tiny-swords/buildings/blue/house1.png",
+        "tiny-swords/buildings/yellow/house1.png",
+        "tiny-swords/buildings/purple/house1.png"
+      ]
+    },
+    {
+      "hex": "#688C8A",
+      "group": "Metal",
+      "sources": [
+        "tiny-swords/military/blue/Warrior/Warrior_Idle.png",
+        "tiny-swords/military/blue/Lancer/Lancer_Idle.png"
+      ]
+    },
+    {
+      "hex": "#9CBEAA",
+      "group": "Metal",
+      "sources": [
+        "tiny-swords/military/blue/Warrior/Warrior_Idle.png",
+        "tiny-swords/military/blue/Lancer/Lancer_Idle.png"
+      ]
+    },
+    {
+      "hex": "#D4EDC2",
+      "group": "Metal",
+      "sources": [
+        "tiny-swords/military/blue/Warrior/Warrior_Idle.png",
+        "tiny-swords/military/blue/Lancer/Lancer_Idle.png"
+      ]
+    },
+    {
+      "hex": "#315A6D",
+      "group": "Conifera",
+      "sources": [
+        "tiny-swords/trees/tree-1.png"
+      ]
+    },
+    {
+      "hex": "#2D8381",
+      "group": "Conifera",
+      "sources": [
+        "tiny-swords/trees/tree-1.png"
+      ]
+    },
+    {
+      "hex": "#37AE7B",
+      "group": "Conifera",
+      "sources": [
+        "tiny-swords/trees/tree-1.png"
+      ]
+    },
+    {
+      "hex": "#68D367",
+      "group": "Conifera",
+      "sources": [
+        "tiny-swords/trees/tree-1.png"
+      ]
+    },
+    {
+      "hex": "#49655C",
+      "group": "Copa amarelada",
+      "sources": [
+        "tiny-swords/trees/tree-3.png"
+      ]
+    },
+    {
+      "hex": "#699157",
+      "group": "Copa amarelada",
+      "sources": [
+        "tiny-swords/trees/tree-3.png"
+      ]
+    },
+    {
+      "hex": "#BBBC41",
+      "group": "Copa amarelada",
+      "sources": [
+        "tiny-swords/trees/tree-3.png"
+      ]
+    },
+    {
+      "hex": "#F1D15F",
+      "group": "Copa amarelada",
+      "sources": [
+        "tiny-swords/trees/tree-3.png"
+      ]
+    },
+    {
+      "hex": "#80AC5E",
+      "group": "Grama / agua",
+      "sources": [
+        "kingdom-autotile/Tilemap_color1.png"
+      ]
+    },
+    {
+      "hex": "#9BB94E",
+      "group": "Grama / agua",
+      "sources": [
+        "kingdom-autotile/Tilemap_color1.png"
+      ]
+    },
+    {
+      "hex": "#B8B958",
+      "group": "Grama / agua",
+      "sources": [
+        "kingdom-autotile/Tilemap_color1.png"
+      ]
+    },
+    {
+      "hex": "#47ABA9",
+      "group": "Grama / agua",
+      "sources": [
+        "kingdom-autotile/water-background.png"
+      ]
+    },
+    {
+      "hex": "#354F59",
+      "group": "Rocha",
+      "sources": [
+        "kingdom-autotile/Tilemap_color1.png"
+      ]
+    },
+    {
+      "hex": "#486F66",
+      "group": "Rocha",
+      "sources": [
+        "kingdom-autotile/Tilemap_color1.png"
+      ]
+    },
+    {
+      "hex": "#669D9D",
+      "group": "Rocha",
+      "sources": [
+        "kingdom-autotile/Tilemap_color1.png"
+      ]
+    },
+    {
+      "hex": "#8CC3C4",
+      "group": "Rocha",
+      "sources": [
+        "kingdom-autotile/Tilemap_color1.png"
+      ]
+    },
+    {
+      "hex": "#AC7A58",
+      "group": "Ouro",
+      "sources": [
+        "tiny-swords/minerals/gold-stone-1.png"
+      ]
+    },
+    {
+      "hex": "#CEA554",
+      "group": "Ouro",
+      "sources": [
+        "tiny-swords/minerals/gold-stone-1.png"
+      ]
+    },
+    {
+      "hex": "#E9F044",
+      "group": "Ouro",
+      "sources": [
+        "tiny-swords/minerals/gold-stone-1.png"
+      ]
+    },
+    {
+      "hex": "#FFFFFF",
+      "group": "Ouro",
+      "sources": [
+        "tiny-swords/military/blue/Warrior/Warrior_Idle.png",
+        "tiny-swords/military/blue/Lancer/Lancer_Idle.png",
+        "tiny-swords/sheep/sheep_idle.png",
+        "tiny-swords/minerals/gold-stone-1.png"
+      ]
+    },
+    {
+      "hex": "#C4B2AF",
+      "group": "Pergaminho",
+      "sources": [
+        "kingdom-ui/paper.png"
+      ]
+    },
+    {
+      "hex": "#E2D0C2",
+      "group": "Pergaminho",
+      "sources": [
+        "kingdom-ui/paper.png"
+      ]
+    },
+    {
+      "hex": "#EEE1C6",
+      "group": "Pergaminho",
+      "sources": [
+        "kingdom-ui/paper.png"
+      ]
+    },
+    {
+      "hex": "#53373C",
+      "group": "Madeira UI",
+      "sources": [
+        "kingdom-ui/wood-panel.png"
+      ]
+    },
+    {
+      "hex": "#6E4D4D",
+      "group": "Madeira UI",
+      "sources": [
+        "kingdom-ui/wood-panel.png"
+      ]
+    },
+    {
+      "hex": "#9B6253",
+      "group": "Madeira UI",
+      "sources": [
+        "kingdom-ui/wood-panel.png"
+      ]
+    },
+    {
+      "hex": "#D7B888",
+      "group": "Madeira UI",
+      "sources": [
+        "kingdom-ui/wood-panel.png"
+      ]
+    },
+    {
+      "hex": "#4C5C8B",
+      "group": "Faccao azul",
+      "sources": [
+        "tiny-swords/buildings/blue/castle.png",
+        "tiny-swords/buildings/blue/house1.png"
+      ]
+    },
+    {
+      "hex": "#4795A7",
+      "group": "Faccao azul",
+      "sources": [
+        "tiny-swords/buildings/blue/castle.png",
+        "tiny-swords/buildings/blue/house1.png"
+      ]
+    },
+    {
+      "hex": "#63B7BA",
+      "group": "Faccao azul",
+      "sources": [
+        "tiny-swords/buildings/blue/castle.png",
+        "tiny-swords/buildings/blue/house1.png"
+      ]
+    },
+    {
+      "hex": "#924159",
+      "group": "Faccao vermelha",
+      "sources": [
+        "tiny-swords/buildings/red/house1.png"
+      ]
+    },
+    {
+      "hex": "#DE5454",
+      "group": "Faccao vermelha",
+      "sources": [
+        "tiny-swords/buildings/red/house1.png"
+      ]
+    },
+    {
+      "hex": "#F4A47B",
+      "group": "Faccao vermelha",
+      "sources": [
+        "tiny-swords/buildings/red/house1.png"
+      ]
+    },
+    {
+      "hex": "#98694E",
+      "group": "Faccao amarela",
+      "sources": [
+        "tiny-swords/buildings/yellow/house1.png"
+      ]
+    },
+    {
+      "hex": "#DCAA46",
+      "group": "Faccao amarela",
+      "sources": [
+        "tiny-swords/buildings/yellow/house1.png"
+      ]
+    },
+    {
+      "hex": "#F9E279",
+      "group": "Faccao amarela",
+      "sources": [
+        "tiny-swords/buildings/yellow/house1.png"
+      ]
+    },
+    {
+      "hex": "#5C547E",
+      "group": "Faccao roxa",
+      "sources": [
+        "tiny-swords/buildings/purple/house1.png"
+      ]
+    },
+    {
+      "hex": "#A37096",
+      "group": "Faccao roxa",
+      "sources": [
+        "tiny-swords/buildings/purple/house1.png"
+      ]
+    },
+    {
+      "hex": "#C88BAD",
+      "group": "Faccao roxa",
+      "sources": [
+        "tiny-swords/buildings/purple/house1.png"
+      ]
+    },
+    {
+      "hex": "#413E52",
+      "group": "Faccao ardosia",
+      "sources": [
+        "tiny-swords/buildings/black/house1.png"
+      ]
+    },
+    {
+      "hex": "#54667E",
+      "group": "Faccao ardosia",
+      "sources": [
+        "tiny-swords/buildings/black/house1.png"
+      ]
+    },
+    {
+      "hex": "#7D95A5",
+      "group": "Faccao ardosia",
+      "sources": [
+        "tiny-swords/buildings/black/house1.png"
+      ]
+    }
+  ]
+}

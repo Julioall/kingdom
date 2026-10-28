@@ -1,0 +1,258 @@
+{
+  "seed": 42,
+  "naturalDays": 120,
+  "naturalWorkCounts": {
+    "wood": 20,
+    "stone": 6,
+    "gold": 4
+  },
+  "examples": [
+    {
+      "day": 1,
+      "personId": 70,
+      "kind": "wood",
+      "state": "derrubando árvore",
+      "x": 54,
+      "y": 23,
+      "targetX": 54,
+      "targetY": 22,
+      "distance": 1,
+      "stationaryPose": "interact-axe",
+      "movingPose": "run-axe"
+    },
+    {
+      "day": 1,
+      "personId": 79,
+      "kind": "wood",
+      "state": "derrubando árvore",
+      "x": 53,
+      "y": 25,
+      "targetX": 53,
+      "targetY": 25,
+      "distance": 0,
+      "stationaryPose": "interact-axe",
+      "movingPose": "run-axe"
+    },
+    {
+      "day": 1,
+      "personId": 85,
+      "kind": "stone",
+      "state": "extraindo pedra",
+      "x": 62,
+      "y": 24,
+      "targetX": 63,
+      "targetY": 21,
+      "distance": 3.1622776601683795,
+      "stationaryPose": "interact-pickaxe",
+      "movingPose": "run-pickaxe"
+    },
+    {
+      "day": 1,
+      "personId": 91,
+      "kind": "wood",
+      "state": "derrubando árvore",
+      "x": 63,
+      "y": 26,
+      "targetX": 63,
+      "targetY": 25,
+      "distance": 1,
+      "stationaryPose": "interact-axe",
+      "movingPose": "run-axe"
+    },
+    {
+      "day": 1,
+      "personId": 94,
+      "kind": "stone",
+      "state": "extraindo pedra",
+      "x": 62,
+      "y": 22,
+      "targetX": 63,
+      "targetY": 20,
+      "distance": 2.23606797749979,
+      "stationaryPose": "interact-pickaxe",
+      "movingPose": "run-pickaxe"
+    },
+    {
+      "day": 1,
+      "personId": 98,
+      "kind": "wood",
+      "state": "derrubando árvore",
+      "x": 69,
+      "y": 23,
+      "targetX": 70,
+      "targetY": 24,
+      "distance": 1.4142135623730951,
+      "stationaryPose": "interact-axe",
+      "movingPose": "run-axe"
+    },
+    {
+      "day": 1,
+      "personId": 105,
+      "kind": "stone",
+      "state": "extraindo pedra",
+      "x": 67,
+      "y": 22,
+      "targetX": 65,
+      "targetY": 21,
+      "distance": 2.23606797749979,
+      "stationaryPose": "interact-pickaxe",
+      "movingPose": "run-pickaxe"
+    },
+    {
+      "day": 1,
+      "personId": 128,
+      "kind": "gold",
+      "state": "extraindo ouro",
+      "x": 55,
+      "y": 85,
+      "targetX": 52,
+      "targetY": 86,
+      "distance": 3.1622776601683795,
+      "stationaryPose": "interact-pickaxe",
+      "movingPose": "run-gold"
+    },
+    {
+      "day": 1,
+      "personId": 140,
+      "kind": "gold",
+      "state": "extraindo ouro",
+      "x": 59,
+      "y": 85,
+      "targetX": 60,
+      "targetY": 85,
+      "distance": 1,
+      "stationaryPose": "interact-pickaxe",
+      "movingPose": "run-gold"
+    },
+    {
+      "day": 3,
+      "personId": 81,
+      "kind": "stone",
+      "state": "minerando rocha",
+      "x": 57,
+      "y": 25,
+      "targetX": 60,
+      "targetY": 25,
+      "distance": 3,
+      "stationaryPose": "interact-pickaxe",
+      "movingPose": "run-pickaxe"
+    },
+    {
+      "day": 3,
+      "personId": 122,
+      "kind": "gold",
+      "state": "extraindo ouro",
+      "x": 54,
+      "y": 84,
+      "targetX": 52,
+      "targetY": 86,
+      "distance": 2.8284271247461903,
+      "stationaryPose": "interact-pickaxe",
+      "movingPose": "run-gold"
+    },
+    {
+      "day": 21,
+      "personId": 135,
+      "kind": "gold",
+      "state": "extraindo ouro",
+      "x": 61,
+      "y": 82,
+      "targetX": 60,
+      "targetY": 85,
+      "distance": 3.1622776601683795,
+      "stationaryPose": "interact-pickaxe",
+      "movingPose": "run-gold"
+    }
+  ],
+  "miningAnimations": [
+    {
+      "palette": "blue",
+      "id": "unit.blue.pawn.interact-pickaxe",
+      "url": "assets/tiny-swords/people/blue/pawn_interact-pickaxe.png",
+      "frames": 6,
+      "fps": 10,
+      "durationMs": 600,
+      "fileExists": true
+    },
+    {
+      "palette": "red",
+      "id": "unit.red.pawn.interact-pickaxe",
+      "url": "assets/tiny-swords/people/red/pawn_interact-pickaxe.png",
+      "frames": 6,
+      "fps": 10,
+      "durationMs": 600,
+      "fileExists": true
+    },
+    {
+      "palette": "yellow",
+      "id": "unit.yellow.pawn.interact-pickaxe",
+      "url": "assets/tiny-swords/people/yellow/pawn_interact-pickaxe.png",
+      "frames": 6,
+      "fps": 10,
+      "durationMs": 600,
+      "fileExists": true
+    },
+    {
+      "palette": "purple",
+      "id": "unit.purple.pawn.interact-pickaxe",
+      "url": "assets/tiny-swords/people/purple/pawn_interact-pickaxe.png",
+      "frames": 6,
+      "fps": 10,
+      "durationMs": 600,
+      "fileExists": true
+    },
+    {
+      "palette": "black",
+      "id": "unit.black.pawn.interact-pickaxe",
+      "url": "assets/tiny-swords/people/black/pawn_interact-pickaxe.png",
+      "frames": 6,
+      "fps": 10,
+      "durationMs": 600,
+      "fileExists": true
+    }
+  ],
+  "outOfRangeMiningProbe": {
+    "initialDistance": 3,
+    "extracted": 0.7524402945386246,
+    "oreRemaining": 1.2475597054613754,
+    "moved": false,
+    "activity": {
+      "kind": "mine",
+      "x": 61,
+      "y": 4,
+      "day": 1
+    }
+  },
+  "attackProbe": {
+    "targetHealthLost": 6.402724084630606,
+    "targetSequenceIncrement": 2,
+    "defenderPoseOnAttackDay": "defend",
+    "defenderPoseOnFollowingDay": "idle",
+    "blockResultPersisted": false
+  },
+  "attackAnimations": [
+    {
+      "unit": "guerreiro",
+      "frames": 4,
+      "fps": 10,
+      "durationMs": 400
+    },
+    {
+      "unit": "lanceiro",
+      "frames": 3,
+      "fps": 10,
+      "durationMs": 300
+    },
+    {
+      "unit": "arqueiro",
+      "frames": 8,
+      "fps": 10,
+      "durationMs": 800
+    }
+  ],
+  "limits": [
+    "Natural simulation runs without strategic model inference.",
+    "Controlled probes use separate temporary worlds.",
+    "No audio was decoded or auditioned."
+  ]
+}

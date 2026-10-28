@@ -1,0 +1,429 @@
+{
+  "runtime": "v24.19.0",
+  "measurement": "exclusive opt-in phase timers inside stepDay; world report and domain snapshots included; Worker projection, transfer, hydration and Canvas excluded",
+  "profilingChangesWorldState": false,
+  "results": [
+    {
+      "seed": 42,
+      "configuration": {
+        "width": 128,
+        "height": 128,
+        "cells": 16384,
+        "kingdoms": 2,
+        "warmupDays": 5,
+        "measuredDays": 90,
+        "repeats": 3
+      },
+      "medianDaysPerSecond": 6.98,
+      "medianDayMs": 134.5,
+      "p95DayMs": 289.94,
+      "medianPhaseCoveragePercent": 99.79,
+      "phases": {
+        "animals": {
+          "calls": 270,
+          "medianMsPerDay": 3.91,
+          "p95MsPerDay": 8.81,
+          "medianSharePercent": 3.03,
+          "p95SharePercent": 4.91
+        },
+        "borderIncursions": {
+          "calls": 270,
+          "medianMsPerDay": 0.02,
+          "p95MsPerDay": 0.09,
+          "medianSharePercent": 0.02,
+          "p95SharePercent": 0.05
+        },
+        "calendar": {
+          "calls": 270,
+          "medianMsPerDay": 0,
+          "p95MsPerDay": 0,
+          "medianSharePercent": 0,
+          "p95SharePercent": 0
+        },
+        "campaignPrepare": {
+          "calls": 270,
+          "medianMsPerDay": 0.28,
+          "p95MsPerDay": 6.56,
+          "medianSharePercent": 0.19,
+          "p95SharePercent": 3.88
+        },
+        "campaignResolve": {
+          "calls": 270,
+          "medianMsPerDay": 0,
+          "p95MsPerDay": 7.52,
+          "medianSharePercent": 0,
+          "p95SharePercent": 4.43
+        },
+        "clericHealing": {
+          "calls": 270,
+          "medianMsPerDay": 0.1,
+          "p95MsPerDay": 0.24,
+          "medianSharePercent": 0.07,
+          "p95SharePercent": 0.15
+        },
+        "climate": {
+          "calls": 270,
+          "medianMsPerDay": 0.73,
+          "p95MsPerDay": 1.63,
+          "medianSharePercent": 0.54,
+          "p95SharePercent": 1.05
+        },
+        "constructionProgress": {
+          "calls": 270,
+          "medianMsPerDay": 0.08,
+          "p95MsPerDay": 0.33,
+          "medianSharePercent": 0.06,
+          "p95SharePercent": 0.18
+        },
+        "decomposition": {
+          "calls": 270,
+          "medianMsPerDay": 0.74,
+          "p95MsPerDay": 1.5,
+          "medianSharePercent": 0.53,
+          "p95SharePercent": 0.85
+        },
+        "frontier": {
+          "calls": 270,
+          "medianMsPerDay": 0,
+          "p95MsPerDay": 0.02,
+          "medianSharePercent": 0,
+          "p95SharePercent": 0.01
+        },
+        "frontierOutcomes": {
+          "calls": 270,
+          "medianMsPerDay": 0.01,
+          "p95MsPerDay": 0.03,
+          "medianSharePercent": 0.01,
+          "p95SharePercent": 0.02
+        },
+        "looseLogs": {
+          "calls": 270,
+          "medianMsPerDay": 0,
+          "p95MsPerDay": 0.01,
+          "medianSharePercent": 0,
+          "p95SharePercent": 0
+        },
+        "marketMaintenance": {
+          "calls": 270,
+          "medianMsPerDay": 0,
+          "p95MsPerDay": 0,
+          "medianSharePercent": 0,
+          "p95SharePercent": 0
+        },
+        "militaryPayroll": {
+          "calls": 270,
+          "medianMsPerDay": 0.04,
+          "p95MsPerDay": 0.11,
+          "medianSharePercent": 0.03,
+          "p95SharePercent": 0.07
+        },
+        "people": {
+          "calls": 270,
+          "medianMsPerDay": 111.28,
+          "p95MsPerDay": 229.98,
+          "medianSharePercent": 83.52,
+          "p95SharePercent": 89.18
+        },
+        "plants": {
+          "calls": 270,
+          "medianMsPerDay": 0,
+          "p95MsPerDay": 2.57,
+          "medianSharePercent": 0,
+          "p95SharePercent": 1.79
+        },
+        "roads": {
+          "calls": 270,
+          "medianMsPerDay": 2.16,
+          "p95MsPerDay": 4.15,
+          "medianSharePercent": 1.62,
+          "p95SharePercent": 2.41
+        },
+        "simulationSnapshot": {
+          "calls": 270,
+          "medianMsPerDay": 3.53,
+          "p95MsPerDay": 7.92,
+          "medianSharePercent": 2.65,
+          "p95SharePercent": 4.61
+        },
+        "soilWater": {
+          "calls": 270,
+          "medianMsPerDay": 2.41,
+          "p95MsPerDay": 4.82,
+          "medianSharePercent": 1.87,
+          "p95SharePercent": 2.8
+        },
+        "territoryAfterActions": {
+          "calls": 270,
+          "medianMsPerDay": 1.82,
+          "p95MsPerDay": 4.79,
+          "medianSharePercent": 1.38,
+          "p95SharePercent": 3.53
+        },
+        "territoryBeforeActions": {
+          "calls": 270,
+          "medianMsPerDay": 1.81,
+          "p95MsPerDay": 4.78,
+          "medianSharePercent": 1.35,
+          "p95SharePercent": 2.27
+        },
+        "worldReport": {
+          "calls": 9,
+          "medianMsPerDay": 0.07,
+          "p95MsPerDay": 16.13,
+          "medianSharePercent": 0.05,
+          "p95SharePercent": 11.85
+        },
+        "worldReportSnapshot": {
+          "calls": 9,
+          "medianMsPerDay": 3.64,
+          "p95MsPerDay": 7.94,
+          "medianSharePercent": 2.5,
+          "p95SharePercent": 6.09
+        }
+      },
+      "samples": [
+        {
+          "elapsedMs": 12822.69,
+          "daysPerSecond": 7.02,
+          "medianDayMs": 128.95,
+          "p95DayMs": 239.69,
+          "phaseCoveragePercent": 99.79,
+          "day": 95,
+          "aliveResidents": 202,
+          "events": 64
+        },
+        {
+          "elapsedMs": 12900.45,
+          "daysPerSecond": 6.98,
+          "medianDayMs": 131.69,
+          "p95DayMs": 219.23,
+          "phaseCoveragePercent": 99.77,
+          "day": 95,
+          "aliveResidents": 202,
+          "events": 64
+        },
+        {
+          "elapsedMs": 16445.41,
+          "daysPerSecond": 5.47,
+          "medianDayMs": 158.56,
+          "p95DayMs": 334.93,
+          "phaseCoveragePercent": 99.8,
+          "day": 95,
+          "aliveResidents": 202,
+          "events": 64
+        }
+      ]
+    },
+    {
+      "seed": 2026,
+      "configuration": {
+        "width": 128,
+        "height": 128,
+        "cells": 16384,
+        "kingdoms": 2,
+        "warmupDays": 5,
+        "measuredDays": 90,
+        "repeats": 3
+      },
+      "medianDaysPerSecond": 7.73,
+      "medianDayMs": 120.76,
+      "p95DayMs": 256.31,
+      "medianPhaseCoveragePercent": 99.81,
+      "phases": {
+        "animals": {
+          "calls": 270,
+          "medianMsPerDay": 4.32,
+          "p95MsPerDay": 7.9,
+          "medianSharePercent": 3.53,
+          "p95SharePercent": 5.27
+        },
+        "borderIncursions": {
+          "calls": 270,
+          "medianMsPerDay": 0.02,
+          "p95MsPerDay": 0.05,
+          "medianSharePercent": 0.01,
+          "p95SharePercent": 0.04
+        },
+        "calendar": {
+          "calls": 270,
+          "medianMsPerDay": 0,
+          "p95MsPerDay": 0,
+          "medianSharePercent": 0,
+          "p95SharePercent": 0
+        },
+        "campaignPrepare": {
+          "calls": 270,
+          "medianMsPerDay": 0.21,
+          "p95MsPerDay": 4.11,
+          "medianSharePercent": 0.18,
+          "p95SharePercent": 3.29
+        },
+        "campaignResolve": {
+          "calls": 270,
+          "medianMsPerDay": 0,
+          "p95MsPerDay": 4.99,
+          "medianSharePercent": 0,
+          "p95SharePercent": 3.79
+        },
+        "clericHealing": {
+          "calls": 270,
+          "medianMsPerDay": 0.07,
+          "p95MsPerDay": 0.17,
+          "medianSharePercent": 0.06,
+          "p95SharePercent": 0.11
+        },
+        "climate": {
+          "calls": 270,
+          "medianMsPerDay": 0.68,
+          "p95MsPerDay": 1.22,
+          "medianSharePercent": 0.56,
+          "p95SharePercent": 0.76
+        },
+        "constructionProgress": {
+          "calls": 270,
+          "medianMsPerDay": 0.06,
+          "p95MsPerDay": 0.19,
+          "medianSharePercent": 0.05,
+          "p95SharePercent": 0.13
+        },
+        "decomposition": {
+          "calls": 270,
+          "medianMsPerDay": 0.69,
+          "p95MsPerDay": 1.07,
+          "medianSharePercent": 0.55,
+          "p95SharePercent": 0.77
+        },
+        "frontier": {
+          "calls": 270,
+          "medianMsPerDay": 0,
+          "p95MsPerDay": 0.01,
+          "medianSharePercent": 0,
+          "p95SharePercent": 0.01
+        },
+        "frontierOutcomes": {
+          "calls": 270,
+          "medianMsPerDay": 0.01,
+          "p95MsPerDay": 0.03,
+          "medianSharePercent": 0.01,
+          "p95SharePercent": 0.02
+        },
+        "looseLogs": {
+          "calls": 270,
+          "medianMsPerDay": 0,
+          "p95MsPerDay": 0.01,
+          "medianSharePercent": 0,
+          "p95SharePercent": 0
+        },
+        "marketMaintenance": {
+          "calls": 270,
+          "medianMsPerDay": 0,
+          "p95MsPerDay": 0,
+          "medianSharePercent": 0,
+          "p95SharePercent": 0
+        },
+        "militaryPayroll": {
+          "calls": 270,
+          "medianMsPerDay": 0.03,
+          "p95MsPerDay": 0.07,
+          "medianSharePercent": 0.02,
+          "p95SharePercent": 0.05
+        },
+        "people": {
+          "calls": 270,
+          "medianMsPerDay": 99.32,
+          "p95MsPerDay": 218.57,
+          "medianSharePercent": 82.93,
+          "p95SharePercent": 88.47
+        },
+        "plants": {
+          "calls": 270,
+          "medianMsPerDay": 0,
+          "p95MsPerDay": 2.22,
+          "medianSharePercent": 0,
+          "p95SharePercent": 1.73
+        },
+        "roads": {
+          "calls": 270,
+          "medianMsPerDay": 2.17,
+          "p95MsPerDay": 3.75,
+          "medianSharePercent": 1.77,
+          "p95SharePercent": 2.38
+        },
+        "simulationSnapshot": {
+          "calls": 270,
+          "medianMsPerDay": 3.8,
+          "p95MsPerDay": 6.01,
+          "medianSharePercent": 3.1,
+          "p95SharePercent": 3.95
+        },
+        "soilWater": {
+          "calls": 270,
+          "medianMsPerDay": 2.75,
+          "p95MsPerDay": 4.36,
+          "medianSharePercent": 2.24,
+          "p95SharePercent": 3.03
+        },
+        "territoryAfterActions": {
+          "calls": 270,
+          "medianMsPerDay": 1.93,
+          "p95MsPerDay": 4.51,
+          "medianSharePercent": 1.63,
+          "p95SharePercent": 2.99
+        },
+        "territoryBeforeActions": {
+          "calls": 270,
+          "medianMsPerDay": 1.93,
+          "p95MsPerDay": 4.7,
+          "medianSharePercent": 1.61,
+          "p95SharePercent": 3.42
+        },
+        "worldReport": {
+          "calls": 9,
+          "medianMsPerDay": 0.05,
+          "p95MsPerDay": 0.07,
+          "medianSharePercent": 0.03,
+          "p95SharePercent": 0.05
+        },
+        "worldReportSnapshot": {
+          "calls": 9,
+          "medianMsPerDay": 3.89,
+          "p95MsPerDay": 9.42,
+          "medianSharePercent": 3.21,
+          "p95SharePercent": 3.95
+        }
+      },
+      "samples": [
+        {
+          "elapsedMs": 14865.5,
+          "daysPerSecond": 6.05,
+          "medianDayMs": 147.46,
+          "p95DayMs": 273.62,
+          "phaseCoveragePercent": 99.81,
+          "day": 95,
+          "aliveResidents": 203,
+          "events": 64
+        },
+        {
+          "elapsedMs": 11635.62,
+          "daysPerSecond": 7.73,
+          "medianDayMs": 115.66,
+          "p95DayMs": 231.12,
+          "phaseCoveragePercent": 99.78,
+          "day": 95,
+          "aliveResidents": 203,
+          "events": 64
+        },
+        {
+          "elapsedMs": 11637.45,
+          "daysPerSecond": 7.73,
+          "medianDayMs": 112.61,
+          "p95DayMs": 223.22,
+          "phaseCoveragePercent": 99.81,
+          "day": 95,
+          "aliveResidents": 203,
+          "events": 64
+        }
+      ]
+    }
+  ]
+}

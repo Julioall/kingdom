@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-25",
+  "scope": "Sound plan validation and gameplay/presentation prerequisites",
+  "archive": {
+    "version": "2.1.0",
+    "effects": 47,
+    "oggFiles": 47,
+    "mp3Files": 47,
+    "eventGroups": 28,
+    "referencedSourceNames": 38,
+    "missingReferencedFiles": 0,
+    "duplicateIds": 0,
+    "unknownEventReferences": 0,
+    "mismatchedManifestEventGroups": 0,
+    "incoherentDeclaredDurations": 0,
+    "identicalOggHashes": 0,
+    "audioBytes": 1902744,
+    "decoded": false,
+    "auditioned": false
+  },
+  "selectedExistingTests": {
+    "total": 41,
+    "passed": 39,
+    "failed": 2,
+    "towerEntryProbe": { "declared": [5,6], "effective": [5,5], "profileOffsetY": -1 },
+    "failureInterpretation": "The tower fixtures assert or mark water at the declared entry while the implementation uses the offset interaction point. Reconcile expectations before treating these failures as production gameplay defects.",
+    "failures": [
+      "combat-resources.test.mjs: tower posts increase range, preserve initial peace and replace exhausted sentries with defensive reserves",
+      "combat-resources.test.mjs: legacy towers move water-blocked entries to the nearest walkable tile"
+    ]
+  },
+  "browserEvidence": {
+    "seed": 42,
+    "day": 1,
+    "personId": 85,
+    "name": "Kai E",
+    "state": "extraindo pedra",
+    "personPosition": [62,24],
+    "resourcePosition": [63,21],
+    "stateScreenshot": "mining-day1.png",
+    "worksiteScreenshot": "mining-worksite.png"
+  },
+  "gameplayImplementationChanged": false
+}

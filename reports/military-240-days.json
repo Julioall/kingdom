@@ -1,0 +1,57 @@
+{
+  "day": 240,
+  "initialPeace": true,
+  "living": 199,
+  "deaths": {
+    "starvation": 0,
+    "dehydration": 0,
+    "age": 0,
+    "injury": 2,
+    "combat": 1,
+    "predation": 0,
+    "harvest": 0,
+    "invasion": 0
+  },
+  "classes": [
+    {
+      "kingdom": "Valedouro",
+      "classes": {
+        "guerreiro": 18,
+        "monge": 7,
+        "arqueiro": 6,
+        "lanceiro": 9
+      },
+      "command": 5
+    },
+    {
+      "kingdom": "Corvânia",
+      "classes": {
+        "monge": 7,
+        "lanceiro": 10,
+        "guerreiro": 20,
+        "arqueiro": 5
+      },
+      "command": 5
+    }
+  ],
+  "campaigns": [
+    {
+      "status": "complete",
+      "battles": 57,
+      "reason": "A defesa resistiu por 150 dias; as forças encerraram o cerco para reabastecer.",
+      "losses": [
+        0,
+        1
+      ]
+    },
+    {
+      "status": "marching",
+      "battles": 0,
+      "reason": null,
+      "losses": [
+        0,
+        0
+      ]
+    }
+  ]
+}

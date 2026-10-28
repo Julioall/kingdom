@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0.0",
+  "source_sha256": "9f12f5659268e2952ce0542dfcb2b52c927b3abffebfb6bcbeeecf6ecdae4b80",
+  "mode": "species_variant",
+  "request": "Create a planted-rice paddy terrain atlas that follows the existing crop-field tile style and format.",
+  "immutable": {
+    "canvas": "128x128 opaque PNG",
+    "layout": "2x2 equal atlas cells, row-major",
+    "frame_size": "64x64 per terrain tile",
+    "frame_order": "(0,0), (1,0), (0,1), (1,1); each is a static terrain variation, not an animation frame",
+    "ground_landmarks": "Each cell fills the whole tile; horizontal tilled-soil row direction remains consistent.",
+    "motion_events": "Not applicable; static terrain texture."
+  },
+  "allowed_changes": [
+    "add organized rice seedlings",
+    "add shallow teal water between planting rows",
+    "add muted green plant highlights",
+    "vary seedling positions among the four cells"
+  ],
+  "identity_to_preserve": [
+    "pixel-art cluster scale and sharp edges",
+    "warm dark cultivated soil",
+    "full-bleed terrain tile without border or transparent gaps",
+    "the existing Kingdom palette language"
+  ],
+  "tolerances": {
+    "canvas_pixels": 0,
+    "columns": 0,
+    "rows": 0,
+    "cell_size_pixels": 0,
+    "empty_or_transparent_pixels": 0
+  },
+  "palette_mode": "preserve_soil_material_tonal_roles; add rice greens and shallow-water teals from reports/art-direction/kingdom-palette.gpl",
+  "unresolved": [],
+  "validation_status": "manual_layout_and_edge_checks_pass; visual_review_pass",
+  "validation_note": "The bundled analyser was not applicable to the opaque static tile (no background to segment, no animation sequence). Exact canvas/grid, opacity, four unique cells, palette use, and seamless edges were measured separately; visual review passed."
+}

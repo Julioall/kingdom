@@ -1,0 +1,119 @@
+{
+  "runtime": "v24.19.0",
+  "seed": 42,
+  "measurement": "Node worker-runtime + structuredClone transfer + main-thread snapshot hydration; render cost excluded",
+  "configuration": {
+    "width": 128,
+    "height": 128,
+    "cells": 16384,
+    "kingdoms": 2,
+    "residents": 202,
+    "animals": 26,
+    "structures": 43,
+    "warmupDays": 5,
+    "measuredDays": 90,
+    "snapshotBatchDays": 3,
+    "includeDailySnapshots": false,
+    "repeats": 3
+  },
+  "observationsAfterMeasuredRun": {
+    "day": 95,
+    "aliveResidents": 202,
+    "logs": 51,
+    "events": 64
+  },
+  "snapshotPayload": {
+    "tileColumnBytes": 2342912,
+    "serializedEntityBaseBytes": 1235361,
+    "v8SerializedSnapshotBytes": 3580324
+  },
+  "throughput": {
+    "samples": [
+      {
+        "elapsedMs": 19620.65,
+        "daysPerSecond": 4.59,
+        "lastResponseBytes": 3580324,
+        "stageTimesMs": {
+          "runtimeAndProjectionMs": 14636.48,
+          "transferCloneMs": 4514.26,
+          "snapshotHydrationMs": 468.82,
+          "batches": 30
+        }
+      },
+      {
+        "elapsedMs": 19732.23,
+        "daysPerSecond": 4.56,
+        "lastResponseBytes": 3596090,
+        "stageTimesMs": {
+          "runtimeAndProjectionMs": 14874.73,
+          "transferCloneMs": 4420.01,
+          "snapshotHydrationMs": 436.58,
+          "batches": 30
+        }
+      },
+      {
+        "elapsedMs": 22563.96,
+        "daysPerSecond": 3.99,
+        "lastResponseBytes": 3600290,
+        "stageTimesMs": {
+          "runtimeAndProjectionMs": 17115.73,
+          "transferCloneMs": 4970.29,
+          "snapshotHydrationMs": 476.91,
+          "batches": 30
+        }
+      }
+    ],
+    "medianDaysPerSecond": 4.56
+  },
+  "stageBreakdown": {
+    "medianPerMeasuredRunMs": {
+      "runtimeAndProjectionMs": 14874.73,
+      "transferCloneMs": 4514.26,
+      "snapshotHydrationMs": 468.82,
+      "batches": 30
+    },
+    "samples": [
+      {
+        "runtimeAndProjectionMs": 14636.48,
+        "transferCloneMs": 4514.26,
+        "snapshotHydrationMs": 468.82,
+        "batches": 30
+      },
+      {
+        "runtimeAndProjectionMs": 14874.73,
+        "transferCloneMs": 4420.01,
+        "snapshotHydrationMs": 436.58,
+        "batches": 30
+      },
+      {
+        "runtimeAndProjectionMs": 17115.73,
+        "transferCloneMs": 4970.29,
+        "snapshotHydrationMs": 476.91,
+        "batches": 30
+      }
+    ]
+  },
+  "memory": {
+    "beforeCreateMiB": {
+      "rss": 65.98,
+      "heapTotal": 10.74,
+      "heapUsed": 6.04,
+      "external": 2.13,
+      "arrayBuffers": 0.13
+    },
+    "afterCreateMiB": {
+      "rss": 173.59,
+      "heapTotal": 185.55,
+      "heapUsed": 55.78,
+      "external": 4.63,
+      "arrayBuffers": 2.37
+    },
+    "afterWarmupAndSimulationMiB": {
+      "rss": 727.74,
+      "heapTotal": 379.8,
+      "heapUsed": 112.03,
+      "external": 13.3,
+      "arrayBuffers": 7.38
+    }
+  }
+}

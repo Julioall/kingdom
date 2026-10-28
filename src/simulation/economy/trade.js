@@ -11,6 +11,7 @@ import { log } from '../core/events.js';
 import { moveOne } from '../individuals/movement.js';
 import { recordTrade } from './trade-ledger.js';
 import { consumePersonEnergy } from '../individuals/energy.js';
+import { shareFoodAidKnowledge } from '../society/plan-execution.js';
 import {
   SOCIAL_ACTIVE_INTENTION_PER_PERSON_LIMIT, SOCIAL_OPEN_COMMITMENT_PER_PERSON_LIMIT,
   acceptSocialCommitment, advanceSocialIntention,
@@ -233,6 +234,11 @@ export function performShare(w, person, community, target) {
 export function ensureFoodAidPlan(w, requester, helper, options = {}) {
   if (!requester?.alive || !helper?.alive || requester.id === helper.id) return null;
   requester.socialIntentions ||= [];
+  const existingAidPlan = requester.socialIntentions.find(item => item.type === 'seek_food_aid'
+    && ['active', 'suspended'].includes(item.status));
+  if (existingAidPlan && String(existingAidPlan.targetId) !== String(helper.id)) return null;
+  if (!existingAidPlan && requester.socialIntentions.filter(item => ['active', 'suspended'].includes(item.status)).length
+      >= SOCIAL_ACTIVE_INTENTION_PER_PERSON_LIMIT) return null;
   const parties = [String(requester.id), String(helper.id)];
   const openEntry = (w.socialEvidence?.commitments || []).find(item => {
     const record = item.record;
@@ -255,12 +261,11 @@ export function ensureFoodAidPlan(w, requester, helper, options = {}) {
       parties,
       object: 'food',
       quantity: 2.5,
-      dueDay: w.day + 3,
+      // Allow walking to a visible helper, detours and the request itself.
+      dueDay: w.day + Math.max(3, Math.ceil(distance(requester, helper)) * 2 + 1),
       evidenceEventIds: options.evidenceEventId ? [options.evidenceEventId] : []
     });
   }
-  const existingAidPlan = requester.socialIntentions.find(item => item.type === 'seek_food_aid'
-    && ['active', 'suspended'].includes(item.status));
   let intention = existingAidPlan?.commitmentId === commitment.commitmentId
     && String(existingAidPlan.targetId) === String(helper.id) ? existingAidPlan : null;
   if (!existingAidPlan && requester.socialIntentions.filter(item => ['active', 'suspended'].includes(item.status)).length
@@ -268,6 +273,7 @@ export function ensureFoodAidPlan(w, requester, helper, options = {}) {
     intention = defineSocialIntention(w, requester.id, {
       type: 'seek_food_aid', priority: .7, targetId: helper.id, commitmentId: commitment.commitmentId,
       dueDay: commitment.dueDay,
+      evidenceIds: options.evidenceEventIds || (options.evidenceEventId ? [options.evidenceEventId] : []),
       steps: [
         { action: 'approach_helper', targetId: helper.id },
         { action: 'request_food', targetId: helper.id },
@@ -386,8 +392,10 @@ export function resolveFoodAidRequest(w, requester, helper, participantsToday = 
   requester.lastLesson = method
     ? 'O pedido foi aceito e a transferência real aumentou sua reserva alimentar.'
     : 'O pedido foi recusado; não houve débito nem crédito de alimento.';
+  // A request is also a real, reserved face-to-face encounter, not just an economic operation.
+  const report = shareFoodAidKnowledge(w, helper, requester) || shareFoodAidKnowledge(w, requester, helper);
   return { requested: true, accepted: !!method, amount: moved, method, request, response,
-    commitment: commitment ? getSocialCommitment(w, commitment.commitmentId) : null, intention };
+    commitment: commitment ? getSocialCommitment(w, commitment.commitmentId) : null, intention, report };
 }
 
 export function performTrade(w, person, community, partner) {

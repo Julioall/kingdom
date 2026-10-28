@@ -1,0 +1,27 @@
+npm notice run kingdom@0.1.0 build
+npm notice run tsc --noEmit && vite build && node scripts/optimize-images.mjs
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 115 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/assets/browser-inference-worker-BcyOn46O.js               13.88 kB
+dist/index.html                                                14.04 kB │ gzip:     4.67 kB
+dist/assets/simulation.worker-B7gkI1xf.js                     455.46 kB
+dist/assets/browser-inference-worker-CQtYc4Tv.js              608.72 kB
+dist/assets/ort-wasm-simd-threaded.asyncify-CxOG5pUO.wasm  26,861.77 kB │ gzip: 6,762.79 kB
+dist/assets/index-yJXLKUKj.css                                 57.50 kB │ gzip:    12.78 kB
+dist/assets/browser-worker-factory-BZOFF5z7.js                  0.19 kB │ gzip:     0.16 kB
+dist/assets/ollama-client-yZOtKQIA.js                           0.92 kB │ gzip:     0.55 kB
+dist/assets/browser-engine-OnxnCQqr.js                          2.67 kB │ gzip:     1.25 kB
+dist/assets/index-Bzfr2U7v.js                                 330.79 kB │ gzip:    92.74 kB
+
+✓ built in 3.40s
+[PLUGIN_TIMINGS] JavaScript callbacks ran for 2.5s of this 3.3s build (75%).
+The slowest callbacks, timed inside each callback (the wait before a callback starts is excluded, the time it awaits is included):
+  - plugin vite:prepare-out-dir renderStart (52%, 1.7s, 1 call)
+Additional callback time came from callbacks under 1s.
+See https://rolldown.rs/reference/InputOptions.checks#bundlertimings for more details.
+
+Image optimization: 489 PNGs converted to lossless WebP.
+Assets: 8.03 MiB → 5.27 MiB (34.4% smaller).

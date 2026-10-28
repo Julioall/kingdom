@@ -1,0 +1,19 @@
+{
+  "day": 30,
+  "castleHealth": 0,
+  "piles": [
+    {
+      "available": true,
+      "resources": {
+        "food": 1803,
+        "wood": 0,
+        "stone": 0,
+        "gold": 0,
+        "feed": 168
+      }
+    }
+  ],
+  "initialGold": 8113,
+  "remainingGold": 0,
+  "peopleCarryingLoot": 8
+}
