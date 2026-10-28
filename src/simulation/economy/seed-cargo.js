@@ -16,7 +16,9 @@ function seedHistory(world, entry) {
 }
 
 function validAmount(amount) {
-  return Number.isSafeInteger(amount) && amount >= 0;
+  // Crop seeds represent biomass mass and older saved harvests can carry
+  // fractional amounts. Never round a legacy lot while changing its owner.
+  return Number.isFinite(amount) && amount >= 0 && amount <= Number.MAX_SAFE_INTEGER;
 }
 
 function dropParcel(world, person, source, ownerCommunityId, purpose, fieldId, reason) {
