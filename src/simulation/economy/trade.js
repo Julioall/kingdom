@@ -119,7 +119,7 @@ function personalMarketOffer(world, community, person, marketOwner) {
       || !(world.people || []).includes(person) || !(world.communities || []).includes(community)
       || community.dissolved || !market || !marketOwner?.prices) return null;
   const kingdom = (world.kingdoms || []).find(item => item.communityId === community.id);
-  if (kingdom && person.kingdomId !== kingdom.id) return null;
+  if (kingdom && person.kingdomId != null && person.kingdomId !== kingdom.id) return null;
   const foodPrice = marketOwner.prices.food;
   const foodAmount = accountAmount(market, 'food');
   const goldHeld = accountAmount(person, 'carriedGold');
@@ -506,7 +506,7 @@ export function performTrade(w, person, community, partner) {
       if (!(w.communities || []).includes(community) || community.dissolved
           || !(w.people || []).includes(person) || !person?.alive
           || person.communityId !== community.id
-          || (kingdom && person.kingdomId !== kingdom.id)
+          || (kingdom && person.kingdomId != null && person.kingdomId !== kingdom.id)
           || !(w.structures || []).includes(partner.station)
           || !operationalTradeStation(partner.station, community, kingdom)
           || !currentMarket || partner.market !== currentMarket) {
