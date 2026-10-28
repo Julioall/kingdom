@@ -2,6 +2,7 @@ import { brainForward, createBrain, updateBrain } from '../../controllers/indivi
 import { clamp, distance } from '../core/math.js';
 import { moveOne } from '../individuals/movement.js';
 import { consumePersonEnergy } from '../individuals/energy.js';
+import { isOperationalMilitarySource } from './military-sources.js';
 
 export const MILITARY_ACTIONS = ['guard', 'patrol', 'train', 'campaign', 'drink', 'rest', 'return_garrison'];
 
@@ -12,8 +13,7 @@ const fitForTraining = p => p.alive && p.role === 'soldier' && p.campaignId == n
 
 export function militaryTrainingPairs(world) {
   const pairs = new Map();
-  for (const center of world.structures.filter(s => s.complete && s.type === 'centro_militar'
-    && s.destroyedDay == null && s.integrity !== 0)) {
+  for (const center of world.structures.filter(s => isOperationalMilitarySource(s, 'centro_militar'))) {
     const kingdom = world.kingdoms.find(k => k.id === center.kingdomId);
     if (kingdom?.frontierAlert && world.day - kingdom.frontierAlert.day <= 10
       || (world.wars || []).some(w => w.status === 'active' && [w.attackerId, w.defenderId].includes(center.kingdomId))) continue;
