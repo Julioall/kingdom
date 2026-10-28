@@ -46,3 +46,45 @@ As refs temporárias ainda não foram excluídas por esta auditoria. Excluir som
 4. Publicar `main` apenas por PR pequena, com diff revisado, CI do SHA e teste/smoke relevante. Atualizar JUL-226 após o gate real, não por contagem de arquivos ou status declaratório.
 
 **Limite:** este documento é um inventário remoto incremental, não a certificação final de `main` nem o encerramento da JUL-226.
+
+---
+
+## Atualização vinculante — reconciliação por blobs Git em 28/10/2026
+
+O quadro anterior permanece como **histórico do snapshot de abertura**, mas os itens abaixo prevalecem sobre estados dinâmicos, incluindo "PR #12 não é draft" e "zero commits faltando".
+
+**Refs fixas comparadas, sem alterar a árvore de origem:**
+- `main` = `d0929298562f326e2439f775e5b753ffb8cb4196` (inalterada).
+- `dev` = `d6cec7d0f6deb2c17b3e1afbbe9dbb6d95c7866c`; CI pós-merge [#40692158051](https://github.com/Julioall/kingdom/actions/runs/40692158051) passou em typecheck, testes, replay smoke e build.
+- PR [#12](https://github.com/Julioall/kingdom/pull/12) = **draft**, destino `dev`, HEAD `9f9147e3e90b1e379ade452b39230bc0c05ed05f`; comparação `dev...HEAD` = **15 commits à frente / 6 atrás**, 81 caminhos reportados no diff da PR.
+
+### Inspeção por conteúdo, não pela contagem de PR
+
+Foram carregadas as duas árvores recursivas com `truncated:false` e comparados os **SHA dos blobs por caminho**, evitando classificar ingenuamente um caminho como idêntico porque o diff da API retorna `changes:0`:
+
+| Categoria ao comparar os dois commits fixados | Resultado | Destino |
+| --- | ---: | --- |
+| Blobs presentes e exatamente idênticos | **1.202** | Nenhuma operação: conteúdo já coincide entre as árvores |
+| Presentes **só no HEAD da PR #12** | **43** | Revisão individual, nenhum merge em lote |
+| Desses 43: matrizes `docs/verification/*.json` e arquivos de verificação históricos | **36**, total **1.205.647 bytes** | Preservar na branch histórica e citar evidência, não transportar automaticamente à `dev` ou `main` |
+| Desses 43: fontes, testes e workflow exclusivos | **7** (4 `src/`, 2 `tests/`, 1 `.github/workflows/`) | Exigem inspeção de API/contrato, compatibilidade e novos testes antes de extração seletiva |
+| Presentes em ambas as árvores, mas com SHA diferente | **41** | Diferenciar alteração ainda útil de versão histórica já superada na `dev` |
+| Presentes na `dev`, ausentes no HEAD histórico | **2** | **Preservar**: teste `tests/residential-rest-ownership.test.mjs` e uma evidência `docs/verification/` |
+
+Os quatro caminhos `src/` exclusivos da PR #12 são:
+- `src/ai/kingdom-report-presentation.js`
+- `src/config/whole-measures.js`
+- `src/simulation/economy/food-audit-ledger.js`
+- `src/ui/whole-measures.js`
+
+Os dois testes exclusivos da PR #12 são `tests/food-inventory-ledger.test.mjs` e `tests/kingdom-report-presentation.test.mjs`. O workflow exclusivo é `.github/workflows/integration.yml`. **A existência desses arquivos não demonstra que funcionem com a `dev` atual**; não cherry-pick sem inspecionar imports, pontos de ligação, restrições e CI. Os 41 caminhos modificados incluem 23 `src/`, 14 `tests/`, 2 `scripts/`, `index.html` e uma decisão alimentar. Evitar reverter silenciosamente as correções posteriores da `dev`, especialmente `service.js`, `lifecycle.js`, `chronicle.js` e os testes militares/residenciais.
+
+**Decisão sobre PR #12:** manter **draft e preservada**. A triagem de blobs identifica material a extrair por PR pequena e material histórico que deve permanecer rastreável; não resolve a compatibilidade do código exclusivo. O próximo trabalho de código deve começar pela leitura isolada do ledger alimentar e seus testes, **sem promovê-los por simples cópia**.
+
+### Outras PRs e branches neste checkpoint
+
+- PRs #17, #18 e #19 foram integradas individualmente na `dev`, após CI em seus HEADs e validação de CI da composição final `d6cec7d0`.
+- A PR [#20](https://github.com/Julioall/kingdom/pull/20) foi encontrada **aberta**, vinculada à JUL-200, HEAD observado `9561d920e9927d204609bdf6b3da684f3487f069`, com gate de CI ainda em andamento no início desta auditoria. Verificar estado atual e revisar antes de qualquer integração.
+- Nenhuma branch remota foi excluída nesta auditoria. Ainda não foram inspecionados arquivos locais sem commit, portanto **JUL-226 não está concluída**.
+
+A comparação acima é específica aos dois SHAs indicados. Mudanças subsequentes na `dev` exigem nova inspeção do delta relevante, não a reutilização automática desses totais.
