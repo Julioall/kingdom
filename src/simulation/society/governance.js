@@ -461,6 +461,18 @@ export function updateCommunityGovernance(w, kingdomPlanner) {
       ensureCommunityGovernanceState(community);
       const members = community.memberIds.map(id => w.people.find(person => person.id === id && person.alive)).filter(Boolean);
       if (!members.length) continue;
+      // Gathering, selling and delivering a real seed lot can span more than
+      // the default 21-day build order. Keep an active courier's assignment
+      // until the physical cargo reaches the farm rather than silently
+      // abandoning it and leaving every other builder awaiting that courier.
+      if (community.isKingdomGroup) for (const member of members) {
+        const assignment = member.assignment;
+        if (member.role !== 'soldier' && assignment?.action === 'build'
+            && assignment.goal === 'invest-in-cultivated-food'
+            && ((member.carriedSeeds || 0) > 0 || (member.carriedCommunitySeeds || 0) > 0)) {
+          assignment.expiresDay = Math.max(assignment.expiresDay, w.day + 3);
+        }
+      }
       for (const member of members) if (member.assignment && member.assignment.expiresDay < w.day) {
         const expired = (community.assignments || []).slice().reverse().find(item => item.personId === member.id && item.status === 'delegada');
         if (expired) expired.status = 'expirada';
