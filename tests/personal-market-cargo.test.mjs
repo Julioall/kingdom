@@ -46,7 +46,8 @@ test('resident sells only loaded wood to finite local market and buys actual foo
   assert.equal(market.stock.gold, 16);
   assert.equal(market.transactions, 1);
   assert.equal(person.tradeLedger.count, 1);
-  assert.equal(person.tradeLedger.history[0].kind, 'personal-market');
+  assert.equal(person.tradeLedger.history[0].kind, 'market');
+  assert.equal(person.tradeLedger.history[0].scope, 'personal');
   assert.deepEqual(person.tradeLedger.history[0].market.delta, { wood: 4, gold: -4 });
   assert.deepEqual(community.stores, communityBefore, 'personal sales never debit shared property');
 
