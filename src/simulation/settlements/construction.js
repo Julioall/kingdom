@@ -3,7 +3,7 @@ import { initializeStructureHealth } from '../kingdoms/fortifications.js';
 import { clamp, distance, hash01 } from '../core/math.js';
 import { communityFoodStock, consumeFoodReserve, spendInventory, spendStoreInventory, transferResource, withdrawCommunityFood } from '../economy/inventories.js';
 import { cellAt, cellsWithin } from '../world/spatial.js';
-import { collectCommunityFieldSeeds, plantBiomass, sowCommunityField } from '../ecology/plants.js';
+import { plantBiomass, sowCommunityField } from '../ecology/plants.js';
 import { PLANTS } from '../../config/ecosystem.js';
 import { localNameFeature } from '../society/communities.js';
 import { log } from '../core/events.js';
@@ -227,8 +227,6 @@ export function chooseBuildSite(w, community, structures, builder = null) {
       const fieldTiles = nextType === 'roça' ? cellsWithin(w, t.x, t.y, 3.35, q => q.terrain === 'land'
         && q.slope <= .65 && q.soilType !== 'sandy' && q.waterDist <= 20 && q.cropFieldId == null) : null;
       if (fieldTiles && fieldTiles.length < 16) continue;
-      const fieldSeedBiomass = fieldTiles && fieldTiles.reduce((sum, q) => sum + plantBiomass(q, ['berry']), 0);
-      if (fieldTiles && fieldSeedBiomass + .001 < plan.seedMass) continue;
       const nearbyBrowse = cellsWithin(w, t.x, t.y, 3.5, q => q.terrain === 'land')
         .reduce((sum, q) => sum + plantBiomass(q, ['browse']), 0);
       const flockDistance = Math.min(...w.animals.filter(a => a.alive && a.speciesId === 'sheep').map(a => distance(a, t)), 22);
@@ -241,7 +239,7 @@ export function chooseBuildSite(w, community, structures, builder = null) {
         !constructionWorkpointReachable(w, builder, point, reachableWorkTiles)))) continue;
       const score = Math.log1p(localBiomass) * .24 + waterAccess * .12 - t.slope * 1.4 - spacing * .045 - centerDistance * .012
         + (ownedProperty ? .42 : 0) + (nextType === 'curral' ? Math.log1p(nearbyBrowse) * .19 - flockDistance * .045 : 0)
-        + (fieldTiles ? Math.min(1, fieldTiles.length / 25) * .61 + Math.min(1, fieldSeedBiomass / plan.seedMass) * .18 : 0) + noise;
+        + (fieldTiles ? Math.min(1, fieldTiles.length / 25) * .61 : 0) + noise;
       if (score > bestScore) { best = { tile: t, fieldTileIndices: fieldTiles && fieldTiles.map(q => q.i), workPositions }; bestScore = score; }
     }
     if (!best) return null;
@@ -290,8 +288,8 @@ export function workOnCommunityStructure(w, person, community, size) {
           || communityFoodStock(community) < structure.foodCost) {
         person.state = 'faltam recursos compartilhados'; person.buildCooldown = 8; return;
       }
-      if (structure.type === 'roça' && collectCommunityFieldSeeds(w, structure) < structure.seedMass) {
-        person.state = 'faltam sementes silvestres próximas'; person.buildCooldown = 8; return;
+      if (structure.type === 'roça' && (community.stores.seeds || 0) + .001 < structure.seedMass) {
+        person.state = 'aguardando compra de sementes para a roça'; person.buildCooldown = 8; return;
       }
       if (!spendStoreInventory(community, { wood: structure.woodCost, stone: structure.stoneCost }, 'construction-materials')) {
         person.state = 'faltam recursos compartilhados'; person.buildCooldown = 8; return;
@@ -323,6 +321,22 @@ export function workOnCommunityStructure(w, person, community, size) {
     if (!workstation.arrived) {
       moveOne(w, person, cellAt(w, workstation.position.x, workstation.position.y), false);
       person.state = 'indo para o ponto de construção'; person.buildCooldown = 2; return;
+    }
+    if (structure.type === 'roça' && !(structure.cropSeedStored > .01)) {
+      // A resident delivers previously purchased seeds only after reaching a
+      // real construction workstation. Wild berries no longer finance sowing.
+      if (!Number.isFinite(community.stores.seeds)
+          || community.stores.seeds + .001 < structure.seedMass) {
+        person.state = 'aguardando sementes para iniciar o plantio';
+        person.buildCooldown = 3;
+        return;
+      }
+      const delivered = transferResource(community.stores, structure,
+        'seeds', structure.seedMass, 'cropSeedStored');
+      if (Math.abs(delivered - structure.seedMass) > .001)
+        throw new Error('Entrega de sementes à roça não conservou o lote reservado');
+      person.lastLesson = 'Transportou sementes existentes do estoque comunitário para o lote da roça.';
+      community.history.push('Entregou ' + delivered + ' unidades de sementes compradas ou retidas à roça.');
     }
     // Several residents can help, but an entire building cannot materialize
     // between two daily snapshots just because many workers chose it at once.
