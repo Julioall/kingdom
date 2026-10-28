@@ -236,4 +236,32 @@ test('simulated combat training stops when its military center is inoperable and
   assert.equal(trainMilitaryPair(world, trainee, cachedSession), true,
     'a valid cached session can resume without reconstructing the roster');
   assert.ok(trainee.militaryTraining > beforeTraining);
+
+  const completedTraining = trainee.militaryTraining;
+  const completedEnergy = trainee.energy;
+  const completedSessions = trainee.simulatedCombatDays;
+  world.structures = [{ ...center }];
+  assert.equal(trainMilitaryPair(world, trainee, cachedSession), false,
+    'a stale session may not train from a center that is no longer registered, even if an identical copy exists');
+  assert.equal(trainee.militaryTraining, completedTraining);
+  assert.equal(trainee.energy, completedEnergy);
+  assert.equal(trainee.simulatedCombatDays, completedSessions);
+
+  world.structures = [center];
+  const partner = cachedSession.partner;
+  partner.kingdomId = 11;
+  assert.equal(trainMilitaryPair(world, trainee, cachedSession), false,
+    'a foreign soldier may not use a cached allied training session');
+  partner.kingdomId = 10;
+  trainee.kingdomId = 11;
+  assert.equal(trainMilitaryPair(world, trainee, cachedSession), false,
+    'a reassigned soldier may not train in the former kingdom');
+  assert.equal(trainee.militaryTraining, completedTraining);
+  assert.equal(trainee.energy, completedEnergy);
+  assert.equal(trainee.simulatedCombatDays, completedSessions);
+
+  trainee.kingdomId = 10;
+  assert.equal(trainMilitaryPair(world, trainee, cachedSession), true,
+    'the same legitimate source and original affiliation resume training');
+  assert.ok(trainee.militaryTraining > completedTraining);
 });
