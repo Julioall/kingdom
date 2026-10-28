@@ -97,5 +97,10 @@ export function settleCoinTrade(payer, seller, priceCopper,
   }
   goodsSource[resource] = available - quantity;
   goodsTarget[targetResource] = held + quantity;
+  // Preserve coin-only mode once a wallet has used physical denominations.
+  // Without this flag, spending the last copper/silver would silently switch
+  // the next purchase back to the legacy fractional-gold path.
+  payer.coinMode = true;
+  seller.coinMode = true;
   return quote;
 }
