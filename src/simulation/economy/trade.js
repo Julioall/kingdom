@@ -1,7 +1,7 @@
 import { clamp, distance } from '../core/math.js';
 import { communityRelation } from '../society/governance.js';
 import { domesticatedSheep, makeAnimal } from '../ecology/animals.js';
-import { communityFoodStock, consumeStoreInventory, exchangeResources, removeStoredFruit, stockSurplus, transferCommunityFood, transferFoodReserve } from './inventories.js';
+import { communityFoodStock, consumeStoreInventory, exchangeResources, removeStoredFruit, stockSurplus, transferCommunityFood, transferFoodReserve, transferResource } from './inventories.js';
 import { getSocialLink } from '../society/communities.js';
 import { availableCommunityPen, reconcileCommunityHerdPens } from '../ecology/herd.js';
 import { nearestPenFor } from '../individuals/actions.js';
@@ -107,6 +107,108 @@ function communitiesHaveClosedBorder(w, first, second) {
   return w.kingdomRelations && w.kingdomRelations[low + ':' + high]?.borderClosed === true;
 }
 
+
+// A resident's physical cargo is a different owner from the shared community stock.
+// Never convert crop history or a community reserve into personal saleable property.
+const PERSONAL_SALE_FLOOR = 12;
+const PERSONAL_MARKET_LOT = 4;
+
+function personalMarketOffer(world, community, person, marketOwner) {
+  const market = marketOwner?.stock || marketOwner;
+  if (!person?.alive || person.role === 'soldier' || person.communityId !== community?.id
+      || !(world.people || []).includes(person) || !(world.communities || []).includes(community)
+      || community.dissolved || !market || !marketOwner?.prices) return null;
+  const kingdom = (world.kingdoms || []).find(item => item.communityId === community.id);
+  if (kingdom && (kingdom.market !== marketOwner || marketOwner.ownerId !== kingdom.id)) return null;
+  if (kingdom && person.kingdomId != null && person.kingdomId !== kingdom.id) return null;
+  if (!kingdom && person.kingdomId != null) return null;
+  const foodPrice = marketOwner.prices.food;
+  const foodAmount = accountAmount(market, 'food');
+  const goldHeld = accountAmount(person, 'carriedGold');
+  const reserve = accountAmount(person, 'foodReserve');
+  if (Number.isFinite(foodPrice) && foodPrice > 0 && foodAmount !== null
+      && goldHeld !== null && reserve !== null && reserve < 60) {
+    const units = Math.min(PERSONAL_MARKET_LOT, foodAmount,
+      Math.max(0, (100 - reserve) / FOOD_DAYS_PER_UNIT), goldHeld / foodPrice);
+    if (units > .01 && canReceiveUpTo(market, 'gold', units * foodPrice, Infinity)) {
+      return { action: 'buy-food', amount: units, gold: units * foodPrice };
+    }
+  }
+  for (const resource of ['wood', 'stone']) {
+    const carried = accountAmount(person, 'carried' + resource[0].toUpperCase() + resource.slice(1));
+    const marketAmount = accountAmount(market, resource);
+    const price = marketOwner.prices[resource];
+    if (carried === null || marketAmount === null || !Number.isFinite(price) || price <= 0) continue;
+    const amount = Math.min(PERSONAL_MARKET_LOT, carried - PERSONAL_SALE_FLOOR,
+      Math.max(0, 260 - marketAmount));
+    const gold = amount * price / 2;
+    if (amount > .01 && canSpend(market, 'gold', gold)
+        && canReceiveUpTo(person, 'carriedGold', gold, Infinity)) {
+      return { action: 'sell-' + resource, resource, amount, gold };
+    }
+  }
+  return null;
+}
+
+function executePersonalMarketTrade(world, person, community, marketOwner) {
+  const offer = personalMarketOffer(world, community, person, marketOwner);
+  if (!offer) return false;
+  const market = marketOwner.stock || marketOwner;
+  const before = tradeBalances(market);
+  let movedResource = 0, movedGold = 0;
+  if (offer.action === 'buy-food') {
+    // Both transfers are preflighted; no partial payment or partial ration is allowed.
+    movedGold = transferResource(person, market, 'carriedGold', offer.gold, 'gold');
+    movedResource = transferResource(market, person, 'food', offer.amount,
+      'foodReserve', 100);
+  } else {
+    const cargoField = 'carried' + offer.resource[0].toUpperCase() + offer.resource.slice(1);
+    movedResource = transferResource(person, market, cargoField, offer.amount, offer.resource, 260);
+    movedGold = transferResource(market, person, 'gold', offer.gold, 'carriedGold');
+  }
+  if (Math.abs(movedResource - offer.amount) > 1e-8
+      || Math.abs(movedGold - offer.gold) > 1e-8) {
+    throw new Error('Conservative personal market preflight did not match settlement');
+  }
+  marketOwner.transactions = (marketOwner.transactions || 0) + 1;
+  community.tradeCount = (community.tradeCount || 0) + 1;
+  countTradeDiagnostic(world, 'marketCompleted');
+  consumePersonEnergy(person, .35);
+  if (person.skills) person.skills.diplomacy = clamp((person.skills.diplomacy || 0) + .008, 0, 1);
+  person.state = offer.action === 'buy-food' ? 'comprando alimento para si'
+    : 'vendendo carga pessoal';
+  person.lastLesson = 'A troca mudou somente os estoques físicos e o ouro efetivamente existentes.';
+  recordTrade(world, {
+    kind: 'market', scope: 'personal', action: offer.action,
+    pricing: {
+      resource: offer.action === 'buy-food' ? 'food' : offer.resource,
+      quantity: movedResource, goldPerUnit: offer.gold / offer.amount,
+      goldTransferred: movedGold
+    },
+    balancesAfter: {
+      person: {
+        carriedGold: person.carriedGold || 0,
+        foodReserveDays: person.foodReserve || 0,
+        carriedWood: person.carriedWood || 0,
+        carriedStone: person.carriedStone || 0
+      },
+      market: tradeBalances(market)
+    },
+    participants: [{
+      personId: person.id, communityId: community.id,
+      delta: offer.action === 'buy-food'
+        ? { carriedGold: -movedGold, foodReserveDays: movedResource * FOOD_DAYS_PER_UNIT }
+        : { ['carried' + offer.resource[0].toUpperCase() + offer.resource.slice(1)]: -movedResource,
+          carriedGold: movedGold }
+    }],
+    market: {
+      ownerType: marketOwner.ownerType || 'market', ownerId: marketOwner.ownerId ?? null,
+      delta: tradeDelta(before, tradeBalances(market))
+    }, assetsCreated: []
+  }, [person, community, marketOwner]);
+  return true;
+}
+
 function operationalTradeStation(station, community, kingdom) {
     return !!station && station.complete && station.communityId === community.id
       && station.destroyedDay == null
@@ -124,7 +226,8 @@ export function findTradePartner(w, community, person) {
     countTradeDiagnostic(w, 'marketOpportunityChecks');
     if (!post) countTradeDiagnostic(w, 'marketOpportunityBlocked', 'no-market-station');
     else if (distance(person, post) > 16) countTradeDiagnostic(w, 'marketOpportunityBlocked', 'station-out-of-range');
-    else if (marketHasTradeOpportunity(w, community)) {
+    else if (marketHasTradeOpportunity(w, community)
+        || personalMarketOffer(w, community, person, kingdom?.market || w.market)) {
       countTradeDiagnostic(w, 'marketOpportunities');
       return { isMarket: true, station: post, market: kingdom && kingdom.market || w.market, distance: distance(person, post) };
     } else countTradeDiagnostic(w, 'marketOpportunityBlocked', 'no-exchange-offer');
@@ -416,7 +519,11 @@ export function performTrade(w, person, community, partner) {
     if (partner.isMarket) {
       const kingdom = (w.kingdoms || []).find(item => item.communityId === community.id);
       const currentMarket = kingdom?.market || w.market;
-      if (!(w.structures || []).includes(partner.station)
+      if (!(w.communities || []).includes(community) || community.dissolved
+          || !(w.people || []).includes(person) || !person?.alive
+          || person.communityId !== community.id
+          || (kingdom && person.kingdomId != null && person.kingdomId !== kingdom.id)
+          || !(w.structures || []).includes(partner.station)
           || !operationalTradeStation(partner.station, community, kingdom)
           || !currentMarket || partner.market !== currentMarket) {
         countTradeDiagnostic(w, 'marketBlocked', 'stale-station-or-market');
@@ -460,6 +567,7 @@ export function performTrade(w, person, community, partner) {
     }
     if (partner.isMarket) {
       countTradeDiagnostic(w, 'marketAttempts');
+      if (executePersonalMarketTrade(w, person, community, partner.market)) return true;
       const store = community.stores;
       const storeBefore = { ...store };
       const tradeStoreBefore = tradeBalances(store);
