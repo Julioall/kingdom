@@ -174,3 +174,18 @@ test('a soldier cannot buy food with a gold coin if the market lacks real change
     market: world.kingdoms[0].market.stock }, before);
   assert.equal(world.kingdoms[0].market.transactions, 0);
 });
+
+test('re-enlistment does not erase legacy or copper-denominated back pay', () => {
+  const world = fixture({ treasuryGold: 0, firstDue: 30, arrears: 15 });
+  const soldier = world.people[0];
+  soldier.role = 'pawn';
+  soldier.brain = { pending: null };
+  soldier.militaryPayArrearsCopper = 50;
+  const center = { id: 8, soldierIds: [] };
+  enlistSoldier(world, soldier, center, 10);
+  assert.equal(soldier.role, 'soldier');
+  assert.equal(soldier.nextMilitaryPayDay, 40);
+  assert.equal(soldier.militaryPayArrears, 15);
+  assert.equal(soldier.militaryPayArrearsCopper, 50);
+  assert.equal(world.kingdoms[0].treasury.stock.gold, 0);
+});
