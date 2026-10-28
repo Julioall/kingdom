@@ -82,6 +82,17 @@ export function createWorld(seed) {
         goldOre: !water && hash01(cleanSeed + 53, x, y)
           < (spatialNoise(cleanSeed + 67, x, y, 12) > .66 ? .025 : .0005)
           ? 1 + hash01(cleanSeed + 59, x, y) * 2.5 : 0,
+        // New finite deposits use independent seeded hashes, without consuming
+        // the simulation RNG or changing historic gold/stone generation.
+        copperOre: !water && hash01(cleanSeed + 173, x, y)
+          < (spatialNoise(cleanSeed + 179, x, y, 12) > .60 ? .052 : .003)
+          ? 2 + hash01(cleanSeed + 181, x, y) * 6 : 0,
+        silverOre: !water && hash01(cleanSeed + 191, x, y)
+          < (spatialNoise(cleanSeed + 193, x, y, 12) > .65 ? .016 : .0007)
+          ? 1 + hash01(cleanSeed + 197, x, y) * 3 : 0,
+        ironOre: !water && hash01(cleanSeed + 211, x, y)
+          < (spatialNoise(cleanSeed + 223, x, y, 12) > .58 ? .062 : .004)
+          ? 3 + hash01(cleanSeed + 227, x, y) * 9 : 0,
         surfaceWaterMm: water ? 24 : 0, plants, shade: 0, temperatureC: 18,
         rainfallMm: 0, waterDist, lakeId: waterKind === 'lake' ? lakes.reduce((best, lake, lakeId) =>
           Math.hypot(x - lake.x, y - lake.y) < best.distance ? { distance: Math.hypot(x - lake.x, y - lake.y), lakeId } : best,
