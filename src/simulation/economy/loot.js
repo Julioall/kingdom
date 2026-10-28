@@ -3,7 +3,8 @@ import { carriedResources, transferResource } from './inventories.js';
 import { moveOne } from '../individuals/movement.js';
 
 export const LOOT_CARGO = Object.freeze({ food: 'carriedFood', meat: 'carriedMeat', wood: 'carriedWood',
-  stone: 'carriedStone', gold: 'carriedGold', feed: 'carriedFeed' });
+  stone: 'carriedStone', gold: 'carriedGold', copper: 'carriedCopper',
+  silver: 'carriedSilver', iron: 'carriedIron', feed: 'carriedFeed' });
 
 export function dropStructureLoot(world, structure, day) {
   if (structure.lootDroppedDay != null) return null;
