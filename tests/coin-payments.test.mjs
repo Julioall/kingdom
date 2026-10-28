@@ -15,8 +15,8 @@ test('physical copper, silver and gold settle exact prices with real change', ()
   assert.deepEqual(quote.change, { copper: 3, silver: 6, gold: 0 });
   const result = settleCoinTrade(buyer, seller, 37, seller, buyer, 'food', 1);
   assert.deepEqual(result, quote);
-  assert.deepEqual(buyer, { gold: 0, silver: 6, copper: 3, food: 1 });
-  assert.deepEqual(seller, { gold: 1, silver: 0, copper: 0, food: 2 });
+  assert.deepEqual(buyer, { gold: 0, silver: 6, copper: 3, food: 1, coinMode: true });
+  assert.deepEqual(seller, { gold: 1, silver: 0, copper: 0, food: 2, coinMode: true });
   assert.equal(value(buyer) + value(seller), before, 'no denomination is minted or destroyed');
 });
 
@@ -29,6 +29,8 @@ test('an exact mix of smaller coins avoids unnecessary change', () => {
   assert.ok(settleCoinTrade(buyer, seller, 37, seller, { wood: 0 }, 'wood', 1));
   assert.equal(value(buyer), 0);
   assert.equal(value(seller), 37);
+  assert.equal(buyer.coinMode, true, 'the next purchase must not revert to fractional gold');
+  assert.equal(seller.coinMode, true);
 });
 
 test('seller without three copper for change rejects entire trade atomically', () => {
