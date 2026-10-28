@@ -135,9 +135,10 @@ export function mineralHitbox(tile) {
   if (!tile || tile.terrain === 'water' || tile.cropFieldId != null) return null;
   const gold = Number(tile.goldOre) || 0, stone = Number(tile.stoneDeposit) || 0;
   const collisionY = tile.y - .5;
-  const kind = gold > .05 ? 'gold' : stone > .7 ? 'stone' : null;
+  const otherMetal = ['copper', 'silver', 'iron'].find(metal => (Number(tile[metal + 'Ore']) || 0) > .05);
+  const kind = gold > .05 ? 'gold' : otherMetal || (stone > .7 ? 'stone' : null);
   if (!kind) return null;
-  const halfSize = kind === 'gold' ? .24 : stone >= 8 ? .3 : .23;
+  const halfSize = kind !== 'stone' ? .24 : stone >= 8 ? .3 : .23;
   return { shape: 'rectangle', x: tile.x, y: collisionY,
     halfWidth: halfSize, halfDepth: halfSize,
     resourceKind: kind, resourceId: tile.i };
