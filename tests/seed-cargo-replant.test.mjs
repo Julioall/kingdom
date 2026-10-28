@@ -5,6 +5,7 @@ import { killPerson } from '../src/simulation/individuals/lifecycle.js';
 import { joinCommunity, mergeCommunities } from '../src/simulation/society/communities.js';
 import { releaseSeedCargo, recoverSeedCargo, communitySeedSupply } from '../src/simulation/economy/seed-cargo.js';
 import { workOnReplantingField } from '../src/simulation/settlements/construction.js';
+import { purchaseFieldSeedsForConstruction } from '../src/simulation/economy/trade.js';
 
 function fixture() {
   const world = Sim.createWorld(42);
@@ -197,4 +198,20 @@ test('fractional legacy crop seeds survive death, physical recovery and replanti
   assert.equal(world.seedProvenance.sown, 2.75);
   assert.equal(parcel.seeds, 0);
   assert.equal(replacement.carriedCommunitySeeds, 0);
+});
+
+test('already paid construction seeds can be recovered after destruction of the market station', () => {
+  const { world, courier, replacement, community, kingdom } = fixture();
+  courier.carriedCommunitySeeds = 8;
+  courier.seedCargoCommunityId = community.id;
+  courier.seedCargoPurpose = 'construction';
+  const [parcel] = releaseSeedCargo(world, courier, { reason: 'migration' });
+  const station = world.structures.find(s => s.type === 'mercado' && s.kingdomId === kingdom.id);
+  assert.ok(station);
+  station.destroyedDay = world.day;
+  replacement.x = parcel.x; replacement.y = parcel.y;
+  assert.equal(purchaseFieldSeedsForConstruction(world, replacement, community), 'recovered');
+  assert.equal(replacement.carriedCommunitySeeds, 8);
+  assert.equal(parcel.seeds, 0);
+  assert.equal(kingdom.market.stock.seeds, 0);
 });
