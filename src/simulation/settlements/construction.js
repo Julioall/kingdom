@@ -289,7 +289,7 @@ export function workOnCommunityStructure(w, person, community, size) {
           || communityFoodStock(community) < structure.foodCost) {
         person.state = 'faltam recursos compartilhados'; person.buildCooldown = 8; return;
       }
-      if (structure.type === 'roça' && (community.stores.seeds || 0) + .001 < structure.seedMass) {
+      if (structure.type === 'roça' && (community.stores.seeds || 0) + (person.carriedCommunitySeeds || 0) + .001 < structure.seedMass) {
         const status = purchaseFieldSeedsForConstruction(w, person, community);
         if (status === 'purchased') person.state = 'sementes compradas; retornando à obra';
         else if (status === 'sold') person.state = 'lote vendido; aguardando compra pelo reino';
@@ -336,14 +336,20 @@ export function workOnCommunityStructure(w, person, community, size) {
     if (structure.type === 'roça' && !(structure.cropSeedStored > .01)) {
       // A resident delivers previously purchased seeds only after reaching a
       // real construction workstation. Wild berries no longer finance sowing.
-      if (!Number.isFinite(community.stores.seeds)
-          || community.stores.seeds + .001 < structure.seedMass) {
-        person.state = 'aguardando sementes para iniciar o plantio';
+      // Prefer the tracked courier cargo purchased at the market. Retained
+      // harvest seeds may also be delivered by a worker from community stores.
+      const fromCourier = Number.isSafeInteger(person.carriedCommunitySeeds)
+        && person.carriedCommunitySeeds >= structure.seedMass;
+      const source = fromCourier ? person : community.stores;
+      const sourceKey = fromCourier ? 'carriedCommunitySeeds' : 'seeds';
+      if (!Number.isFinite(source[sourceKey])
+          || source[sourceKey] + .001 < structure.seedMass) {
+        person.state = 'aguardando transporte de sementes até a roça';
         person.buildCooldown = 3;
         return;
       }
-      const delivered = transferResource(community.stores, structure,
-        'seeds', structure.seedMass, 'cropSeedStored');
+      const delivered = transferResource(source, structure,
+        sourceKey, structure.seedMass, 'cropSeedStored');
       if (Math.abs(delivered - structure.seedMass) > .001)
         throw new Error('Entrega de sementes à roça não conservou o lote reservado');
       person.lastLesson = 'Transportou sementes existentes do estoque comunitário para o lote da roça.';
