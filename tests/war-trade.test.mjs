@@ -97,7 +97,9 @@ test('market opportunity and failed attempt expose why no trade happened', () =>
   assert.equal(findTradePartner(world, home, trader), null);
   assert.deepEqual(world.tradeDiagnostics.marketOpportunityBlocked, { 'no-exchange-offer': 1 });
 
-  assert.equal(performTrade(world, trader, home, { isMarket: true, market: world.market, distance: 1 }), false);
+  assert.equal(performTrade(world, trader, home, {
+    isMarket: true, market: world.market, station: world.structures[0], distance: 1
+  }), false);
   assert.equal(world.tradeDiagnostics.marketAttempts, 1);
   assert.deepEqual(world.tradeDiagnostics.marketBlocked, { 'no-executable-exchange': 1 });
   assert.equal(world.tradeDiagnostics.marketCompleted ?? 0, 0);
@@ -230,7 +232,7 @@ test('a stale station or replaced market cannot debit food or gold', () => {
   assert.deepEqual(kingdomMarket.stock, beforeKingdomMarket);
   assert.deepEqual(unassignedMarket.stock, beforeGlobal, 'the unassigned market is not a fallback account');
   assert.equal(world.tradeDiagnostics.marketBlocked['stale-station-or-market'], 3);
-  assert.equal(world.tradeLedger.length, 0);
+  assert.equal(summarizeTradeActivity(world).marketTransactionsRecorded, 0);
 
   const fresh = findTradePartner(world, home, trader);
   assert.equal(fresh?.isMarket, true);
@@ -242,5 +244,5 @@ test('a stale station or replaced market cannot debit food or gold', () => {
   assert.equal(world.kingdoms[0].market.stock.food, 28);
   assert.equal(world.kingdoms[0].market.stock.gold, 106);
   assert.deepEqual(unassignedMarket.stock, beforeGlobal);
-  assert.equal(world.tradeLedger.length, 1);
+  assert.equal(summarizeTradeActivity(world).marketTransactionsRecorded, 1);
 });
