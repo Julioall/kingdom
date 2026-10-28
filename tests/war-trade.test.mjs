@@ -97,7 +97,9 @@ test('market opportunity and failed attempt expose why no trade happened', () =>
   assert.equal(findTradePartner(world, home, trader), null);
   assert.deepEqual(world.tradeDiagnostics.marketOpportunityBlocked, { 'no-exchange-offer': 1 });
 
-  assert.equal(performTrade(world, trader, home, { isMarket: true, market: world.market, distance: 1 }), false);
+  assert.equal(performTrade(world, trader, home, {
+    isMarket: true, market: world.market, station: world.structures[0], distance: 1
+  }), false);
   assert.equal(world.tradeDiagnostics.marketAttempts, 1);
   assert.deepEqual(world.tradeDiagnostics.marketBlocked, { 'no-executable-exchange': 1 });
   assert.equal(world.tradeDiagnostics.marketCompleted ?? 0, 0);
@@ -164,4 +166,83 @@ test('a pawn is not sent to a market for an offer smaller than its food purchase
   assert.equal(home.stores.food, 12);
   assert.equal(home.stores.gold, 0);
   assert.equal(world.market.stock.food, 0);
+});
+
+
+function operationalMarketFixture() {
+  const { world, home, trader } = tradeFixture();
+  trader.perception.people = [];
+  world.tradeDiagnostics = {};
+  home.stores = { food: 20, meat: 0, wood: 0, stone: 0, gold: 10, feed: 0 };
+  const kingdomMarket = { ownerType: 'kingdom-market', ownerId: 1, transactions: 0,
+    stock: { food: 40, wood: 20, stone: 20, gold: 100, feed: 20, sheep: 0 } };
+  const unassignedMarket = { transactions: 0,
+    stock: { food: 500, wood: 500, stone: 500, gold: 500, feed: 500, sheep: 0 } };
+  const station = { id: 30, type: 'posto de coleta', communityId: home.id,
+    complete: true, destroyedDay: null, integrity: 1, health: 1, x: 21, y: 20 };
+  world.kingdoms[0].market = kingdomMarket;
+  world.market = unassignedMarket;
+  world.structures.push(station);
+  return { world, home, trader, station, kingdomMarket, unassignedMarket };
+}
+
+test('a destroyed or zero-health market station cannot advertise trades', () => {
+  const { world, home, trader, station } = operationalMarketFixture();
+  assert.equal(findTradePartner(world, home, trader)?.isMarket, true);
+
+  station.health = 0;
+  assert.equal(findTradePartner(world, home, trader), null, 'health zero blocks trading');
+  station.health = 1;
+  station.integrity = 0;
+  assert.equal(findTradePartner(world, home, trader), null, 'integrity zero blocks trading');
+  station.integrity = 1;
+  station.destroyedDay = world.day;
+  assert.equal(findTradePartner(world, home, trader), null, 'ruins cannot offer transactions');
+  station.destroyedDay = null;
+  station.complete = false;
+  assert.equal(findTradePartner(world, home, trader), null, 'unfinished stations cannot serve trade');
+  station.complete = true;
+  station.communityId = 99;
+  assert.equal(findTradePartner(world, home, trader), null, 'a foreign station cannot serve the community');
+  station.communityId = home.id;
+  assert.equal(findTradePartner(world, home, trader)?.isMarket, true,
+    'repairing a valid station restores the original real offer');
+});
+
+test('a stale station or replaced market cannot debit food or gold', () => {
+  const { world, home, trader, station, kingdomMarket, unassignedMarket } = operationalMarketFixture();
+  const cached = findTradePartner(world, home, trader);
+  assert.equal(cached?.isMarket, true);
+  const beforeStore = structuredClone(home.stores);
+  const beforeKingdomMarket = structuredClone(kingdomMarket.stock);
+  const beforeGlobal = structuredClone(unassignedMarket.stock);
+
+  station.destroyedDay = world.day;
+  assert.equal(performTrade(world, trader, home, cached), false);
+  station.destroyedDay = null;
+  world.structures = [{ ...station }];
+  assert.equal(performTrade(world, trader, home, cached), false,
+    'a removed center cannot be reused via a cached object with identical fields');
+
+  world.structures = [station];
+  world.kingdoms[0].market = { ...kingdomMarket, stock: { ...kingdomMarket.stock } };
+  assert.equal(performTrade(world, trader, home, cached), false,
+    'a replaced market account cannot silently receive transactions through stale pointers');
+  assert.deepEqual(home.stores, beforeStore);
+  assert.deepEqual(kingdomMarket.stock, beforeKingdomMarket);
+  assert.deepEqual(unassignedMarket.stock, beforeGlobal, 'the unassigned market is not a fallback account');
+  assert.equal(world.tradeDiagnostics.marketBlocked['stale-station-or-market'], 3);
+  assert.equal(summarizeTradeActivity(world).marketTransactionsRecorded, 0);
+
+  const fresh = findTradePartner(world, home, trader);
+  assert.equal(fresh?.isMarket, true);
+  fresh.distance = 999; // Distance from observation may become stale before execution.
+  assert.equal(performTrade(world, trader, home, fresh), true,
+    'live location, station and market are authoritative rather than cached distance');
+  assert.equal(home.stores.food, 32);
+  assert.equal(home.stores.gold, 4);
+  assert.equal(world.kingdoms[0].market.stock.food, 28);
+  assert.equal(world.kingdoms[0].market.stock.gold, 106);
+  assert.deepEqual(unassignedMarket.stock, beforeGlobal);
+  assert.equal(summarizeTradeActivity(world).marketTransactionsRecorded, 1);
 });

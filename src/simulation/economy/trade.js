@@ -107,11 +107,19 @@ function communitiesHaveClosedBorder(w, first, second) {
   return w.kingdomRelations && w.kingdomRelations[low + ':' + high]?.borderClosed === true;
 }
 
+function operationalTradeStation(station, community, kingdom) {
+    return !!station && station.complete && station.communityId === community.id
+      && station.destroyedDay == null
+      && (station.integrity == null || station.integrity > 0)
+      && (station.health == null || station.health > 0)
+      && (station.type === 'posto de coleta'
+        || (kingdom && station.type === 'mercado' && station.kingdomId === kingdom.id));
+}
+
 export function findTradePartner(w, community, person) {
     if (!community) return null;
     const kingdom = (w.kingdoms || []).find(item => item.communityId === community.id);
-    const post = w.structures.filter(s => s.complete && s.communityId === community.id
-        && (s.type === 'posto de coleta' || (kingdom && s.type === 'mercado' && s.kingdomId === kingdom.id)))
+    const post = w.structures.filter(s => operationalTradeStation(s, community, kingdom))
       .sort((a, b) => distance(person, a) - distance(person, b))[0];
     countTradeDiagnostic(w, 'marketOpportunityChecks');
     if (!post) countTradeDiagnostic(w, 'marketOpportunityBlocked', 'no-market-station');
@@ -405,11 +413,21 @@ export function resolveFoodAidRequest(w, requester, helper, participantsToday = 
 
 export function performTrade(w, person, community, partner) {
     if (!community || !partner) return false;
+    if (partner.isMarket) {
+      const kingdom = (w.kingdoms || []).find(item => item.communityId === community.id);
+      const currentMarket = kingdom?.market || w.market;
+      if (!(w.structures || []).includes(partner.station)
+          || !operationalTradeStation(partner.station, community, kingdom)
+          || !currentMarket || partner.market !== currentMarket) {
+        countTradeDiagnostic(w, 'marketBlocked', 'stale-station-or-market');
+        return false;
+      }
+    }
     if (!partner.isMarket && partner.community && communitiesHaveClosedBorder(w, community, partner.community)) {
       countTradeDiagnostic(w, 'communityBarterBlocked', 'closed-border');
       return false;
     }
-    if (partner.distance > 2.2) {
+    if ((partner.isMarket ? distance(person, partner.station) : partner.distance) > 2.2) {
       const target = partner.isMarket ? partner.station : partner.person;
       const tile = target && cellAt(w, target.x, target.y);
       if (!tile || !moveOne(w, person, tile, false)) {

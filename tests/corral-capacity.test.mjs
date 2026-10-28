@@ -173,7 +173,13 @@ test('market livestock purchase uses another pen when the first one is full', ()
   world.animals = Array.from({ length: 35 }, (_, index) => ({ id: 1000 + index, speciesId: 'sheep', alive: true,
     x: 30, y: 30, ageDays: 900, energy: 80, herdCommunityId: community.id, herdPenId: pens[0].id }));
   const market = { stock: { sheep: 2, gold: 0, food: 0, wood: 0, stone: 0, feed: 0 }, transactions: 0 };
-  const partner = { isMarket: true, distance: 1, station: { x: 90, y: 30 }, market };
+  const station = { id: 902, type: 'posto de coleta', communityId: community.id,
+    complete: true, destroyedDay: null, integrity: 1, health: 1, x: 90, y: 31 };
+  world.structures.push(station);
+  world.market = market;
+  const kingdom = world.kingdoms.find(item => item.communityId === community.id);
+  if (kingdom) kingdom.market = market;
+  const partner = { isMarket: true, distance: 1, station, market };
   const animalCountBefore = world.animals.length;
 
   assert.equal(performTrade(world, person, community, partner), true);
