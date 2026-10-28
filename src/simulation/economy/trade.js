@@ -160,7 +160,8 @@ function fieldSeedMarketOrder(world, community, marketOwner) {
   if (!kingdom && community.kingdomId != null) return null;
   const fields = (world.structures || []).filter(field => field.type === 'roça'
     && field.communityId === community.id && field.destroyedDay == null);
-  const seedDemand = fields.some(field => field.cropCycleState === 'spent' && !(field.cropSeedStored > .01))
+  const seedDemand = fields.some(field => (!field.complete || field.cropCycleState === 'spent')
+    && !(field.cropSeedStored > .01))
     || (!fields.length && (community.memberIds || []).length >= 6);
   // Seed supply is a commissioned builder task, not a speculative purchase
   // by an arbitrary visitor; the courier carries community-owned cargo.
@@ -275,6 +276,7 @@ function settleFieldSeedOrder(world, person, community, marketOwner) {
   const receipt = settleCoinTrade(order.payer, order.market, order.priceCopper,
     order.market, person, 'seeds', order.amount, 8, 'carriedCommunitySeeds');
   if (!receipt) return false;
+  person.seedCargoCommunityId = community.id;
   marketOwner.transactions = (marketOwner.transactions || 0) + 1;
   community.tradeCount = (community.tradeCount || 0) + 1;
   countTradeDiagnostic(world, 'marketCompleted');
