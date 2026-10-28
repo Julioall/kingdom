@@ -19,7 +19,7 @@ export function kingdomOverview(world, kingdom) {
     row('Riqueza total', fmt(data.gold) + ' ouro') +
     row('Cobre / prata', fmt(data.copper) + ' / ' + fmt(data.silver)) +
     row('Ferro armazenado e carregado', fmt(data.iron)) +
-    row('Equivalência nominal', fmt(data.gold * 25 + data.silver * 5 + data.copper) + ' cobres') +
+    row('Equivalência nominal', fmt(data.nominalCopper) + ' cobres') +
     row('População', data.people + ' pessoas') + row('Reserva abaixo de 30 dias', data.hungry + ' pessoas') +
     row('Com pouca água / energia', data.thirsty + ' / ' + data.tired) + row('Sem moradia', data.homeless) +
     row('Satisfação do reino', Math.round(data.satisfaction * 100) + '%') +
