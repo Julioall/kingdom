@@ -6,6 +6,7 @@ import {
   addFoodReserve, communityFoodStock, spendInventory, transferInventory, transferResource, withdrawCommunityFood
 } from '../economy/inventories.js';
 import { MILITARY_CLASSES } from './military.js';
+import { isOperationalMilitarySource } from './military-sources.js';
 import { moveOne } from '../individuals/movement.js';
 import { structureInteractionPoint } from '../physics/hitboxes.js';
 import { recordTrade } from '../economy/trade-ledger.js';
@@ -63,7 +64,7 @@ export function restPersonInHouse(world, person) {
 export const restSoldierInHouse = restPersonInHouse;
 
 export function militaryDutyCenterFor(world, person) {
-  const validCenter = center => center && center.complete && center.type === 'centro_militar'
+  const validCenter = center => isOperationalMilitarySource(center, 'centro_militar')
     && center.kingdomId === person.kingdomId;
   const assigned = world.structures.find(center => center.id === person.militaryDutyCenterId && validCenter(center));
   if (assigned) return assigned;
@@ -77,8 +78,9 @@ export function drawGarrisonRation(world, person, center = militaryDutyCenterFor
     && structure.complete && structure.kingdomId === person.kingdomId
     && structure.destroyedDay == null && structure.integrity !== 0 && distance(person, structure) <= 1.25);
   if (!person || person.role !== 'soldier' || person.campaignId != null || !center
-      || center.type !== 'centro_militar' || center.kingdomId !== person.kingdomId
-      || !center.complete || distance(person, center) > 2.5 && !restingHouse) return 0;
+      || center.kingdomId !== person.kingdomId
+      || !isOperationalMilitarySource(center, 'centro_militar')
+      || distance(person, center) > 2.5 && !restingHouse) return 0;
   const need = Math.min(Math.max(0, target - person.foodReserve), Math.max(0, 100 - person.foodReserve));
   if (need <= .01) return 0;
   const kingdom = world.kingdoms.find(item => item.id === person.kingdomId);
