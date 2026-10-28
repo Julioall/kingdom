@@ -1396,8 +1396,11 @@ export function mountGame() {
       const tree = t.plants[broad], pine = t.plants[conifer];
       const variant = (t.x * 13 + t.y * 17 + world.seed) % 5;
       const treeAnchor = !gateCells.has(t.i) && Sim.modules.Biosphere.Botany.isTreeAnchor(world, t);
-      if ((t.stoneDeposit || 0) > .7 || (t.goldOre || 0) > .05) {
-        add('mineral', t.x, t.y, t, .15, t.i, { tile: t, stone: t.stoneDeposit || 0, gold: t.goldOre || 0 });
+      if ((t.stoneDeposit || 0) > .7 || ['gold', 'copper', 'silver', 'iron'].some(metal => (t[metal + 'Ore'] || 0) > .05)) {
+        add('mineral', t.x, t.y, t, .15, t.i, {
+          tile: t, stone: t.stoneDeposit || 0, gold: t.goldOre || 0,
+          copper: t.copperOre || 0, silver: t.silverOre || 0, iron: t.ironOre || 0
+        });
       }
       if (treeAnchor) {
         const type = tree >= pine ? 'broadleaf' : 'conifer', mass = type === 'broadleaf' ? tree : pine;
@@ -1413,6 +1416,7 @@ export function mountGame() {
         }
       }
       const decoration = !treeAnchor && !bushAnchor && !isRoadTile(t) && t.stoneDeposit <= .7 && t.goldOre <= .05
+        && (t.copperOre || 0) <= .05 && (t.silverOre || 0) <= .05 && (t.ironOre || 0) <= .05
         ? mapDecorationAt(t, world.seed) : null;
       if (decoration) add('decoration', t.x, t.y, t, 1.5, t.i, { decoration });
       if (t.stump && t.stump.untilDay >= world.day) add('stump', t.x, t.y, t, 2, t.i, { tile: t, stump: t.stump });
@@ -1606,9 +1610,11 @@ export function mountGame() {
 
   function drawMineralDeposit(item) {
     const x = item.x * TILE, y = item.y * TILE;
-    const gold = item.gold > .05;
-    if (gold) {
-      const variant = Math.max(1, Math.min(6, Math.ceil(item.gold / 3.5 * 6)));
+    // Until dedicated assets arrive, each metal deposit uses the existing gold
+    // resource sprite. The mineral identity stays in the tile/snapshot data.
+    const ore = Math.max(item.gold || 0, item.copper || 0, item.silver || 0, item.iron || 0);
+    if (ore > .05) {
+      const variant = Math.max(1, Math.min(6, Math.ceil(ore / 3.5 * 6)));
       const highlighted = activeMiningSites.has(item.x + ':' + item.y);
       if (highlighted && animationRenderer.draw(ctx, 'resource.gold-stone-' + variant + '-highlight',
         x + TILE / 2, y + TILE / 2, { elapsedMs: animationTime, scale: spriteScale(TILE), phase: item.id || 0 })) return;
