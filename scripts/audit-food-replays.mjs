@@ -56,6 +56,9 @@ function stockAccounts(world) {
 
 function assertNonnegativeStocks(world, seed, day) {
   for (const [label, account] of stockAccounts(world)) for (const [resource, value] of Object.entries(account)) {
+    // coinMode is an explicit boolean payment-regime marker, not a resource.
+    // Validate its type instead of treating it as a fractional inventory amount.
+    if (resource === 'coinMode' && typeof value === 'boolean') continue;
     if (typeof value !== 'number' || !Number.isFinite(value) || value < -1e-7) {
       throw new Error('Estoque inválido na seed ' + seed + ', dia ' + day + ': ' + label + '.' + resource + '=' + value);
     }
