@@ -2429,6 +2429,12 @@ export function mountGame() {
     const calendar = Sim.modules.Cosmos.calendarDate(world.day);
     const global = resourceSummary(world);
     $('globalFood').textContent = fmt(global.food, 1);
+    $('globalFood').title = 'Comida física agregada (dias adultos): ' +
+      'estoques comunitários ' + fmt(global.foodByAccount.community, 1) +
+      ' · tesouros ' + fmt(global.foodByAccount.treasury, 1) +
+      ' · mercados dos reinos ' + fmt(global.foodByAccount.market, 1) +
+      ' · mercado geral sem vínculo ' + fmt(global.foodByAccount.unassignedMarket, 1) +
+      '. A soma não representa acesso imediato em cada reino.';
     $('globalGold').textContent = fmt(global.gold, 0);
     $('day').textContent = fmt(calendar.dayOfYear);
     $('day').parentElement.title = 'Dia ' + world.day + ' desde a criação · 365 dias por ano';
