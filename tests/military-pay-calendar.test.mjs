@@ -233,3 +233,17 @@ test('paying old arrears cannot hide a newly missed wage in social evidence', ()
   assert.equal(delayed[0].outcome.dueDay, 30);
   assert.equal(world.kingdoms[0].treasury.stock.gold, 0);
 });
+
+test('27 soldiers over 360 days cost 324 gold instead of the old 4860', () => {
+  const world = fixture({ treasuryGold: 400 });
+  const initial = world.people[0];
+  world.people = Array.from({ length: 27 }, (_, i) => ({
+    ...structuredClone(initial), id: i + 1, militaryWallet: { stock: { gold: 0 } }
+  }));
+  for (let day = 0; day < 360; day += 30) payOn(world, day);
+  const paid = world.people.reduce((sum, soldier) => sum + soldier.militaryWallet.stock.gold, 0);
+  assert.equal(paid, 324);
+  assert.equal(world.kingdoms[0].treasury.stock.gold, 76);
+  assert.equal(paid + world.kingdoms[0].treasury.stock.gold, 400);
+  assert.ok(world.people.every(soldier => soldier.militaryPayArrearsCopper === 0));
+});
