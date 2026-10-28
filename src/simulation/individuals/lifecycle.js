@@ -363,9 +363,9 @@ export function reproducePeople(w) {
         if (gates[key] === true) continue;
         gates[key] = true;
         const owner = candidate.kingdomId == null
-          ? 'comunidade ' + (candidate.communityId ?? 'sem vínculo')
-          : 'reino ' + candidate.kingdomId;
-        log(w, 'Nascimento adiado na ' + owner + ': não existe moradia operacional com vaga.');
+          ? 'na comunidade ' + (candidate.communityId ?? 'sem vínculo')
+          : 'no reino ' + candidate.kingdomId;
+        log(w, 'Nascimento adiado ' + owner + ': não existe moradia operacional com vaga.');
       }
       return;
     }
@@ -375,8 +375,8 @@ export function reproducePeople(w) {
     if (w.birthHousingGate?.[housingKey] === true) {
       delete w.birthHousingGate[housingKey];
       if (!Object.keys(w.birthHousingGate).length) delete w.birthHousingGate;
-      log(w, 'Nascimento retomado na ' + (kingdomId == null
-        ? 'comunidade ' + (communityId ?? 'sem vínculo') : 'reino ' + kingdomId)
+      log(w, 'Nascimento retomado ' + (kingdomId == null
+        ? 'na comunidade ' + (communityId ?? 'sem vínculo') : 'no reino ' + kingdomId)
         + ': moradia operacional com vaga voltou a estar disponível.');
     }
     p.birthCooldown = q.birthCooldown = 280;
