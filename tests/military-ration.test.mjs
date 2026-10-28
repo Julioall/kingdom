@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DAILY_FOOD_NEED, FOOD_DAYS_PER_UNIT } from '../src/config/ecosystem.js';
-import { drawGarrisonRation } from '../src/simulation/kingdoms/service.js';
+import { drawGarrisonRation, militaryDutyCenterFor } from '../src/simulation/kingdoms/service.js';
 
 test('garrison ration withdraws only the food present in the treasury and kingdom community', () => {
   const person = { id: 11, role: 'soldier', kingdomId: 1, campaignId: null, x: 0, y: 0, foodReserve: 0 };
@@ -45,4 +45,42 @@ test('garrison preserves the civilian floor when community food includes meat', 
   assert.ok(Math.abs(received - FOOD_DAYS_PER_UNIT) < 1e-9);
   assert.ok(Math.abs(community.stores.food - floor) < 1e-9);
   assert.ok(Math.abs(community.stores.meat) < 1e-9);
+});
+
+
+test('destroyed military centers cannot supply rations; a surviving center can take over without creating food', () => {
+  const person = { id: 11, alive: true, ageDays: 30 * 365, role: 'soldier', kingdomId: 1,
+    campaignId: null, militaryDutyCenterId: 4, x: 0, y: 0, foodReserve: 0 };
+  const destroyed = { id: 4, type: 'centro_militar', kingdomId: 1, complete: true,
+    destroyedDay: 10, integrity: 0, health: 0, x: 0, y: 0 };
+  const alternate = { id: 5, type: 'centro_militar', kingdomId: 1, complete: true,
+    destroyedDay: null, integrity: 1, health: 1, x: 0, y: 0 };
+  const kingdom = { id: 1, communityId: 2, militaryCenterIds: [4, 5],
+    memberIds: [11], treasury: { stock: { food: 2 } } };
+  const community = { id: 2, kingdomId: 1, stores: { food: 0, meat: 0 } };
+  const world = { people: [person], structures: [destroyed, alternate],
+    kingdoms: [kingdom], communities: [community] };
+
+  assert.equal(militaryDutyCenterFor(world, person)?.id, alternate.id,
+    'a ruined assigned center must not hide a surviving operational center');
+  assert.equal(drawGarrisonRation(world, person, destroyed, FOOD_DAYS_PER_UNIT), 0,
+    'even an explicitly passed ruined center cannot authorize a ration');
+  assert.equal(kingdom.treasury.stock.food, 2);
+  assert.equal(person.foodReserve, 0);
+
+  assert.equal(drawGarrisonRation(world, person, undefined, FOOD_DAYS_PER_UNIT), FOOD_DAYS_PER_UNIT);
+  assert.equal(kingdom.treasury.stock.food, 1);
+  assert.equal(person.foodReserve, FOOD_DAYS_PER_UNIT);
+
+  person.foodReserve = 0;
+  alternate.health = 0;
+  assert.equal(militaryDutyCenterFor(world, person), null);
+  assert.equal(drawGarrisonRation(world, person, alternate, FOOD_DAYS_PER_UNIT), 0);
+  assert.equal(drawGarrisonRation(world, person, undefined, FOOD_DAYS_PER_UNIT), 0);
+  assert.equal(kingdom.treasury.stock.food, 1, 'no food is debited while every center is inoperative');
+  assert.equal(person.foodReserve, 0);
+
+  alternate.health = 1;
+  assert.equal(militaryDutyCenterFor(world, person)?.id, alternate.id,
+    'restoring the alternate resumes service without recreating its stock');
 });
