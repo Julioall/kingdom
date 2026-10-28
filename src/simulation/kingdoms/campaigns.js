@@ -14,6 +14,7 @@ import { cellAt } from '../world/spatial.js';
 import { moveOne, reachableAreaAround } from '../individuals/movement.js';
 import { changePersonHealth, killPerson } from '../individuals/lifecycle.js';
 import { communityFoodStock, spendInventory, spendResource, transferInventory, transferStoreResourceToAccount } from '../economy/inventories.js';
+import { registerFoodAuditCampaignSide } from '../economy/food-audit-ledger.js';
 import { MILITARY_CIVILIAN_RESERVE_DAYS, militaryCivilianFoodFloor } from '../economy/food-policy.js';
 import { kingdomRelation, recomputeKingdomTerritories } from './territories.js';
 import {
@@ -206,6 +207,7 @@ function fundSide(world, campaignId, kingdomId, role, troopIds) {
     lastResupplyDay: -RESUPPLY_INTERVAL
   };
   if (!kingdom) return side;
+  registerFoodAuditCampaignSide(side);
   const count = troopIds.length;
   side.supplyLedger.deployment.food = transferInventory(kingdom.treasury, side.supply, 'food',
     count * CAMPAIGN_RATION_DAYS / FOOD_DAYS_PER_UNIT, 'campaign-deployment');

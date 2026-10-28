@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PLANTS } from '../src/config/ecosystem.js';
-import { exchangeResources, transferResource, transferStoresToInventory } from '../src/simulation/economy/inventories.js';
+import { exchangeResources, transferFoodReserve, transferInventory, transferResource, transferStoresToInventory } from '../src/simulation/economy/inventories.js';
 import {
-  recordFoodAuditCultivatedState, recordFoodAuditWorkObservation, startFoodInventoryAudit
+  recordFoodAuditCultivatedState, recordFoodAuditWorkObservation, registerFoodAuditCampaignSide, startFoodInventoryAudit
 } from '../src/simulation/economy/food-audit-ledger.js';
 
 function makeWorld() {
@@ -159,4 +159,50 @@ test('campaign attacker and defender supply accounts stay separate and reconcile
   }
   assert.equal(report.accountDailyBalances.find(row => row[1] === sideAccounts.find(account => account.account === 'field-supply-attacker').index)[6], 7);
   assert.equal(report.accountDailyBalances.find(row => row[1] === sideAccounts.find(account => account.account === 'field-supply-defender').index)[6], 24);
+});
+
+test('newborn food provisions register its reserve before the baby joins the world collection', () => {
+  const world = makeWorld();
+  const audit = startFoodInventoryAudit(world);
+  audit.beginDay(1);
+  const baby = { id: 4, name: 'Luz', alive: true, communityId: 2, kingdomId: 3, foodReserve: 0 };
+
+  assert.equal(transferFoodReserve(world.people[0], baby, 3, 'birth-provisions'), 3);
+  world.people.push(baby);
+  audit.endDay();
+  const report = audit.finish();
+  const provision = report.transactions.find(operation => operation.category === 'birth-provisions');
+  const babyAccount = report.accounts.find(account => account.ownerType === 'person'
+    && account.ownerId === 4 && account.property === 'foodReserve');
+
+  assert.ok(provision);
+  assert.ok(babyAccount);
+  assert.equal(provision.destination, babyAccount.index);
+  assert.equal(report.accountDailyBalances.find(row => row[0] === 1 && row[1] === babyAccount.index)[6], 3);
+  assert.equal(report.coverage.balanced, true);
+  assert.equal(report.coverage.unbalancedAccountDays, 0);
+});
+
+test('campaign deployment registers a new field-supply account before funding it', () => {
+  const world = makeWorld();
+  const audit = startFoodInventoryAudit(world);
+  audit.beginDay(1);
+  const side = { campaignId: 9, kingdomId: 3, role: 'attacker',
+    supply: { ownerType: 'field-supply', ownerId: 9, stock: { food: 0, meat: 0, feed: 0, seeds: 0 } } };
+
+  registerFoodAuditCampaignSide(side);
+  assert.equal(transferInventory(world.kingdoms[0].treasury, side.supply, 'food', 4, 'campaign-deployment'), 4);
+  world.campaigns.push({ id: 9, attacker: side, defender: null });
+  audit.endDay();
+  const report = audit.finish();
+  const deployment = report.transactions.find(operation => operation.category === 'campaign-deployment');
+  const sideAccount = report.accounts.find(account => account.ownerType === 'campaign-side'
+    && account.ownerId === 9 && account.account === 'field-supply-attacker' && account.property === 'food');
+
+  assert.ok(deployment);
+  assert.ok(sideAccount);
+  assert.equal(deployment.destination, sideAccount.index);
+  assert.equal(report.accountDailyBalances.find(row => row[0] === 1 && row[1] === sideAccount.index)[6], 4);
+  assert.equal(report.coverage.balanced, true);
+  assert.equal(report.coverage.unbalancedAccountDays, 0);
 });

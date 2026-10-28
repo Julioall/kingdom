@@ -228,14 +228,21 @@ function registerStructure(audit, structure) {
 
 function registerCampaign(audit, campaign) {
   if (!campaign || typeof campaign !== 'object') return;
-  for (const side of [campaign.attacker, campaign.defender]) {
-    if (!side?.supply?.stock) continue;
-    registerAccountObject(audit, side.supply.stock, {
-      ownerType: 'campaign-side', ownerId: campaign.id, ownerName: side.role,
-      kingdomId: side.kingdomId ?? null, communityId: null, ownerRef: side,
-      positionRef: null, accountName: 'field-supply-' + side.role
-    });
-  }
+  for (const side of [campaign.attacker, campaign.defender]) registerCampaignSide(audit, campaign.id, side);
+}
+
+function registerCampaignSide(audit, campaignId, side) {
+  if (!side?.supply?.stock) return;
+  registerAccountObject(audit, side.supply.stock, {
+    ownerType: 'campaign-side', ownerId: campaignId ?? side.campaignId, ownerName: side.role,
+    kingdomId: side.kingdomId ?? null, communityId: null, ownerRef: side,
+    positionRef: null, accountName: 'field-supply-' + side.role
+  });
+}
+
+export function registerFoodAuditCampaignSide(side) {
+  if (!activeAudit || !side?.supply?.stock) return;
+  registerCampaignSide(activeAudit, side.campaignId ?? side.supply.ownerId, side);
 }
 
 function registerLoot(audit, pile) {
@@ -388,6 +395,10 @@ export function withFoodAuditOperation(details, action) {
   const parent = audit.currentOperation;
   const resourceProperty = details.resource || [...Object.keys(details.costs || {}),
     ...Object.keys(details.firstGives || {}), ...Object.keys(details.secondGives || {})].find(hasTrackedResource);
+  for (const endpoint of [details.sourceAccount, details.destinationAccount]) {
+    if (endpoint && typeof endpoint === 'object' && Object.prototype.hasOwnProperty.call(endpoint, 'foodReserve')
+      && !audit.propertyMeta.get(endpoint)?.has('foodReserve')) registerPerson(audit, endpoint);
+  }
   const sourceMeta = endpointMeta(audit, details.sourceAccount, details.sourceResource || resourceProperty);
   const destinationMeta = endpointMeta(audit, details.destinationAccount, details.destinationResource || resourceProperty);
   const operation = {
