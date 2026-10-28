@@ -101,13 +101,15 @@ export function recoverSeedCargo(world, person, community, purpose = 'constructi
   return 'recovered';
 }
 
-export function communitySeedSupply(world, communityId) {
+export function communitySeedSupply(world, communityId, purpose = null) {
   const community = (world.communities || []).find(c => c.id === communityId && !c.dissolved);
   if (!community) return 0;
   const stores = Math.max(0, Number(community.stores?.seeds) || 0);
-  const carried = (world.people || []).filter(p => p.alive && p.seedCargoCommunityId === communityId)
+  const carried = (world.people || []).filter(p => p.alive && p.seedCargoCommunityId === communityId
+    && (purpose == null || p.seedCargoPurpose === purpose))
     .reduce((sum, p) => sum + (p.carriedCommunitySeeds || 0), 0);
-  const dropped = (world.seedCargoDrops || []).filter(p => p.available && p.ownerCommunityId === communityId)
+  const dropped = (world.seedCargoDrops || []).filter(p => p.available && p.ownerCommunityId === communityId
+    && (purpose == null || p.purpose === purpose))
     .reduce((sum, p) => sum + (p.seeds || 0), 0);
   return stores + carried + dropped;
 }
