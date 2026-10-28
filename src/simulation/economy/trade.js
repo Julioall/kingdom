@@ -29,15 +29,17 @@ const RESOURCE_LABELS = Object.freeze({
   copper: ['moeda de cobre', 'moedas de cobre'],
   silver: ['moeda de prata', 'moedas de prata'],
   iron: ['unidade de ferro', 'unidades de ferro'],
-  feed: ['unidade de ração', 'unidades de ração']
+  feed: ['unidade de ração', 'unidades de ração'],
+  seeds: ['unidade de semente', 'unidades de sementes']
 });
-const TRADE_RESOURCES = Object.freeze(['food', 'meat', 'wood', 'stone', 'gold', 'silver', 'copper', 'iron', 'feed', 'sheep']);
+const TRADE_RESOURCES = Object.freeze(['food', 'meat', 'wood', 'stone', 'gold', 'silver', 'copper', 'iron', 'feed', 'sheep', 'seeds']);
 const MARKET_PURCHASES = Object.freeze({
   food: Object.freeze({ amount: 12, gold: 6, reserve: 32 }),
   wood: Object.freeze({ amount: 10, gold: 6, reserve: 18 }),
   stone: Object.freeze({ amount: 8, gold: 7, reserve: 12 }),
   feed: Object.freeze({ amount: 10, gold: 4, reserve: 18 }),
-  sheep: Object.freeze({ amount: 1, gold: 38 })
+  sheep: Object.freeze({ amount: 1, gold: 38 }),
+  seeds: Object.freeze({ amount: 8, gold: 4, reserve: 8 })
 });
 const MARKET_SALES = Object.freeze([
   Object.freeze({ resource: 'food', amount: 10, gold: 4, reserve: 44, capacity: 260 }),
@@ -142,6 +144,30 @@ function coinMarketNeeds(store, pen, herd) {
     { resource: 'stone', label: 'pedra', needed: (store.stone || 0) < MARKET_PURCHASES.stone.reserve },
     { resource: 'feed', label: 'ração', needed: !!pen && herd > 0 && (store.feed || 0) < MARKET_PURCHASES.feed.reserve }
   ];
+}
+
+// A purchase order is possible only when a farm actually needs a finite seed
+// batch, the official local market owns it and the named financier can pay.
+// A resident must still reach a live trading station before any transfer occurs.
+function fieldSeedMarketOrder(world, community, marketOwner) {
+  const store = community?.stores;
+  const order = MARKET_PURCHASES.seeds;
+  if (!store || !marketOwner) return null;
+  const kingdom = (world.kingdoms || []).find(item => item.communityId === community.id);
+  if (kingdom && (kingdom.market !== marketOwner || marketOwner.ownerType !== 'kingdom-market'
+      || marketOwner.ownerId !== kingdom.id)) return null;
+  if (!kingdom && community.kingdomId != null) return null;
+  const fields = (world.structures || []).filter(field => field.type === 'roça'
+    && field.communityId === community.id && field.destroyedDay == null);
+  const seedDemand = fields.some(field => field.cropCycleState === 'spent' && !(field.cropSeedStored > .01))
+    || (!fields.length && (community.memberIds || []).length >= 6);
+  if (!seedDemand || !canReceiveUpTo(store, 'seeds', order.amount, order.reserve)) return null;
+  const market = marketOwner.stock || marketOwner;
+  if (!canSpend(market, 'seeds', order.amount)) return null;
+  const payer = kingdom?.treasury?.stock || store;
+  const priceCopper = goldPriceToCopper(order.gold);
+  if (!priceCopper || !quoteCoinPayment(payer, market, priceCopper)) return null;
+  return { payer, market, amount: order.amount, priceCopper, kingdomId: kingdom?.id ?? null };
 }
 
 function marketSaleGold(sale, marketOwner) {
@@ -341,6 +367,7 @@ export function marketHasTradeOpportunity(w, community) {
     const food = accountAmount(store, 'food'), meat = accountAmount(store, 'meat');
     const edibleFood = food === null || meat === null ? Infinity : food + meat * MEAT_NUTRITIONAL_VALUE;
     const needsMarketFood = edibleFood < MARKET_PURCHASES.food.reserve;
+    const canBuySeeds = !!fieldSeedMarketOrder(w, community, marketOwner);
     const canBuyFood = needsMarketFood
       && canSpend(store, 'gold', MARKET_PURCHASES.food.gold)
       && canSpend(market, 'food', MARKET_PURCHASES.food.amount);
@@ -380,7 +407,7 @@ export function marketHasTradeOpportunity(w, community) {
       }
       return canSpend(market, 'gold', payment);
     });
-    return canBuyFood || canBuyWood || canBuyStone || canBuyFeed || canBuySheep || canBarterFood || canSell || canCoinBuy;
+    return canBuySeeds || canBuyFood || canBuyWood || canBuyStone || canBuyFeed || canBuySheep || canBarterFood || canSell || canCoinBuy;
   }
 
 function recordFoodAidExperience(w, giver, recipient, amount, method) {
@@ -680,8 +707,20 @@ export function performTrade(w, person, community, partner) {
       const pen = nearestPenFor(w, person);
       const availablePen = availableCommunityPen(w, community.id, person);
       const herd = domesticatedSheep(w, community).length;
-      let transaction = null, coinReceipt = null;
-      if (hasCoinFunds(store)) {
+      let transaction = null, coinReceipt = null, seedFunding = null;
+      const seedOrder = fieldSeedMarketOrder(w, community, marketOwner);
+      if (seedOrder) {
+        coinReceipt = settleCoinTrade(seedOrder.payer, seedOrder.market, seedOrder.priceCopper,
+          seedOrder.market, store, 'seeds', seedOrder.amount);
+        if (coinReceipt) {
+          transaction = 'comprou sementes para a roça';
+          seedFunding = seedOrder.kingdomId == null ? null
+            : { kingdomId: seedOrder.kingdomId,
+              delta: Object.fromEntries(['copper', 'silver', 'gold']
+                .map(coin => [coin, -(coinReceipt.transfers[coin] || 0)])) };
+        }
+      }
+      if (!transaction && hasCoinFunds(store)) {
         for (const choice of coinMarketNeeds(store, availablePen || pen, herd)) {
           if (!choice.needed) continue;
           const order = MARKET_PURCHASES[choice.resource];
@@ -786,7 +825,8 @@ export function performTrade(w, person, community, partner) {
         kind: 'market',
         action: transaction,
         participants: [{ personId: person.id, communityId: community.id,
-          delta: tradeDelta(tradeStoreBefore, tradeBalances(store)) }],
+          delta: tradeDelta(tradeStoreBefore, tradeBalances(store)) },
+          ...(seedFunding ? [seedFunding] : [])],
         market: {
           ownerType: marketOwner.ownerType || 'market',
           ownerId: marketOwner.ownerId ?? null,
