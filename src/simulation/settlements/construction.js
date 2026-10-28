@@ -292,10 +292,14 @@ export function workOnCommunityStructure(w, person, community, size) {
       if (structure.type === 'roça' && (community.stores.seeds || 0) + .001 < structure.seedMass) {
         const status = purchaseFieldSeedsForConstruction(w, person, community);
         if (status === 'purchased') person.state = 'sementes compradas; retornando à obra';
-        else if (status === 'approaching') person.state = 'indo buscar sementes no mercado';
-        else if (status === 'route-blocked') person.state = 'rota do mercado bloqueada para sementes';
-        else person.state = 'aguardando estoque e caixa para comprar sementes';
-        person.buildCooldown = status === 'approaching' || status === 'purchased' ? 1 : 8;
+        else if (status === 'sold') person.state = 'lote vendido; aguardando compra pelo reino';
+        else if (status === 'route-blocked') person.state = 'rota de extração ou comércio de sementes bloqueada';
+        else if (['gathered', 'approaching'].includes(status)) {
+          // Preserve the exact collecting / travel state set by the supplier.
+        } else if (status === 'no-source') person.state = 'sem sementes naturais acessíveis';
+        else if (status === 'no-funds') person.state = 'mercado sem moedas para pagar sementes';
+        else person.state = 'aguardando lote de sementes e financiamento';
+        person.buildCooldown = ['approaching', 'gathered', 'sold', 'purchased'].includes(status) ? 1 : 8;
         return;
       }
       if (!spendStoreInventory(community, { wood: structure.woodCost, stone: structure.stoneCost }, 'construction-materials')) {
