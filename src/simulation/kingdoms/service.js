@@ -194,10 +194,11 @@ function paySoldier(world, person, day) {
   }
 
   const beforeCopper = previousLegacyGold * 100 + previousCopper;
-  const afterCopper = person.militaryPayArrears * 100 + person.militaryPayArrearsCopper;
-  if (missedPayDay !== null && afterCopper > beforeCopper) {
+  // A newly missed instalment must be recorded even if old debt was paid
+  // in the same tick: total outstanding may fall while this month stays due.
+  if (missedPayDay !== null && person.militaryPayArrearsCopper > previousCopper) {
     recordMilitaryPayExperience(world, person, kingdom, 'military_pay_delayed',
-      (afterCopper - beforeCopper) / 100, day, missedPayDay);
+      (person.militaryPayArrearsCopper - previousCopper) / 100, day, missedPayDay);
   }
   if (beforeCopper > 0 && paidCopper > 0) {
     recordMilitaryPayExperience(world, person, kingdom, 'military_pay_recovered',
