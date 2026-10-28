@@ -326,12 +326,12 @@ export function purchaseFieldSeedsForConstruction(world, person, community) {
   const marketOwner = kingdom.market;
   if (marketOwner.ownerId !== kingdom.id || marketOwner.ownerType !== 'kingdom-market')
     return 'unavailable';
-  const station = seedMarketStation(world, community, kingdom, person);
-  if (!station) { countTradeDiagnostic(world, 'marketBlocked', 'no-market-station'); return 'no-station'; }
-  // Recover abandoned funded cargo first. The original parcel remains at
-  // its death/migration location until a worker physically reaches it.
+  // A parcel already paid for remains recoverable even if the market station
+  // was destroyed afterwards. Do not couple retrieval to a new purchase.
   const recovered = recoverSeedCargo(world, person, community, 'construction');
   if (!['none', 'full'].includes(recovered)) return recovered;
+  const station = seedMarketStation(world, community, kingdom, person);
+  if (!station) { countTradeDiagnostic(world, 'marketBlocked', 'no-market-station'); return 'no-station'; }
   // A fully sourced market lot is bought only after no funded cargo is recoverable.
   if (fieldSeedMarketOrder(world, community, marketOwner)) {
     const moving = moveSeedGatherer(world, person, station, 'indo comprar sementes no mercado');
