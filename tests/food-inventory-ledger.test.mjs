@@ -328,7 +328,8 @@ test('sheep browse harvest links shrub biomass to the collector feed cargo', () 
   assert.ok(collected > 0);
   assert.ok(harvest);
   assert.deepEqual(harvest.source, { type: 'browse-plant-biomass', tileIndex: target.i,
-    plantId: 'browse', communityId: community.id });
+    plantId: 'browse', communityId: community.id, biomassAmount: (30 - target.plants[browseIndex]),
+    biomassUnit: 'plant-biomass', feedConversionFactor: .82 });
   assert.deepEqual(harvest.destination, { type: 'person-cargo', personId: person.id });
   const feedCredit = report.transactions.find(operation => harvest.childIds.includes(operation.id)
     && operation.destination === cargo.index);

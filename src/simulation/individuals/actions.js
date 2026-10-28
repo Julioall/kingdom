@@ -842,7 +842,8 @@ export function collectSheepFeed(w, person, community, target) {
     const storedFeed = take * sizeFactor;
     return withFoodAuditOperation({ kind: 'sheep-feed-foraging', category: 'livestock-feed-gathering', resource: 'feed',
       amount: storedFeed, source: { type: 'browse-plant-biomass', tileIndex: target.i, plantId: 'browse',
-        communityId: community.id }, destination: { type: 'person-cargo', personId: person.id }, actor: person,
+        communityId: community.id, biomassAmount: take, biomassUnit: 'plant-biomass', feedConversionFactor: sizeFactor },
+      destination: { type: 'person-cargo', personId: person.id }, actor: person,
       sourcePosition: { x: target.x, y: target.y }, destinationPosition: { x: person.x, y: person.y }
     }, () => {
       target.plants[index] -= take;
