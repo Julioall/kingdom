@@ -67,6 +67,7 @@ test('purchase of a sourced market lot debits finite royal funds, market stock a
   const totalGold = kingdom.treasury.stock.gold + market.gold + community.stores.gold;
   assert.equal(purchaseFieldSeedsForConstruction(world, trader, community), 'purchased');
   assert.equal(trader.carriedCommunitySeeds, 8);
+  assert.equal(trader.seedCargoCommunityId, community.id);
   assert.equal(community.stores.seeds, 0);
   assert.equal(market.seeds, 0);
   assert.equal(kingdom.treasury.stock.seeds, 0);
@@ -184,6 +185,7 @@ test('seed seller receives real market coins; worker then buys for kingdom and p
     workOnCommunityStructure(world, trader, community, community.memberIds.length);
     if (n === 0) {
       assert.equal(trader.carriedCommunitySeeds, 0, 'the courier personally delivered the market seed batch');
+      assert.equal(trader.seedCargoCommunityId, null, 'provenance tag cleared only after real delivery');
       assert.equal(community.stores.seeds, 0, 'common stock did not receive teleported seeds');
       assert.equal(site.cropSeedStored, 8, 'the unsown lot is now owned by this field only');
     }
