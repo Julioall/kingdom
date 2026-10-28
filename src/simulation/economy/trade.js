@@ -25,9 +25,10 @@ const RESOURCE_LABELS = Object.freeze({
   wood: ['unidade de madeira', 'unidades de madeira'],
   stone: ['unidade de pedra', 'unidades de pedra'],
   gold: ['unidade de ouro', 'unidades de ouro'],
+  iron: ['unidade de ferro', 'unidades de ferro'],
   feed: ['unidade de ração', 'unidades de ração']
 });
-const TRADE_RESOURCES = Object.freeze(['food', 'meat', 'wood', 'stone', 'gold', 'feed', 'sheep']);
+const TRADE_RESOURCES = Object.freeze(['food', 'meat', 'wood', 'stone', 'gold', 'iron', 'feed', 'sheep']);
 const MARKET_PURCHASES = Object.freeze({
   food: Object.freeze({ amount: 12, gold: 6, reserve: 32 }),
   wood: Object.freeze({ amount: 10, gold: 6, reserve: 18 }),
@@ -39,7 +40,8 @@ const MARKET_SALES = Object.freeze([
   Object.freeze({ resource: 'food', amount: 10, gold: 4, reserve: 44, capacity: 260 }),
   Object.freeze({ resource: 'wood', amount: 8, gold: 4, reserve: 28, capacity: 260 }),
   Object.freeze({ resource: 'stone', amount: 6, gold: 5, reserve: 24, capacity: 260 }),
-  Object.freeze({ resource: 'feed', amount: 10, gold: 3, reserve: 30, capacity: 260 })
+  Object.freeze({ resource: 'feed', amount: 10, gold: 3, reserve: 30, capacity: 260 }),
+  Object.freeze({ resource: 'iron', amount: 4, reserve: 10, capacity: 260, dynamicPrice: true })
 ]);
 
 function accountAmount(account, resource) {
@@ -113,6 +115,12 @@ function communitiesHaveClosedBorder(w, first, second) {
 const PERSONAL_SALE_FLOOR = 12;
 const PERSONAL_MARKET_LOT = 4;
 
+function marketSaleGold(sale, marketOwner) {
+  if (!sale.dynamicPrice) return sale.gold;
+  const price = marketOwner?.prices?.[sale.resource];
+  return Number.isFinite(price) && price > 0 ? sale.amount * price / 2 : null;
+}
+
 function personalMarketOffer(world, community, person, marketOwner) {
   const market = marketOwner?.stock || marketOwner;
   if (!person?.alive || person.role === 'soldier' || person.communityId !== community?.id
@@ -140,12 +148,13 @@ function personalMarketOffer(world, community, person, marketOwner) {
       return { action: 'buy-food', amount: units, gold: units * foodPrice };
     }
   }
-  for (const resource of ['wood', 'stone']) {
+  for (const resource of ['wood', 'stone', 'iron']) {
     const carried = accountAmount(person, 'carried' + resource[0].toUpperCase() + resource.slice(1));
     const marketAmount = accountAmount(market, resource);
     const price = marketOwner.prices[resource];
     if (carried === null || marketAmount === null || !Number.isFinite(price) || price <= 0) continue;
-    const amount = Math.min(PERSONAL_MARKET_LOT, carried - PERSONAL_SALE_FLOOR,
+    const amount = Math.min(PERSONAL_MARKET_LOT,
+      carried - (resource === 'iron' ? 4 : PERSONAL_SALE_FLOOR),
       Math.max(0, 260 - marketAmount));
     const gold = amount * price / 2;
     if (amount > .01 && canSpend(market, 'gold', gold)
@@ -290,10 +299,12 @@ export function marketHasTradeOpportunity(w, community) {
     const canBarterFood = needsMarketFood && canSpend(market, 'food', MARKET_PURCHASES.food.amount)
       && ((canSpend(store, 'wood', 26) && canReceiveUpTo(market, 'wood', 8, 260))
         || (canSpend(store, 'stone', 18) && canReceiveUpTo(market, 'stone', 6, 260)));
-    const canSell = MARKET_SALES.some(({ resource, amount, reserve, capacity }) =>
-      accountAmount(store, resource) !== null
-        && accountAmount(store, resource) >= reserve + amount
-        && canReceiveUpTo(market, resource, amount, capacity));
+    const canSell = MARKET_SALES.some(sale =>
+      accountAmount(store, sale.resource) !== null
+        && accountAmount(store, sale.resource) >= sale.reserve + sale.amount
+        && canReceiveUpTo(market, sale.resource, sale.amount, sale.capacity)
+        && marketSaleGold(sale, marketOwner) !== null
+        && canSpend(market, 'gold', marketSaleGold(sale, marketOwner)));
     return canBuyFood || canBuyWood || canBuyStone || canBuyFeed || canBuySheep || canBarterFood || canSell;
   }
 
@@ -650,12 +661,15 @@ export function performTrade(w, person, community, partner) {
           transaction = 'trocou pedra por alimento';
         }
       }
-      if (!transaction) for (const { resource, amount, gold, reserve, capacity } of MARKET_SALES) {
-        if (canSpend(store, resource, reserve + amount)
+      if (!transaction) for (const sale of MARKET_SALES) {
+        const { resource, amount, reserve, capacity } = sale;
+        const gold = marketSaleGold(sale, marketOwner);
+        if (gold !== null && canSpend(store, resource, reserve + amount)
             && canReceiveUpTo(market, resource, amount, capacity)
+            && canSpend(market, 'gold', gold)
             && exchangeResources(store, { [resource]: amount }, market, { gold })) {
           if (resource === 'food') removeStoredFruit(w, community, amount);
-          transaction = 'vendeu ' + (resource === 'food' ? 'alimento' : resource === 'wood' ? 'madeira' : resource === 'stone' ? 'pedra' : 'ração');
+          transaction = 'vendeu ' + (resource === 'food' ? 'alimento' : resource === 'wood' ? 'madeira' : resource === 'stone' ? 'pedra' : resource === 'iron' ? 'ferro' : 'ração');
           break;
         }
       }
