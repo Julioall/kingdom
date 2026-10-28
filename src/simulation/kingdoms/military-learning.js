@@ -64,6 +64,9 @@ export function learnMilitaryOutcome(person, reward) {
 
 export function trainMilitaryPair(world, person, session) {
   if (!session || !isOperationalMilitarySource(session.center, 'centro_militar')
+    || !(world.structures || []).includes(session.center)
+    || person.kingdomId !== session.center.kingdomId
+    || session.partner?.kingdomId !== session.center.kingdomId
     || !fitForTraining(person) || !fitForTraining(session.partner)) return false;
   const { partner, center } = session;
   person.militaryTrainingPartnerId = partner.id;
