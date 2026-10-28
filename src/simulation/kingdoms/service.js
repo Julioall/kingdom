@@ -135,8 +135,9 @@ export function enlistSoldier(world, person, center, day = world.day, militaryCl
   person.militaryServiceDay = day;
   // The first wage is due after a complete service period; enlistment is not a payday.
   person.nextMilitaryPayDay = day + MILITARY_PAY.days;
-  person.militaryPayArrears = 0; // Legacy obligations in gold are never repriced.
-  person.militaryPayArrearsCopper = 0; // New obligations in indivisible copper units.
+  // Re-enlistment must not erase compensation already owed for prior service.
+  person.militaryPayArrears ??= 0; // Historic debt is in original gold units.
+  person.militaryPayArrearsCopper ??= 0; // New debt uses indivisible copper units.
   person.militaryWallet ||= { stock: { gold: 0, silver: 0, copper: 0 } };
   person.state = 'em serviço militar';
   person.brain.lastAction = 'guard';
