@@ -127,3 +127,49 @@ test('no birth occurs or consumes provisions when every residence is full or ina
   assert.equal(mother.birthCooldown, before.motherCooldown);
   assert.equal(father.birthCooldown, before.fatherCooldown);
 });
+
+test('loss of the last operational home pauses a birth once and reconstruction resumes it without duplicate charges', () => {
+  const world = engine.createWorld(42);
+  const { kingdom, mother, father } = makeParents(world);
+  const home = configureHouseSlots(world, kingdom, 1, new Set([mother.id, father.id]));
+  const before = {
+    people: world.people.length, births: world.births,
+    food: mother.foodReserve + father.foodReserve,
+    cooldowns: [mother.birthCooldown, father.birthCooldown]
+  };
+
+  // Every alternative home is full. The only spare slot is in this destroyed building.
+  home.destroyedDay = world.day;
+  reproducePeople(world);
+
+  assert.equal(world.people.length, before.people);
+  assert.equal(world.births, before.births);
+  assert.equal(mother.foodReserve + father.foodReserve, before.food);
+  assert.deepEqual([mother.birthCooldown, father.birthCooldown], before.cooldowns);
+  assert.equal(world.birthHousingGate['kingdom:' + kingdom.id], true);
+  assert.equal(world.events.filter(event => event.text.startsWith('Nascimento adiado')).length, 1);
+  assert.ok(world.chronicle.some(event => event.category === 'Reino'
+    && event.text.startsWith('Nascimento adiado')), 'blocked housing is visible in the chronicle');
+
+  reproducePeople(world); // repeated observer/entry must not duplicate warnings
+  assert.equal(world.events.filter(event => event.text.startsWith('Nascimento adiado')).length, 1);
+
+  home.destroyedDay = null;
+  home.integrity = 1;
+  reproducePeople(world);
+
+  const babies = world.people.filter(person => person.alive && person.parents?.includes(mother.id));
+  assert.equal(babies.length, 1);
+  assert.equal(babies[0].homeId, home.id);
+  assert.ok(home.residentIds.includes(babies[0].id));
+  assert.equal(world.birthHousingGate, undefined, 'resolved gate does not leave persistent state residue');
+  assert.equal(world.events.filter(event => event.text.startsWith('Nascimento retomado')).length, 1);
+  assert.ok(world.chronicle.some(event => event.category === 'Reino'
+    && event.text.startsWith('Nascimento retomado')), 'recovery is visible in the chronicle');
+  assert.equal(mother.foodReserve + father.foodReserve, before.food - 12);
+  assert.equal(mother.birthCooldown, 280);
+  assert.equal(father.birthCooldown, 280);
+
+  reproducePeople(world);
+  assert.equal(world.people.filter(person => person.alive && person.parents?.includes(mother.id)).length, 1);
+});
