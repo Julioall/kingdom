@@ -133,3 +133,47 @@ test('territorial warning and caught memory survive return to safe ground', () =
   assert.equal(intruder.territoryAwareness.caught, true);
   assert.equal(intruder.territoryAwareness.threatOwnerId, world.kingdoms[0].id);
 });
+
+
+test('an active campaign does not authorize arrows against a peaceful enemy civilian', () => {
+  const { world, home, enemyKingdom, guard, intruder, day, site } =
+    defenseFixture({ enemyRole: 'resident', guardClass: 'arqueiro', distance: 5 });
+  guard.campaignId = 700;
+  guard.combatAction = null;
+  world.campaigns = [{
+    id: 700, attackerId: home.id, defenderId: enemyKingdom.id,
+    status: 'engaged', target: { x: site.x, y: site.y }
+  }];
+  const healthBefore = intruder.health;
+
+  fightTacticalRound(world, [guard], [intruder], day);
+
+  assert.equal(intruder.health, healthBefore);
+  assert.equal(intruder.lastAttackedById, undefined);
+  assert.equal(guard.combatAction, null,
+    'campaign participation does not override hostility eligibility');
+
+  const action = createCombatAction(world, guard, intruder, day);
+  const result = resolveCombatAction(world, guard, action, [intruder], () => {
+    assert.fail('a peaceful civilian cannot receive damage through direct projectile resolution');
+  });
+  assert.equal(result.kind, 'miss');
+  assert.deepEqual(action.hitTargets, []);
+});
+
+test('civilian aggression authorizes only the aggressor, not a nearby peaceful bystander', () => {
+  const { world, guard, intruder, day } =
+    defenseFixture({ enemyRole: 'resident', guardClass: 'arqueiro', distance: 5, evidenceOfAggression: true });
+  const peaceful = { ...intruder, id: world.nextId++, name: 'Morador pacífico',
+    x: guard.x + 2, y: guard.y, health: 100, lastAttackedById: null, lastAttackedDay: null };
+  world.people.push(peaceful);
+  world.peopleSpatialIndex = createPersonSpatialIndex(world.people);
+  guard.combatAction = null;
+
+  fightTacticalRound(world, [guard], [peaceful, intruder], day);
+
+  assert.equal(guard.combatAction?.targetId, intruder.id,
+    'the recorded attacker, rather than the closer bystander, is the eligible target');
+  assert.equal(peaceful.health, 100);
+  assert.equal(peaceful.lastAttackedById, null);
+});
