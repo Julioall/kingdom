@@ -165,8 +165,8 @@ function fieldSeedMarketOrder(world, community, marketOwner) {
   // Seed supply is a commissioned builder task, not a speculative purchase
   // by an arbitrary visitor; the courier carries community-owned cargo.
   if (!seedDemand || (store.seeds || 0) >= order.reserve
-      || (world.people || []).some(person => person.alive && person.communityId === community.id
-        && (person.carriedCommunitySeeds || 0) > 0)) return null;
+      || (world.people || []).some(person => person.alive && person.role !== 'soldier'
+        && person.communityId === community.id && (person.carriedCommunitySeeds || 0) > 0)) return null;
   const market = marketOwner.stock || marketOwner;
   if (!canSpend(market, 'seeds', order.amount)) return null;
   const payer = kingdom?.treasury?.stock || store;
@@ -330,6 +330,11 @@ export function purchaseFieldSeedsForConstruction(world, person, community) {
   }
   if ((community.stores.seeds ?? 0) >= NATURAL_SEED_LOT) return 'available';
   if ((person.carriedCommunitySeeds ?? 0) >= NATURAL_SEED_LOT) return 'carrying';
+  // Keep a single nominated supplier while a real lot is in transit.
+  if ((world.people || []).some(other => other !== person && other.alive
+      && other.role !== 'soldier' && other.communityId === community.id
+      && ((other.carriedCommunitySeeds || 0) > 0 || (other.carriedSeeds || 0) > 0)))
+    return 'awaiting-courier';
   // A person with cargo must sell the existing lot first. Nothing may travel
   // directly from natural terrain into a farm or community seed inventory.
   if ((person.carriedSeeds || 0) >= NATURAL_SEED_LOT)
