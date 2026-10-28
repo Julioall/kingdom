@@ -337,3 +337,36 @@ test('community buys real food using mined copper and records all physical coin 
   assert.equal(community.tradeLedger.history[0].coinPayment.priceCopper, 600);
   assert.equal(community.tradeLedger.history[0].market.delta.copper, 600);
 });
+
+test('personal sale in coin-mode is funded by existing whole market coins', () => {
+  const { world, community, person, market } = fixture();
+  person.foodReserve = 90;
+  person.personalWallet.stock = { gold: 0, silver: 1, copper: 0 };
+  const goldBefore = market.stock.gold + person.personalWallet.stock.gold;
+  const offer = findTradePartner(world, community, person);
+  assert.equal(offer?.isMarket, true);
+  assert.equal(performTrade(world, person, community, offer), true);
+  assert.equal(person.carriedWood, 12);
+  assert.equal(market.stock.wood, 4);
+  assert.equal(person.personalWallet.stock.gold, 4);
+  assert.equal(market.stock.gold + person.personalWallet.stock.gold, goldBefore);
+  assert.equal(person.personalWallet.stock.silver, 1);
+  assert.equal(person.tradeLedger.history[0].pricing.priceCopper, 400);
+});
+
+test('a coin-enabled community sale receives whole pieces and cannot create fractional gold', () => {
+  const { world, community, person, market } = fixture();
+  person.carriedWood = 0;
+  person.foodReserve = 100;
+  community.stores.food = 60;
+  community.stores.silver = 1;
+  const total = market.stock.gold + community.stores.gold;
+  const offer = findTradePartner(world, community, person);
+  assert.equal(offer?.isMarket, true);
+  assert.equal(performTrade(world, person, community, offer), true);
+  assert.equal(community.stores.food, 50);
+  assert.equal(market.stock.food, 30);
+  assert.equal(market.stock.gold + community.stores.gold, total);
+  assert.ok(Number.isSafeInteger(community.stores.gold));
+  assert.equal(community.tradeLedger.history[0].coinPayment.priceCopper, 400);
+});
