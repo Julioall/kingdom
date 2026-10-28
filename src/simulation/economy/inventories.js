@@ -223,7 +223,8 @@ export function carriedResources(person) {
     return (person.carriedMeat || 0) + (person.carriedFeed || 0) + (person.carriedWood || 0)
       + (person.carriedStone || 0) + (person.carriedGold || 0)
       + (person.carriedCopper || 0) + (person.carriedSilver || 0) + (person.carriedIron || 0)
-      + (person.carriedFood || 0) + (person.carriedFruit || 0) + (person.carriedMaterial || 0);
+      + (person.carriedFood || 0) + (person.carriedFruit || 0) + (person.carriedMaterial || 0)
+      + (person.carriedSeeds || 0) + (person.carriedCommunitySeeds || 0);
   }
 
 export function withdrawCommunityFood(w, community, amount, category = 'resident-food-consumption',
