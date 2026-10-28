@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { FOOD_DAYS_PER_UNIT } from '../src/config/ecosystem.js';
 import { MILITARY_PAY, buyMilitaryMeal, enlistSoldier, payMilitarySalaries } from '../src/simulation/kingdoms/service.js';
 
 function fixture({ campaignId = null, treasuryGold = 100, firstDue = 0, arrears = 0 } = {}) {
@@ -188,4 +189,35 @@ test('re-enlistment does not erase legacy or copper-denominated back pay', () =>
   assert.equal(soldier.militaryPayArrears, 15);
   assert.equal(soldier.militaryPayArrearsCopper, 50);
   assert.equal(world.kingdoms[0].treasury.stock.gold, 0);
+});
+
+test('paid soldier purchases a military meal in physical coins without fractional gold', () => {
+  const world = fixture({ treasuryGold: 0 });
+  const soldier = world.people[0];
+  soldier.foodReserve = 0;
+  soldier.militaryWallet.stock = { gold: 0, silver: 2, copper: 0, coinMode: true };
+  const kingdom = world.kingdoms[0];
+  kingdom.market = { ownerType: 'kingdom-market', ownerId: 1,
+    stock: { gold: 0, silver: 0, copper: 0, food: 2 }, prices: { food: .1 } };
+  const nutrition = buyMilitaryMeal(world, soldier, FOOD_DAYS_PER_UNIT);
+  assert.equal(nutrition, FOOD_DAYS_PER_UNIT);
+  assert.equal(soldier.militaryWallet.stock.silver, 1);
+  assert.equal(kingdom.market.stock.silver, 1);
+  assert.equal(kingdom.market.stock.food, 1);
+  assert.equal(world.trades, 1);
+  assert.equal(kingdom.market.tradeLedger.history[0].assetsCreated.length, 0);
+});
+
+test('military meal rejects purchases when real change is unavailable', () => {
+  const world = fixture({ treasuryGold: 0 });
+  const soldier = world.people[0];
+  soldier.foodReserve = 0;
+  soldier.militaryWallet.stock = { gold: 1, silver: 0, copper: 0, coinMode: true };
+  world.kingdoms[0].market = { ownerType: 'kingdom-market', ownerId: 1,
+    stock: { gold: 0, silver: 0, copper: 0, food: 1 }, prices: { food: .37 } };
+  assert.equal(buyMilitaryMeal(world, soldier, FOOD_DAYS_PER_UNIT), 0);
+  assert.equal(soldier.militaryWallet.stock.gold, 1);
+  assert.equal(world.kingdoms[0].market.stock.food, 1);
+  assert.equal(world.kingdoms[0].market.stock.gold, 0);
+  assert.equal(world.trades ?? 0, 0);
 });
