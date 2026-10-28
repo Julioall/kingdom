@@ -371,11 +371,14 @@ export function marketHasTradeOpportunity(w, community) {
         MARKET_PURCHASES[choice.resource].gold));
     const canSell = MARKET_SALES.some(sale => {
       const payment = marketSaleGold(sale, marketOwner);
-      return payment !== null && payment > 0
-        && accountAmount(store, sale.resource) !== null
-        && accountAmount(store, sale.resource) >= sale.reserve + sale.amount
-        && canReceiveUpTo(market, sale.resource, sale.amount, sale.capacity)
-        && canSpend(market, 'gold', payment);
+      if (payment === null || payment <= 0 || accountAmount(store, sale.resource) === null
+          || accountAmount(store, sale.resource) < sale.reserve + sale.amount
+          || !canReceiveUpTo(market, sale.resource, sale.amount, sale.capacity)) return false;
+      if (hasCoinFunds(store)) {
+        const priceCopper = goldPriceToCopper(payment);
+        return !!priceCopper && !!quoteCoinPayment(market, store, priceCopper);
+      }
+      return canSpend(market, 'gold', payment);
     });
     return canBuyFood || canBuyWood || canBuyStone || canBuyFeed || canBuySheep || canBarterFood || canSell || canCoinBuy;
   }
@@ -749,14 +752,19 @@ export function performTrade(w, person, community, partner) {
       if (!transaction) for (const sale of MARKET_SALES) {
         const { resource, amount, reserve, capacity } = sale;
         const gold = marketSaleGold(sale, marketOwner);
-        if (gold !== null && canSpend(store, resource, reserve + amount)
-            && canReceiveUpTo(market, resource, amount, capacity)
-            && canSpend(market, 'gold', gold)
-            && exchangeResources(store, { [resource]: amount }, market, { gold })) {
-          if (resource === 'food') removeStoredFruit(w, community, amount);
-          transaction = 'vendeu ' + (resource === 'food' ? 'alimento' : resource === 'wood' ? 'madeira' : resource === 'stone' ? 'pedra' : resource === 'iron' ? 'ferro' : 'ração');
-          break;
-        }
+        if (gold === null || !canSpend(store, resource, reserve + amount)
+            || !canReceiveUpTo(market, resource, amount, capacity)) continue;
+        if (hasCoinFunds(store)) {
+          const priceCopper = goldPriceToCopper(gold);
+          if (!priceCopper || !quoteCoinPayment(market, store, priceCopper)) continue;
+          coinReceipt = settleCoinTrade(market, store, priceCopper,
+            store, market, resource, amount, capacity);
+          if (!coinReceipt) continue;
+        } else if (!canSpend(market, 'gold', gold)
+            || !exchangeResources(store, { [resource]: amount }, market, { gold })) continue;
+        if (resource === 'food') removeStoredFruit(w, community, amount);
+        transaction = 'vendeu ' + (resource === 'food' ? 'alimento' : resource === 'wood' ? 'madeira' : resource === 'stone' ? 'pedra' : resource === 'iron' ? 'ferro' : 'ração');
+        break;
       }
       if (!transaction) {
         countTradeDiagnostic(w, 'marketBlocked', 'no-executable-exchange');
