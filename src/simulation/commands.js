@@ -1,5 +1,6 @@
 import engine from './engine.js';
 import { orderTowerCapture, orderInstallationAttack } from './kingdoms/frontier-conflicts.js';
+import { exchangeAtRoyalCastle } from './economy/royal-coin-exchange.js';
 
 export function dispatchCommand(world, command) {
   if (!world || !command || typeof command !== 'object') throw new Error('Comando inválido.');
@@ -24,6 +25,9 @@ export function dispatchCommand(world, command) {
     case 'attack-installation':
       if (!Number.isInteger(command.kingdomId) || !Number.isInteger(command.structureId)) throw new Error('Instalação inválida.');
       return orderInstallationAttack(world, command.kingdomId, command.structureId, { capture: false });
+    case 'castle-exchange':
+      return exchangeAtRoyalCastle(world, command.kingdomId, command.castleId,
+        command.fromCoin, command.toCoin, command.quantity);
     case 'recruit-soldier':
       if (!Number.isInteger(command.kingdomId)) throw new Error('Reino inválido.');
       return engine.kingdomCommands.recruitKingdomSoldier(world, command.kingdomId, { militaryClass: command.militaryClass });
