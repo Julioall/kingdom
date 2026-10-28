@@ -1519,7 +1519,9 @@ function updatePeopleCore(w) {
           p.state = 'obra financiada concluída';
           p.lastLesson = 'A estrutura atribuída foi concluída; o trabalhador voltou à prioridade atual do reino.';
         } else {
-          if (assignment?.goal === 'replant-cultivated-food') workOnReplantingField(w, p, community, assignment.foodFieldId);
+          if (assignment?.goal === 'replant-cultivated-food'
+            || (p.seedCargoPurpose === 'replant' && p.seedCargoFieldId != null))
+            workOnReplantingField(w, p, community, p.seedCargoFieldId || assignment?.foodFieldId);
           else workOnCommunityStructure(w, p, community, communitySize);
           p.skills.build = clamp(p.skills.build + .003, 0, 1);
           if (assignment?.goal !== 'replant-cultivated-food') {

@@ -13,6 +13,7 @@ import { consumePersonEnergy } from '../individuals/energy.js';
 import { claimConstructionWorkstation, clearConstructionWorkpointResources, constructionContactPoint, constructionWorkpointReachable, constructionWorkPositions } from './construction-workstations.js';
 import { communityNeedsAdditionalPen } from '../ecology/herd.js';
 import { purchaseFieldSeedsForConstruction } from '../economy/trade.js';
+import { recoverSeedCargo, SEED_COURIER_CAPACITY } from '../economy/seed-cargo.js';
 
 const COMMUNITY_BUILDING_TYPES = new Set(['abrigo', 'roça', 'curral', 'posto de coleta', 'acampamento']);
 const KINGDOM_REPAIR_COST = Object.freeze({ wood: 3, stone: 2 });
@@ -395,43 +396,96 @@ export function workOnReplantingField(w, person, community, fieldId = person?.as
   if (!w || !person?.alive || !community?.stores || person.communityId !== community.id) return false;
   const field = (w.structures || []).find(item => item.id === fieldId && item.type === 'roça'
     && item.communityId === community.id && item.complete && item.destroyedDay == null && item.integrity !== 0);
-  const availableSeeds = Math.max(0, Number(community.stores.seeds) || 0);
-  if (!field || field.cropCycleState !== 'spent' || availableSeeds <= .01) {
-    person.state = !field ? 'roça para replantio indisponível' : 'aguardando sementes para replantio';
+  if (!field || field.cropCycleState !== 'spent') {
+    person.state = !field ? 'roça para replantio indisponível' : 'ciclo anterior ainda em andamento';
     return false;
   }
-
+  const carried = person.carriedCommunitySeeds || 0;
+  if (carried > 0 && (person.seedCargoCommunityId !== community.id
+      || person.seedCargoPurpose !== 'replant' || person.seedCargoFieldId !== field.id)) {
+    person.state = 'carga de sementes pertence a outra encomenda';
+    return false;
+  }
+  const previousSeedMass = Math.max(0, Number(field.cropSeededBiomass) || Number(field.seedMass) || 0);
+  const availableSeeds = Math.max(0, Number(community.stores.seeds) || 0);
+  if (!(carried > 0)) {
+    // A dead or emigrated courier's parcel remains physically on the map.
+    // The replacement worker must retrieve it before visiting the field.
+    const recovered = recoverSeedCargo(w, person, community, 'replant', field.id);
+    if (recovered === 'approaching' || recovered === 'recovered') {
+      person.buildCooldown = 1;
+      return false;
+    }
+    if (recovered === 'route-blocked') {
+      person.state = 'rota de recuperação das sementes bloqueada';
+      person.buildCooldown = 3;
+      return false;
+    }
+    if (availableSeeds <= .01) {
+      person.state = 'aguardando sementes retidas ou carga recuperável';
+      return false;
+    }
+    // Shared inventory is represented physically at a live village or shelter.
+    // Replanting cannot withdraw it remotely from the middle of the field.
+    const stores = (w.structures || []).filter(s => s.communityId === community.id
+      && s.complete && s.destroyedDay == null && s.integrity !== 0
+      && ['vila', 'abrigo', 'posto de coleta'].includes(s.type))
+      .sort((a, b) => distance(person, a) - distance(person, b) || a.id - b.id);
+    const source = stores[0];
+    if (!source) { person.state = 'sem depósito físico para retirar sementes'; return false; }
+    if (distance(person, source) > 2.2) {
+      const moved = moveOne(w, person, cellAt(w, source.x, source.y), false);
+      person.state = moved ? 'indo buscar sementes retidas no depósito'
+        : 'rota do depósito de sementes bloqueada';
+      person.buildCooldown = moved ? 1 : 3;
+      return false;
+    }
+    const seedMass = Math.min(availableSeeds, previousSeedMass || availableSeeds, SEED_COURIER_CAPACITY);
+    if (seedMass <= .01) return false;
+    const movedSeeds = transferResource(community.stores, person, 'seeds',
+      seedMass, 'carriedCommunitySeeds', SEED_COURIER_CAPACITY);
+    if (Math.abs(movedSeeds - seedMass) > .001) throw new Error('Lote do replantio não conservado ao retirar do depósito');
+    person.seedCargoCommunityId = community.id;
+    person.seedCargoPurpose = 'replant';
+    person.seedCargoFieldId = field.id;
+    person.state = 'retirando sementes retidas do depósito';
+    person.lastLesson = 'Carrega as sementes comunitárias retiradas fisicamente do depósito para a roça.';
+    person.buildCooldown = 1;
+    return false;
+  }
   const cropTiles = (field.fieldTileIndices || []).map(index => w.tiles[index])
     .filter(tile => tile && tile.cropFieldId === field.id && tile.terrain === 'land')
     .sort((a, b) => distance(person, a) - distance(person, b) || a.i - b.i);
-  if (!cropTiles.length) {
-    person.state = 'área da roça indisponível para replantio';
-    return false;
-  }
+  if (!cropTiles.length) { person.state = 'área da roça indisponível para replantio'; return false; }
   const plantingTile = cropTiles.find(tile => distance(person, tile) <= 1.6);
   if (!plantingTile) {
     const moved = cropTiles.some(tile => moveOne(w, person, cellAt(w, tile.x, tile.y), false));
-    person.state = moved ? 'indo semear a roça' : 'rota da roça bloqueada para replantio';
+    person.state = moved ? 'transportando sementes retidas para a roça' : 'rota da roça bloqueada para replantio';
     person.buildCooldown = moved ? 1 : 3;
     return false;
   }
-
-  const previousSeedMass = Math.max(0, Number(field.cropSeededBiomass) || Number(field.seedMass) || 0);
-  const seedMass = Math.min(availableSeeds, previousSeedMass || availableSeeds);
+  const seedMass = Math.min(carried, previousSeedMass || carried);
   if (seedMass <= .01) return false;
-  const movedSeeds = transferResource(community.stores, field, 'seeds', seedMass, 'cropSeedStored');
-  if (movedSeeds <= .01) return false;
+  const movedSeeds = transferResource(person, field, 'carriedCommunitySeeds', seedMass, 'cropSeedStored');
+  if (Math.abs(movedSeeds - seedMass) > .001) throw new Error('Entrega física ao talhão não conservou sementes');
   const planted = sowCommunityField(w, field);
   if (planted <= .01) {
-    transferResource(field, community.stores, 'cropSeedStored', movedSeeds, 'seeds');
+    transferResource(field, person, 'cropSeedStored', movedSeeds, 'carriedCommunitySeeds', SEED_COURIER_CAPACITY);
+    person.state = 'plantio bloqueado; sementes preservadas na carga';
     return false;
+  }
+  if (!(person.carriedCommunitySeeds > .01)) {
+    person.seedCargoCommunityId = null;
+    person.seedCargoPurpose = null;
+    person.seedCargoFieldId = null;
   }
   field.cropSeedsRetainedThisCycle = 0;
   field.cropLastSowedDay = w.day;
   if (person.assignment) person.assignment.replantSowedDay = w.day;
   person.state = 'semeando a roça';
-  person.lastLesson = 'O morador debitou sementes reservadas e replantou a área existente; o crescimento começa em um novo lote finito.';
-  community.history.push('Replantou a roça com ' + planted.toFixed(2) + ' unidades de sementes reservadas no estoque comum.');
-  log(w, community.name + ' replantou uma roça com ' + planted.toFixed(2) + ' unidades de sementes; novo lote iniciado.', w.day + 1);
+  person.lastLesson = 'Levou sementes retidas desde o depósito, entregou o lote ao talhão e reiniciou o cultivo.';
+  community.history.push('Replantou a roça com ' + planted.toFixed(2) + ' unidades de sementes transportadas do depósito.');
+  log(w, community.name + ' replantou uma roça com ' + planted.toFixed(2)
+    + ' sementes entregues fisicamente; novo lote iniciado.', w.day + 1);
   return true;
 }
