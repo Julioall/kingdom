@@ -139,7 +139,7 @@ test('market opportunity preserves protected household stock before selling', ()
   for (const { resource, reserve, amount } of cases) {
     const { world, home } = tradeFixture();
     home.stores = { food: 0, meat: 0, wood: 0, stone: 0, gold: 0, feed: 0 };
-    world.market = { stock: { food: 0, wood: 0, stone: 0, feed: 0, sheep: 0 } };
+    world.market = { stock: { food: 0, wood: 0, stone: 0, feed: 0, sheep: 0, gold: 10 } };
     world.kingdoms[0].market = world.market;
     home.stores[resource] = reserve + amount - 1;
 
