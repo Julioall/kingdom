@@ -1,5 +1,6 @@
 import { DOMESTIC_SHEEP_DAILY_FEED, MEAT_NUTRITIONAL_VALUE } from '../config/ecosystem.js';
 import { communityHerdPenAssignments, DOMESTIC_SHEEP_PER_PEN } from '../simulation/ecology/herd.js';
+import { currencyValueCopper } from '../simulation/economy/currency-denominations.js';
 
 const sum = (items, value) => items.reduce((total, item) => total + (Number(value(item)) || 0), 0);
 const food = stock => (stock?.food || 0) + (stock?.meat || 0) * MEAT_NUTRITIONAL_VALUE;
@@ -19,16 +20,19 @@ export function resourceSummary(world, kingdomId = null) {
     market: sum(kingdoms, k => food(k.market?.stock)),
     unassignedMarket: kingdomId == null ? food(world.market) : 0
   };
+  const gold = sum(accounts, a => a?.gold)
+    + sum(people, p => (p.carriedGold || 0) + (p.militaryWallet?.stock?.gold || 0));
+  const copper = sum(accounts, a => a?.copper) + sum(people, p => p.carriedCopper || 0);
+  const silver = sum(accounts, a => a?.silver) + sum(people, p => p.carriedSilver || 0);
+  const iron = sum(accounts, a => a?.iron) + sum(people, p => p.carriedIron || 0);
+  const nominalCopper = currencyValueCopper({ gold, silver, copper });
   const deceased = world.people.filter(p => !p.alive && (kingdomId == null || (p.deathKingdomId !== undefined ? p.deathKingdomId : p.kingdomId) === kingdomId));
   const born = world.people.filter(p => p.parents?.length && (kingdomId == null || (p.birthKingdomId !== undefined ? p.birthKingdomId : p.kingdomId) === kingdomId));
   return {
     people: people.length,
     food: sum(accounts, food),
     foodByAccount,
-    gold: sum(accounts, s => s?.gold) + sum(people, p => (p.carriedGold || 0) + (p.militaryWallet?.stock?.gold || 0)),
-    copper: sum(accounts, s => s?.copper) + sum(people, p => p.carriedCopper || 0),
-    silver: sum(accounts, s => s?.silver) + sum(people, p => p.carriedSilver || 0),
-    iron: sum(accounts, s => s?.iron) + sum(people, p => p.carriedIron || 0),
+    gold, copper, silver, iron, nominalCopper,
     births: born.length, deaths: deceased.length,
     hungry: people.filter(p => p.foodReserve < 30).length,
     thirsty: people.filter(p => p.hydration < 30).length,
