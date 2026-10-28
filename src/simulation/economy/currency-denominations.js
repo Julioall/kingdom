@@ -25,7 +25,7 @@ export function copperToCoinBreakdown(copper) {
   return { gold, silver, copper: coins };
 }
 
-undefined
+// Prices in the existing economy are gold-equivalent and may be fractional.
 // Keep them unchanged for legacy transactions. A later coin-payment layer
 // must decide rounding and actual change rather than converting balances here.
 export function goldValueInCopper(gold) {
