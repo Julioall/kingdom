@@ -124,9 +124,11 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
         }
       }
       const surfaceWaterMm = tile.surfaceWaterMm || 0;
-      if (tile.terrain === 'water' || surfaceWaterMm >= 1.5 || Object.keys(biomass).length || tile.stoneDeposit > 0 || tile.goldOre > 0) {
+      if (tile.terrain === 'water' || surfaceWaterMm >= 1.5 || Object.keys(biomass).length || tile.stoneDeposit > 0 || tile.goldOre > 0
+        || (tile.copperOre || 0) > 0 || (tile.silverOre || 0) > 0 || (tile.ironOre || 0) > 0) {
         resources.push({ x, y, tileIndex: tile.i, distance: d, visible: true, terrain: tile.terrain,
           biomass, harvestableBiomass, stone: tile.stoneDeposit || 0, goldOre: tile.goldOre || 0,
+          copperOre: tile.copperOre || 0, silverOre: tile.silverOre || 0, ironOre: tile.ironOre || 0,
           surfaceWaterMm, waterSource: tile.terrain === 'water' ? (tile.waterKind || 'lake') : surfaceWaterMm >= 1.5 ? 'runoff' : null,
           soilMoisture: tile.soilWaterMm / Math.max(1, tile.soilCapacityMm), slope: tile.slope || 0 });
       }
