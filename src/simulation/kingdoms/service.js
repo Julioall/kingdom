@@ -151,9 +151,8 @@ function paySoldier(world, person, day) {
   person.militaryPayArrears ||= 0;
   const previousArrears = person.militaryPayArrears;
   let missedPayDay = null;
-  if (person.campaignId == null) {
-    person.nextMilitaryPayDay = day + MILITARY_PAY.days;
-  } else if (day >= person.nextMilitaryPayDay) {
+  // Pay is owed on the same calendar in peace and in campaign; do not reset the due date each peaceful day.
+  if (day >= person.nextMilitaryPayDay) {
     missedPayDay = person.nextMilitaryPayDay;
     const months = Math.floor((day - person.nextMilitaryPayDay) / MILITARY_PAY.days) + 1;
     person.militaryPayArrears += months * MILITARY_PAY.gold;
