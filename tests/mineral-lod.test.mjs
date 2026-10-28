@@ -24,6 +24,8 @@ test('LOD is deterministic, independent of world seed or rendering order, and on
   const count = zoom => deposits.filter(item => shouldDrawMineralAtZoom(item, zoom)).length;
   const atHalf = count(.5), atTwo = count(2), atFour = count(4);
   assert.ok(atHalf > 0 && atHalf < atTwo && atTwo < atFour);
+  assert.equal(atHalf, deposits.length / 32, '50% overview samples 1 in 32 common ore sprites');
+  assert.equal(atTwo, deposits.length / 8, '200% inspection overview samples 1 in 8 common ore sprites');
   assert.equal(atFour, deposits.length);
   assert.equal(count(2), atTwo);
   assert.deepEqual(deposits[0], { x: 0, y: 0, copper: 2, iron: 1 });
