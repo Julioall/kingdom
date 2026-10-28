@@ -26,7 +26,7 @@ export const INITIAL_MILITARY_ROSTER = Object.freeze([
 ]);
 export const INITIAL_SOLDIERS_PER_KINGDOM = INITIAL_MILITARY_ROSTER.reduce((sum, entry) => sum + entry.count, 0);
 
-const BASE_PRICES = { food: .35, wood: .65, stone: .8, gold: 2, feed: .28 };
+const BASE_PRICES = { food: .35, wood: .65, stone: .8, gold: 2, feed: .28, iron: .85 };
 
 function placeStructure(world, kingdom, type, x, y, cost, extra = {}) {
   if (!spendInventory(kingdom.treasury, cost)) throw new Error('Estoque insuficiente para a estrutura inicial: ' + type);
@@ -144,8 +144,8 @@ export function initializeKingdoms(world) {
     kingdom.capitalSettlementId = settlement.id;
     kingdom.market = { ownerType: 'kingdom-market', ownerId: kingdom.id, stock: { food: 0, wood: 0, stone: 0, gold: 0, copper: 0, silver: 0, iron: 0, feed: 0 }, prices: { ...BASE_PRICES }, supply: {}, demand: {}, transactions: 0, lastUpdateDay: -1 };
     for (const resource of Object.keys(BASE_PRICES)) {
-      const openingStock = { food: 42, wood: 12, stone: 8, gold: 18, feed: 12 }[resource];
-      transferInventory(kingdom.treasury, kingdom.market, resource, openingStock);
+      const openingStock = { food: 42, wood: 12, stone: 8, gold: 18, feed: 12, iron: 0 }[resource];
+      if (openingStock > 0) transferInventory(kingdom.treasury, kingdom.market, resource, openingStock);
     }
   }
 
@@ -206,7 +206,9 @@ export function updateKingdomMarkets(world, marketDay = world.day) {
       wood: population * .05 * 30,
       stone: population * .025 * 30,
       gold: population * .01 * 30,
-      feed: sheep * DOMESTIC_SHEEP_DAILY_FEED * 30
+      feed: sheep * DOMESTIC_SHEEP_DAILY_FEED * 30,
+      // Industrial demand is only a price signal until crafting costs are implemented.
+      iron: population * .045 * 30
     };
     for (const resource of Object.keys(BASE_PRICES)) {
       const supply = Math.max(0, market.stock[resource] || 0);
