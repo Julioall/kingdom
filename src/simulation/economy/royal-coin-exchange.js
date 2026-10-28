@@ -30,7 +30,9 @@ export function exchangeAtRoyalCastle(world, kingdomId, castleId, fromCoin, toCo
   if (!kingdom || !castle || !settlement || !treasury || !market || treasury === market)
     return { ok: false, reason: 'É necessário um castelo operacional e o mercado do mesmo reino.' };
   const goldBefore = currencyValueCopper(treasury), marketBefore = currencyValueCopper(market);
-  if (!Number.isSafeInteger(goldBefore) || !Number.isSafeInteger(marketBefore))
+  if (![treasury, market].every(account => COIN_TYPES.every(coin =>
+      Number.isSafeInteger(account[coin] ?? 0) && (account[coin] ?? 0) >= 0))
+      || !Number.isSafeInteger(goldBefore) || !Number.isSafeInteger(marketBefore))
     return { ok: false, reason: 'Há saldos antigos ou inválidos: câmbio físico exige moedas inteiras.' };
   const changeCopper = quantity * COIN_VALUE_COPPER[fromCoin];
   const received = changeCopper / COIN_VALUE_COPPER[toCoin];
