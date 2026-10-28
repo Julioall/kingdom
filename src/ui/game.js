@@ -31,6 +31,7 @@ import { createRenderDiagnostics } from './render-profiler-panel.js';
 import { createTerrainChunkCache } from './terrain-chunks.js';
 import { createPixelTileCache } from './pixel-tile-cache.js';
 import { compareDepth, mergeDepthItems } from './depth-order.js';
+import { createStaticDepthSpatialIndex } from './depth-spatial-index.js';
 import { shouldDrawMineralAtZoom } from './mineral-lod.js';
 
 const IMAGE_ASSET_EXTENSION = import.meta.env?.PROD ? 'webp' : 'png';
@@ -1374,9 +1375,11 @@ export function mountGame() {
   }
 
   let staticDepthCacheWorld = null, staticDepthCacheDay = -1, staticDepthItems = [];
+  let staticDepthSpatialIndex = null;
   function invalidateStaticDepthCache() {
     staticDepthCacheWorld = null;
     staticDepthCacheDay = -1;
+    staticDepthSpatialIndex = null;
   }
 
   function collectStaticDepthItems() {
@@ -1454,6 +1457,7 @@ export function mountGame() {
       }
     }
     staticDepthItems = referenceRendering ? items : items.sort(compareDepth);
+    staticDepthSpatialIndex = referenceRendering ? null : createStaticDepthSpatialIndex(staticDepthItems);
     staticDepthCacheWorld = world;
     staticDepthCacheDay = world.day;
     return staticDepthItems;
@@ -1463,7 +1467,9 @@ export function mountGame() {
     // LOD affects only the rendered list: the world's finite ore inventory,
     // mining navigation, inspection and rare deposits remain untouched.
     // The reference renderer intentionally keeps every deposit for comparison.
-    const staticItems = collectStaticDepthItems().filter(item => item.x >= bounds.minX && item.x <= bounds.maxX
+    const allStatic = collectStaticDepthItems();
+    const staticCandidates = referenceRendering ? allStatic : staticDepthSpatialIndex.query(bounds);
+    const staticItems = staticCandidates.filter(item => item.x >= bounds.minX && item.x <= bounds.maxX
       && item.y >= bounds.minY && item.y <= bounds.maxY
       && (referenceRendering || item.kind !== 'mineral'
         || shouldDrawMineralAtZoom(item, mapZoom, activeMiningSites.has(item.x + ':' + item.y))));
