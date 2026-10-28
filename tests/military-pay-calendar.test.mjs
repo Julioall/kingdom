@@ -17,7 +17,7 @@ function payOn(world, day) {
   payMilitarySalaries(world, day);
 }
 
-test('peaceful soldiers receive the existing salary at enlistment and every 30 days, never daily', () => {
+test('peaceful soldiers receive the existing salary on due dates every 30 days, never daily', () => {
   const world = fixture();
   const soldier = world.people[0];
   assert.equal(MILITARY_PAY.days, 30);
@@ -79,7 +79,7 @@ test('military pay schedule produces identical deterministic account and event r
   const replay = () => {
     const world = fixture({ treasuryGold: 0 });
     for (const day of [0, 1, 30, 60, 60, 90]) {
-      if (day === 60) world.kingdoms[0].treasury.stock.gold = 45;
+      if (day === 60 && world.kingdoms[0].treasury.stock.gold === 0 && world.people[0].militaryPayArrears > 0) world.kingdoms[0].treasury.stock.gold = 45;
       payOn(world, day);
     }
     return JSON.stringify({
