@@ -79,6 +79,7 @@ export function drawGarrisonRation(world, person, center = militaryDutyCenterFor
     && structure.destroyedDay == null && structure.integrity !== 0 && distance(person, structure) <= 1.25);
   if (!person || person.role !== 'soldier' || person.campaignId != null || !center
       || center.kingdomId !== person.kingdomId
+      || !(world.structures || []).includes(center)
       || !isOperationalMilitarySource(center, 'centro_militar')
       || distance(person, center) > 2.5 && !restingHouse) return 0;
   const need = Math.min(Math.max(0, target - person.foodReserve), Math.max(0, 100 - person.foodReserve));
