@@ -6,6 +6,19 @@ test('kingdom communities start and advance a roça despite food-priority assign
   const world = Sim.createWorld(42);
   for (let day = 0; day < 120; day++) Sim.stepDay(world, { includeSnapshot: false });
 
+  console.info('SEED_DIAG', JSON.stringify({
+    day: world.day, seeds: world.seedProvenance, structures: world.structures
+      .filter(s => s.type === 'roça').map(s => ({id:s.id, progress:s.progress, complete:s.complete, stored:s.cropSeedStored})),
+    kingdoms: world.kingdoms.map(k => {
+      const community = world.communities.find(c => c.id === k.communityId);
+      return {id:k.id, stores:community?.stores, market:{seeds:k.market?.stock?.seeds,gold:k.market?.stock?.gold},
+        construction:community?.assignments?.slice(-4), lastBuild:community?.lastBuildDay,
+        workers:world.people.filter(p=>p.alive&&p.communityId===k.communityId&&p.role!=='soldier')
+          .map(p=>({id:p.id, state:p.state, assignment:p.assignment?.goal, action:p.assignment?.action,
+            natural:p.carriedSeeds, community:p.carriedCommunitySeeds,
+            energy:p.energy, food:p.foodReserve, x:p.x, y:p.y})).slice(0,12) };
+    })
+  }));
   const farms = world.structures.filter(structure => structure.type === 'roça'
     && structure.communityId != null && structure.destroyedDay == null);
   assert.ok(farms.length > 0, 'the deterministic kingdom simulation should create a roça: '
