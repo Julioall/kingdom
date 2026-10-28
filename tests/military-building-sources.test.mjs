@@ -5,6 +5,7 @@ import { recruitKingdomSoldier } from '../src/simulation/kingdoms/commands.js';
 import { updateServiceGrades } from '../src/simulation/kingdoms/frontier-intelligence.js';
 import { advanceKingdomProjects } from '../src/simulation/kingdoms/projects.js';
 import { militaryClassSource, MILITARY_CLASS_SOURCE_TYPES } from '../src/simulation/kingdoms/military-sources.js';
+import { militaryTrainingPairs } from '../src/simulation/kingdoms/military-learning.js';
 
 const classes = Object.keys(MILITARY_CLASS_SOURCE_TYPES);
 
@@ -191,4 +192,41 @@ test('source loss and reconstruction produce the same class progression replay f
   };
 
   assert.equal(replay(), replay());
+});
+
+
+test('simulated combat training stops when its military center is inoperable and resumes after repair', () => {
+  const world = engine.createWorld(42);
+  const kingdom = world.kingdoms[0];
+  const center = world.structures.find(structure => structure.id === kingdom.militaryCenterIds[0]);
+  assert.ok(center, 'fixture includes a military center');
+  const soldiers = world.people.filter(person => person.alive && person.role === 'soldier'
+    && person.kingdomId === kingdom.id).slice(0, 4);
+  assert.equal(soldiers.length, 4, 'fixture has enough soldiers for a training pair');
+  world.wars = [];
+  kingdom.frontierAlert = null;
+  world.day = 100;
+  for (const soldier of soldiers) {
+    Object.assign(soldier, { militaryCenterId: center.id, militaryDutyCenterId: center.id,
+      campaignId: null, militaryReturningHome: false, towerDutyId: null, towerMounted: false,
+      tacticalRecovering: false, militaryRestTargetId: null, restingStructureId: null,
+      health: 100, energy: 100, foodReserve: 100, hydration: 100, injury: 0 });
+  }
+  const hasTrainingPair = () => soldiers.some(soldier => militaryTrainingPairs(world).has(soldier.id));
+  center.complete = true;
+  center.destroyedDay = null;
+  center.integrity = 1;
+  center.health = 1;
+  assert.equal(hasTrainingPair(), true, 'an operational center permits training');
+
+  center.health = 0;
+  assert.equal(hasTrainingPair(), false, 'zero health blocks training even with positive integrity');
+  center.health = 1;
+  center.integrity = 0;
+  assert.equal(hasTrainingPair(), false, 'zero integrity blocks training');
+  center.integrity = 1;
+  center.destroyedDay = world.day;
+  assert.equal(hasTrainingPair(), false, 'a destroyed center blocks training');
+  center.destroyedDay = null;
+  assert.equal(hasTrainingPair(), true, 'training resumes after the center is repaired');
 });
