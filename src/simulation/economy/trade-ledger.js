@@ -7,7 +7,7 @@ export function recordTrade(world, record, owners) {
     const ledger = owner.tradeLedger ||= { count: 0, history: [] };
     ledger.count++;
     ledger.history.push(entry);
-    if (ledger.history.length > TRADE_LEDGER_LIMIT) ledger.history.shift();
+    if (!world.tradeDiagnostics?.retainFullTradeHistory && ledger.history.length > TRADE_LEDGER_LIMIT) ledger.history.shift();
   }
   return entry;
 }

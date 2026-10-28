@@ -174,7 +174,7 @@ test('food reserve transfer is limited by the source and destination capacity', 
   assert.ok(Math.abs(destination.foodReserve - 100) < 1e-9);
 });
 
-test('campaign ration debits only available field food and respects personal reserve capacity', () => {
+test('campaign ration transfers only available field food into personal reserve capacity', () => {
   const person = { id: 10, alive: true, role: 'soldier', kingdomId: 1, campaignId: 20, foodReserve: 96 };
   const side = {
     campaignId: 20, kingdomId: 1, role: 'attacker', troopIds: [person.id],
@@ -189,11 +189,11 @@ test('campaign ration debits only available field food and respects personal res
   const rationDays = drawCampaignRation(world, person, 12);
   assert.ok(Math.abs(rationDays - 0.2 * FOOD_DAYS_PER_UNIT) < 1e-9);
   assert.equal(side.supply.stock.food, 0);
-  assert.equal(person.foodReserve, 96, 'ration drawing reports nutrition for the caller to credit exactly once');
+  assert.equal(person.foodReserve, 96 + rationDays, 'drawing the ration credits the soldier reserve exactly once');
   assert.equal(side.rationsConsumed, 0.2);
   assert.equal(side.supplyLedger.rationConsumptionFood, 0.2);
-  assert.ok(Math.abs(person.foodReserve + side.supply.stock.food * FOOD_DAYS_PER_UNIT + rationDays - initialFoodDays) < 1e-9,
-    'field food is reported as personal reserve days at the configured conversion rate');
+  assert.ok(Math.abs(person.foodReserve + side.supply.stock.food * FOOD_DAYS_PER_UNIT - initialFoodDays) < 1e-9,
+    'field food is transferred to personal reserve days at the configured conversion rate');
 
   person.foodReserve = 100;
   side.supply.stock.food = 1;

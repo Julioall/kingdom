@@ -9,6 +9,7 @@ import { cellAt, cellsWithin } from '../world/spatial.js';
 import { recoverSeedCargo } from './seed-cargo.js';
 import { canEnterForeignTerritory } from '../kingdoms/territories.js';
 import { FOOD_DAYS_PER_UNIT, MEAT_NUTRITIONAL_VALUE } from '../../config/ecosystem.js';
+import { formatWholeMeasure } from '../../config/whole-measures.js';
 import { log } from '../core/events.js';
 import { moveOne } from '../individuals/movement.js';
 import { recordTrade } from './trade-ledger.js';
@@ -76,7 +77,7 @@ function countTradeDiagnostic(world, field, reason = null) {
 }
 
 function formatTradeAmount(amount) {
-  return Number(amount.toFixed(2)).toString().replace('.', ',');
+  return formatWholeMeasure(amount);
 }
 
 function describeStoreChanges(before, after) {

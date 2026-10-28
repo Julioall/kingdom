@@ -30,7 +30,7 @@ test('emergency herd harvest creates carried meat from a sheep and preserves two
 
   assert.equal(sheep[0].alive, false);
   assert.deepEqual(sheep.slice(1).map(animal => animal.alive), [true, true]);
-  assert.ok(Math.abs(person.carriedMeat - 23.04) < 1e-9);
+  assert.equal(person.carriedMeat, 23);
   assert.equal(world.deaths, 1);
   assert.equal(world.deathsByCause.harvest, 1);
   assert.equal(world.harvests.livestock, 1);
@@ -81,8 +81,12 @@ test('stored food and shelter meat cover the daily need before a herd is harvest
   assert.equal(nearestEmergencyHerdSheep(world, person, community), null);
 
   community.stores.food = 0;
-  community.stores.meat = .16;
-  shelter.meatStored = .16;
+  community.stores.meat = .1;
+  shelter.meatStored = .1;
+  assert.equal(nearestEmergencyHerdSheep(world, person, community), null,
+    '0.1 physical meat units cover the one-day emergency threshold');
+  community.stores.meat = .08;
+  shelter.meatStored = .08;
   assert.equal(nearestEmergencyHerdSheep(world, person, community), sheep[0]);
 
   community.stores.meat = 0;

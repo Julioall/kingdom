@@ -5,6 +5,7 @@ import { spendResource } from '../economy/inventories.js';
 import { invalidateNavigation } from '../individuals/navigation-cache.js';
 import { isRoadTile, resourceUsePressure } from '../world/roads.js';
 import { CULTIVATED_FOOD_PER_SEED_UNIT } from '../economy/food-policy.js';
+import { recordFoodAuditBlocked, withFoodAuditOperation } from '../economy/food-audit-ledger.js';
 
 const RESOURCE_REGEN_INTERVAL_DAYS = 7;
 const RESOURCE_REGEN_FACTOR = .3;
@@ -276,6 +277,7 @@ export function eatPlants(w, tile, diet, amount) {
     return eaten;
   }
 
+
 export function sowCommunityField(w, structure) {
     if (!w || !structure || structure.type !== 'roça') return 0;
     const cropIndex = PLANTS.findIndex(plant => plant.id === 'cultivated-root');
@@ -319,6 +321,7 @@ export function sowCommunityField(w, structure) {
     structure.cropHarvested = structure.cropHarvested || 0;
     invalidateNavigation(w);
     return seedMass;
+
   }
 
 export function decompose(w) {

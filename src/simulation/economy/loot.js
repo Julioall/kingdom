@@ -1,5 +1,6 @@
 import { distance } from '../core/math.js';
 import { carriedResources, transferResource } from './inventories.js';
+import { withFoodAuditOperation } from './food-audit-ledger.js';
 import { moveOne } from '../individuals/movement.js';
 
 export const LOOT_CARGO = Object.freeze({ food: 'carriedFood', meat: 'carriedMeat', wood: 'carriedWood',
@@ -7,6 +8,17 @@ export const LOOT_CARGO = Object.freeze({ food: 'carriedFood', meat: 'carriedMea
   silver: 'carriedSilver', iron: 'carriedIron', feed: 'carriedFeed' });
 
 export function dropStructureLoot(world, structure, day) {
+  if (!world || !structure) return null;
+  return withFoodAuditOperation({
+    kind: 'loot-transfer', category: 'structure-destruction', resource: 'food',
+    source: { type: 'destroyed-structure-and-owned-stores', structureId: structure.id, structureType: structure.type,
+      communityId: structure.communityId ?? null, kingdomId: structure.kingdomId ?? null },
+    destination: { type: 'loot-pile', sourceStructureId: structure.id },
+    destinationPosition: { x: structure.x, y: structure.y }
+  }, () => dropStructureLootCore(world, structure, day));
+}
+
+function dropStructureLootCore(world, structure, day) {
   if (structure.lootDroppedDay != null) return null;
   structure.lootDroppedDay = day;
   const resources = {}, seen = new Set();

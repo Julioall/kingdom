@@ -1,4 +1,5 @@
 import { COMMUNITY_FORMS, DAILY_FOOD_NEED, FOOD_DAYS_PER_UNIT, HEIGHT, HUMAN_NAMES, PEOPLE_ACTIONS, PEOPLE_INPUTS, RULER_HIDDEN_NEURONS, WIDTH } from '../../config/ecosystem.js';
+import { formatWholeMeasure } from '../../config/whole-measures.js';
 import { rand } from '../core/random.js';
 import { createBrain, ensureBrainSize } from '../../controllers/individual/neural.js';
 import { randomHabitatCell } from '../world/generation.js';
@@ -6,7 +7,7 @@ import { clamp, distance } from '../core/math.js';
 import { cellAt } from '../world/spatial.js';
 import { log } from '../core/events.js';
 import { activeCommunity, getSocialLink } from '../society/communities.js';
-import { addFoodReserve, communityFoodStock, consumeFoodReserve, transferFoodReserve, withdrawCommunityFood } from '../economy/inventories.js';
+import { addFoodReserve, communityFoodStock, consumeFoodReserve, transferCommunityFoodToReserve, transferFoodReserve } from '../economy/inventories.js';
 import { assignHome } from '../kingdoms/initialization.js';
 import { moveOne } from './movement.js';
 import { consumePersonEnergy } from './energy.js';
@@ -139,7 +140,7 @@ export function addIndividuals(w, count, initial) {
       }
     }
     if (!initial && added.length) log(w, added.length + ' indivíduos chegaram ao mundo trazendo '
-      + arrivalFoodReserveDays.toFixed(1) + ' dias de reserva alimentar de fora do mapa e foram associados ao reino e à moradia mais próximos.');
+      + formatWholeMeasure(arrivalFoodReserveDays) + ' dias de reserva alimentar de fora do mapa e foram associados ao reino e à moradia mais próximos.');
     return added;
   }
 
@@ -190,17 +191,17 @@ export function killPerson(w, person, cause) {
       care: 'cuidado dependente', recovery: 'recuperação geral'
     };
     const recentLosses = Object.entries(recentHealth.losses)
-      .map(([source, amount]) => (healthLabels[source] || source) + ' ' + amount.toFixed(2)).join(', ');
+      .map(([source, amount]) => (healthLabels[source] || source) + ' ' + formatWholeMeasure(amount)).join(', ');
     const recentRecovery = Object.entries(recentHealth.recovery)
-      .map(([source, amount]) => (healthLabels[source] || source) + ' ' + amount.toFixed(2)).join(', ');
+      .map(([source, amount]) => (healthLabels[source] || source) + ' ' + formatWholeMeasure(amount)).join(', ');
     const recentHealthText = [
       recentLosses ? 'perdas de saúde nos últimos 30 dias: ' + recentLosses : '',
       recentRecovery ? 'recuperação de saúde no período: ' + recentRecovery : ''
     ].filter(Boolean).join('; ');
     log(w, person.name + ' morreu por ' + (labels[cause] || cause) + '. Valores observados no óbito: reserva alimentar '
-      + conditions.foodReserve.toFixed(1) + '/100; água ' + conditions.hydration.toFixed(1) + '%; saúde '
-      + conditions.health.toFixed(1) + '%; ferimentos ' + conditions.injury.toFixed(1) + '; idade '
-      + (conditions.ageDays / 365).toFixed(1) + ' anos; alimento carregado ' + conditions.carriedFood.toFixed(1)
+      + formatWholeMeasure(conditions.foodReserve) + '/100; água ' + formatWholeMeasure(conditions.hydration) + '%; saúde '
+      + formatWholeMeasure(conditions.health) + '%; ferimentos ' + formatWholeMeasure(conditions.injury) + '; idade '
+      + formatWholeMeasure(conditions.ageDays / 365) + ' anos; alimento carregado ' + formatWholeMeasure(conditions.carriedFood)
       + (recentHealthText ? '; ' + recentHealthText : '')
       + '. A perda afeta seu reino e sua família; a matéria retorna ao solo.');
   }
@@ -299,12 +300,12 @@ export function updateDependent(w, child) {
       const sharedFood = community ? Math.min(careFoodNeed, communityFoodStock(community) * FOOD_DAYS_PER_UNIT,
       Math.max(0, 100 - child.foodReserve)) : 0;
     if (sharedFood > .001) {
-      withdrawCommunityFood(w, community, sharedFood / FOOD_DAYS_PER_UNIT, 'dependent-food-issue');
-      addFoodReserve(child, sharedFood, 'dependent-community-meal');
-      foodProvided += sharedFood;
-      child.sharedMeals = (child.sharedMeals || 0) + sharedFood / FOOD_DAYS_PER_UNIT;
+      const transfer = transferCommunityFoodToReserve(w, community, child, sharedFood / FOOD_DAYS_PER_UNIT,
+        'dependent-food-issue', 'dependent-community-meal');
+      foodProvided += transfer.reserveAdded;
+      child.sharedMeals = (child.sharedMeals || 0) + transfer.nutrition;
     }
-    const unmetNeed = Math.max(0, careFoodNeed - sharedFood);
+    const unmetNeed = Math.max(0, careFoodNeed - (foodProvided - consumedFood));
     if (caregiver && distance(caregiver, child) <= 6) {
       child.guardianId = caregiver.id;
       consumePersonEnergy(caregiver, .1);
@@ -313,7 +314,7 @@ export function updateDependent(w, child) {
       foodProvided += caregiverContribution;
       caregiver.skills.care = clamp(caregiver.skills.care + .0003, 0, 1);
       if (caregiverContribution > .001 && !familyIds.has(caregiver.id)) {
-        const amount = caregiverContribution.toFixed(2);
+        const amount = formatWholeMeasure(caregiverContribution);
         child.lastLesson = 'Recebeu ' + amount + ' dias de alimento de ' + caregiver.name + ' para o cuidado diário.';
         log(w, caregiver.name + ' apoiou ' + child.name + ' e transferiu ' + amount
           + ' dias de alimento de sua reserva para o cuidado diário.');
