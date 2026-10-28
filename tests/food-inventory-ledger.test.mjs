@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PLANTS } from '../src/config/ecosystem.js';
-import { exchangeResources, transferFoodReserve, transferInventory, transferResource, transferStoresToInventory } from '../src/simulation/economy/inventories.js';
+import { exchangeResources, transferCommunityFoodToReserve, transferFoodReserve, transferInventory, transferResource, transferStoresToInventory } from '../src/simulation/economy/inventories.js';
+import { drawCampaignRation } from '../src/simulation/kingdoms/campaigns.js';
+import { buyMilitaryMeal } from '../src/simulation/kingdoms/service.js';
 import {
   recordFoodAuditCultivatedState, recordFoodAuditWorkObservation, registerFoodAuditCampaignSide, startFoodInventoryAudit
 } from '../src/simulation/economy/food-audit-ledger.js';
@@ -205,4 +207,90 @@ test('campaign deployment registers a new field-supply account before funding it
   assert.equal(report.accountDailyBalances.find(row => row[0] === 1 && row[1] === sideAccount.index)[6], 4);
   assert.equal(report.coverage.balanced, true);
   assert.equal(report.coverage.unbalancedAccountDays, 0);
+});
+
+test('community meal links mixed community and shelter stocks to the recipient reserve', () => {
+  const world = makeWorld();
+  world.structures.push({ id: 8, type: 'abrigo', communityId: 2, complete: true, meatStored: 1 });
+  const audit = startFoodInventoryAudit(world);
+  audit.beginDay(1);
+
+  const transfer = transferCommunityFoodToReserve(world, world.communities[0], world.people[0], 3,
+    'resident-food-issue', 'resident-community-meal');
+  audit.endDay();
+  const report = audit.finish();
+  const distribution = report.transactions.find(operation => operation.category === 'resident-community-meal'
+    && operation.parentId == null);
+  const recipient = report.accounts.find(account => account.ownerType === 'person'
+    && account.ownerId === 1 && account.property === 'foodReserve');
+
+  assert.equal(transfer.nutrition, 3);
+  assert.equal(transfer.reserveAdded, 3);
+  assert.ok(distribution);
+  assert.equal(distribution.source.type, 'community-food-network');
+  assert.equal(distribution.source.accounts.length, 2);
+  assert.equal(distribution.destination, recipient.index);
+  assert.ok(distribution.childIds.length > 0);
+  assert.equal(report.coverage.balanced, true);
+  assert.equal(report.coverage.unbalancedAccountDays, 0);
+});
+
+test('campaign rations debit field stock and credit the soldier in one traced parent', () => {
+  const world = makeWorld();
+  const person = world.people[0];
+  person.role = 'soldier';
+  person.campaignId = 9;
+  const side = { campaignId: 9, kingdomId: 3, role: 'attacker', troopIds: [person.id],
+    supply: { stock: { food: 5, meat: 0, feed: 0, seeds: 0 } },
+    supplyLedger: { rationConsumptionFood: 0, personalReserveRationDays: 0 } };
+  world.campaigns.push({ id: 9, status: 'marching', attacker: side,
+    defender: { campaignId: 9, kingdomId: 4, role: 'defender', troopIds: [],
+      supply: { stock: { food: 0, meat: 0, feed: 0, seeds: 0 } } } });
+  const audit = startFoodInventoryAudit(world);
+  audit.beginDay(1);
+
+  assert.equal(drawCampaignRation(world, person, 2), 2);
+  audit.endDay();
+  const report = audit.finish();
+  const transfer = report.transactions.find(operation => operation.category === 'campaign-ration'
+    && operation.kind === 'campaign-ration-transfer' && operation.parentId == null);
+  const sideAccount = report.accounts.find(account => account.ownerType === 'campaign-side'
+    && account.ownerId === 9 && account.account === 'field-supply-attacker' && account.property === 'food');
+  const recipient = report.accounts.find(account => account.ownerType === 'person'
+    && account.ownerId === person.id && account.property === 'foodReserve');
+
+  assert.ok(transfer);
+  assert.equal(transfer.source, sideAccount.index);
+  assert.equal(transfer.destination, recipient.index);
+  assert.equal(person.foodReserve, 7);
+  assert.equal(side.supply.stock.food, 3);
+  assert.equal(report.coverage.balanced, true);
+});
+
+test('military market purchase links purchased food, gold cost and personal reserve', () => {
+  const world = makeWorld();
+  const person = world.people[0];
+  person.role = 'soldier';
+  person.militaryWallet = { stock: { gold: 10 } };
+  world.kingdoms[0].market = { stock: { food: 5, meat: 0, feed: 0, seeds: 0, gold: 0 }, prices: { food: 2 } };
+  const audit = startFoodInventoryAudit(world);
+  audit.beginDay(1);
+
+  assert.equal(buyMilitaryMeal(world, person, 3), 3);
+  audit.endDay();
+  const report = audit.finish();
+  const purchase = report.transactions.find(operation => operation.category === 'military-market-meal'
+    && operation.kind === 'market-meal-purchase' && operation.parentId == null);
+  const marketFood = report.accounts.find(account => account.ownerType === 'kingdom'
+    && account.ownerId === 3 && account.account === 'market-stock' && account.property === 'food');
+  const recipient = report.accounts.find(account => account.ownerType === 'person'
+    && account.ownerId === person.id && account.property === 'foodReserve');
+
+  assert.ok(purchase);
+  assert.equal(purchase.source, marketFood.index);
+  assert.equal(purchase.destination, recipient.index);
+  assert.deepEqual(purchase.costs, { gold: 6 });
+  assert.equal(person.foodReserve, 8);
+  assert.equal(world.kingdoms[0].market.stock.food, 2);
+  assert.equal(report.coverage.balanced, true);
 });

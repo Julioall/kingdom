@@ -7,7 +7,7 @@ import { clamp, distance } from '../core/math.js';
 import { cellAt } from '../world/spatial.js';
 import { log } from '../core/events.js';
 import { activeCommunity, getSocialLink } from '../society/communities.js';
-import { addFoodReserve, communityFoodStock, consumeFoodReserve, transferFoodReserve, withdrawCommunityFood } from '../economy/inventories.js';
+import { addFoodReserve, communityFoodStock, consumeFoodReserve, transferCommunityFoodToReserve, transferFoodReserve } from '../economy/inventories.js';
 import { assignHome } from '../kingdoms/initialization.js';
 import { moveOne } from './movement.js';
 import { consumePersonEnergy } from './energy.js';
@@ -292,12 +292,12 @@ export function updateDependent(w, child) {
       const sharedFood = community ? Math.min(careFoodNeed, communityFoodStock(community) * FOOD_DAYS_PER_UNIT,
       Math.max(0, 100 - child.foodReserve)) : 0;
     if (sharedFood > .001) {
-      withdrawCommunityFood(w, community, sharedFood / FOOD_DAYS_PER_UNIT, 'dependent-food-issue');
-      addFoodReserve(child, sharedFood, 'dependent-community-meal');
-      foodProvided += sharedFood;
-      child.sharedMeals = (child.sharedMeals || 0) + sharedFood / FOOD_DAYS_PER_UNIT;
+      const transfer = transferCommunityFoodToReserve(w, community, child, sharedFood / FOOD_DAYS_PER_UNIT,
+        'dependent-food-issue', 'dependent-community-meal');
+      foodProvided += transfer.reserveAdded;
+      child.sharedMeals = (child.sharedMeals || 0) + transfer.nutrition;
     }
-    const unmetNeed = Math.max(0, careFoodNeed - sharedFood);
+    const unmetNeed = Math.max(0, careFoodNeed - (foodProvided - consumedFood));
     if (caregiver && distance(caregiver, child) <= 6) {
       child.guardianId = caregiver.id;
       consumePersonEnergy(caregiver, .1);

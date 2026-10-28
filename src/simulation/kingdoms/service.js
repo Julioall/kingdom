@@ -3,8 +3,9 @@ import { militaryCivilianFoodFloor } from '../economy/food-policy.js';
 import { DAILY_FOOD_NEED, FOOD_DAYS_PER_UNIT } from '../../config/ecosystem.js';
 import { distance } from '../core/math.js';
 import {
-  addFoodReserve, communityFoodStock, spendInventory, transferInventory, transferResource, withdrawCommunityFood
+  addFoodReserve, communityFoodStock, spendInventory, transferCommunityFoodToReserve, transferInventory, transferResource
 } from '../economy/inventories.js';
+import { withFoodAuditOperation } from '../economy/food-audit-ledger.js';
 import { MILITARY_CLASSES } from './military.js';
 import { moveOne } from '../individuals/movement.js';
 import { structureInteractionPoint } from '../physics/hitboxes.js';
@@ -87,16 +88,23 @@ export function drawGarrisonRation(world, person, center = militaryDutyCenterFor
   const available = Math.max(0, Number(kingdom?.treasury?.stock?.food) || 0);
   let received = 0;
   const treasuryRation = Math.min(available, need / FOOD_DAYS_PER_UNIT);
-  if (treasuryRation > .01 && spendInventory(kingdom.treasury, { food: treasuryRation }, 'military-garrison-ration')) {
-    received += addFoodReserve(person, treasuryRation * FOOD_DAYS_PER_UNIT, 'military-garrison-ration');
+  if (treasuryRation > .01) {
+    received += withFoodAuditOperation({ kind: 'garrison-ration-transfer', category: 'military-garrison-ration',
+      resource: 'foodReserve', sourceAccount: kingdom.treasury.stock, sourceResource: 'food',
+      destinationAccount: person, destinationResource: 'foodReserve', amount: treasuryRation * FOOD_DAYS_PER_UNIT,
+      actor: person }, () => {
+      if (!spendInventory(kingdom.treasury, { food: treasuryRation }, 'military-garrison-ration')) return 0;
+      return addFoodReserve(person, treasuryRation * FOOD_DAYS_PER_UNIT, 'military-garrison-ration');
+    });
   }
   const remainder = Math.max(0, need - received);
   const community = world.communities.find(item => item.id === kingdom?.communityId && item.kingdomId === person.kingdomId);
   const surplus = Math.max(0, communityFoodStock(community) - militaryCivilianFoodFloor(world, kingdom));
   const communityRation = Math.min(surplus, remainder / FOOD_DAYS_PER_UNIT);
   if (communityRation > .01) {
-    const meal = withdrawCommunityFood(world, community, communityRation, 'military-garrison-ration');
-    received += addFoodReserve(person, meal.nutrition * FOOD_DAYS_PER_UNIT, 'military-garrison-ration');
+    const meal = transferCommunityFoodToReserve(world, community, person, communityRation,
+      'military-garrison-ration', 'military-garrison-ration');
+    received += meal.reserveAdded;
   }
   return received;
 }
@@ -264,6 +272,9 @@ export function buyMilitaryMeal(world, person, rationNeed = DAILY_FOOD_NEED) {
   const food = Math.min(rationNeed / FOOD_DAYS_PER_UNIT, (100 - person.foodReserve) / FOOD_DAYS_PER_UNIT,
     market.stock.food || 0, (wallet.gold || 0) / price);
   if (!(food > .01)) return 0;
+  return withFoodAuditOperation({ kind: 'market-meal-purchase', category: 'military-market-meal', resource: 'foodReserve',
+    sourceAccount: market.stock, sourceResource: 'food', destinationAccount: person, destinationResource: 'foodReserve',
+    amount: food * FOOD_DAYS_PER_UNIT, costs: { gold: food * price }, actor: person }, () => {
   const goldPaid = transferResource(wallet, market.stock, 'gold', food * price);
   const foodPurchased = transferResource(market.stock, person, 'food', food, 'militaryFoodPurchased');
   if (!(foodPurchased > .01)) {
@@ -287,4 +298,5 @@ export function buyMilitaryMeal(world, person, rationNeed = DAILY_FOOD_NEED) {
     assetsCreated: []
   }, [community, kingdom, market]);
   return reserveAdded;
+  });
 }

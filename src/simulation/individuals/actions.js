@@ -7,7 +7,7 @@ import { resourceUsePressure } from '../world/roads.js';
 import { activeCommunity, localNameFeature, recordCommunityUse, splitCommunities, updateCommunityStages, updateSocialLinks } from '../society/communities.js';
 import { log } from '../core/events.js';
 import { rand } from '../core/random.js';
-import { addFoodReserve, addHarvestedFood, addResource, carriedResources, communityFoodStock, communityMaterialStock, consumeEdibleCargo, consumeFoodReserve, harvestedFoodCapacity, moveCarriedResource, storeCommunityFruit, transferResource, withdrawCommunityFood } from '../economy/inventories.js';
+import { addFoodReserve, addHarvestedFood, addResource, carriedResources, communityFoodStock, communityMaterialStock, consumeEdibleCargo, consumeFoodReserve, harvestedFoodCapacity, moveCarriedResource, storeCommunityFruit, transferCommunityFoodToReserve, transferResource, withdrawCommunityFood } from '../economy/inventories.js';
 import { recordFoodAuditBlocked, withFoodAuditOperation } from '../economy/food-audit-ledger.js';
 import { CULTIVATED_FIELD_HARVEST_PER_WORKER, dailyFoodNeedForMembers, foodUnitsPerDay } from '../economy/food-policy.js';
 import { moveOne } from './movement.js';
@@ -988,7 +988,6 @@ function updatePeopleCore(w) {
       consumePersonEnergy(p, (peacetimeSoldier ? .18 : sheltered ? .4 : .48) + p.injury * .006);
       p.hydration = clamp(p.hydration - .3, 0, 100);
       const campaignRation = drawCampaignRation(w, p, dailyFoodNeed);
-      if (campaignRation > .01) addFoodReserve(p, campaignRation, 'campaign-ration');
       if (peacetimeSoldier) drawGarrisonRation(w, p, militaryCenter, GARRISON_RATION_TARGET);
       const returningToMilitarySupply = p.role === 'soldier' && p.campaignId == null
         && (campaignOrder?.returning || p.militaryReturningHome || returnToGarrison);
@@ -1005,9 +1004,9 @@ function updatePeopleCore(w) {
         const personalCapacity = Math.max(0, 100 - p.foodReserve) / FOOD_DAYS_PER_UNIT;
         const meal = Math.min(communityRationNeed / FOOD_DAYS_PER_UNIT, communityFoodStock(community), personalCapacity);
         if (meal > .01) {
-          withdrawCommunityFood(w, community, meal, 'resident-food-issue');
-          addFoodReserve(p, meal * FOOD_DAYS_PER_UNIT, 'resident-community-meal');
-          p.sharedMeals = (p.sharedMeals || 0) + meal;
+          const transfer = transferCommunityFoodToReserve(w, community, p, meal,
+            'resident-food-issue', 'resident-community-meal');
+          p.sharedMeals = (p.sharedMeals || 0) + transfer.nutrition;
         }
       }
       const personalRationDeficit = Math.max(0, dailyFoodNeed - p.foodReserve);

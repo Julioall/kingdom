@@ -13,8 +13,8 @@ import { log } from '../core/events.js';
 import { cellAt } from '../world/spatial.js';
 import { moveOne, reachableAreaAround } from '../individuals/movement.js';
 import { changePersonHealth, killPerson } from '../individuals/lifecycle.js';
-import { communityFoodStock, spendInventory, spendResource, transferInventory, transferStoreResourceToAccount } from '../economy/inventories.js';
-import { registerFoodAuditCampaignSide } from '../economy/food-audit-ledger.js';
+import { addFoodReserve, communityFoodStock, spendInventory, spendResource, transferInventory, transferStoreResourceToAccount } from '../economy/inventories.js';
+import { registerFoodAuditCampaignSide, withFoodAuditOperation } from '../economy/food-audit-ledger.js';
 import { MILITARY_CIVILIAN_RESERVE_DAYS, militaryCivilianFoodFloor } from '../economy/food-policy.js';
 import { kingdomRelation, recomputeKingdomTerritories } from './territories.js';
 import {
@@ -1078,12 +1078,16 @@ export function drawCampaignRation(world, person, daysNeeded = DAILY_FOOD_NEED) 
   const account = assignment.side.supply.stock;
   const reserveRoom = Math.max(0, 100 - person.foodReserve);
   const resourceNeed = Math.min(daysNeeded, reserveRoom) / FOOD_DAYS_PER_UNIT;
-  const used = Math.min(account.food || 0, resourceNeed);
-  if (used <= .001 || !spendResource(account, { food: used })) return 0;
-  assignment.side.rationsConsumed = (assignment.side.rationsConsumed || 0) + used;
-  assignment.side.supplyLedger ||= campaignSupplyLedger();
-  assignment.side.supplyLedger.rationConsumptionFood += used;
-  return Math.min(daysNeeded, used * FOOD_DAYS_PER_UNIT);
+  return withFoodAuditOperation({ kind: 'campaign-ration-transfer', category: 'campaign-ration', resource: 'foodReserve',
+    sourceAccount: account, sourceResource: 'food', destinationAccount: person, destinationResource: 'foodReserve',
+    amount: Math.min(daysNeeded, reserveRoom), actor: person }, () => {
+    const used = Math.min(account.food || 0, resourceNeed);
+    if (used <= .001 || !spendResource(account, { food: used }, 'campaign-ration')) return 0;
+    assignment.side.rationsConsumed = (assignment.side.rationsConsumed || 0) + used;
+    assignment.side.supplyLedger ||= campaignSupplyLedger();
+    assignment.side.supplyLedger.rationConsumptionFood += used;
+    return addFoodReserve(person, Math.min(daysNeeded, used * FOOD_DAYS_PER_UNIT), 'campaign-ration');
+  });
 }
 
 export function recordCampaignPersonalRation(world, person, days) {

@@ -317,6 +317,28 @@ export function withdrawCommunityFood(w, community, amount, category = 'resident
     return { meat, fruit: plantFood, nutrition: meat * MEAT_NUTRITIONAL_VALUE + plantFood };
   }
 
+export function transferCommunityFoodToReserve(world, community, person, amount, category, reserveCategory = category) {
+    if (!community || !person || !Number.isFinite(amount) || amount <= 0) return { nutrition: 0, reserveAdded: 0 };
+    const shelters = (world.structures || []).filter(structure => structure.complete && structure.type === 'abrigo'
+      && structure.communityId === community.id && Number(structure.meatStored) > 0);
+    return withFoodAuditOperation({ kind: 'community-meal-distribution', category: reserveCategory,
+      resource: 'foodReserve', destinationAccount: person, destinationResource: 'foodReserve',
+      amount: amount * FOOD_DAYS_PER_UNIT, actor: person,
+      source: { type: 'community-food-network', communityId: community.id, accounts: [
+        { ownerType: 'community', ownerId: community.id, account: 'community-stores', properties: ['food', 'meat'] },
+        ...shelters.map(shelter => ({ ownerType: 'structure', ownerId: shelter.id, account: 'shelter-meat', property: 'meatStored' }))
+      ] },
+      sourcePosition: Number.isFinite(community.x) && Number.isFinite(community.y)
+        ? { x: community.x, y: community.y } : null,
+      destinationPosition: Number.isFinite(person.x) && Number.isFinite(person.y)
+        ? { x: person.x, y: person.y } : null
+    }, () => {
+      const meal = withdrawCommunityFood(world, community, amount, category);
+      const reserveAdded = addFoodReserve(person, meal.nutrition * FOOD_DAYS_PER_UNIT, reserveCategory);
+      return { nutrition: meal.nutrition, reserveAdded };
+    });
+  }
+
 export function stockSurplus(store, resource) {
     const reserve = resource === 'food' ? 12 : 16;
     return Math.max(0, (store[resource] || 0) - reserve);
