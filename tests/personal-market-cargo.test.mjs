@@ -246,3 +246,31 @@ test('malformed or aliased wallets cannot spend communal or market gold', () => 
   person.personalWallet = { stock: null };
   assert.equal(findTradePartner(world, community, person), null);
 });
+
+test('fixed-price community sale is not offered without real market gold', () => {
+  const { world, community, person, market } = fixture();
+  community.stores.food = 50; // No food purchase or barter should mask the sale.
+  community.stores.wood = 36; // Sale floor 28 plus the 8-unit lot.
+  person.carriedWood = 0; // Exclude personal-cargo offers from this test.
+  market.stock.gold = 0;
+
+  assert.equal(marketHasTradeOpportunity(world, community), false,
+    'a fixed-price sale cannot be advertised if the market cannot pay');
+  assert.equal(findTradePartner(world, community, person), null,
+    'the resident should not walk to a market for an unfunded sale');
+  assert.equal(world.trades, undefined);
+  assert.equal(community.stores.wood, 36);
+
+  market.stock.gold = 4;
+  assert.equal(marketHasTradeOpportunity(world, community), true,
+    'funding the existing market stock makes the sale executable');
+  const partner = findTradePartner(world, community, person);
+  assert.equal(partner?.isMarket, true);
+  assert.equal(performTrade(world, person, community, partner), true);
+  assert.equal(community.stores.wood, 28);
+  assert.equal(community.stores.gold, 4);
+  assert.equal(market.stock.wood, 8);
+  assert.equal(market.stock.gold, 0);
+  assert.equal(marketHasTradeOpportunity(world, community), false,
+    'the next sale is blocked when the finite payment account is empty');
+});
