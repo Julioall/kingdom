@@ -162,7 +162,11 @@ function fieldSeedMarketOrder(world, community, marketOwner) {
     && field.communityId === community.id && field.destroyedDay == null);
   const seedDemand = fields.some(field => field.cropCycleState === 'spent' && !(field.cropSeedStored > .01))
     || (!fields.length && (community.memberIds || []).length >= 6);
-  if (!seedDemand || !canReceiveUpTo(store, 'seeds', order.amount, order.reserve)) return null;
+  // Seed supply is a commissioned builder task, not a speculative purchase
+  // by an arbitrary visitor; the courier carries community-owned cargo.
+  if (!seedDemand || (store.seeds || 0) >= order.reserve
+      || (world.people || []).some(person => person.alive && person.communityId === community.id
+        && (person.carriedCommunitySeeds || 0) > 0)) return null;
   const market = marketOwner.stock || marketOwner;
   if (!canSpend(market, 'seeds', order.amount)) return null;
   const payer = kingdom?.treasury?.stock || store;
@@ -267,10 +271,9 @@ function sellGatheredSeedLot(world, person, community, marketOwner, station) {
 function settleFieldSeedOrder(world, person, community, marketOwner) {
   const order = fieldSeedMarketOrder(world, community, marketOwner);
   if (!order) return false;
-  const storeBefore = tradeBalances(community.stores);
   const marketBefore = tradeBalances(order.market);
   const receipt = settleCoinTrade(order.payer, order.market, order.priceCopper,
-    order.market, community.stores, 'seeds', order.amount);
+    order.market, person, 'seeds', order.amount, 8, 'carriedCommunitySeeds');
   if (!receipt) return false;
   marketOwner.transactions = (marketOwner.transactions || 0) + 1;
   community.tradeCount = (community.tradeCount || 0) + 1;
@@ -283,7 +286,7 @@ function settleFieldSeedOrder(world, person, community, marketOwner) {
     kind: 'market', action: 'comprou sementes para a roça',
     participants: [
       { personId: person.id, communityId: community.id,
-        delta: tradeDelta(storeBefore, tradeBalances(community.stores)) },
+        delta: { carriedCommunitySeeds: order.amount } },
       ...(order.kingdomId == null ? [] : [{
         kingdomId: order.kingdomId,
         delta: Object.fromEntries(['copper', 'silver', 'gold']
@@ -326,6 +329,7 @@ export function purchaseFieldSeedsForConstruction(world, person, community) {
     return settleFieldSeedOrder(world, person, community, marketOwner) ? 'purchased' : 'unavailable';
   }
   if ((community.stores.seeds ?? 0) >= NATURAL_SEED_LOT) return 'available';
+  if ((person.carriedCommunitySeeds ?? 0) >= NATURAL_SEED_LOT) return 'carrying';
   // A person with cargo must sell the existing lot first. Nothing may travel
   // directly from natural terrain into a farm or community seed inventory.
   if ((person.carriedSeeds || 0) >= NATURAL_SEED_LOT)
@@ -532,7 +536,6 @@ export function marketHasTradeOpportunity(w, community) {
     const food = accountAmount(store, 'food'), meat = accountAmount(store, 'meat');
     const edibleFood = food === null || meat === null ? Infinity : food + meat * MEAT_NUTRITIONAL_VALUE;
     const needsMarketFood = edibleFood < MARKET_PURCHASES.food.reserve;
-    const canBuySeeds = !!fieldSeedMarketOrder(w, community, marketOwner);
     const canBuyFood = needsMarketFood
       && canSpend(store, 'gold', MARKET_PURCHASES.food.gold)
       && canSpend(market, 'food', MARKET_PURCHASES.food.amount);
@@ -572,7 +575,7 @@ export function marketHasTradeOpportunity(w, community) {
       }
       return canSpend(market, 'gold', payment);
     });
-    return canBuySeeds || canBuyFood || canBuyWood || canBuyStone || canBuyFeed || canBuySheep || canBarterFood || canSell || canCoinBuy;
+    return canBuyFood || canBuyWood || canBuyStone || canBuyFeed || canBuySheep || canBarterFood || canSell || canCoinBuy;
   }
 
 function recordFoodAidExperience(w, giver, recipient, amount, method) {
@@ -872,8 +875,6 @@ export function performTrade(w, person, community, partner) {
       const pen = nearestPenFor(w, person);
       const availablePen = availableCommunityPen(w, community.id, person);
       const herd = domesticatedSheep(w, community).length;
-      if (fieldSeedMarketOrder(w, community, marketOwner)
-          && settleFieldSeedOrder(w, person, community, marketOwner)) return true;
       let transaction = null, coinReceipt = null;
       if (hasCoinFunds(store)) {
         for (const choice of coinMarketNeeds(store, availablePen || pen, herd)) {
