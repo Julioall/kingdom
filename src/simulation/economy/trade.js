@@ -10,6 +10,7 @@ import { FOOD_DAYS_PER_UNIT, MEAT_NUTRITIONAL_VALUE } from '../../config/ecosyst
 import { log } from '../core/events.js';
 import { moveOne } from '../individuals/movement.js';
 import { recordTrade } from './trade-ledger.js';
+import { goldPriceToCopper, quoteCoinPayment, settleCoinTrade } from './coin-payments.js';
 import { consumePersonEnergy } from '../individuals/energy.js';
 import { shareFoodAidKnowledge } from '../society/plan-execution.js';
 import {
@@ -25,10 +26,12 @@ const RESOURCE_LABELS = Object.freeze({
   wood: ['unidade de madeira', 'unidades de madeira'],
   stone: ['unidade de pedra', 'unidades de pedra'],
   gold: ['unidade de ouro', 'unidades de ouro'],
+  copper: ['moeda de cobre', 'moedas de cobre'],
+  silver: ['moeda de prata', 'moedas de prata'],
   iron: ['unidade de ferro', 'unidades de ferro'],
   feed: ['unidade de ração', 'unidades de ração']
 });
-const TRADE_RESOURCES = Object.freeze(['food', 'meat', 'wood', 'stone', 'gold', 'iron', 'feed', 'sheep']);
+const TRADE_RESOURCES = Object.freeze(['food', 'meat', 'wood', 'stone', 'gold', 'silver', 'copper', 'iron', 'feed', 'sheep']);
 const MARKET_PURCHASES = Object.freeze({
   food: Object.freeze({ amount: 12, gold: 6, reserve: 32 }),
   wood: Object.freeze({ amount: 10, gold: 6, reserve: 18 }),
@@ -115,6 +118,32 @@ function communitiesHaveClosedBorder(w, first, second) {
 const PERSONAL_SALE_FLOOR = 12;
 const PERSONAL_MARKET_LOT = 4;
 
+// Opt in only when physically owned smaller denominations are present (or when
+// the account explicitly enables coin mode). Historical fractional gold stays
+// on the legacy path and never gets silently turned into integer coins.
+function hasCoinFunds(account) {
+  return account?.coinMode === true || (Number.isSafeInteger(account?.copper) && account.copper > 0)
+    || (Number.isSafeInteger(account?.silver) && account.silver > 0);
+}
+
+function coinPurchaseOffer(payer, market, resource, amount, goldPrice) {
+  if (!hasCoinFunds(payer) || !Number.isSafeInteger(amount) || amount <= 0
+      || !canSpend(market, resource, amount)) return null;
+  const priceCopper = goldPriceToCopper(goldPrice);
+  if (!priceCopper || !canReceiveUpTo(payer, resource, amount, Infinity)) return null;
+  const quote = quoteCoinPayment(payer, market, priceCopper);
+  return quote ? { resource, amount, priceCopper, quote } : null;
+}
+
+function coinMarketNeeds(store, pen, herd) {
+  return [
+    { resource: 'food', label: 'alimento', needed: (store.food || 0) + (store.meat || 0) * MEAT_NUTRITIONAL_VALUE < MARKET_PURCHASES.food.reserve },
+    { resource: 'wood', label: 'madeira', needed: (store.wood || 0) < MARKET_PURCHASES.wood.reserve },
+    { resource: 'stone', label: 'pedra', needed: (store.stone || 0) < MARKET_PURCHASES.stone.reserve },
+    { resource: 'feed', label: 'ração', needed: !!pen && herd > 0 && (store.feed || 0) < MARKET_PURCHASES.feed.reserve }
+  ];
+}
+
 function marketSaleGold(sale, marketOwner) {
   if (!sale.dynamicPrice) return sale.gold;
   const price = marketOwner?.prices?.[sale.resource];
@@ -140,7 +169,17 @@ function personalMarketOffer(world, community, person, marketOwner) {
   const foodAmount = accountAmount(market, 'food');
   const goldHeld = accountAmount(wallet, 'gold');
   const reserve = accountAmount(person, 'foodReserve');
-  if (Number.isFinite(foodPrice) && foodPrice > 0 && foodAmount !== null
+  const coinMode = hasCoinFunds(wallet);
+  if (coinMode && reserve !== null && reserve < 60 && foodAmount !== null && Number.isFinite(foodPrice)) {
+    const maxUnits = Math.min(PERSONAL_MARKET_LOT, Math.floor(foodAmount),
+      Math.floor((100 - reserve) / FOOD_DAYS_PER_UNIT));
+    for (let units = maxUnits; units >= 1; units--) {
+      const priceCopper = goldPriceToCopper(foodPrice, units);
+      if (priceCopper && quoteCoinPayment(wallet, market, priceCopper))
+        return { action: 'buy-food-coins', amount: units, priceCopper };
+    }
+  }
+  if (!coinMode && Number.isFinite(foodPrice) && foodPrice > 0 && foodAmount !== null
       && goldHeld !== null && reserve !== null && reserve < 60) {
     const units = Math.min(PERSONAL_MARKET_LOT, foodAmount,
       Math.max(0, (100 - reserve) / FOOD_DAYS_PER_UNIT), goldHeld / foodPrice);
