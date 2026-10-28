@@ -12,6 +12,7 @@ import { hitboxesOverlap, structureHitbox, worldCollisionIndex } from '../physic
 import { consumePersonEnergy } from '../individuals/energy.js';
 import { claimConstructionWorkstation, clearConstructionWorkpointResources, constructionContactPoint, constructionWorkpointReachable, constructionWorkPositions } from './construction-workstations.js';
 import { communityNeedsAdditionalPen } from '../ecology/herd.js';
+import { purchaseFieldSeedsForConstruction } from '../economy/trade.js';
 
 const COMMUNITY_BUILDING_TYPES = new Set(['abrigo', 'roça', 'curral', 'posto de coleta', 'acampamento']);
 const KINGDOM_REPAIR_COST = Object.freeze({ wood: 3, stone: 2 });
@@ -289,7 +290,13 @@ export function workOnCommunityStructure(w, person, community, size) {
         person.state = 'faltam recursos compartilhados'; person.buildCooldown = 8; return;
       }
       if (structure.type === 'roça' && (community.stores.seeds || 0) + .001 < structure.seedMass) {
-        person.state = 'aguardando compra de sementes para a roça'; person.buildCooldown = 8; return;
+        const status = purchaseFieldSeedsForConstruction(w, person, community);
+        if (status === 'purchased') person.state = 'sementes compradas; retornando à obra';
+        else if (status === 'approaching') person.state = 'indo buscar sementes no mercado';
+        else if (status === 'route-blocked') person.state = 'rota do mercado bloqueada para sementes';
+        else person.state = 'aguardando estoque e caixa para comprar sementes';
+        person.buildCooldown = status === 'approaching' || status === 'purchased' ? 1 : 8;
+        return;
       }
       if (!spendStoreInventory(community, { wood: structure.woodCost, stone: structure.stoneCost }, 'construction-materials')) {
         person.state = 'faltam recursos compartilhados'; person.buildCooldown = 8; return;
