@@ -246,3 +246,72 @@ test('a stale station or replaced market cannot debit food or gold', () => {
   assert.deepEqual(unassignedMarket.stock, beforeGlobal);
   assert.equal(summarizeTradeActivity(world).marketTransactionsRecorded, 1);
 });
+
+test('cached barter rejects departed witnesses, stale communities and replaced relations without transferring resources', () => {
+  const { world, home, foreign, trader } = tradeFixture();
+  world.tradeDiagnostics = {};
+  const offer = findTradePartner(world, home, trader);
+  const witness = offer.person;
+  const relation = offer.relation;
+  const beforeHome = structuredClone(home.stores);
+  const beforeForeign = structuredClone(foreign.stores);
+  const reject = reason => {
+    assert.equal(performTrade(world, trader, home, offer), false, reason);
+    assert.deepEqual(home.stores, beforeHome);
+    assert.deepEqual(foreign.stores, beforeForeign);
+    assert.equal(world.trades || 0, 0);
+    assert.equal(home.tradeCount, 0);
+    assert.equal(foreign.tradeCount, 0);
+  };
+
+  witness.alive = false;
+  reject('a dead counterparty cannot complete a cached offer');
+  witness.alive = true;
+  witness.communityId = home.id;
+  reject('a counterparty reassigned to another community cannot barter for the old owner');
+  witness.communityId = foreign.id;
+  world.people[1] = { ...witness };
+  reject('an unregistered object cannot act as a current witness');
+  world.people[1] = witness;
+  world.communities[1] = { ...foreign };
+  reject('a replaced community object cannot receive resources through a stale offer');
+  world.communities[1] = foreign;
+  world.communityRelations['1:2'] = { ...relation };
+  reject('a replaced relation cannot be modified through an old pointer');
+  world.communityRelations['1:2'] = relation;
+  relation.trust = .1;
+  reject('withdrawn trust must be respected at execution time');
+  relation.trust = .6;
+
+  assert.deepEqual(world.tradeDiagnostics.communityBarterBlocked, {
+    'stale-partner-or-community': 6
+  });
+  assert.equal(performTrade(world, trader, home, offer), true,
+    'a still-valid offer can execute once live authority is restored');
+  assert.equal(home.stores.food, beforeHome.food - 5);
+  assert.equal(foreign.stores.food, beforeForeign.food + 5);
+  assert.equal(world.trades || 0, 1);
+  assert.equal(home.tradeLedger.count, 1);
+  assert.equal(foreign.tradeLedger.count, 1);
+});
+
+test('barter uses live distance rather than a cached proximity estimate', () => {
+  const { world, home, foreign, trader } = tradeFixture();
+  world.tradeDiagnostics = {};
+  world.tiles = [];
+  const offer = findTradePartner(world, home, trader);
+  const originalX = offer.person.x;
+  offer.distance = 0;
+  offer.person.x = originalX + 8;
+  assert.equal(performTrade(world, trader, home, offer), false,
+    'a distant witness must be approached rather than triggering instant barter');
+  assert.deepEqual(world.tradeDiagnostics.communityBarterBlocked, { 'route-blocked': 1 });
+  assert.equal(home.stores.food, 34);
+  assert.equal(foreign.stores.wood, 24);
+  assert.equal(world.trades || 0, 0);
+
+  offer.person.x = originalX;
+  assert.equal(performTrade(world, trader, home, offer), true);
+  assert.equal(home.stores.food, 29);
+  assert.equal(foreign.stores.wood, 19);
+});

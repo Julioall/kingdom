@@ -423,11 +423,27 @@ export function performTrade(w, person, community, partner) {
         return false;
       }
     }
+    if (!partner.isMarket) {
+      // Cached barter offers are not authority to trade with a departed, dead or
+      // reassigned witness, a dissolved community, or a superseded relation.
+      const other = partner.community;
+      const counterparty = partner.person;
+      const key = other && Math.min(community.id, other.id) + ':' + Math.max(community.id, other.id);
+      const liveRelation = key && w.communityRelations?.[key];
+      if (!(w.communities || []).includes(community) || community.dissolved
+          || !(w.communities || []).includes(other) || other.dissolved || other.id === community.id
+          || !(w.people || []).includes(person) || !person.alive || person.communityId !== community.id
+          || !(w.people || []).includes(counterparty) || !counterparty?.alive || counterparty.communityId !== other.id
+          || !liveRelation || liveRelation !== partner.relation || !(liveRelation.trust > .14)) {
+        countTradeDiagnostic(w, 'communityBarterBlocked', 'stale-partner-or-community');
+        return false;
+      }
+    }
     if (!partner.isMarket && partner.community && communitiesHaveClosedBorder(w, community, partner.community)) {
       countTradeDiagnostic(w, 'communityBarterBlocked', 'closed-border');
       return false;
     }
-    if ((partner.isMarket ? distance(person, partner.station) : partner.distance) > 2.2) {
+    if (distance(person, partner.isMarket ? partner.station : partner.person) > 2.2) {
       const target = partner.isMarket ? partner.station : partner.person;
       const tile = target && cellAt(w, target.x, target.y);
       if (!tile || !moveOne(w, person, tile, false)) {
