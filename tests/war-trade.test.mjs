@@ -259,7 +259,7 @@ test('cached barter rejects departed witnesses, stale communities and replaced r
     assert.equal(performTrade(world, trader, home, offer), false, reason);
     assert.deepEqual(home.stores, beforeHome);
     assert.deepEqual(foreign.stores, beforeForeign);
-    assert.equal(world.tradeLedger.length, 0);
+    assert.equal(world.trades || 0, 0);
     assert.equal(home.tradeCount, 0);
     assert.equal(foreign.tradeCount, 0);
   };
@@ -290,7 +290,9 @@ test('cached barter rejects departed witnesses, stale communities and replaced r
     'a still-valid offer can execute once live authority is restored');
   assert.equal(home.stores.food, beforeHome.food - 5);
   assert.equal(foreign.stores.food, beforeForeign.food + 5);
-  assert.equal(world.tradeLedger.length, 1);
+  assert.equal(world.trades || 0, 1);
+  assert.equal(home.tradeLedger.count, 1);
+  assert.equal(foreign.tradeLedger.count, 1);
 });
 
 test('barter uses live distance rather than a cached proximity estimate', () => {
@@ -306,7 +308,7 @@ test('barter uses live distance rather than a cached proximity estimate', () => 
   assert.deepEqual(world.tradeDiagnostics.communityBarterBlocked, { 'route-blocked': 1 });
   assert.equal(home.stores.food, 34);
   assert.equal(foreign.stores.wood, 24);
-  assert.equal(world.tradeLedger.length, 0);
+  assert.equal(world.trades || 0, 0);
 
   offer.person.x = originalX;
   assert.equal(performTrade(world, trader, home, offer), true);
