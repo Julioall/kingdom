@@ -49,6 +49,13 @@ export function seedPlants(w) {
             && suitability > .13 && patchNoise > treeThreshold) t.plants[n] = 130 + patchNoise * 280;
         if (t.plants[n] > .01) t.plantResourceMask |= 1 << n;
       }
+      // Indigenous propagules of the cultivated-root wild ancestor are a
+      // separate, finite natural seed bank. This world-generation deposit is
+      // NOT a market or royal endowment, nor a conversion from berry food.
+      // Existing crops retain future seed lots from their accounted harvest.
+      t.wildSeedStock = t.terrain === 'land' && t.slope <= .65
+        && t.soilType !== 'sandy' && t.waterDist >= 3 && t.waterDist <= 20
+        && hash01(w.seed + 99617, t.x, t.y) >= .68 ? 3 : 0;
     }
   }
 
@@ -264,25 +271,6 @@ export function eatPlants(w, tile, diet, amount) {
       tile.detritusGPerM2 += take * .035;
     }
     return eaten;
-  }
-
-export function collectCommunityFieldSeeds(w, structure) {
-    if (!w || !structure || structure.type !== 'roça') return 0;
-    const seedMass = Math.max(0, Number(structure.seedMass) || 0);
-    const berryIndex = PLANTS.findIndex(plant => plant.id === 'berry');
-    const tiles = (structure.fieldTileIndices || []).map(index => w.tiles[index]).filter(Boolean)
-      .sort((a, b) => b.plants[berryIndex] - a.plants[berryIndex] || a.i - b.i);
-    if (!seedMass || berryIndex < 0 || tiles.reduce((sum, tile) => sum + tile.plants[berryIndex], 0) + .001 < seedMass) return 0;
-    let remaining = seedMass;
-    for (const tile of tiles) {
-      const take = Math.min(remaining, tile.plants[berryIndex]);
-      tile.plants[berryIndex] -= take;
-      remaining -= take;
-      if (remaining <= .001) break;
-    }
-    structure.cropSeedStored = seedMass;
-    w.ecologyFlows.humanFoodCultivationSeeded = (w.ecologyFlows.humanFoodCultivationSeeded || 0) + seedMass;
-    return seedMass;
   }
 
 export function sowCommunityField(w, structure) {
