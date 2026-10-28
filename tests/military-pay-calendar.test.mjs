@@ -221,3 +221,15 @@ test('military meal rejects purchases when real change is unavailable', () => {
   assert.equal(world.kingdoms[0].market.stock.gold, 0);
   assert.equal(world.trades ?? 0, 0);
 });
+
+test('paying old arrears cannot hide a newly missed wage in social evidence', () => {
+  const world = fixture({ treasuryGold: 15, firstDue: 30, arrears: 15 });
+  payOn(world, 30);
+  assert.equal(world.people[0].militaryPayArrears, 0);
+  assert.equal(world.people[0].militaryPayArrearsCopper, 100);
+  const delayed = world.socialEvidence.facts.filter(fact => fact.type === 'military_pay_delayed');
+  assert.equal(delayed.length, 1);
+  assert.equal(delayed[0].outcome.amount, 1);
+  assert.equal(delayed[0].outcome.dueDay, 30);
+  assert.equal(world.kingdoms[0].treasury.stock.gold, 0);
+});
