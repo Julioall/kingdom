@@ -299,12 +299,14 @@ export function marketHasTradeOpportunity(w, community) {
     const canBarterFood = needsMarketFood && canSpend(market, 'food', MARKET_PURCHASES.food.amount)
       && ((canSpend(store, 'wood', 26) && canReceiveUpTo(market, 'wood', 8, 260))
         || (canSpend(store, 'stone', 18) && canReceiveUpTo(market, 'stone', 6, 260)));
-    const canSell = MARKET_SALES.some(sale =>
-      accountAmount(store, sale.resource) !== null
+    const canSell = MARKET_SALES.some(sale => {
+      const payment = marketSaleGold(sale, marketOwner);
+      return payment !== null && payment > 0
+        && accountAmount(store, sale.resource) !== null
         && accountAmount(store, sale.resource) >= sale.reserve + sale.amount
         && canReceiveUpTo(market, sale.resource, sale.amount, sale.capacity)
-        && (!sale.dynamicPrice || (marketSaleGold(sale, marketOwner) !== null
-          && canSpend(market, 'gold', marketSaleGold(sale, marketOwner)))));
+        && canSpend(market, 'gold', payment);
+    });
     return canBuyFood || canBuyWood || canBuyStone || canBuyFeed || canBuySheep || canBarterFood || canSell;
   }
 
