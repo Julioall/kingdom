@@ -10,25 +10,25 @@ import {
   currencyValueCopper, copperToCoinBreakdown, goldValueInCopper
 } from '../src/simulation/economy/currency-denominations.js';
 
-test('the monetary metal hierarchy uses exact five-to-one denomination values', () => {
-  assert.deepEqual(COIN_VALUE_COPPER, { copper: 1, silver: 5, gold: 25 });
+test('the monetary metal hierarchy uses exact ten-to-one denomination values', () => {
+  assert.deepEqual(COIN_VALUE_COPPER, { copper: 1, silver: 10, gold: 100 });
   assert.deepEqual(COIN_TYPES, ['copper', 'silver', 'gold']);
   assert.deepEqual(METAL_TYPES, ['copper', 'silver', 'gold', 'iron']);
-  assert.equal(currencyValueCopper({ copper: 25 }), 25);
-  assert.equal(currencyValueCopper({ silver: 5 }), 25);
-  assert.equal(currencyValueCopper({ gold: 1 }), 25);
+  assert.equal(currencyValueCopper({ copper: 100 }), 100);
+  assert.equal(currencyValueCopper({ silver: 10 }), 100);
+  assert.equal(currencyValueCopper({ gold: 1 }), 100);
   const unchanged = { gold: 2, silver: 3, copper: 4, iron: 99 };
-  assert.equal(currencyValueCopper(unchanged), 69);
+  assert.equal(currencyValueCopper(unchanged), 234);
   assert.deepEqual(unchanged, { gold: 2, silver: 3, copper: 4, iron: 99 },
     'valuation is read-only and never mints or spends currency');
-  assert.deepEqual(copperToCoinBreakdown(69), { gold: 2, silver: 3, copper: 4 });
-  assert.equal(currencyValueCopper(copperToCoinBreakdown(69)), 69);
+  assert.deepEqual(copperToCoinBreakdown(234), { gold: 2, silver: 3, copper: 4 });
+  assert.equal(currencyValueCopper(copperToCoinBreakdown(234)), 234);
   assert.deepEqual(copperToCoinBreakdown(0), { gold: 0, silver: 0, copper: 0 });
   assert.equal(copperToCoinBreakdown(-1), null);
   assert.equal(copperToCoinBreakdown(.5), null);
   assert.equal(currencyValueCopper({ silver: -1 }), null);
   assert.equal(currencyValueCopper({ copper: Infinity }), null);
-  assert.equal(goldValueInCopper(.4), 10);
+  assert.equal(goldValueInCopper(.4), 40);
   assert.equal(goldValueInCopper(-1), null);
 });
 
@@ -88,5 +88,5 @@ test('each ore moves exactly once from finite deposit to carried cargo to commun
   const summary = resourceSummary(world, kingdom.id);
   assert.ok(summary.copper > 0 && summary.silver > 0 && summary.iron > 0,
     'the account summary exposes all three different assets');
-  assert.ok(Math.abs(summary.gold * 25 + summary.silver * 5 + summary.copper) >= 0);
+  assert.equal(summary.nominalCopper, summary.gold * 100 + summary.silver * 10 + summary.copper);
 });
