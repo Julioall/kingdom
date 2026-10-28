@@ -196,23 +196,18 @@ test('source loss and reconstruction produce the same class progression replay f
 
 
 test('simulated combat training stops when its military center is inoperable and resumes after repair', () => {
-  const world = engine.createWorld(42);
-  const kingdom = world.kingdoms[0];
-  const center = world.structures.find(structure => structure.id === kingdom.militaryCenterIds[0]);
-  assert.ok(center, 'fixture includes a military center');
-  const soldiers = world.people.filter(person => person.alive && person.role === 'soldier'
-    && person.kingdomId === kingdom.id).slice(0, 4);
-  assert.equal(soldiers.length, 4, 'fixture has enough soldiers for a training pair');
-  world.wars = [];
-  kingdom.frontierAlert = null;
-  world.day = 100;
-  for (const soldier of soldiers) {
-    Object.assign(soldier, { militaryCenterId: center.id, militaryDutyCenterId: center.id,
-      campaignId: null, militaryReturningHome: false, towerDutyId: null, towerMounted: false,
-      tacticalRecovering: false, militaryRestTargetId: null, restingStructureId: null,
-      health: 100, energy: 100, foodReserve: 100, hydration: 100, injury: 0,
-      x: center.x, y: center.y });
-  }
+  const center = { id: 1, type: 'centro_militar', kingdomId: 10, x: 5, y: 5,
+    complete: true, destroyedDay: null, integrity: 1, health: 1 };
+  const soldiers = Array.from({ length: 4 }, (_, index) => ({
+    id: index + 2, alive: true, role: 'soldier', kingdomId: 10, militaryClass: 'guerreiro',
+    militaryCenterId: center.id, militaryDutyCenterId: center.id,
+    campaignId: null, militaryReturningHome: false, towerDutyId: null, towerMounted: false,
+    tacticalRecovering: false, militaryRestTargetId: null, restingStructureId: null,
+    health: 100, energy: 100, foodReserve: 100, hydration: 100, injury: 0,
+    militaryTraining: 0, x: center.x, y: center.y
+  }));
+  const world = { structures: [center], kingdoms: [{ id: 10, frontierAlert: null }],
+    wars: [], people: soldiers, day: 100 };
   const hasTrainingPair = () => soldiers.some(soldier => militaryTrainingPairs(world).has(soldier.id));
   center.complete = true;
   center.destroyedDay = null;
