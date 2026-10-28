@@ -84,3 +84,38 @@ test('destroyed military centers cannot supply rations; a surviving center can t
   assert.equal(militaryDutyCenterFor(world, person)?.id, alternate.id,
     'restoring the alternate resumes service without recreating its stock');
 });
+
+
+test('garrison rejects fabricated and stale centers even when their fields look operational', () => {
+  const person = { id: 11, alive: true, ageDays: 30 * 365, role: 'soldier',
+    kingdomId: 1, campaignId: null, x: 0, y: 0, foodReserve: 0 };
+  const registered = { id: 4, type: 'centro_militar', kingdomId: 1,
+    complete: true, destroyedDay: null, integrity: 1, health: 1, x: 0, y: 0 };
+  const kingdom = { id: 1, communityId: 2, militaryCenterIds: [4],
+    memberIds: [11], treasury: { stock: { food: 2 } } };
+  const community = { id: 2, kingdomId: 1, stores: { food: 0, meat: 0 } };
+  const world = { people: [person], structures: [registered],
+    kingdoms: [kingdom], communities: [community] };
+  const snapshot = { food: kingdom.treasury.stock.food, reserve: person.foodReserve };
+
+  const phantom = { ...registered, id: 99 };
+  const stale = { ...registered };
+  assert.equal(drawGarrisonRation(world, person, phantom, FOOD_DAYS_PER_UNIT), 0,
+    'a phantom center cannot authorize a treasury debit');
+  assert.equal(drawGarrisonRation(world, person, stale, FOOD_DAYS_PER_UNIT), 0,
+    'an outdated copy of a real center cannot authorize a treasury debit');
+  assert.equal(kingdom.treasury.stock.food, snapshot.food);
+  assert.equal(person.foodReserve, snapshot.reserve);
+
+  assert.equal(drawGarrisonRation(world, person, registered, FOOD_DAYS_PER_UNIT), FOOD_DAYS_PER_UNIT,
+    'the registered operational center still serves the ration normally');
+  assert.equal(kingdom.treasury.stock.food, snapshot.food - 1);
+  assert.equal(person.foodReserve, FOOD_DAYS_PER_UNIT);
+
+  person.foodReserve = 0;
+  world.structures = [{ ...registered, destroyedDay: 11, health: 0 }];
+  assert.equal(drawGarrisonRation(world, person, registered, FOOD_DAYS_PER_UNIT), 0,
+    'a removed center cannot supply rations through a stale reference');
+  assert.equal(kingdom.treasury.stock.food, snapshot.food - 1);
+  assert.equal(person.foodReserve, 0);
+});
