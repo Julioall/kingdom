@@ -6,6 +6,7 @@ export function chronicleEntry(text) {
     && !/^Nasceu /i.test(text)) return null;
   if (/(?:progressão de .* foi pausada|progressão de .* retomou|treinamento de .* foi pausado|treinamento de .* retomou)/i.test(text))
     return { category: 'Reino', text };
+  if (/^Nascimento (?:adiado|retomado) /i.test(text)) return { category: 'Reino', text };
   if (/guerra|paz|tratado|captur|conquist|cerco|destru|colaps|batalha/i.test(text)) return { category: 'Conflito', text };
   if (/retirou da obra|pausa preventiva protegeu|pausa preventiva encerrada|retomou a obra|vaga liberada para substituto/i.test(text))
     return { category: 'Construção', text };

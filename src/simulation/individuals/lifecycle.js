@@ -350,8 +350,35 @@ export function reproducePeople(w) {
       candidate.residence = birthResidence(w, candidate.kingdomId, candidate.communityId, candidate.location);
       return candidate.residence;
     });
-    if (!selected) return;
+    if (!selected) {
+      // Log a blocked housing gate once per owner, rather than every monthly tick.
+      const reported = new Set();
+      for (const candidate of candidates) {
+        const key = candidate.kingdomId == null
+          ? 'community:' + (candidate.communityId ?? 'unaffiliated')
+          : 'kingdom:' + candidate.kingdomId;
+        if (reported.has(key)) continue;
+        reported.add(key);
+        const gates = w.birthHousingGate || (w.birthHousingGate = {});
+        if (gates[key] === true) continue;
+        gates[key] = true;
+        const owner = candidate.kingdomId == null
+          ? 'na comunidade ' + (candidate.communityId ?? 'sem vínculo')
+          : 'no reino ' + candidate.kingdomId;
+        log(w, 'Nascimento adiado ' + owner + ': não existe moradia operacional com vaga.');
+      }
+      return;
+    }
     const { p, q, kingdomId, communityId, residence } = selected;
+    const housingKey = kingdomId == null
+      ? 'community:' + (communityId ?? 'unaffiliated') : 'kingdom:' + kingdomId;
+    if (w.birthHousingGate?.[housingKey] === true) {
+      delete w.birthHousingGate[housingKey];
+      if (!Object.keys(w.birthHousingGate).length) delete w.birthHousingGate;
+      log(w, 'Nascimento retomado ' + (kingdomId == null
+        ? 'na comunidade ' + (communityId ?? 'sem vínculo') : 'no reino ' + kingdomId)
+        + ': moradia operacional com vaga voltou a estar disponível.');
+    }
     p.birthCooldown = q.birthCooldown = 280;
     consumePersonEnergy(p, 11); consumePersonEnergy(q, 8);
     p.hydration = Math.max(0, p.hydration - 2); q.hydration = Math.max(0, q.hydration - 2);
