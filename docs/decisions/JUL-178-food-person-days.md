@@ -123,3 +123,11 @@ A inspeção das matrizes 253/365/730 no SHA `8b4510c5b61601e89cb269b6d6f626f32b
 A correção registra a reserva do novo proprietário quando ele aparece como destino de transferência e registra cada lado da campanha antes de seu primeiro depósito. Não altera valores, ordem de jogo nem balances; apenas permite atribuir cada entrada a uma conta auditável. Regressões cobrem provisões de nascimento e financiamento da campanha antes da publicação de seus objetos no mundo.
 
 Validação nesta revisão: testes direcionados do ledger **6/6**, suíte completa **321/321** e `npm run build` aprovados. A repetição das matrizes longas e a conferência de cobertura integral de origem/destino ainda estão pendentes no SHA corrigido; portanto a issue permanece *In Progress*. A regra de legibilidade continua a mostrar todas as quantidades econômicas, inclusive ração, como inteiros (sobra positiva abaixo de uma unidade: “menos de 1”), mantendo precisão interna para a conciliação.
+
+## Ração de rebanho com origem no arbusto — 28/10/2026
+
+Na matriz de 730 dias da revisão `fa63c7d`, apareceu um evento isolado de ração sem origem atribuída: um pawn debitou brotos de um arbusto para carregar ração. A coleta passava diretamente da biomassa no tile para `carriedFeed`, sem uma operação que nomeasse a planta, o local e o coletor. A implementação agora envolve a coleta na operação `livestock-feed-gathering`, ligando a biomassa de `browse` à carga do pawn; não muda as quantidades nem o comportamento da simulação.
+
+A apresentação permanece em números inteiros para comida, carne, sementes, ração, preços, carga e reservas, inclusive nos relatórios das IAs. Quando há saldo positivo menor que uma unidade, a interface mostra “menos de 1”. Cálculos internos preservam precisão para a simulação e a reconciliação.
+
+Regressão direcionada: coleta de brotos registra origem `browse-plant-biomass`, destino de carga `carriedFeed` e concilia os saldos. Os testes focados de ledger e apresentação passaram **15/15**. O novo SHA ainda precisa passar suíte completa, build, matriz longa e paridade antes de aceitar JUL-178.

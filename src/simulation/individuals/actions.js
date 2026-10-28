@@ -839,19 +839,25 @@ export function collectSheepFeed(w, person, community, target) {
     const capacity = Math.max(0, 18 - (person.carriedFeed || 0));
     const take = Math.min(capacity / sizeFactor, 5.5 + person.skills.care * 4.5, before);
     if (take <= .05) { person.state = 'arbusto sem brotos'; return 0; }
-    target.plants[index] -= take;
-    hideCollectedBush(w, target, 'browse');
-    target.detritusGPerM2 += take * .035;
     const storedFeed = take * sizeFactor;
-    addResource(person, 'carriedFeed', storedFeed, 18);
-    person.visualActivity = { kind: 'harvest', x: target.x, y: target.y, day: w.day + 1, tool: 'knife' };
-    consumePersonEnergy(person, .32);
-    person.skills.care = clamp(person.skills.care + .004, 0, 1);
-    person.state = before >= 70 ? 'recolhendo arbustos grandes' : 'recolhendo arbustos pequenos';
-    person.lastLesson = before >= 70
-      ? 'O arbusto grande rendeu mais alimento para o curral, mas a coleta reduziu o recurso disponível no local.'
-      : 'Os brotos foram armazenados como ração; arbustos pequenos rendem menos e precisam se recuperar.';
-    return storedFeed;
+    return withFoodAuditOperation({ kind: 'sheep-feed-foraging', category: 'livestock-feed-gathering', resource: 'feed',
+      amount: storedFeed, source: { type: 'browse-plant-biomass', tileIndex: target.i, plantId: 'browse',
+        communityId: community.id }, destination: { type: 'person-cargo', personId: person.id }, actor: person,
+      sourcePosition: { x: target.x, y: target.y }, destinationPosition: { x: person.x, y: person.y }
+    }, () => {
+      target.plants[index] -= take;
+      hideCollectedBush(w, target, 'browse');
+      target.detritusGPerM2 += take * .035;
+      addResource(person, 'carriedFeed', storedFeed, 18);
+      person.visualActivity = { kind: 'harvest', x: target.x, y: target.y, day: w.day + 1, tool: 'knife' };
+      consumePersonEnergy(person, .32);
+      person.skills.care = clamp(person.skills.care + .004, 0, 1);
+      person.state = before >= 70 ? 'recolhendo arbustos grandes' : 'recolhendo arbustos pequenos';
+      person.lastLesson = before >= 70
+        ? 'O arbusto grande rendeu mais alimento para o curral, mas a coleta reduziu o recurso disponível no local.'
+        : 'Os brotos foram armazenados como ração; arbustos pequenos rendem menos e precisam se recuperar.';
+      return storedFeed;
+    });
   }
 
 export function claimForagePatch(w, person, tile, resourceKind) {

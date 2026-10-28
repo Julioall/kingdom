@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PLANTS } from '../src/config/ecosystem.js';
+import { collectSheepFeed } from '../src/simulation/individuals/actions.js';
 import { exchangeResources, transferCommunityFoodToReserve, transferFoodReserve, transferInventory, transferResource, transferStoresToInventory } from '../src/simulation/economy/inventories.js';
 import { drawCampaignRation } from '../src/simulation/kingdoms/campaigns.js';
 import { buyMilitaryMeal } from '../src/simulation/kingdoms/service.js';
@@ -293,4 +294,49 @@ test('military market purchase links purchased food, gold cost and personal rese
   assert.equal(person.foodReserve, 8);
   assert.equal(world.kingdoms[0].market.stock.food, 2);
   assert.equal(report.coverage.balanced, true);
+});
+
+test('sheep browse harvest links shrub biomass to the collector feed cargo', () => {
+  const world = makeWorld();
+  const person = world.people[0];
+  const community = world.communities[0];
+  const browseIndex = PLANTS.findIndex(plant => plant.id === 'browse');
+  const tiles = Array.from({ length: 9 }, (_, i) => ({ i, x: i % 3, y: Math.floor(i / 3), terrain: 'land',
+    plants: Array(PLANTS.length).fill(0), detritusGPerM2: 0 }));
+  const target = tiles[4];
+  target.plants[browseIndex] = 30;
+  world.width = 3;
+  world.height = 3;
+  world.tiles = tiles;
+  world.day = 1;
+  world.structures = [{ id: 9, type: 'curral', complete: true, communityId: community.id, x: 1, y: 1 }];
+  person.x = 1;
+  person.y = 1;
+  person.energy = 50;
+  person.skills = { care: .5 };
+  const audit = startFoodInventoryAudit(world);
+  audit.beginDay(1);
+
+  const collected = collectSheepFeed(world, person, community, target);
+  audit.endDay();
+  const report = audit.finish();
+  const harvest = report.transactions.find(operation => operation.kind === 'sheep-feed-foraging'
+    && operation.parentId == null);
+  const cargo = report.accounts.find(account => account.ownerType === 'person'
+    && account.ownerId === person.id && account.property === 'carriedFeed');
+
+  assert.ok(collected > 0);
+  assert.ok(harvest);
+  assert.deepEqual(harvest.source, { type: 'browse-plant-biomass', tileIndex: target.i,
+    plantId: 'browse', communityId: community.id });
+  assert.deepEqual(harvest.destination, { type: 'person-cargo', personId: person.id });
+  const feedCredit = report.transactions.find(operation => harvest.childIds.includes(operation.id)
+    && operation.destination === cargo.index);
+  assert.ok(feedCredit);
+  assert.equal(harvest.category, 'livestock-feed-gathering');
+  assert.ok(harvest.childIds.length > 0);
+  assert.ok(target.plants[browseIndex] < 30);
+  assert.equal(person.carriedFeed, collected);
+  assert.equal(report.coverage.balanced, true);
+  assert.equal(report.coverage.unbalancedAccountDays, 0);
 });
