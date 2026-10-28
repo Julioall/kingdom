@@ -58,7 +58,8 @@ test('insufficient stock, negative coins, fractional gold and aliases never sett
 test('legacy price can be represented in copper only at an exact integer value', () => {
   assert.equal(goldPriceToCopper(.37), 37);
   assert.equal(goldPriceToCopper(.35, 4), 140);
-  assert.equal(goldPriceToCopper(.335), null);
+  assert.equal(goldPriceToCopper(.335), 34, 'one-copper rounding applies once to an entire order');
+  assert.equal(goldPriceToCopper(.0001), 1, 'a positive price never drops below one copper');
   assert.equal(goldPriceToCopper(0), null);
   assert.equal(goldPriceToCopper(Infinity), null);
   assert.equal(goldPriceToCopper(.25, 0), null);
