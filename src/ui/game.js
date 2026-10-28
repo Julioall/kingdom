@@ -31,6 +31,7 @@ import { createRenderDiagnostics } from './render-profiler-panel.js';
 import { createTerrainChunkCache } from './terrain-chunks.js';
 import { createPixelTileCache } from './pixel-tile-cache.js';
 import { compareDepth, mergeDepthItems } from './depth-order.js';
+import { shouldDrawMineralAtZoom } from './mineral-lod.js';
 
 const IMAGE_ASSET_EXTENSION = import.meta.env?.PROD ? 'webp' : 'png';
 const imageFileName = name => `${name}.${IMAGE_ASSET_EXTENSION}`;
@@ -1459,8 +1460,13 @@ export function mountGame() {
   }
 
   function collectDepthItems(bounds) {
+    // LOD affects only the rendered list: the world's finite ore inventory,
+    // mining navigation, inspection and rare deposits remain untouched.
+    // The reference renderer intentionally keeps every deposit for comparison.
     const staticItems = collectStaticDepthItems().filter(item => item.x >= bounds.minX && item.x <= bounds.maxX
-      && item.y >= bounds.minY && item.y <= bounds.maxY);
+      && item.y >= bounds.minY && item.y <= bounds.maxY
+      && (referenceRendering || item.kind !== 'mineral'
+        || shouldDrawMineralAtZoom(item, mapZoom, activeMiningSites.has(item.x + ':' + item.y))));
     const items = referenceRendering ? staticItems : [];
     let sequence = staticItems.length;
     function add(kind, x, y, tile, order, id, extra) {
