@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import engine from '../src/simulation/engine.js';
 import { findTradePartner, marketHasTradeOpportunity, performTrade, purchaseFieldSeedsForConstruction } from '../src/simulation/economy/trade.js';
+import { transferResource } from '../src/simulation/economy/inventories.js';
 import { PLANTS } from '../src/config/ecosystem.js';
 import { chooseBuildSite, workOnCommunityStructure } from '../src/simulation/settlements/construction.js';
 
@@ -19,34 +20,56 @@ function setup() {
   trader.carriedWood = 0;
   trader.carriedStone = 0;
   trader.carriedIron = 0;
+  trader.carriedSeeds = 0;
   trader.personalWallet = { stock: { gold: 0 } };
   world.tradeDiagnostics = {};
   return { world, kingdom, community, station, trader, market: kingdom.market.stock };
 }
 
-test('seed endowment is finite, transferred from kingdom treasury to its local market', () => {
+function naturalStock(world) {
+  return world.tiles.reduce((sum, tile) => sum + (tile.wildSeedStock || 0), 0);
+}
+
+// Isolated market-purchase fixtures must draw their supply from the real
+// natural seed bank. These transfers are setup, not gameplay proof of a worker
+// crossing the route; the full producer->market->field test covers that flow.
+function sourceSeedLot(world, market, amount = 8) {
+  const original = naturalStock(world) + market.seeds;
+  let remaining = amount;
+  for (const tile of world.tiles) {
+    if (remaining <= 0) break;
+    remaining -= transferResource(tile, market, 'wildSeedStock', remaining, 'seeds');
+  }
+  assert.equal(remaining, 0);
+  assert.equal(naturalStock(world) + market.seeds, original);
+}
+
+test('natural propagules are generated in terrain, never gifted to market or crown', () => {
   const { world } = setup();
+  assert.ok(naturalStock(world) >= 32, 'the actual seed 42 world offers natural harvestable propagules');
   for (const kingdom of world.kingdoms) {
     const community = world.communities.find(item => item.id === kingdom.communityId);
-    assert.equal(kingdom.treasury.stock.seeds, 8);
-    assert.equal(kingdom.market.stock.seeds, 24);
+    assert.equal(kingdom.treasury.stock.seeds, 0);
+    assert.equal(kingdom.market.stock.seeds, 0);
     assert.equal(community.stores.seeds, 0);
-    assert.equal(kingdom.market.stock.seeds + kingdom.treasury.stock.seeds + community.stores.seeds, 32);
   }
+  assert.ok(world.tiles.every(tile => tile.wildSeedStock === 0
+    || Number.isSafeInteger(tile.wildSeedStock) && tile.wildSeedStock >= 0));
 });
 
-test('resident visits the local market, buys an exact seed batch from finite royal coins and records ownership', () => {
+test('purchase of a sourced market lot debits finite royal funds, market stock and records both owners', () => {
   const { world, kingdom, community, trader, market } = setup();
-  const totalSeeds = kingdom.treasury.stock.seeds + market.seeds + community.stores.seeds;
+  sourceSeedLot(world, market);
+  const totalSeeds = naturalStock(world) + kingdom.treasury.stock.seeds + market.seeds + community.stores.seeds;
   const totalGold = kingdom.treasury.stock.gold + market.gold + community.stores.gold;
   assert.equal(marketHasTradeOpportunity(world, community), true);
   const offer = findTradePartner(world, community, trader);
   assert.equal(offer?.isMarket, true);
   assert.equal(performTrade(world, trader, community, offer), true);
   assert.equal(community.stores.seeds, 8);
-  assert.equal(market.seeds, 16);
-  assert.equal(kingdom.treasury.stock.seeds, 8);
-  assert.equal(kingdom.treasury.stock.seeds + market.seeds + community.stores.seeds, totalSeeds);
+  assert.equal(market.seeds, 0);
+  assert.equal(kingdom.treasury.stock.seeds, 0);
+  assert.equal(naturalStock(world) + kingdom.treasury.stock.seeds + market.seeds + community.stores.seeds, totalSeeds);
   assert.equal(kingdom.treasury.stock.gold + market.gold + community.stores.gold, totalGold);
   const record = community.tradeLedger.history.at(-1);
   assert.equal(record.action, 'comprou sementes para a roça');
@@ -56,29 +79,20 @@ test('resident visits the local market, buys an exact seed batch from finite roy
   assert.equal(record.market.delta.seeds, -8);
   assert.equal(record.market.delta.gold, 4);
   assert.equal(record.coinPayment.priceCopper, 400);
-  assert.equal(marketHasTradeOpportunity(world, community), false,
-    'one full stored seed batch prevents a duplicate order while the farm is not yet built');
+  assert.equal(marketHasTradeOpportunity(world, community), false, 'full seed storage blocks duplicate purchase');
 });
 
-test('empty seed stock or an insolvent treasury cannot create market seed purchases', () => {
-  for (const missing of ['seeds', 'gold']) {
+test('missing market seeds, empty real treasury, or forged market owner cannot create a lot', () => {
+  for (const missing of ['seeds', 'gold', 'owner']) {
     const { world, kingdom, community, station, trader, market } = setup();
-    if (missing === 'seeds') market.seeds = 0;
-    else {
-      kingdom.treasury.stock.gold = 0;
-      kingdom.treasury.stock.silver = 0;
-      kingdom.treasury.stock.copper = 0;
-    }
-    // Disable every unrelated market exchange to isolate the seed contract.
+    if (missing !== 'seeds') sourceSeedLot(world, market);
+    if (missing === 'gold') for (const coin of ['gold', 'silver', 'copper']) kingdom.treasury.stock[coin] = 0;
+    if (missing === 'owner') kingdom.market.ownerId = -1;
     community.stores.food = 60;
     community.stores.wood = 30;
     community.stores.stone = 30;
     community.stores.feed = 30;
-    market.food = 0;
-    market.wood = 0;
-    market.stone = 0;
-    market.feed = 0;
-    market.gold = 0;
+    market.food = 0; market.wood = 0; market.stone = 0; market.feed = 0; market.gold = 0;
     const before = structuredClone({ market, treasury: kingdom.treasury.stock, store: community.stores });
     assert.equal(marketHasTradeOpportunity(world, community), false);
     assert.equal(performTrade(world, trader, community,
@@ -88,48 +102,64 @@ test('empty seed stock or an insolvent treasury cannot create market seed purcha
   }
 });
 
-test('blocking the route to a market never moves royal coins or seeds', () => {
+test('route blocked before market settlement leaves source, coins, and seeds unchanged', () => {
   const { world, kingdom, community, station, trader, market } = setup();
-  trader.x = station.x + 5;
-  trader.y = station.y + 5;
+  sourceSeedLot(world, market);
+  trader.x = station.x + 6;
+  trader.y = station.y + 6;
   world.tiles = [];
   const before = structuredClone({ treasury: kingdom.treasury.stock, store: community.stores, market });
-  const partner = { isMarket: true, station, market: kingdom.market, distance: 7 };
+  const partner = { isMarket: true, station, market: kingdom.market, distance: 8 };
   assert.equal(performTrade(world, trader, community, partner), false);
   assert.equal(world.tradeDiagnostics.marketBlocked['route-blocked'], 1);
   assert.deepEqual({ treasury: kingdom.treasury.stock, store: community.stores, market }, before);
 });
 
-test('farm construction no longer consumes wild berries as seed currency', () => {
+test('farm planning cannot consume berries and cannot mint a starting seed batch', () => {
   const { world, community } = setup();
   const berryIndex = PLANTS.findIndex(item => item.id === 'berry');
   const wildBerriesBefore = world.tiles.reduce((sum, tile) => sum + (tile.plants[berryIndex] || 0), 0);
   const structures = world.structures.filter(s => s.communityId === community.id);
   const site = chooseBuildSite(world, community, structures);
-  // The first proposed structure is a farm in kingdom villages.
   assert.equal(site?.type, 'roça');
   assert.equal(site.seedMass, 8);
   assert.equal(community.stores.seeds, 0);
   const wildBerriesAfter = world.tiles.reduce((sum, tile) => sum + (tile.plants[berryIndex] || 0), 0);
-  assert.equal(wildBerriesAfter, wildBerriesBefore, 'planning cannot harvest any natural berry');
+  assert.equal(wildBerriesAfter, wildBerriesBefore);
+  assert.equal(community.stores.seeds, 0);
 });
 
-test('assigned farm builder actively buys the finite lot rather than awaiting a random trade choice', () => {
-  const { world, community, trader, market } = setup();
-  community.stores.wood = 100;
-  community.stores.stone = 100;
-  workOnCommunityStructure(world, trader, community, community.memberIds.length);
+test('seed seller receives real market coins; worker then buys for kingdom and plants only delivered stock', () => {
+  const { world, kingdom, community, trader, market } = setup();
+  const totalNatural = naturalStock(world);
+  const totalMoney = ['gold', 'silver', 'copper'].reduce((sum, coin) => sum
+    + (kingdom.treasury.stock[coin] || 0) * ({ gold: 100, silver: 10, copper: 1 }[coin])
+    + (market[coin] || 0) * ({ gold: 100, silver: 10, copper: 1 }[coin])
+    + (trader.personalWallet.stock[coin] || 0) * ({ gold: 100, silver: 10, copper: 1 }[coin]), 0);
+  let bought = false, sold = false, gathered = false;
+  for (let day = 0; day < 180 && !bought; day++) {
+    world.day = day;
+    const state = purchaseFieldSeedsForConstruction(world, trader, community);
+    if (state === 'gathered') gathered = true;
+    if (state === 'sold') sold = true;
+    if (state === 'purchased') bought = true;
+    assert.notEqual(state, 'no-source', 'source exhausted before one lot was collected');
+    assert.notEqual(state, 'invalid', 'no ownership or role errors');
+  }
+  assert.equal(gathered, true);
+  assert.equal(sold, true);
+  assert.equal(bought, true);
   assert.equal(community.stores.seeds, 8);
-  assert.equal(market.seeds, 16);
-  assert.match(trader.state, /sementes compradas/);
-});
-
-test('field purchase command cannot teleport stock across an unreachable route', () => {
-  const { world, kingdom, community, station, trader, market } = setup();
-  trader.x = station.x + 6;
-  trader.y = station.y + 6;
-  world.tiles = [];
-  const before = structuredClone({ treasury: kingdom.treasury.stock, community: community.stores, market });
-  assert.equal(purchaseFieldSeedsForConstruction(world, trader, community), 'route-blocked');
-  assert.deepEqual({ treasury: kingdom.treasury.stock, community: community.stores, market }, before);
+  assert.equal(trader.personalWallet.stock.gold, 2, 'market pays worker for a real supply lot');
+  assert.equal(market.seeds, 0, 'buyer took the exact batch from market');
+  assert.equal(naturalStock(world), totalNatural - 8, 'natural origin is debited once per harvested unit');
+  assert.equal(world.seedProvenance.gathered, 8);
+  assert.ok(world.seedProvenance.history.every(item => item.kind === 'wild-gather'));
+  const postMoney = ['gold', 'silver', 'copper'].reduce((sum, coin) => sum
+    + (kingdom.treasury.stock[coin] || 0) * ({ gold: 100, silver: 10, copper: 1 }[coin])
+    + (market[coin] || 0) * ({ gold: 100, silver: 10, copper: 1 }[coin])
+    + (trader.personalWallet.stock[coin] || 0) * ({ gold: 100, silver: 10, copper: 1 }[coin]), 0);
+  assert.equal(postMoney, totalMoney);
+  assert.ok(community.tradeLedger.history.some(item => item.action === 'vendeu sementes extraídas da natureza'));
+  assert.ok(community.tradeLedger.history.some(item => item.action === 'comprou sementes para a roça'));
 });
