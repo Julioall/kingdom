@@ -103,3 +103,13 @@ Não houve morte humana por fome; as mortes humanas observadas decorreram de com
 A suíte completa no SHA `887c0b77f61d79481d4889008081ac486da45b80` passou **315/315**; `npm run build` passou e otimizou 489 imagens PNG em WebP sem perdas, reduzindo os assets de 8,03 para 5,27 MiB. Os testes existentes também cobrem lote de mercado vazio/insuficiente, rota impedida, capacidade de carga, falta de sementes/trabalhador, insuficiência de ração e guerra.
 
 **Critério ainda aberto:** os replays verificam saldos não negativos por inventário a cada dia e reconciliam transações de mercado e ração de campanha, mas ainda não emitem um registro estruturado completo de cada transferência/consumo alimentar não comercial, com origem, destino, rota e razão de bloqueio por proprietário e dia. JUL-178 permanece *In Progress*; não marcar Done antes de fechar esse último requisito de rastreabilidade ou de obter decisão explícita de escopo.
+
+## Ledger diário de alimentos por proprietário — 27/10/2026
+
+**Decisão de auditoria:** a rastreabilidade será um observador opt-in nos replays, desligado no jogo normal. Ele registra a abertura, entradas, saídas, fechamento e conciliação diária de cada estoque, além de transações com categoria, recurso, custo de escambo, origem, destino, agente, rota e bloqueio observado. Também registra estado diário da roça e atribuições de trabalho alimentar. Inventários criados durante a simulação entram no ledger a partir do dia em que aparecem.
+
+O observador instala acessores temporários apenas nos saldos rastreados e intercepta novos proprietários pelas coleções do mundo. Ao finalizar, restaura descritores e coleções originais. Requisições de transferência com quantidade zero não são classificadas como bloqueios; representam chamadas sem trabalho solicitado. Custos de permuta são registrados nos dois lados, mesmo quando um dos recursos — como ouro — não faz parte da conciliação de alimento.
+
+O ledger preserva precisão fracionária nos dados internos para que a soma de entradas e saídas possa ser auditada. Isso não altera a regra de legibilidade confirmada pelo usuário: ração e todas as quantidades econômicas mostradas no jogo ficam inteiras; sobras positivas menores que uma unidade aparecem como “menos de 1”. Cálculos e auditorias continuam precisos internamente.
+
+**Critério de conclusão:** a instrumentação ainda precisa rodar na matriz final de 253, 365 e 730 dias para seeds 1, 42, 987 e 2026, com repetição da seed 42. Cada arquivo deve ter balanços conciliados, sem proprietários sem instrumentação e com rotas/bloqueios legíveis. A paridade do estado com observador ligado também deve ser repetida depois da versão final desta mudança. Até anexar esses resultados ao JUL-178, o status permanece *In Progress*.

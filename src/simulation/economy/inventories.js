@@ -1,5 +1,6 @@
 import { FOOD_DAYS_PER_UNIT, MEAT_NUTRITIONAL_VALUE } from '../../config/ecosystem.js';
 import { clamp, distance } from '../core/math.js';
+import { recordFoodAuditBlocked, withFoodAuditOperation } from './food-audit-ledger.js';
 
 function inventoryOf(owner) {
     if (!owner || !owner.stock || typeof owner.stock !== 'object') return null;
@@ -26,95 +27,164 @@ function canReceive(account, incoming) {
     });
   }
 
-function spendFrom(account, costs) {
-    if (!account || !validCosts(costs)
-        || Object.entries(costs).some(([key, amount]) => !Number.isFinite(currentAmount(account, key))
-          || currentAmount(account, key) < 0 || currentAmount(account, key) < amount)) return false;
-    for (const [key, amount] of Object.entries(costs)) account[key] = Math.max(0, currentAmount(account, key) - amount);
-    return true;
+function spendFrom(account, costs, category = 'inventory-spend') {
+    return withFoodAuditOperation({ kind: 'spend', sourceAccount: account, costs, category }, () => {
+      if (!account || !validCosts(costs)) {
+        recordFoodAuditBlocked(!account ? 'missing-source-account' : 'invalid-costs', { resource: Object.keys(costs || {}).find(hasFoodAuditResource) });
+        return false;
+      }
+      const blocked = Object.entries(costs).find(([key, amount]) => !Number.isFinite(currentAmount(account, key))
+        || currentAmount(account, key) < 0 || currentAmount(account, key) < amount);
+      if (blocked) {
+        const [key, amount] = blocked;
+        recordFoodAuditBlocked(!Number.isFinite(currentAmount(account, key)) || currentAmount(account, key) < 0
+          ? 'invalid-source-stock' : 'insufficient-source-stock', {
+          resource: key, requested: amount, available: currentAmount(account, key)
+        });
+        return false;
+      }
+      for (const [key, amount] of Object.entries(costs)) account[key] = Math.max(0, currentAmount(account, key) - amount);
+      return true;
+    });
   }
 
-export function addResource(account, resource, amount, maxAmount = Infinity) {
-    if (!account || typeof account !== 'object' || !resource || !Number.isFinite(amount) || amount <= 0
-        || !(maxAmount === Infinity || (Number.isFinite(maxAmount) && maxAmount >= 0))) return 0;
-    const current = currentAmount(account, resource);
-    if (!Number.isFinite(current) || current < 0) return 0;
-    const added = Math.min(amount, Math.max(0, maxAmount - current));
-    if (added <= 0 || !Number.isFinite(current + added)) return 0;
-    account[resource] = current + added;
-    return added;
+function hasFoodAuditResource(resource) {
+    return ['food', 'meat', 'feed', 'seeds', 'foodReserve', 'carriedFood', 'carriedFruit', 'carriedMeat',
+      'carriedFeed', 'cropSeedStored', 'fruitStored', 'meatStored', 'militaryFoodPurchased'].includes(resource);
   }
 
-export function transferResource(source, destination, resource, amount, destinationResource = resource, maxDestinationAmount = Infinity) {
-    if (!source || !destination || typeof source !== 'object' || typeof destination !== 'object'
-        || source === destination || !resource || !destinationResource || !Number.isFinite(amount) || amount <= 0
-        || !(maxDestinationAmount === Infinity || (Number.isFinite(maxDestinationAmount) && maxDestinationAmount >= 0))) return 0;
-    const current = currentAmount(source, resource), target = currentAmount(destination, destinationResource);
-    if (!Number.isFinite(current) || current < 0 || !Number.isFinite(target) || target < 0) return 0;
-    const moved = Math.min(current, amount, Math.max(0, maxDestinationAmount - target));
-    if (moved <= 0 || !Number.isFinite(current - moved) || !Number.isFinite(target + moved)) return 0;
-    source[resource] = current - moved;
-    destination[destinationResource] = target + moved;
-    return moved;
+export function addResource(account, resource, amount, maxAmount = Infinity, category = 'inventory-add') {
+    if (amount === 0) return 0;
+    return withFoodAuditOperation({ kind: 'add', destinationAccount: account, resource, destinationResource: resource,
+      amount, capacity: maxAmount, category }, () => {
+      if (!account || typeof account !== 'object' || !resource || !Number.isFinite(amount) || amount <= 0
+          || !(maxAmount === Infinity || (Number.isFinite(maxAmount) && maxAmount >= 0))) {
+        recordFoodAuditBlocked(!account ? 'missing-destination-account' : 'invalid-amount-or-capacity', {
+          resource, requested: amount, capacity: maxAmount
+        });
+        return 0;
+      }
+      const current = currentAmount(account, resource);
+      if (!Number.isFinite(current) || current < 0) {
+        recordFoodAuditBlocked('invalid-destination-stock', { resource, available: current });
+        return 0;
+      }
+      const added = Math.min(amount, Math.max(0, maxAmount - current));
+      if (added <= 0 || !Number.isFinite(current + added)) {
+        recordFoodAuditBlocked(added <= 0 ? 'destination-capacity-full' : 'invalid-destination-total', {
+          resource, requested: amount, available: current, capacity: maxAmount
+        });
+        return 0;
+      }
+      account[resource] = current + added;
+      return added;
+    });
+  }
+
+export function transferResource(source, destination, resource, amount, destinationResource = resource,
+    maxDestinationAmount = Infinity, category = 'inventory-transfer') {
+    if (amount === 0) return 0;
+    return withFoodAuditOperation({ kind: 'transfer', sourceAccount: source, destinationAccount: destination,
+      resource, sourceResource: resource, destinationResource, amount, category }, () => {
+      if (!source || !destination || typeof source !== 'object' || typeof destination !== 'object'
+          || source === destination || !resource || !destinationResource || !Number.isFinite(amount) || amount <= 0
+          || !(maxDestinationAmount === Infinity || (Number.isFinite(maxDestinationAmount) && maxDestinationAmount >= 0))) {
+        recordFoodAuditBlocked(!source || !destination ? 'missing-transfer-account' : 'invalid-transfer-request', {
+          resource, requested: amount, capacity: maxDestinationAmount
+        });
+        return 0;
+      }
+      const current = currentAmount(source, resource), target = currentAmount(destination, destinationResource);
+      if (!Number.isFinite(current) || current < 0 || !Number.isFinite(target) || target < 0) {
+        recordFoodAuditBlocked('invalid-transfer-stock', { resource, available: current, capacity: maxDestinationAmount });
+        return 0;
+      }
+      const moved = Math.min(current, amount, Math.max(0, maxDestinationAmount - target));
+      if (moved <= 0 || !Number.isFinite(current - moved) || !Number.isFinite(target + moved)) {
+        recordFoodAuditBlocked(current <= 0 ? 'insufficient-source-stock' : 'destination-capacity-full', {
+          resource, requested: amount, available: current, capacity: maxDestinationAmount
+        });
+        return 0;
+      }
+      source[resource] = current - moved;
+      destination[destinationResource] = target + moved;
+      return moved;
+    });
   }
 
 export function exchangeResources(first, firstGives, second, secondGives) {
-    if (!first || !second || first === second || typeof first !== 'object' || typeof second !== 'object'
-        || !validCosts(firstGives) || !validCosts(secondGives)
-        || Object.entries(firstGives).some(([key, amount]) => !Number.isFinite(currentAmount(first, key))
+    return withFoodAuditOperation({ kind: 'exchange', sourceAccount: first, destinationAccount: second,
+      firstGives, secondGives, category: 'barter' }, () => {
+      const firstBlocked = first && typeof first === 'object'
+        ? Object.entries(firstGives || {}).find(([key, amount]) => !Number.isFinite(currentAmount(first, key))
           || currentAmount(first, key) < 0 || currentAmount(first, key) < amount)
-        || Object.entries(secondGives).some(([key, amount]) => !Number.isFinite(currentAmount(second, key))
+        : null;
+      const secondBlocked = second && typeof second === 'object'
+        ? Object.entries(secondGives || {}).find(([key, amount]) => !Number.isFinite(currentAmount(second, key))
           || currentAmount(second, key) < 0 || currentAmount(second, key) < amount)
-        || !canReceive(first, secondGives) || !canReceive(second, firstGives)) return false;
-    for (const [key, amount] of Object.entries(firstGives)) first[key] = Math.max(0, currentAmount(first, key) - amount);
-    for (const [key, amount] of Object.entries(secondGives)) second[key] = Math.max(0, currentAmount(second, key) - amount);
-    for (const [key, amount] of Object.entries(firstGives)) addResource(second, key, amount);
-    for (const [key, amount] of Object.entries(secondGives)) addResource(first, key, amount);
-    return true;
+        : null;
+      if (!first || !second || first === second || typeof first !== 'object' || typeof second !== 'object'
+          || !validCosts(firstGives) || !validCosts(secondGives) || firstBlocked || secondBlocked
+          || !canReceive(first, secondGives) || !canReceive(second, firstGives)) {
+        const blocked = firstBlocked || secondBlocked;
+        const blockedResource = blocked?.[0] || [...Object.keys(firstGives || {}), ...Object.keys(secondGives || {})]
+          .find(hasFoodAuditResource);
+        recordFoodAuditBlocked(blocked ? 'insufficient-exchange-stock' : 'exchange-not-available', {
+          resource: blockedResource, requested: blocked?.[1], available: blocked
+            ? currentAmount(firstBlocked ? first : second, blockedResource) : undefined
+        });
+        return false;
+      }
+      for (const [key, amount] of Object.entries(firstGives)) first[key] = Math.max(0, currentAmount(first, key) - amount);
+      for (const [key, amount] of Object.entries(secondGives)) second[key] = Math.max(0, currentAmount(second, key) - amount);
+      for (const [key, amount] of Object.entries(firstGives)) addResource(second, key, amount);
+      for (const [key, amount] of Object.entries(secondGives)) addResource(first, key, amount);
+      return true;
+    });
   }
 
 export function addCommunityStore(community, resource, amount, category = 'collection') {
-    return addResource(storesOf(community), resource, amount);
+    return addResource(storesOf(community), resource, amount, Infinity, category);
   }
 
 export function spendStoreInventory(community, costs, category = 'consumption') {
-    return spendFrom(storesOf(community), costs);
+    return spendFrom(storesOf(community), costs, category);
   }
 
 export function consumeStoreInventory(community, costs, category = 'consumption') {
     return spendStoreInventory(community, costs, category);
   }
 
-export function transferStores(sourceCommunity, destinationCommunity, resource, amount) {
-    const moved = transferResource(storesOf(sourceCommunity), storesOf(destinationCommunity), resource, amount);
+export function transferStores(sourceCommunity, destinationCommunity, resource, amount, category = 'community-transfer') {
+    const moved = transferResource(storesOf(sourceCommunity), storesOf(destinationCommunity), resource, amount, resource, Infinity, category);
     return moved;
   }
 
-export function transferStoresToInventory(sourceCommunity, destinationInventory, resource, amount) {
-    return transferResource(storesOf(sourceCommunity), inventoryOf(destinationInventory), resource, amount);
+export function transferStoresToInventory(sourceCommunity, destinationInventory, resource, amount, category = 'community-inventory-transfer') {
+    return transferResource(storesOf(sourceCommunity), inventoryOf(destinationInventory), resource, amount, resource, Infinity, category);
   }
 
 export function transferStoreResourceToAccount(sourceCommunity, destinationAccount, resource, amount, category = 'community-account-transfer') {
     const destination = destinationAccount && destinationAccount.stock ? destinationAccount.stock : destinationAccount;
-    const moved = transferResource(storesOf(sourceCommunity), destination, resource, amount);
+    const moved = transferResource(storesOf(sourceCommunity), destination, resource, amount, resource, Infinity, category);
     return moved;
   }
 
 export function moveCarriedResource(person, carriedResource, community, storeResource, amount, category = 'collection') {
-    const moved = transferResource(person, storesOf(community), carriedResource, amount, storeResource);
+    const moved = transferResource(person, storesOf(community), carriedResource, amount, storeResource, Infinity, category);
     return moved;
   }
 
 export function spendInventory(owner, costs, category = 'inventory-spend') {
-    return spendFrom(inventoryOf(owner), costs);
+    return spendFrom(inventoryOf(owner), costs, category);
   }
 
-export function spendResource(account, costs) {
-    return spendFrom(account, costs);
+export function spendResource(account, costs, category = 'inventory-spend') {
+    return spendFrom(account, costs, category);
   }
 
 export function addFoodReserve(person, amount, category = 'other-food-inflow') {
-    const added = addResource(person, 'foodReserve', amount, 100);
+    const added = addResource(person, 'foodReserve', amount, 100, category);
     return added;
   }
 
@@ -122,7 +192,7 @@ export function consumeFoodReserve(person, amount, category = 'other-food-consum
     if (!person || !Number.isFinite(person.foodReserve) || person.foodReserve < 0
         || !Number.isFinite(amount) || amount <= 0) return 0;
     const consumed = Math.min(person.foodReserve, amount);
-    const spent = consumed > 0 && spendResource(person, { foodReserve: consumed }) ? consumed : 0;
+    const spent = consumed > 0 && spendResource(person, { foodReserve: consumed }, category) ? consumed : 0;
     return spent;
   }
 
@@ -131,8 +201,11 @@ export function consumeCarriedFood(person, amount, category = 'personal-carried-
         || !Number.isFinite(amount) || amount <= 0) return 0;
     const consumed = Math.min(person.carriedFood, amount);
     if (consumed <= 0) return 0;
-    person.carriedFood = Math.max(0, person.carriedFood - consumed);
-    return consumed;
+    return withFoodAuditOperation({ kind: 'consume-cargo', sourceAccount: person, resource: 'carriedFood',
+      amount: consumed, category }, () => {
+      person.carriedFood = Math.max(0, person.carriedFood - consumed);
+      return consumed;
+    });
   }
 
 export function consumeEdibleCargo(person, nutrition, category = 'emergency-carried-food-consumption') {
@@ -140,7 +213,7 @@ export function consumeEdibleCargo(person, nutrition, category = 'emergency-carr
     let remaining = nutrition;
     for (const [field, value] of [['carriedFood', 1], ['carriedFruit', 1], ['carriedMeat', MEAT_NUTRITIONAL_VALUE]]) {
       const quantity = Math.min(Math.max(0, Number(person[field]) || 0), remaining / value);
-      if (quantity <= 0 || !spendFrom(person, { [field]: quantity })) continue;
+      if (quantity <= 0 || !spendFrom(person, { [field]: quantity }, category)) continue;
       remaining = Math.max(0, remaining - quantity * value);
       if (remaining <= 1e-9) break;
     }
@@ -148,17 +221,17 @@ export function consumeEdibleCargo(person, nutrition, category = 'emergency-carr
   }
 
 export function transferFoodReserve(source, destination, amount, category = 'food-reserve-transfer') {
-    const moved = transferResource(source, destination, 'foodReserve', amount, 'foodReserve', 100);
+    const moved = transferResource(source, destination, 'foodReserve', amount, 'foodReserve', 100, category);
     return moved;
   }
 
 export function transferInventory(source, destination, resource, amount, category = 'inventory-transfer') {
-    const moved = transferResource(inventoryOf(source), inventoryOf(destination), resource, amount);
+    const moved = transferResource(inventoryOf(source), inventoryOf(destination), resource, amount, resource, Infinity, category);
     return moved;
   }
 
 export function transferInventoryToStores(source, destination, resource, amount, category = 'inventory-transfer-to-stores') {
-    const moved = transferResource(inventoryOf(source), storesOf(destination), resource, amount);
+    const moved = transferResource(inventoryOf(source), storesOf(destination), resource, amount, resource, Infinity, category);
     return moved;
   }
 
@@ -250,10 +323,19 @@ export function stockSurplus(store, resource) {
   }
 
 export function transferCommunityFood(w, community, person, amount, category = 'community-sharing') {
-    const need = Math.max(0, 78 - person.foodReserve);
-    const units = Math.min(amount, communityFoodStock(community), need / FOOD_DAYS_PER_UNIT);
-    if (units <= .02) return 0;
-    withdrawCommunityFood(w, community, units, category);
-    addFoodReserve(person, units * FOOD_DAYS_PER_UNIT, 'community-meal');
-    return units;
+    return withFoodAuditOperation({ kind: 'food-distribution', category, resource: 'foodReserve',
+      sourceAccount: community?.stores, sourceResource: 'food', destinationAccount: person,
+      destinationResource: 'foodReserve', amount, actor: person }, () => {
+      const need = Math.max(0, 78 - person.foodReserve);
+      const units = Math.min(amount, communityFoodStock(community), need / FOOD_DAYS_PER_UNIT);
+      if (units <= .02) {
+        recordFoodAuditBlocked('no-transferable-community-food-or-reserve-room', {
+          resource: 'food', requested: amount, available: communityFoodStock(community)
+        });
+        return 0;
+      }
+      withdrawCommunityFood(w, community, units, category);
+      addFoodReserve(person, units * FOOD_DAYS_PER_UNIT, 'community-meal');
+      return units;
+    });
   }

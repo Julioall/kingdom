@@ -1,9 +1,13 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
+import { gzipSync } from 'node:zlib';
+import { join, resolve, relative } from 'node:path';
 import engine from '../src/simulation/engine.js';
 import { FOOD_DAYS_PER_UNIT } from '../src/config/ecosystem.js';
 import { communityFoodStock } from '../src/simulation/economy/inventories.js';
+import { recordFoodAuditCultivatedState, recordFoodAuditWorkObservation, startFoodInventoryAudit } from '../src/simulation/economy/food-audit-ledger.js';
 import { communityFoodBufferTarget, dailyFoodNeedForMembers, kingdomFoodDemand } from '../src/simulation/economy/food-policy.js';
 import { summarizeCampaignFoodLogistics, summarizeCultivatedFields, summarizeFoodDeaths, summarizeTradeActivity } from './food-audit-metrics.mjs';
 
@@ -18,6 +22,7 @@ const days = Number(args.get('--days') ?? 730);
 const seeds = (args.get('--seeds') ?? '1,42,987,2026').split(',').map(Number);
 const repeatSeed = args.has('--repeat-seed') ? Number(args.get('--repeat-seed')) : null;
 const outputPath = args.get('--output');
+const foodLedgerDir = args.get('--food-ledger-dir');
 const sourceRevision = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 if (!Number.isInteger(days) || days < 1 || days > 10000) throw new Error('--days deve estar entre 1 e 10000');
 if (!seeds.length || seeds.some(seed => !Number.isInteger(seed) || seed < 0 || seed > 0xffffffff)) {
@@ -226,14 +231,39 @@ function run(seed) {
   const world = engine.createWorld(seed);
   // Trade diagnostics are opt-in so normal simulation ticks do not pay for audit counters.
   world.tradeDiagnostics = { retainFullTradeHistory: true };
+  const foodLedger = foodLedgerDir ? startFoodInventoryAudit(world) : null;
   const reserveTrackers = foodReserveTrackers(world);
   let adultDaysFoodReserveBelow20 = 0;
   for (let day = 1; day <= days; day++) {
+    foodLedger?.beginDay(day);
     engine.stepDay(world, { includeSnapshot: false });
+    if (foodLedger) {
+      recordFoodAuditWorkObservation(world, day);
+      recordFoodAuditCultivatedState(world, day);
+      foodLedger.endDay();
+    }
     assertNonnegativeStocks(world, seed, day);
     updateFoodReserveTrackers(world, reserveTrackers);
     adultDaysFoodReserveBelow20 += (world.people || []).filter(person => person.alive && person.ageDays >= 12 * 365
       && person.foodReserve < 20).length;
+  }
+  let foodInventoryLedger = null;
+  if (foodLedger) {
+    const report = foodLedger.finish();
+    const reportJson = JSON.stringify(report);
+    const compressed = gzipSync(reportJson, { level: 9 });
+    const directory = resolve(foodLedgerDir);
+    mkdirSync(directory, { recursive: true });
+    const fileName = 'JUL-178-food-ledger-' + days + '-seed' + seed + '-' + sourceRevision.slice(0, 7) + '.json.gz';
+    const ledgerPath = join(directory, fileName);
+    writeFileSync(ledgerPath, compressed);
+    foodInventoryLedger = {
+      file: relative(process.cwd(), ledgerPath),
+      sha256: createHash('sha256').update(compressed).digest('hex'),
+      uncompressedBytes: Buffer.byteLength(reportJson),
+      compressedBytes: compressed.length,
+      coverage: report.coverage
+    };
   }
   const final = engine.snapshot(world);
   const tradeActivity = summarizeTradeActivity(world);
@@ -261,6 +291,7 @@ function run(seed) {
     marketTransactions: tradeActivity.marketTransactions,
     tradeRecords: tradeActivity.totalTradeRecords,
     tradeActivity,
+    foodInventoryLedger,
     stocks: summarizeStocks(world),
     foodReserveByCommunity: finalizeFoodReserveTrackers(reserveTrackers)
   };
