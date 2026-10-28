@@ -2948,6 +2948,24 @@ export function mountGame() {
       $('inspectTitle').textContent = s.frontierOutpost ? 'Posto de fronteira' : structureDisplayName(s.type);
       root.innerHTML = buildingCard(world, s) +
         (s.type === 'castelo' && kingdom ? '<button type="button" data-inspect-kingdom="' + kingdom.id + '">Abrir card do reino</button>' : '') +
+        (s.type === 'castelo' && kingdom && s.complete && s.destroyedDay == null
+          ? '<details class="gameplay-details" open><summary>Casa de câmbio do rei · sem emissão monetária</summary>' +
+            '<p>O mercador solicita troco ao castelo. Cada troca exige moedas existentes nos dois cofres. 1 ouro = 10 pratas = 100 cobres.</p>' +
+            '<div class="data-row"><span>Tesouro real · ouro / prata / cobre</span><b>' +
+              fmt(kingdom.treasury.stock.gold, 0) + ' / ' + fmt(kingdom.treasury.stock.silver || 0, 0) +
+              ' / ' + fmt(kingdom.treasury.stock.copper || 0, 0) + '</b></div>' +
+            '<div class="data-row"><span>Mercador · ouro / prata / cobre</span><b>' +
+              fmt(kingdom.market?.stock?.gold || 0, 0) + ' / ' + fmt(kingdom.market?.stock?.silver || 0, 0) +
+              ' / ' + fmt(kingdom.market?.stock?.copper || 0, 0) + '</b></div>' +
+            '<div class="kingdom-actions">' +
+              [['gold','silver',1,'1 ouro por 10 pratas'], ['gold','copper',1,'1 ouro por 100 cobres'],
+                ['silver','copper',1,'1 prata por 10 cobres'], ['silver','gold',10,'10 pratas por 1 ouro'],
+                ['copper','silver',10,'10 cobres por 1 prata'], ['copper','gold',100,'100 cobres por 1 ouro']]
+                .map(([fromCoin,toCoin,quantity,label]) => '<button type="button" data-castle-exchange="1" data-kingdom-id="' +
+                  kingdom.id + '" data-castle-id="' + s.id + '" data-from-coin="' + fromCoin +
+                  '" data-to-coin="' + toCoin + '" data-coin-quantity="' + quantity + '">' + label + '</button>').join('') +
+            '</div>' +
+            (kingdomActionNotice ? '<p class="quiet">' + esc(kingdomActionNotice) + '</p>' : '') + '</details>' : '') +
         (s.type === 'torre' && s.complete && s.destroyedDay == null ? '<details class="gameplay-details"><summary>Ordens militares</summary><div class="kingdom-actions">' + world.kingdoms.filter(k => k.id !== s.kingdomId).map(k => '<button type="button" data-structure-command="capture-tower" data-kingdom-id="' + k.id + '" data-tower-id="' + s.id + '">Rei de ' + esc(k.name) + ': ordenar captura</button>').join('') +
           (kingdom && !s.frontierOutpost ? '<button type="button" data-structure-command="destroy-tower" data-kingdom-id="' + kingdom.id + '" data-tower-id="' + s.id + '">Destruir torre</button>' : '') + '</div></details>' : '') +
         (['centro_militar', 'arquearia', 'monasterio', 'mercado', 'castelo'].includes(s.type) && s.complete && s.destroyedDay == null ? '<details class="gameplay-details"><summary>Ordens militares</summary><div class="kingdom-actions">' + world.kingdoms.filter(k => k.id !== s.kingdomId).map(k => '<button type="button" data-structure-command="attack-installation" data-kingdom-id="' + k.id + '" data-structure-id="' + s.id + '">Rei de ' + esc(k.name) + ': ordenar ataque</button>').join('') + '</div></details>' : '');
@@ -3368,6 +3386,29 @@ export function mountGame() {
     if (inspectStructure) { openSelection({ kind: 'structure', id: Number(inspectStructure.dataset.inspectStructure) }); return; }
     const inspectKingdom = event.target.closest('[data-inspect-kingdom]');
     if (inspectKingdom) { openSelection({ kind: 'kingdom', id: Number(inspectKingdom.dataset.inspectKingdom) }); return; }
+    const castleButton = event.target.closest('[data-castle-exchange]');
+    if (castleButton) {
+      const request = {
+        type: 'castle-exchange',
+        kingdomId: Number(castleButton.dataset.kingdomId),
+        castleId: Number(castleButton.dataset.castleId),
+        fromCoin: castleButton.dataset.fromCoin,
+        toCoin: castleButton.dataset.toCoin,
+        quantity: Number(castleButton.dataset.coinQuantity)
+      };
+      session.dispatch(request).then(result => {
+        kingdomActionNotice = result?.ok
+          ? 'Troca autorizada: ' + result.quantity + ' ' + result.fromCoin +
+            ' por ' + result.received + ' ' + result.toCoin +
+            '. Valor e saldos conservados.'
+          : result?.reason || 'O castelo recusou a troca.';
+        render();
+      }).catch(error => {
+        if (isResetCancellation(error)) return;
+        kingdomActionNotice = error.message; render();
+      });
+      return;
+    }
     const button = event.target.closest('[data-kingdom-command], [data-structure-command]');
     if (!button) return;
     if (button.dataset.structureCommand === 'attack-installation') {

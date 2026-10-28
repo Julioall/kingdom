@@ -274,3 +274,99 @@ test('fixed-price community sale is not offered without real market gold', () =>
   assert.equal(marketHasTradeOpportunity(world, community), false,
     'the next sale is blocked when the finite payment account is empty');
 });
+
+test('resident buys one food with gold, receives silver and copper change, and keeps mined cargo', () => {
+  const { world, community, person, market } = fixture();
+  person.carriedWood = 12;
+  person.foodReserve = 59;
+  market.stock.food = 1;
+  person.carriedGold = 3;
+  person.personalWallet.stock = { gold: 1, silver: 0, copper: 1 };
+  market.prices.food = .37;
+  market.stock.silver = 6;
+  market.stock.copper = 3;
+  const moneyBefore = ['gold', 'silver', 'copper'].map((metal) =>
+    (person.personalWallet.stock[metal] || 0) + (market.stock[metal] || 0));
+  const partner = findTradePartner(world, community, person);
+  assert.equal(partner?.isMarket, true);
+  assert.equal(performTrade(world, person, community, partner), true);
+  assert.equal(person.foodReserve, 60);
+  assert.equal(market.stock.food, 0);
+  assert.deepEqual(person.personalWallet.stock, { gold: 0, silver: 6, copper: 4, coinMode: true });
+  assert.equal(person.carriedGold, 3, 'ore cargo must not become spendable coins');
+  assert.deepEqual(['gold', 'silver', 'copper'].map((metal) =>
+    (person.personalWallet.stock[metal] || 0) + (market.stock[metal] || 0)), moneyBefore);
+  assert.deepEqual(person.tradeLedger.history[0].pricing.tender,
+    { copper: 0, silver: 0, gold: 1 });
+  assert.deepEqual(person.tradeLedger.history[0].pricing.change,
+    { copper: 3, silver: 6, gold: 0 });
+});
+
+test('personal coin purchase needs exact change; it cannot fall through to fractional legacy gold', () => {
+  const { world, community, person, market } = fixture();
+  person.carriedWood = 12;
+  person.foodReserve = 59;
+  market.stock.food = 1;
+  person.personalWallet.stock = { gold: 1, silver: 0, copper: 1 };
+  market.prices.food = .37;
+  market.stock.silver = 6;
+  market.stock.copper = 2;
+  const before = structuredClone({ person: person.personalWallet.stock, market: market.stock });
+  assert.equal(findTradePartner(world, community, person), null);
+  assert.deepEqual({ person: person.personalWallet.stock, market: market.stock }, before);
+});
+
+test('community buys real food using mined copper and records all physical coin deltas', () => {
+  const { world, community, person, market } = fixture();
+  community.stores.food = 0;
+  community.stores.gold = 0;
+  community.stores.copper = 600;
+  community.stores.silver = 0;
+  person.carriedWood = 12;
+  person.foodReserve = 100;
+  const before = market.stock.food + community.stores.food;
+  assert.equal(marketHasTradeOpportunity(world, community), true);
+  const partner = findTradePartner(world, community, person);
+  assert.equal(partner?.isMarket, true);
+  assert.equal(performTrade(world, person, community, partner), true);
+  assert.equal(community.stores.food, 12);
+  assert.equal(market.stock.food, 8);
+  assert.equal(market.stock.food + community.stores.food, before);
+  assert.equal(community.stores.copper, 0);
+  assert.equal(market.stock.copper, 600);
+  assert.equal(community.tradeLedger.history[0].coinPayment.priceCopper, 600);
+  assert.equal(community.tradeLedger.history[0].market.delta.copper, 600);
+});
+
+test('personal sale in coin-mode is funded by existing whole market coins', () => {
+  const { world, community, person, market } = fixture();
+  person.foodReserve = 90;
+  person.personalWallet.stock = { gold: 0, silver: 1, copper: 0 };
+  const goldBefore = market.stock.gold + person.personalWallet.stock.gold;
+  const offer = findTradePartner(world, community, person);
+  assert.equal(offer?.isMarket, true);
+  assert.equal(performTrade(world, person, community, offer), true);
+  assert.equal(person.carriedWood, 12);
+  assert.equal(market.stock.wood, 4);
+  assert.equal(person.personalWallet.stock.gold, 4);
+  assert.equal(market.stock.gold + person.personalWallet.stock.gold, goldBefore);
+  assert.equal(person.personalWallet.stock.silver, 1);
+  assert.equal(person.tradeLedger.history[0].pricing.priceCopper, 400);
+});
+
+test('a coin-enabled community sale receives whole pieces and cannot create fractional gold', () => {
+  const { world, community, person, market } = fixture();
+  person.carriedWood = 0;
+  person.foodReserve = 100;
+  community.stores.food = 60;
+  community.stores.silver = 1;
+  const total = market.stock.gold + community.stores.gold;
+  const offer = findTradePartner(world, community, person);
+  assert.equal(offer?.isMarket, true);
+  assert.equal(performTrade(world, person, community, offer), true);
+  assert.equal(community.stores.food, 50);
+  assert.equal(market.stock.food, 30);
+  assert.equal(market.stock.gold + community.stores.gold, total);
+  assert.ok(Number.isSafeInteger(community.stores.gold));
+  assert.equal(community.tradeLedger.history[0].coinPayment.priceCopper, 400);
+});

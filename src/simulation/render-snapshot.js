@@ -2,7 +2,8 @@ import engine from './engine.js';
 
 const SCALAR_FIELDS = [
   'heightM', 'slope', 'soilCapacityMm', 'soilWaterMm', 'roadWear',
-  'mineralNitrogenGPerM2', 'stoneDeposit', 'goldOre', 'surfaceWaterMm', 'shade',
+  'mineralNitrogenGPerM2', 'stoneDeposit', 'goldOre', 'copperOre', 'silverOre', 'ironOre',
+  'surfaceWaterMm', 'shade',
   'temperatureC', 'rainfallMm', 'waterDist', 'nearbyHuntableAnimals', 'nearbyFish',
   'huntingSuitability', 'fishingSuitability', 'elevationLevel', 'autoTileVariant',
   'rampSide', 'rampLevel', 'rampSegment'

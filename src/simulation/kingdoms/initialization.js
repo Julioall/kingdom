@@ -8,6 +8,7 @@ import { recomputeKingdomTerritories, TERRITORY_RULES } from './territories.js';
 import { KINGDOM_BUILD_COSTS } from './commands.js';
 import { kingdomFoodDemand } from '../economy/food-policy.js';
 import { isTreeAnchor } from '../ecology/plants.js';
+import { seedRoyalChangeReserve } from '../economy/royal-coin-exchange.js';
 
 const KINGDOM_STARTS = [
   { name: 'Valedouro', short: 'Valedouro', color: '#507db2', palette: 'blue', x: Math.round(18 * WIDTH / 36), y: Math.round(7 * HEIGHT / 26), innerX: 1, innerY: 1 },
@@ -147,6 +148,10 @@ export function initializeKingdoms(world) {
       const openingStock = { food: 42, wood: 12, stone: 8, gold: 18, feed: 12, iron: 0 }[resource];
       if (openingStock > 0) transferInventory(kingdom.treasury, kingdom.market, resource, openingStock);
     }
+    // Recoin five pieces of existing royal gold into 20 silver and 300 copper.
+    // Total nominal wealth stays unchanged, and the market must ask the
+    // castle for denominations as needed rather than receiving free change.
+    if (!seedRoyalChangeReserve(kingdom)) throw new Error('O tesouro inicial não permite uma reserva de troco.');
   }
 
   recomputeKingdomTerritories(world);
