@@ -177,3 +177,24 @@ test('death parcel release is idempotent and never changes monetary stock', () =
   assert.equal(world.seedCargoDrops[0].seeds, 8);
   assert.equal(kingdom.treasury.stock.gold + kingdom.market.stock.gold, gold);
 });
+
+test('fractional legacy crop seeds survive death, physical recovery and replanting without rounding', () => {
+  const f = fixture();
+  const { world, courier, replacement, community } = f;
+  const { field, tile } = spentField(f, { quantity: 2.75 });
+  courier.carriedCommunitySeeds = 2.75;
+  courier.seedCargoCommunityId = community.id;
+  courier.seedCargoPurpose = 'replant';
+  courier.seedCargoFieldId = field.id;
+  killPerson(world, courier, 'injury');
+  const parcel = world.seedCargoDrops[0];
+  assert.equal(parcel.seeds, 2.75);
+  replacement.x = parcel.x; replacement.y = parcel.y;
+  assert.equal(recoverSeedCargo(world, replacement, community, 'replant', field.id), 'recovered');
+  assert.equal(replacement.carriedCommunitySeeds, 2.75);
+  replacement.x = tile.x; replacement.y = tile.y;
+  assert.equal(workOnReplantingField(world, replacement, community, field.id), true);
+  assert.equal(world.seedProvenance.sown, 2.75);
+  assert.equal(parcel.seeds, 0);
+  assert.equal(replacement.carriedCommunitySeeds, 0);
+});
