@@ -6,6 +6,7 @@ import { getSocialLink } from '../society/communities.js';
 import { availableCommunityPen, reconcileCommunityHerdPens } from '../ecology/herd.js';
 import { nearestPenFor } from '../individuals/actions.js';
 import { cellAt, cellsWithin } from '../world/spatial.js';
+import { canEnterForeignTerritory } from '../kingdoms/territories.js';
 import { FOOD_DAYS_PER_UNIT, MEAT_NUTRITIONAL_VALUE } from '../../config/ecosystem.js';
 import { log } from '../core/events.js';
 import { moveOne } from '../individuals/movement.js';
@@ -29,15 +30,17 @@ const RESOURCE_LABELS = Object.freeze({
   copper: ['moeda de cobre', 'moedas de cobre'],
   silver: ['moeda de prata', 'moedas de prata'],
   iron: ['unidade de ferro', 'unidades de ferro'],
-  feed: ['unidade de ração', 'unidades de ração']
+  feed: ['unidade de ração', 'unidades de ração'],
+  seeds: ['unidade de semente', 'unidades de sementes']
 });
-const TRADE_RESOURCES = Object.freeze(['food', 'meat', 'wood', 'stone', 'gold', 'silver', 'copper', 'iron', 'feed', 'sheep']);
+const TRADE_RESOURCES = Object.freeze(['food', 'meat', 'wood', 'stone', 'gold', 'silver', 'copper', 'iron', 'feed', 'sheep', 'seeds']);
 const MARKET_PURCHASES = Object.freeze({
   food: Object.freeze({ amount: 12, gold: 6, reserve: 32 }),
   wood: Object.freeze({ amount: 10, gold: 6, reserve: 18 }),
   stone: Object.freeze({ amount: 8, gold: 7, reserve: 12 }),
   feed: Object.freeze({ amount: 10, gold: 4, reserve: 18 }),
-  sheep: Object.freeze({ amount: 1, gold: 38 })
+  sheep: Object.freeze({ amount: 1, gold: 38 }),
+  seeds: Object.freeze({ amount: 8, gold: 4, reserve: 8 })
 });
 const MARKET_SALES = Object.freeze([
   Object.freeze({ resource: 'food', amount: 10, gold: 4, reserve: 44, capacity: 260 }),
@@ -142,6 +145,205 @@ function coinMarketNeeds(store, pen, herd) {
     { resource: 'stone', label: 'pedra', needed: (store.stone || 0) < MARKET_PURCHASES.stone.reserve },
     { resource: 'feed', label: 'ração', needed: !!pen && herd > 0 && (store.feed || 0) < MARKET_PURCHASES.feed.reserve }
   ];
+}
+
+// A purchase order is possible only when a farm actually needs a finite seed
+// batch, the official local market owns it and the named financier can pay.
+// A resident must still reach a live trading station before any transfer occurs.
+function fieldSeedMarketOrder(world, community, marketOwner) {
+  const store = community?.stores;
+  const order = MARKET_PURCHASES.seeds;
+  if (!store || !marketOwner) return null;
+  const kingdom = (world.kingdoms || []).find(item => item.communityId === community.id);
+  if (kingdom && (kingdom.market !== marketOwner || marketOwner.ownerType !== 'kingdom-market'
+      || marketOwner.ownerId !== kingdom.id)) return null;
+  if (!kingdom && community.kingdomId != null) return null;
+  const fields = (world.structures || []).filter(field => field.type === 'roça'
+    && field.communityId === community.id && field.destroyedDay == null);
+  const seedDemand = fields.some(field => (!field.complete || field.cropCycleState === 'spent')
+    && !(field.cropSeedStored > .01))
+    || (!fields.length && (community.memberIds || []).length >= 6);
+  // Seed supply is a commissioned builder task, not a speculative purchase
+  // by an arbitrary visitor; the courier carries community-owned cargo.
+  if (!seedDemand || (store.seeds || 0) >= order.reserve
+      || (world.people || []).some(person => person.alive && person.role !== 'soldier'
+        && person.communityId === community.id && (person.carriedCommunitySeeds || 0) > 0)) return null;
+  const market = marketOwner.stock || marketOwner;
+  if (!canSpend(market, 'seeds', order.amount)) return null;
+  const payer = kingdom?.treasury?.stock || store;
+  const priceCopper = goldPriceToCopper(order.gold);
+  if (!priceCopper || !quoteCoinPayment(payer, market, priceCopper)) return null;
+  return { payer, market, amount: order.amount, priceCopper, kingdomId: kingdom?.id ?? null };
+}
+
+// A gatherer is the first real owner after extraction from the world's
+// finite, naturally generated wild propagule bank. Selling pays that resident,
+// not the community or crown; the market then owns the seed batch.
+const NATURAL_SEED_LOT = 8;
+const NATURAL_SEED_SALE_COPPER = 200;
+function seedMarketStation(world, community, kingdom, person) {
+  return (world.structures || []).filter(s => operationalTradeStation(s, community, kingdom))
+    .sort((a, b) => distance(person, a) - distance(person, b) || a.id - b.id)[0] || null;
+}
+
+function moveSeedGatherer(world, person, target, task) {
+  if (distance(person, target) <= 1.6) return 'arrived';
+  const destination = cellAt(world, target.x, target.y);
+  if (!destination || !moveOne(world, person, destination, false)) {
+    countTradeDiagnostic(world, 'marketBlocked', 'route-blocked');
+    return 'route-blocked';
+  }
+  person.state = task;
+  return 'approaching';
+}
+
+function gatherWildSeedLot(world, person, community) {
+  const carried = Number(person.carriedSeeds ?? 0);
+  if (!Number.isSafeInteger(carried) || carried < 0 || carried > NATURAL_SEED_LOT) return 'invalid-cargo';
+  if (carried >= NATURAL_SEED_LOT) return 'collected';
+  const candidates = (world.tiles || []).filter(tile => tile.terrain === 'land' && tile.cropFieldId == null
+    && Number.isSafeInteger(tile.wildSeedStock) && tile.wildSeedStock > 0
+    && canEnterForeignTerritory(world, person, tile) && distance(person, tile) <= 32);
+  candidates.sort((a, b) => distance(person, a) - distance(person, b) || a.i - b.i);
+  const avoided = person.failedWildSeedTile?.untilDay > world.day ? person.failedWildSeedTile.index : null;
+  const target = candidates.find(tile => tile.i !== avoided);
+  if (!target) {
+    countTradeDiagnostic(world, 'marketBlocked', 'no-wild-seed-source');
+    return 'no-source';
+  }
+  const moving = moveSeedGatherer(world, person, target, 'indo coletar sementes silvestres');
+  if (moving === 'route-blocked') {
+    person.failedWildSeedTile = { index: target.i, untilDay: world.day + 8 };
+    return 'route-blocked';
+  }
+  if (moving !== 'arrived') return moving;
+  const moved = transferResource(target, person, 'wildSeedStock',
+    Math.min(target.wildSeedStock, NATURAL_SEED_LOT - carried), 'carriedSeeds', NATURAL_SEED_LOT);
+  if (!(moved > 0)) return 'invalid-cargo';
+  world.seedProvenance ||= { gathered: 0, sown: 0, history: [] };
+  world.seedProvenance.gathered += moved;
+  world.seedProvenance.history.push({ day: world.day, kind: 'wild-gather', tileIndex: target.i,
+    personId: person.id, quantity: moved, remainingOnTile: target.wildSeedStock });
+  if (world.seedProvenance.history.length > 120) world.seedProvenance.history.shift();
+  person.state = 'extraindo sementes de matriz nativa';
+  person.lastLesson = 'Sementes finitas saíram do banco natural deste tile para a carga pessoal.';
+  return 'gathered';
+}
+
+function sellGatheredSeedLot(world, person, community, marketOwner, station) {
+  if (!(person.carriedSeeds >= NATURAL_SEED_LOT)) return 'invalid-cargo';
+  const market = marketOwner?.stock || marketOwner;
+  if (!market || marketOwner.ownerType !== 'kingdom-market'
+      || !Number.isSafeInteger(market.seeds ?? 0) || (market.seeds ?? 0) + NATURAL_SEED_LOT > 260)
+    return 'market-full';
+  const candidateWallet = person.personalWallet?.stock ?? { gold: 0, silver: 0, copper: 0 };
+  if (candidateWallet === market || candidateWallet === person || candidateWallet === community.stores
+      || !candidateWallet || typeof candidateWallet !== 'object' || Array.isArray(candidateWallet))
+    return 'invalid-wallet';
+  const quote = quoteCoinPayment(market, candidateWallet, NATURAL_SEED_SALE_COPPER);
+  if (!quote) { countTradeDiagnostic(world, 'marketBlocked', 'no-funds-for-wild-seeds'); return 'no-funds'; }
+  const moveStatus = moveSeedGatherer(world, person, station, 'levando sementes ao mercado');
+  if (moveStatus !== 'arrived') return moveStatus;
+  person.personalWallet ||= { stock: { gold: 0, silver: 0, copper: 0 } };
+  const wallet = person.personalWallet.stock;
+  const before = tradeBalances(market);
+  const receipt = settleCoinTrade(market, wallet, NATURAL_SEED_SALE_COPPER,
+    person, market, 'carriedSeeds', NATURAL_SEED_LOT, 260, 'seeds');
+  if (!receipt) return 'no-funds';
+  marketOwner.transactions = (marketOwner.transactions || 0) + 1;
+  community.tradeCount = (community.tradeCount || 0) + 1;
+  countTradeDiagnostic(world, 'marketCompleted');
+  person.state = 'vendendo sementes coletadas ao mercado';
+  person.lastLesson = 'O comprador pagou moedas existentes e recebeu exatamente o lote de sementes extraído.';
+  recordTrade(world, {
+    kind: 'market', action: 'vendeu sementes extraídas da natureza', scope: 'personal',
+    provenance: { type: 'wild-seed-bank', quantity: NATURAL_SEED_LOT, personId: person.id },
+    participants: [{ personId: person.id, communityId: community.id,
+      delta: { carriedSeeds: -NATURAL_SEED_LOT, walletGold: receipt.transfers.gold,
+        walletSilver: receipt.transfers.silver, walletCopper: receipt.transfers.copper } }],
+    market: { ownerType: marketOwner.ownerType, ownerId: marketOwner.ownerId,
+      delta: tradeDelta(before, tradeBalances(market)) },
+    coinPayment: { priceCopper: receipt.priceCopper, tender: receipt.tender, change: receipt.change },
+    assetsCreated: []
+  }, [community, marketOwner, person]);
+  return 'sold';
+}
+
+function settleFieldSeedOrder(world, person, community, marketOwner) {
+  const order = fieldSeedMarketOrder(world, community, marketOwner);
+  if (!order) return false;
+  const marketBefore = tradeBalances(order.market);
+  const receipt = settleCoinTrade(order.payer, order.market, order.priceCopper,
+    order.market, person, 'seeds', order.amount, 8, 'carriedCommunitySeeds');
+  if (!receipt) return false;
+  person.seedCargoCommunityId = community.id;
+  marketOwner.transactions = (marketOwner.transactions || 0) + 1;
+  community.tradeCount = (community.tradeCount || 0) + 1;
+  countTradeDiagnostic(world, 'marketCompleted');
+  consumePersonEnergy(person, .35);
+  if (person.skills) person.skills.diplomacy = clamp((person.skills.diplomacy || 0) + .008, 0, 1);
+  person.state = 'comprando sementes no mercado';
+  person.lastLesson = 'Comprou sementes do estoque finito do mercado com moedas realmente disponíveis no tesouro.';
+  recordTrade(world, {
+    kind: 'market', action: 'comprou sementes para a roça',
+    participants: [
+      { personId: person.id, communityId: community.id,
+        delta: { carriedCommunitySeeds: order.amount } },
+      ...(order.kingdomId == null ? [] : [{
+        kingdomId: order.kingdomId,
+        delta: Object.fromEntries(['copper', 'silver', 'gold']
+          .map(coin => [coin, -(receipt.transfers[coin] || 0)]))
+      }])
+    ],
+    market: {
+      ownerType: marketOwner.ownerType || 'market', ownerId: marketOwner.ownerId ?? null,
+      delta: tradeDelta(marketBefore, tradeBalances(order.market))
+    },
+    coinPayment: { priceCopper: receipt.priceCopper, tender: receipt.tender, change: receipt.change },
+    assetsCreated: []
+  }, [community, marketOwner, person]);
+  const message = community.name + ' comprou ' + order.amount + ' sementes para roça; tesouro pagou '
+    + receipt.priceCopper + ' cobres equivalentes, sem emissão de moedas.';
+  community.history.push(message);
+  log(world, message, world.day + 1);
+  return true;
+}
+
+// Explicit request from the farm builder: the market trip is real, so the
+// construction plan cannot wait indefinitely for an unrelated trade decision.
+export function purchaseFieldSeedsForConstruction(world, person, community) {
+  if (!world || !person?.alive || person.role === 'soldier'
+      || person.communityId !== community?.id || !(world.people || []).includes(person)
+      || !(world.communities || []).includes(community) || community.dissolved) return 'invalid';
+  const kingdom = (world.kingdoms || []).find(item => item.communityId === community.id);
+  if (!kingdom || !kingdom.market) return 'unavailable';
+  const marketOwner = kingdom.market;
+  if (marketOwner.ownerId !== kingdom.id || marketOwner.ownerType !== 'kingdom-market')
+    return 'unavailable';
+  const station = seedMarketStation(world, community, kingdom, person);
+  if (!station) { countTradeDiagnostic(world, 'marketBlocked', 'no-market-station'); return 'no-station'; }
+  // A fully sourced market lot is always bought before sending another worker
+  // to extract. This blocks speculative overharvest and free auto-replenishment.
+  if (fieldSeedMarketOrder(world, community, marketOwner)) {
+    const moving = moveSeedGatherer(world, person, station, 'indo comprar sementes no mercado');
+    if (moving !== 'arrived') return moving;
+    countTradeDiagnostic(world, 'marketAttempts');
+    return settleFieldSeedOrder(world, person, community, marketOwner) ? 'purchased' : 'unavailable';
+  }
+  if ((community.stores.seeds ?? 0) >= NATURAL_SEED_LOT) return 'available';
+  if ((person.carriedCommunitySeeds ?? 0) >= NATURAL_SEED_LOT) return 'carrying';
+  // Keep a single nominated supplier while a real lot is in transit.
+  if ((world.people || []).some(other => other !== person && other.alive
+      && other.role !== 'soldier' && other.communityId === community.id
+      && ((other.carriedCommunitySeeds || 0) > 0 || (other.carriedSeeds || 0) > 0)))
+    return 'awaiting-courier';
+  // A person with cargo must sell the existing lot first. Nothing may travel
+  // directly from natural terrain into a farm or community seed inventory.
+  if ((person.carriedSeeds || 0) >= NATURAL_SEED_LOT)
+    return sellGatheredSeedLot(world, person, community, marketOwner, station);
+  // A market with a partial lot should not attract another gatherer until the
+  // partial lot is combined with a valid purchased shipment.
+  return gatherWildSeedLot(world, person, community);
 }
 
 function marketSaleGold(sale, marketOwner) {

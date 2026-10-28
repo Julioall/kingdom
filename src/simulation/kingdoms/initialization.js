@@ -27,7 +27,7 @@ export const INITIAL_MILITARY_ROSTER = Object.freeze([
 ]);
 export const INITIAL_SOLDIERS_PER_KINGDOM = INITIAL_MILITARY_ROSTER.reduce((sum, entry) => sum + entry.count, 0);
 
-const BASE_PRICES = { food: .35, wood: .65, stone: .8, gold: 2, feed: .28, iron: .85 };
+const BASE_PRICES = { food: .35, wood: .65, stone: .8, gold: 2, feed: .28, iron: .85, seeds: .5 };
 
 function placeStructure(world, kingdom, type, x, y, cost, extra = {}) {
   if (!spendInventory(kingdom.treasury, cost)) throw new Error('Estoque insuficiente para a estrutura inicial: ' + type);
@@ -84,7 +84,7 @@ export function initializeKingdoms(world) {
       x: start.x, y: start.y, createdDay: world.day, rulerId: null, memberIds: [],
       innerX: start.innerX, innerY: start.innerY, communityId: null,
       settlementIds: [], structureIds: [], homeIds: [], towerIds: [], militaryCenterIds: [], territoryTileCount: 0,
-      treasury: { ownerType: 'kingdom', ownerId: id, stock: { food: 4800, wood: 1200, stone: 700, gold: 9000, copper: 0, silver: 0, iron: 0, feed: 180 } },
+      treasury: { ownerType: 'kingdom', ownerId: id, stock: { food: 4800, wood: 1200, stone: 700, gold: 9000, copper: 0, silver: 0, iron: 0, feed: 180, seeds: 0 } },
       policy: { taxRate: .075, droughtReserveDays: 30, priorities: ['food', 'water', 'housing', 'defense'] },
       satisfaction: .62, prestige: 0, legacy: null,
       frontierExpansion: {
@@ -143,9 +143,9 @@ export function initializeKingdoms(world) {
     world.settlements.push(settlement);
     kingdom.settlementIds.push(settlement.id);
     kingdom.capitalSettlementId = settlement.id;
-    kingdom.market = { ownerType: 'kingdom-market', ownerId: kingdom.id, stock: { food: 0, wood: 0, stone: 0, gold: 0, copper: 0, silver: 0, iron: 0, feed: 0 }, prices: { ...BASE_PRICES }, supply: {}, demand: {}, transactions: 0, lastUpdateDay: -1 };
+    kingdom.market = { ownerType: 'kingdom-market', ownerId: kingdom.id, stock: { food: 0, wood: 0, stone: 0, gold: 0, copper: 0, silver: 0, iron: 0, feed: 0, seeds: 0 }, prices: { ...BASE_PRICES }, supply: {}, demand: {}, transactions: 0, lastUpdateDay: -1 };
     for (const resource of Object.keys(BASE_PRICES)) {
-      const openingStock = { food: 42, wood: 12, stone: 8, gold: 18, feed: 12, iron: 0 }[resource];
+      const openingStock = { food: 42, wood: 12, stone: 8, gold: 18, feed: 12, iron: 0, seeds: 0 }[resource];
       if (openingStock > 0) transferInventory(kingdom.treasury, kingdom.market, resource, openingStock);
     }
     // Recoin five pieces of existing royal gold into 20 silver and 300 copper.
@@ -213,7 +213,10 @@ export function updateKingdomMarkets(world, marketDay = world.day) {
       gold: population * .01 * 30,
       feed: sheep * DOMESTIC_SHEEP_DAILY_FEED * 30,
       // Industrial demand is only a price signal until crafting costs are implemented.
-      iron: population * .045 * 30
+      iron: population * .045 * 30,
+      // Finite opening seed supply. Subsequent sowing requires real retained harvest or market stock.
+      seeds: 8 * (world.structures || []).filter(structure => structure.type === 'roça'
+        && structure.communityId === kingdom.communityId && structure.destroyedDay == null).length + 8
     };
     for (const resource of Object.keys(BASE_PRICES)) {
       const supply = Math.max(0, market.stock[resource] || 0);

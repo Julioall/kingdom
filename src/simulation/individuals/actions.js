@@ -1221,6 +1221,19 @@ function updatePeopleCore(w) {
         aidPlanTarget = aidPlanIntention ? findPersonById(w, aidPlanIntention.targetId) : null;
       }
       const socialPlan = selectSocialPlanAction(w, p, planContext);
+      // Seed loads are never ordinary food/material cargo. A builder carrying
+      // a partial native lot must return for more seeds, then sell to the local
+      // market; a kingdom-paid lot must be delivered to the actual field work
+      // point. The generic `deliver` action has no destination for either
+      // ownership state and would strand these physical goods indefinitely.
+      // Survival, hydration, recovery and active social commitments keep
+      // their existing higher priority over this delivery.
+      const seedCourierDuty = community?.isKingdomGroup && p.role !== 'soldier'
+        && ((p.carriedSeeds || 0) > 0 || (p.carriedCommunitySeeds || 0) > 0)
+        && !campaignOrder && !survivalAction && !carrierMaintenanceAction
+        && !homeRest && !socialPlan && p.hydration >= 22
+        && p.energy >= 9 && p.health >= 18 && p.foodReserve >= 8
+        && (!assignment || assignment.goal !== 'repair-damaged-structures');
       // The scheduler can replace an immutable intention record while recording its impediment.
       if (aidPlanIntention) aidPlanIntention = p.socialIntentions.find(item => item.intentionId === aidPlanIntention.intentionId);
       if (socialPlan && assignment) {
@@ -1239,7 +1252,7 @@ function updatePeopleCore(w) {
         : returnToGarrison && peacetimeSoldierAction === 'return_garrison' ? peacetimeSoldierAction
         : survivalAction || carrierMaintenanceAction || (homeRest ? 'rest' : socialPlan ? socialPlan.action : peacetimeSoldier ? peacetimeSoldierAction : (droppedLoot && !assignment && !carryingGoods && p.energy >= 9
           && (!campaignOrder || !campaignOrder.withdrawing && distance(p, droppedLoot) <= 1.6) ? 'collect_loot'
-          : campaignOrder ? militaryAction || 'campaign' : cargoAction || foodDuty || (p.leadingSheepId ? 'lead_sheep'
+          : campaignOrder ? militaryAction || 'campaign' : seedCourierDuty ? 'build' : cargoAction || foodDuty || (p.leadingSheepId ? 'lead_sheep'
           : assignedBuildDuty ? 'build'
           : patrolDuty ? 'patrol' : p.role === 'soldier'
             ? p.hydration < 40 && waterTarget ? 'drink' : p.energy < 30 || p.health < 42 || p.injury >= 5 ? 'rest' : 'guard'
