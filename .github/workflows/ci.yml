@@ -1,4 +1,4 @@
-name: Kingdom production CI
+name: Kingdom verification CI
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: kingdom-production-ci-${{ github.workflow }}-${{ github.ref }}
+  group: kingdom-verification-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -38,6 +38,10 @@ jobs:
 
       - name: Run published test suite
         run: npm test
+
+      - name: Run deterministic food replay smoke on development branches
+        if: github.ref == 'refs/heads/dev' || (github.event_name == 'pull_request' && github.base_ref == 'dev')
+        run: npm run audit:food -- --days 30 --seeds 42 --repeat-seed 42
 
       - name: Build production assets
         run: npm run build
