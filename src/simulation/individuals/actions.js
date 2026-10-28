@@ -1173,12 +1173,6 @@ function updatePeopleCore(w) {
         assignment.lastPausedDay = w.day;
       }
       const carryingGoods = carriedResources(p) > .01 || (p.carriedMeat || 0) > 0;
-      // Community seed bags have their own signed destination (market then
-      // field). A generic "deliver" would send them to the shelter without
-      // unloading them, trapping the worker with an abandoned seed lot.
-      const seedCourierDuty = p.role !== 'soldier' && assignment?.action === 'build'
-        && assignment.goal === 'invest-in-cultivated-food'
-        && ((p.carriedSeeds || 0) + (p.carriedCommunitySeeds || 0) > 0);
       const carrierMaintenanceAction = carryingGoods && !peacetimeSoldier && !campaignOrder
         ? p.hydration < 40 && waterTarget ? 'drink'
           : p.foodReserve < 24 && food && !canDeliverEdibleCargo ? 'forage'
@@ -1188,8 +1182,7 @@ function updatePeopleCore(w) {
         && assignment?.source === 'kingdom-strategy' && assignment.action === 'forage'
         && !assignmentConflict && (p.carriedFood || 0) > .01 && p.carriedFood < collectionLoad
         && carriedResources(p) - p.carriedFood <= .01 && food && canHarvestFoodAt(w, p, food);
-      const cargoAction = carryingGoods && !seedCourierDuty
-        ? continueCommunalCollection ? 'forage' : delivery ? 'deliver' : 'migrate' : null;
+      const cargoAction = carryingGoods ? continueCommunalCollection ? 'forage' : delivery ? 'deliver' : 'migrate' : null;
       const foodDuty = assignedFoodField && assignment.action === 'forage' && !assignmentConflict && food ? 'forage' : null;
       const patrolDuty = !survivalAction && !campaignOrder && !carryingGoods && canPatrolToday(w, p, !!assignment);
       const soldierHomeRest = p.role === 'soldier' && (!campaignOrder?.withdrawing || campaignOrder.returning)
@@ -1206,7 +1199,7 @@ function updatePeopleCore(w) {
           || p.injury >= GARRISON_RECOVERY.restInjury));
       const homeRest = soldierHomeRest || residentHomeRest;
       const assignedBuildDuty = assignment && assignment.action === 'build' && !assignmentConflict && !survivalAction
-        && !homeRest && (!carryingGoods || seedCourierDuty) && !p.leadingSheepId;
+        && !homeRest && !carryingGoods && !p.leadingSheepId;
       // Food and water require resupply or drinking, never an endless sleep.
       const returnToGarrison = peacetimeSoldier && p.foodReserve < GARRISON_RECOVERY.food
         && garrisonFoodAvailable > .01 && militaryCenter && distance(p, militaryCenter) > 2;
