@@ -5,7 +5,7 @@ import { recruitKingdomSoldier } from '../src/simulation/kingdoms/commands.js';
 import { updateServiceGrades } from '../src/simulation/kingdoms/frontier-intelligence.js';
 import { advanceKingdomProjects } from '../src/simulation/kingdoms/projects.js';
 import { militaryClassSource, MILITARY_CLASS_SOURCE_TYPES } from '../src/simulation/kingdoms/military-sources.js';
-import { militaryTrainingPairs } from '../src/simulation/kingdoms/military-learning.js';
+import { militaryTrainingPairs, trainMilitaryPair } from '../src/simulation/kingdoms/military-learning.js';
 
 const classes = Object.keys(MILITARY_CLASS_SOURCE_TYPES);
 
@@ -210,7 +210,8 @@ test('simulated combat training stops when its military center is inoperable and
     Object.assign(soldier, { militaryCenterId: center.id, militaryDutyCenterId: center.id,
       campaignId: null, militaryReturningHome: false, towerDutyId: null, towerMounted: false,
       tacticalRecovering: false, militaryRestTargetId: null, restingStructureId: null,
-      health: 100, energy: 100, foodReserve: 100, hydration: 100, injury: 0 });
+      health: 100, energy: 100, foodReserve: 100, hydration: 100, injury: 0,
+      x: center.x, y: center.y });
   }
   const hasTrainingPair = () => soldiers.some(soldier => militaryTrainingPairs(world).has(soldier.id));
   center.complete = true;
@@ -218,8 +219,16 @@ test('simulated combat training stops when its military center is inoperable and
   center.integrity = 1;
   center.health = 1;
   assert.equal(hasTrainingPair(), true, 'an operational center permits training');
+  const trainee = soldiers.find(soldier => militaryTrainingPairs(world).has(soldier.id));
+  const cachedSession = militaryTrainingPairs(world).get(trainee.id);
+  const beforeTraining = trainee.militaryTraining || 0;
+  const beforeEnergy = trainee.energy;
 
   center.health = 0;
+  assert.equal(trainMilitaryPair(world, trainee, cachedSession), false,
+    'a cached session cannot train after the center becomes inoperable');
+  assert.equal(trainee.militaryTraining || 0, beforeTraining);
+  assert.equal(trainee.energy, beforeEnergy);
   assert.equal(hasTrainingPair(), false, 'zero health blocks training even with positive integrity');
   center.health = 1;
   center.integrity = 0;
@@ -229,4 +238,7 @@ test('simulated combat training stops when its military center is inoperable and
   assert.equal(hasTrainingPair(), false, 'a destroyed center blocks training');
   center.destroyedDay = null;
   assert.equal(hasTrainingPair(), true, 'training resumes after the center is repaired');
+  assert.equal(trainMilitaryPair(world, trainee, cachedSession), true,
+    'a valid cached session can resume without reconstructing the roster');
+  assert.ok(trainee.militaryTraining > beforeTraining);
 });
