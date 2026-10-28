@@ -12,12 +12,16 @@ export function kingdomOverview(world, kingdom) {
   const incidents = Object.values(world.kingdomRelations || {}).filter(r => r.a === kingdom.id || r.b === kingdom.id)
     .reduce((sum, r) => sum + (r.borderIncidents || 0), 0);
   return '<h3>Sobrevivência e prosperidade</h3>' +
-    row('Dias alimentares disponíveis', fmt(data.food) + ' dias equivalentes') + row('Riqueza total', fmt(data.gold) + ' ouro') +
+    row('Comida nas contas do reino', fmt(data.food) + ' dias equivalentes') +
+    row('No estoque comunitário', fmt(data.foodByAccount.community) + ' dias equivalentes') +
+    row('No tesouro', fmt(data.foodByAccount.treasury) + ' dias equivalentes') +
+    row('No mercado local', fmt(data.foodByAccount.market) + ' dias equivalentes') +
+    row('Riqueza total', fmt(data.gold) + ' ouro') +
     row('População', data.people + ' pessoas') + row('Reserva abaixo de 30 dias', data.hungry + ' pessoas') +
     row('Com pouca água / energia', data.thirsty + ' / ' + data.tired) + row('Sem moradia', data.homeless) +
     row('Satisfação do reino', Math.round(data.satisfaction * 100) + '%') +
     row('Nascimentos / mortes', data.births + ' / ' + data.deaths + ' · desde o início') +
-    row('Incidentes de fronteira', incidents) + note('Dias alimentares equivalentes: estoque comunitário, tesouro e mercado; cada unidade de comida vale um dia adulto e uma unidade de carne vale 2,5 dias. Reservas pessoais não entram neste total.') +
+    row('Incidentes de fronteira', incidents) + note('O total soma estoques de contas diferentes, não a comida imediatamente acessível a um morador. O mercado geral sem vínculo não entra no total deste reino. Cada unidade de comida vale um dia adulto e cada unidade de carne vale 2,5 dias. Reservas pessoais e biomassa ainda no campo não entram nesta soma.') +
     '<details class="gameplay-details"><summary>Construções do reino</summary><div class="building-picker">' + world.structures.filter(s => s.kingdomId === kingdom.id && s.destroyedDay == null).map(s => '<button type="button" data-inspect-structure="' + s.id + '">' + esc(({ centro_militar: 'Centro militar', monasterio: 'Convento', arquearia: 'Arquearia', roça: 'Roça' })[s.type] || s.type.charAt(0).toUpperCase() + s.type.slice(1)) + '</button>').join('') + '</div></details>';
 }
 
