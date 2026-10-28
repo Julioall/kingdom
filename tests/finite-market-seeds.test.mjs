@@ -5,6 +5,7 @@ import { findTradePartner, marketHasTradeOpportunity, performTrade, purchaseFiel
 import { transferResource } from '../src/simulation/economy/inventories.js';
 import { PLANTS } from '../src/config/ecosystem.js';
 import { chooseBuildSite, workOnCommunityStructure } from '../src/simulation/settlements/construction.js';
+import { constructionWorkPositions } from '../src/simulation/settlements/construction-workstations.js';
 
 function setup() {
   const world = engine.createWorld(42);
@@ -47,6 +48,7 @@ function sourceSeedLot(world, market, amount = 8) {
 test('natural propagules are generated in terrain, never gifted to market or crown', () => {
   const { world } = setup();
   assert.ok(naturalStock(world) >= 32, 'the actual seed 42 world offers natural harvestable propagules');
+  assert.equal(world.seedProvenance.initialWildSeedStock, naturalStock(world));
   for (const kingdom of world.kingdoms) {
     const community = world.communities.find(item => item.id === kingdom.communityId);
     assert.equal(kingdom.treasury.stock.seeds, 0);
@@ -162,4 +164,33 @@ test('seed seller receives real market coins; worker then buys for kingdom and p
   assert.equal(postMoney, totalMoney);
   assert.ok(community.tradeLedger.history.some(item => item.action === 'vendeu sementes extraídas da natureza'));
   assert.ok(community.tradeLedger.history.some(item => item.action === 'comprou sementes para a roça'));
+  // This last stage proves that the farmer cannot sow the same seed stock
+  // while it is still owned by the market or carried by the trader.
+  const site = chooseBuildSite(world, community,
+    world.structures.filter(structure => structure.communityId === community.id));
+  assert.ok(site && site.type === 'roça');
+  site.required = 3; // Only accelerate construction work in the focused test.
+  site.woodCost = 0;
+  site.stoneCost = 0;
+  site.foodCost = 0;
+  world.structures.push(site);
+  const positions = constructionWorkPositions(world, site, trader);
+  assert.ok(positions?.length, 'farm must have a legal worker approach point');
+  trader.x = positions[0].x;
+  trader.y = positions[0].y;
+  for (let n = 0; n < site.required && !site.complete; n++) {
+    world.day++;
+    workOnCommunityStructure(world, trader, community, community.memberIds.length);
+    if (n === 0) {
+      assert.equal(community.stores.seeds, 0, 'the builder delivered finite seeds to the construction field');
+      assert.equal(site.cropSeedStored, 8, 'the unsown lot is now owned by this field only');
+    }
+  }
+  assert.equal(site.complete, true);
+  assert.equal(site.cropSeedStored, 0, 'planting consumed the field-owned seed inventory');
+  assert.equal(site.cropSeededBiomass, 8);
+  assert.equal(world.seedProvenance.sown, 8);
+  assert.ok(world.seedProvenance.history.some(item => item.kind === 'field-sowing'
+    && item.fieldId === site.id && item.quantity === 8));
+  assert.equal(naturalStock(world), totalNatural - 8);
 });
