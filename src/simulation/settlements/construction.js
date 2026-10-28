@@ -339,7 +339,8 @@ export function workOnCommunityStructure(w, person, community, size) {
       // Prefer the tracked courier cargo purchased at the market. Retained
       // harvest seeds may also be delivered by a worker from community stores.
       const fromCourier = Number.isSafeInteger(person.carriedCommunitySeeds)
-        && person.carriedCommunitySeeds >= structure.seedMass;
+        && person.carriedCommunitySeeds >= structure.seedMass
+        && person.seedCargoCommunityId === community.id;
       const source = fromCourier ? person : community.stores;
       const sourceKey = fromCourier ? 'carriedCommunitySeeds' : 'seeds';
       if (!Number.isFinite(source[sourceKey])
@@ -350,6 +351,7 @@ export function workOnCommunityStructure(w, person, community, size) {
       }
       const delivered = transferResource(source, structure,
         sourceKey, structure.seedMass, 'cropSeedStored');
+      if (fromCourier && (person.carriedCommunitySeeds || 0) === 0) person.seedCargoCommunityId = null;
       if (Math.abs(delivered - structure.seedMass) > .001)
         throw new Error('Entrega de sementes à roça não conservou o lote reservado');
       person.lastLesson = 'Transportou sementes existentes do estoque comunitário para o lote da roça.';
