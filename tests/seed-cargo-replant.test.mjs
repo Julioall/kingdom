@@ -215,3 +215,21 @@ test('already paid construction seeds can be recovered after destruction of the 
   assert.equal(parcel.seeds, 0);
   assert.equal(kingdom.market.stock.seeds, 0);
 });
+
+test('a worker cannot mix a construction parcel with a replant order', () => {
+  const { world, courier, replacement, community } = fixture();
+  courier.carriedCommunitySeeds = 5;
+  courier.seedCargoCommunityId = community.id;
+  courier.seedCargoPurpose = 'replant';
+  courier.seedCargoFieldId = 901;
+  const [parcel] = releaseSeedCargo(world, courier, { reason: 'migration' });
+  replacement.x = parcel.x; replacement.y = parcel.y;
+  replacement.carriedCommunitySeeds = 3;
+  replacement.seedCargoCommunityId = community.id;
+  replacement.seedCargoPurpose = 'construction';
+  const before = parcel.seeds + replacement.carriedCommunitySeeds;
+  assert.equal(recoverSeedCargo(world, replacement, community, 'replant', 901), 'invalid');
+  assert.equal(parcel.seeds + replacement.carriedCommunitySeeds, before);
+  assert.equal(replacement.seedCargoPurpose, 'construction');
+  assert.equal(replacement.carriedCommunitySeeds, 3);
+});
