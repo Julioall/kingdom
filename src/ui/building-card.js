@@ -17,11 +17,14 @@ export function kingdomOverview(world, kingdom) {
     row('No tesouro', fmt(data.foodByAccount.treasury) + ' dias equivalentes') +
     row('No mercado local', fmt(data.foodByAccount.market) + ' dias equivalentes') +
     row('Riqueza total', fmt(data.gold) + ' ouro') +
+    row('Cobre / prata', fmt(data.copper) + ' / ' + fmt(data.silver)) +
+    row('Ferro armazenado e carregado', fmt(data.iron)) +
+    row('Equivalência nominal', fmt(data.gold * 25 + data.silver * 5 + data.copper) + ' cobres') +
     row('População', data.people + ' pessoas') + row('Reserva abaixo de 30 dias', data.hungry + ' pessoas') +
     row('Com pouca água / energia', data.thirsty + ' / ' + data.tired) + row('Sem moradia', data.homeless) +
     row('Satisfação do reino', Math.round(data.satisfaction * 100) + '%') +
     row('Nascimentos / mortes', data.births + ' / ' + data.deaths + ' · desde o início') +
-    row('Incidentes de fronteira', incidents) + note('O total soma estoques de contas diferentes, não a comida imediatamente acessível a um morador. O mercado geral sem vínculo não entra no total deste reino; cada unidade de comida vale um dia adulto e cada unidade de carne vale 2,5 dias. Reservas pessoais e biomassa ainda no campo não entram nesta soma.') +
+    row('Incidentes de fronteira', incidents) + note('Equivalência nominal dos metais: 1 ouro = 5 pratas = 25 cobres. Isso não representa necessariamente moedas cunhadas ou saldo gastável; ferro é material físico e ainda não é custo de construção.') + note('O total soma estoques de contas diferentes, não a comida imediatamente acessível a um morador. O mercado geral sem vínculo não entra no total deste reino; cada unidade de comida vale um dia adulto e cada unidade de carne vale 2,5 dias. Reservas pessoais e biomassa ainda no campo não entram nesta soma.') +
     '<details class="gameplay-details"><summary>Construções do reino</summary><div class="building-picker">' + world.structures.filter(s => s.kingdomId === kingdom.id && s.destroyedDay == null).map(s => '<button type="button" data-inspect-structure="' + s.id + '">' + esc(({ centro_militar: 'Centro militar', monasterio: 'Convento', arquearia: 'Arquearia', roça: 'Roça' })[s.type] || s.type.charAt(0).toUpperCase() + s.type.slice(1)) + '</button>').join('') + '</div></details>';
 }
 
