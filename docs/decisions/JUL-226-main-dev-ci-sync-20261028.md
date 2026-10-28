@@ -20,4 +20,4 @@ A alternativa 3 preserva o gate de produção e mantém o replay de desenvolvime
 
 ## Validação
 
-Pendente nesta branch: typecheck, suíte, smoke de desenvolvimento, build e CI remoto no SHA candidato. Não alterar nem atualizar `main` diretamente.
+No candidato local `52d3350a509398fa61d7169a4a8af45802a4bb7d`: `npm ci` passou, `npm run typecheck` passou, `npm test` passou (306/306), replay de alimento de 30 dias com seed 42 repetida foi determinístico e `npm run build` passou (489 PNGs otimizados sem perda, assets 8.03 MiB → 5.27 MiB). O CI remoto deve confirmar o SHA final da PR. Não alterar nem atualizar `main` diretamente.
