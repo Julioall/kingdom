@@ -21,7 +21,7 @@ export function kingdomOverview(world, kingdom) {
     row('Com pouca água / energia', data.thirsty + ' / ' + data.tired) + row('Sem moradia', data.homeless) +
     row('Satisfação do reino', Math.round(data.satisfaction * 100) + '%') +
     row('Nascimentos / mortes', data.births + ' / ' + data.deaths + ' · desde o início') +
-    row('Incidentes de fronteira', incidents) + note('O total soma estoques de contas diferentes, não a comida imediatamente acessível a um morador. O mercado geral sem vínculo não entra no total deste reino. cada unidade de comida vale um dia adulto e cada unidade de carne vale 2,5 dias. Reservas pessoais e biomassa ainda no campo não entram nesta soma.') +
+    row('Incidentes de fronteira', incidents) + note('O total soma estoques de contas diferentes, não a comida imediatamente acessível a um morador. O mercado geral sem vínculo não entra no total deste reino; cada unidade de comida vale um dia adulto e cada unidade de carne vale 2,5 dias. Reservas pessoais e biomassa ainda no campo não entram nesta soma.') +
     '<details class="gameplay-details"><summary>Construções do reino</summary><div class="building-picker">' + world.structures.filter(s => s.kingdomId === kingdom.id && s.destroyedDay == null).map(s => '<button type="button" data-inspect-structure="' + s.id + '">' + esc(({ centro_militar: 'Centro militar', monasterio: 'Convento', arquearia: 'Arquearia', roça: 'Roça' })[s.type] || s.type.charAt(0).toUpperCase() + s.type.slice(1)) + '</button>').join('') + '</div></details>';
 }
 
