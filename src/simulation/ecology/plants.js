@@ -25,6 +25,7 @@ export function plantSuitability(profile, tile, temperatureC, moisture) {
 
 export function seedPlants(w) {
     invalidateNavigation(w);
+    let initialWildSeedStock = 0;
     for (const t of w.tiles) {
       const moisture = clamp(t.soilWaterMm / t.soilCapacityMm, 0, 1);
       t.plantResourceMask = 0;
@@ -56,7 +57,9 @@ export function seedPlants(w) {
       t.wildSeedStock = t.terrain === 'land' && t.slope <= .65
         && t.soilType !== 'sandy' && t.waterDist >= 3 && t.waterDist <= 20
         && hash01(w.seed + 99617, t.x, t.y) >= .68 ? 3 : 0;
+      initialWildSeedStock += t.wildSeedStock;
     }
+    w.seedProvenance = { initialWildSeedStock, gathered: 0, sown: 0, history: [] };
   }
 
 export function canopyAt(t) {
@@ -296,6 +299,15 @@ export function sowCommunityField(w, structure) {
     }
     structure.fieldTileIndices = tiles.map(tile => tile.i);
     structure.cropSeedStored = 0;
+    // This is the irreversible inventory-to-crop conversion. A seed lot
+    // cannot simultaneously remain in the warehouse after planting.
+    w.seedProvenance ||= { initialWildSeedStock: null, gathered: 0, sown: 0, history: [] };
+    w.seedProvenance.sown += seedMass;
+    w.seedProvenance.history.push({ day: w.day, kind: 'field-sowing',
+      fieldId: structure.id, communityId: structure.communityId, quantity: seedMass });
+    if (w.seedProvenance.history.length > 120) w.seedProvenance.history.shift();
+    w.ecologyFlows.humanFoodCultivationSeeded =
+      (w.ecologyFlows.humanFoodCultivationSeeded || 0) + seedMass;
     structure.cropSeededBiomass = seedMass;
     structure.cropYieldTarget = cultivatedFieldYieldTarget(seedMass, tiles.length);
     structure.cropGrowthGenerated = seedMass;
