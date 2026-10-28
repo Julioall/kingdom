@@ -63,7 +63,8 @@ export function learnMilitaryOutcome(person, reward) {
 }
 
 export function trainMilitaryPair(world, person, session) {
-  if (!session || !fitForTraining(person) || !fitForTraining(session.partner)) return false;
+  if (!session || !isOperationalMilitarySource(session.center, 'centro_militar')
+    || !fitForTraining(person) || !fitForTraining(session.partner)) return false;
   const { partner, center } = session;
   person.militaryTrainingPartnerId = partner.id;
   if (distance(person, center) > 3 || distance(person, partner) > 3) {
