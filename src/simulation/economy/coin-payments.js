@@ -18,9 +18,11 @@ export function goldPriceToCopper(priceGold, quantity = 1) {
   if (!Number.isFinite(priceGold) || priceGold <= 0
       || !Number.isSafeInteger(quantity) || quantity <= 0) return null;
   const copper = priceGold * quantity * COIN_VALUE_COPPER.gold;
-  const rounded = Math.round(copper);
-  return Number.isSafeInteger(rounded) && Math.abs(copper - rounded) < 1e-7
-    ? rounded : null;
+  // Existing quotes can be fractional *gold*, but a new coin payment has
+  // one-copper granularity. Round the entire order once to the nearest copper
+  // (minimum 1), never issue fractions of any physical coin.
+  const rounded = Math.max(1, Math.round(copper + Number.EPSILON));
+  return Number.isSafeInteger(rounded) ? rounded : null;
 }
 
 export function quoteCoinPayment(payer, seller, priceCopper) {
