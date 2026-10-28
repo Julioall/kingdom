@@ -54,7 +54,12 @@ try {
         snapshotContext: p.context };
     });
     const image = resolve(outputDir, renderer + '-map.png');
-    await page.locator('#world').screenshot({ path: image, timeout: 30_000 });
+    // Save the raw 2D map pixels, not an element screenshot obscured by the
+    // atmospheric overlay, floating panels or profiler. Keep a separate
+    // viewport screenshot for reviewing the complete browser presentation.
+    const dataUrl = await page.locator('#world').evaluate(canvas => canvas.toDataURL('image/png'));
+    await writeFile(image, Buffer.from(dataUrl.split(',')[1], 'base64'));
+    await page.screenshot({ path: resolve(outputDir, renderer + '-viewport.png'), timeout: 30_000 });
     const png = await stat(image);
     if (png.size < 6000 || !Number.isFinite(metrics.fps) || metrics.mapSamples < 1)
       throw new Error(renderer + ': canvas/profiler did not produce useful samples');
