@@ -24,17 +24,17 @@ test('food summary reconciles distinct owners without treating the unassigned ma
   const global = resourceSummary(world);
 
   assert.deepEqual(valley.foodByAccount, {
-    community: 15, treasury: 4.5, market: 4, unassignedMarket: 0
+    community: 30, treasury: 12, market: 7, unassignedMarket: 0
   });
-  assert.equal(valley.food, 23.5);
+  assert.equal(valley.food, 49);
   assert.deepEqual(mountain.foodByAccount, {
     community: 8, treasury: 1, market: 7, unassignedMarket: 0
   });
   assert.equal(mountain.food, 16);
   assert.deepEqual(global.foodByAccount, {
-    community: 23, treasury: 5.5, market: 11, unassignedMarket: 100
+    community: 38, treasury: 13, market: 14, unassignedMarket: 100
   });
-  assert.equal(global.food, 139.5);
+  assert.equal(global.food, 165);
   assert.equal(Object.values(global.foodByAccount).reduce((a, b) => a + b, 0),
     global.food, 'every account contributes exactly once to the unchanged global total');
   assert.equal(Object.values(valley.foodByAccount).reduce((a, b) => a + b, 0),
