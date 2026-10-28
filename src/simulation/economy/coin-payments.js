@@ -71,6 +71,27 @@ export function quoteCoinPayment(payer, seller, priceCopper) {
   return { priceCopper, tender, change, transfers: best.transfers };
 }
 
+// Settle a wage or other money-only obligation without fabricating goods or
+// converting denominations. All pieces move atomically, including real change.
+export function settleCoinPayment(payer, payee, priceCopper) {
+  const quote = quoteCoinPayment(payer, payee, priceCopper);
+  if (!quote) return null;
+  for (const coin of COIN_TYPES) {
+    const transfer = quote.transfers[coin];
+    const payerNext = (payer[coin] ?? 0) - transfer;
+    const payeeNext = (payee[coin] ?? 0) + transfer;
+    if (!Number.isSafeInteger(payerNext) || payerNext < 0
+        || !Number.isSafeInteger(payeeNext) || payeeNext < 0) return null;
+  }
+  for (const coin of COIN_TYPES) {
+    payer[coin] = (payer[coin] ?? 0) - quote.transfers[coin];
+    payee[coin] = (payee[coin] ?? 0) + quote.transfers[coin];
+  }
+  payer.coinMode = true;
+  payee.coinMode = true;
+  return quote;
+}
+
 export function settleCoinTrade(payer, seller, priceCopper,
   goodsSource, goodsTarget, resource, quantity, maxTarget = Infinity, targetResource = resource) {
   if (!payer || !seller || !goodsSource || !goodsTarget || goodsSource === goodsTarget

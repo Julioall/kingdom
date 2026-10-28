@@ -20,19 +20,19 @@ test('a soldier remembers delayed and recovered pay as separate evidence', () =>
   payMilitarySalaries(world, 10);
   const delay = world.socialEvidence.facts.find(fact => fact.type === 'military_pay_delayed');
   assert.ok(delay);
-  assert.equal(delay.outcome.amount, 15);
+  assert.equal(delay.outcome.amount, 1);
   assert.deepEqual(soldier.socialMemories.map(memory => memory.rootEventId), [delay.eventId]);
   assert.equal(soldier.socialBeliefs[0].evaluation, -1);
   const certaintyBeforeRecovery = soldier.socialBeliefs[0].certainty;
 
   world.day = 11;
-  world.kingdoms[0].treasury.stock.gold = 15;
+  world.kingdoms[0].treasury.stock.gold = 1;
   payMilitarySalaries(world, 11);
 
   const recovery = world.socialEvidence.facts.find(fact => fact.type === 'military_pay_recovered');
   const belief = soldier.socialBeliefs[0];
   assert.ok(recovery);
-  assert.equal(recovery.outcome.amount, 15);
+  assert.equal(recovery.outcome.amount, 1);
   assert.equal(soldier.militaryPayArrears, 0);
   assert.deepEqual(belief.opposingEventIds, [delay.eventId]);
   assert.deepEqual(belief.supportingEventIds, [recovery.eventId]);
@@ -52,16 +52,16 @@ test('verified pay history drives a persistent service review without charging t
   assert.equal(plan.progress, 0);
   assert.deepEqual(plan.evidenceIds, [delay.eventId]);
   assert.equal(world.kingdoms[0].treasury.stock.gold, 0);
-  assert.equal(soldier.militaryPayArrears, 15);
+  assert.equal(soldier.militaryPayArrearsCopper, 100);
 
   resolveMilitaryServiceEvaluation(world, soldier);
   assert.equal(soldier.socialIntentions[0].progress, 1);
   assert.equal(world.kingdoms[0].treasury.stock.gold, 0);
   world.day = 11;
-  world.kingdoms[0].treasury.stock.gold = 15;
+  world.kingdoms[0].treasury.stock.gold = 1;
   payMilitarySalaries(world, 11);
   assert.equal(world.kingdoms[0].treasury.stock.gold, 0);
-  assert.equal(soldier.militaryWallet.stock.gold, 15);
+  assert.equal(soldier.militaryWallet.stock.gold, 1);
 
   const result = resolveMilitaryServiceEvaluation(world, soldier);
   assert.equal(result.plan.status, 'completed');

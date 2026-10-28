@@ -3,19 +3,20 @@ import { militaryCivilianFoodFloor } from '../economy/food-policy.js';
 import { DAILY_FOOD_NEED, FOOD_DAYS_PER_UNIT } from '../../config/ecosystem.js';
 import { distance } from '../core/math.js';
 import {
-  addFoodReserve, communityFoodStock, spendInventory, transferInventory, transferResource, withdrawCommunityFood
+  addFoodReserve, communityFoodStock, spendInventory, transferResource, withdrawCommunityFood
 } from '../economy/inventories.js';
 import { MILITARY_CLASSES } from './military.js';
 import { isOperationalMilitarySource } from './military-sources.js';
 import { moveOne } from '../individuals/movement.js';
 import { structureInteractionPoint } from '../physics/hitboxes.js';
 import { recordTrade } from '../economy/trade-ledger.js';
+import { goldPriceToCopper, settleCoinPayment, settleCoinTrade } from '../economy/coin-payments.js';
 import {
   advanceSocialIntention, defineSocialIntention, recordSocialBeliefEvidence, recordSocialFact,
   rememberSocialFact, SOCIAL_ACTIVE_INTENTION_PER_PERSON_LIMIT
 } from '../society/social-evidence.js';
 
-export const MILITARY_PAY = Object.freeze({ gold: 15, days: 30 });
+export const MILITARY_PAY = Object.freeze({ copper: 100, gold: 1, days: 30 });
 export const PEACETIME_SOLDIER_FOOD_NEED = DAILY_FOOD_NEED;
 export const GARRISON_RATION_TARGET = 55;
 export const GARRISON_RECOVERY = Object.freeze({
@@ -134,8 +135,10 @@ export function enlistSoldier(world, person, center, day = world.day, militaryCl
   person.militaryServiceDay = day;
   // The first wage is due after a complete service period; enlistment is not a payday.
   person.nextMilitaryPayDay = day + MILITARY_PAY.days;
-  person.militaryPayArrears = 0;
-  person.militaryWallet ||= { stock: { gold: 0 } };
+  // Re-enlistment must not erase compensation already owed for prior service.
+  person.militaryPayArrears ??= 0; // Historic debt is in original gold units.
+  person.militaryPayArrearsCopper ??= 0; // New debt uses indivisible copper units.
+  person.militaryWallet ||= { stock: { gold: 0, silver: 0, copper: 0 } };
   person.state = 'em serviço militar';
   person.brain.lastAction = 'guard';
   center.soldierIds ||= [];
@@ -146,32 +149,65 @@ export function enlistSoldier(world, person, center, day = world.day, militaryCl
 
 function paySoldier(world, person, day) {
   const kingdom = world.kingdoms.find(item => item.id === person.kingdomId);
-  if (!kingdom) return;
-  person.militaryWallet ||= { stock: { gold: 0 } };
-  // Existing initial soldiers without a pay clock begin their first full service period now.
+  if (!kingdom?.treasury?.stock) return;
+  person.militaryWallet ||= { stock: { gold: 0, silver: 0, copper: 0 } };
+  // Legacy gold-denominated debts stay distinct. No old balances are silently
+  // rounded into new copper coins or repriced at the reduced wage.
   person.nextMilitaryPayDay ??= day + MILITARY_PAY.days;
   person.militaryPayArrears ||= 0;
-  const previousArrears = person.militaryPayArrears;
+  person.militaryPayArrearsCopper ||= 0;
+  const previousLegacyGold = person.militaryPayArrears;
+  const previousCopper = person.militaryPayArrearsCopper;
   let missedPayDay = null;
-  // Pay is owed on the same calendar in peace and in campaign; do not reset the due date each peaceful day.
   if (day >= person.nextMilitaryPayDay) {
     missedPayDay = person.nextMilitaryPayDay;
-    const months = Math.floor((day - person.nextMilitaryPayDay) / MILITARY_PAY.days) + 1;
-    person.militaryPayArrears += months * MILITARY_PAY.gold;
-    person.nextMilitaryPayDay += months * MILITARY_PAY.days;
+    const periods = Math.floor((day - person.nextMilitaryPayDay) / MILITARY_PAY.days) + 1;
+    const newDebt = person.militaryPayArrearsCopper + periods * MILITARY_PAY.copper;
+    if (!Number.isSafeInteger(newDebt)) throw new Error('Military salary copper debt overflow');
+    person.militaryPayArrearsCopper = newDebt;
+    person.nextMilitaryPayDay += periods * MILITARY_PAY.days;
   }
-  const paid = transferInventory(kingdom.treasury, person.militaryWallet, 'gold', person.militaryPayArrears, 'military-salary');
-  person.militaryPayArrears = Math.max(0, person.militaryPayArrears - paid);
-  if (missedPayDay !== null && person.militaryPayArrears > previousArrears) {
+
+  const treasuryCoins = kingdom.treasury.stock;
+  const walletCoins = person.militaryWallet.stock;
+  let paidCopper = 0;
+  // Pay historic obligations first, in full and only when the exact amount
+  // corresponds to whole legacy gold pieces. Fractional legacy claims remain
+  // payable liabilities until an explicitly audited migration is available.
+  if (person.militaryPayArrears > 0 && Number.isSafeInteger(person.militaryPayArrears)
+      && Number.isSafeInteger(person.militaryPayArrears * 100)) {
+    const oldDueCopper = person.militaryPayArrears * 100;
+    if (settleCoinPayment(treasuryCoins, walletCoins, oldDueCopper)) {
+      paidCopper += oldDueCopper;
+      person.militaryPayArrears = 0;
+    }
+  }
+  // Do not leapfrog unpaid historic wages; nor pay a partial month if the
+  // treasury lacks physical denominations or real change for this obligation.
+  if (person.militaryPayArrears === 0 && person.militaryPayArrearsCopper > 0) {
+    const newDueCopper = person.militaryPayArrearsCopper;
+    if (Number.isSafeInteger(newDueCopper)
+        && settleCoinPayment(treasuryCoins, walletCoins, newDueCopper)) {
+      paidCopper += newDueCopper;
+      person.militaryPayArrearsCopper = 0;
+    }
+  }
+
+  const beforeCopper = previousLegacyGold * 100 + previousCopper;
+  // A newly missed instalment must be recorded even if old debt was paid
+  // in the same tick: total outstanding may fall while this month stays due.
+  if (missedPayDay !== null && person.militaryPayArrearsCopper > previousCopper) {
     recordMilitaryPayExperience(world, person, kingdom, 'military_pay_delayed',
-      person.militaryPayArrears - previousArrears, day, missedPayDay);
+      (person.militaryPayArrearsCopper - previousCopper) / 100, day, missedPayDay);
   }
-  if (previousArrears > 0 && paid > 0) {
-    recordMilitaryPayExperience(world, person, kingdom, 'military_pay_recovered', paid, day, null);
+  if (beforeCopper > 0 && paidCopper > 0) {
+    recordMilitaryPayExperience(world, person, kingdom, 'military_pay_recovered',
+      paidCopper / 100, day, null);
   }
-  if (paid > 0) {
+  if (paidCopper > 0) {
     person.lastMilitaryPayDay = day;
-    person.totalMilitaryPay = (person.totalMilitaryPay || 0) + paid;
+    person.totalMilitaryPay = (person.totalMilitaryPay || 0) + paidCopper / 100;
+    person.totalMilitaryPayCopper = (person.totalMilitaryPayCopper || 0) + paidCopper;
   }
 }
 
@@ -228,7 +264,9 @@ export function resolveMilitaryServiceEvaluation(world, soldier) {
     ['military_pay_delayed', 'military_pay_recovered'].includes(fact.type)
     && fact.participantIds.includes(String(soldier.id)) && String(fact.targetId) === String(kingdom.id)
     && ((plan.evidenceIds || []).includes(fact.eventId) || fact.day >= plan.createdDay));
-  const outstandingArrears = Math.max(0, Number(soldier.militaryPayArrears) || 0);
+  const outstandingArrearsCopper = Math.max(0, Number(soldier.militaryPayArrearsCopper) || 0);
+  const outstandingArrears = Math.max(0, Number(soldier.militaryPayArrears) || 0)
+    + outstandingArrearsCopper / 100;
   const evaluation = recordSocialFact(world, {
     idempotencyKey: 'military-service-evaluation:' + plan.intentionId,
     type: 'military_service_evaluated', participantIds: [soldier.id], witnessIds: [soldier.id],
@@ -237,6 +275,7 @@ export function resolveMilitaryServiceEvaluation(world, soldier) {
     outcome: {
       status: outstandingArrears > .001 ? 'arrears_outstanding' : 'paid_to_date',
       outstandingArrears,
+      outstandingArrearsCopper,
       walletGold: Math.max(0, Number(soldier.militaryWallet?.stock?.gold) || 0),
       reviewedPaymentEventIds: relatedPayEvents.map(fact => fact.eventId)
     }
@@ -261,15 +300,34 @@ export function buyMilitaryMeal(world, person, rationNeed = DAILY_FOOD_NEED) {
   const market = kingdom?.market;
   const wallet = person.militaryWallet?.stock;
   const price = market?.prices?.food;
-  if (!wallet || !market || !Number.isFinite(price) || price <= 0) return 0;
-  const food = Math.min(rationNeed / FOOD_DAYS_PER_UNIT, (100 - person.foodReserve) / FOOD_DAYS_PER_UNIT,
-    market.stock.food || 0, (wallet.gold || 0) / price);
-  if (!(food > .01)) return 0;
-  const goldPaid = transferResource(wallet, market.stock, 'gold', food * price);
-  const foodPurchased = transferResource(market.stock, person, 'food', food, 'militaryFoodPurchased');
-  if (!(foodPurchased > .01)) {
-    transferResource(market.stock, wallet, 'gold', goldPaid);
-    return 0;
+  if (!wallet || !market?.stock || !Number.isFinite(price) || price <= 0) return 0;
+  const foodLimit = Math.min(rationNeed / FOOD_DAYS_PER_UNIT,
+    (100 - person.foodReserve) / FOOD_DAYS_PER_UNIT, market.stock.food || 0);
+  if (!(foodLimit > .01)) return 0;
+  const useCoins = wallet.coinMode || market.stock.coinMode
+    || (wallet.silver || 0) > 0 || (wallet.copper || 0) > 0;
+  let foodPurchased = 0;
+  let moneyDelta;
+  if (useCoins) {
+    const priceCopper = goldPriceToCopper(price * foodLimit);
+    const quote = priceCopper == null ? null : settleCoinTrade(wallet, market.stock, priceCopper,
+      market.stock, person, 'food', foodLimit, Infinity, 'militaryFoodPurchased');
+    if (!quote) return 0;
+    foodPurchased = foodLimit;
+    moneyDelta = {
+      gold: -quote.transfers.gold, silver: -quote.transfers.silver, copper: -quote.transfers.copper
+    };
+  } else {
+    // Untouched legacy accounts retain their historical gold-denominated path.
+    const food = Math.min(foodLimit, (wallet.gold || 0) / price);
+    if (!(food > .01)) return 0;
+    const paidGold = transferResource(wallet, market.stock, 'gold', food * price);
+    foodPurchased = transferResource(market.stock, person, 'food', food, 'militaryFoodPurchased');
+    if (!(foodPurchased > .01)) {
+      transferResource(market.stock, wallet, 'gold', paidGold);
+      return 0;
+    }
+    moneyDelta = { gold: -paidGold };
   }
   market.transactions = (market.transactions || 0) + 1;
   const reserveAdded = addFoodReserve(person, foodPurchased * FOOD_DAYS_PER_UNIT, 'military-market-meal');
@@ -278,12 +336,13 @@ export function buyMilitaryMeal(world, person, rationNeed = DAILY_FOOD_NEED) {
     kind: 'market',
     action: 'comprou refeição militar',
     participants: [{ personId: person.id, kingdomId: kingdom.id, delta: {
-      gold: -goldPaid, foodReserveDays: reserveAdded
+      ...moneyDelta, foodReserveDays: reserveAdded
     } }],
     market: {
       ownerType: market.ownerType || 'kingdom-market',
       ownerId: market.ownerId ?? kingdom.id,
-      delta: { food: -foodPurchased, gold: goldPaid }
+      delta: { food: -foodPurchased, ...Object.fromEntries(
+        Object.entries(moneyDelta).map(([coin, amount]) => [coin, -amount])) }
     },
     assetsCreated: []
   }, [community, kingdom, market]);
