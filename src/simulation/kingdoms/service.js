@@ -29,10 +29,9 @@ export function restPersonInHouse(world, person) {
     && (person.kingdomId != null && structure.kingdomId === person.kingdomId
       || person.communityId != null && structure.communityId === person.communityId)
     && structure.destroyedDay == null
-    && structure.integrity !== 0);
-  const home = world.structures.find(structure => structure.id === person.homeId && structure.complete
-    && structure.destroyedDay == null && structure.integrity !== 0);
+    && structure.integrity !== 0 && structure.health !== 0);
   const houses = buildings.filter(structure => ['abrigo', 'casa'].includes(structure.type));
+  const home = houses.find(structure => structure.id === person.homeId);
   const soldier = person.role === 'soldier';
   const currentTargetId = soldier ? person.militaryRestTargetId : person.homeRestTargetId;
   const house = home || houses.find(structure => structure.id === currentTargetId)
