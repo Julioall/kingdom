@@ -278,7 +278,8 @@ test('fixed-price community sale is not offered without real market gold', () =>
 test('resident buys one food with gold, receives silver and copper change, and keeps mined cargo', () => {
   const { world, community, person, market } = fixture();
   person.carriedWood = 12;
-  person.foodReserve = 99;
+  person.foodReserve = 59;
+  market.stock.food = 1;
   person.carriedGold = 3;
   person.personalWallet.stock = { gold: 1, silver: 0, copper: 1 };
   market.prices.food = .37;
@@ -289,8 +290,8 @@ test('resident buys one food with gold, receives silver and copper change, and k
   const partner = findTradePartner(world, community, person);
   assert.equal(partner?.isMarket, true);
   assert.equal(performTrade(world, person, community, partner), true);
-  assert.equal(person.foodReserve, 100);
-  assert.equal(market.stock.food, 19);
+  assert.equal(person.foodReserve, 60);
+  assert.equal(market.stock.food, 0);
   assert.deepEqual(person.personalWallet.stock, { gold: 0, silver: 6, copper: 4 });
   assert.equal(person.carriedGold, 3, 'ore cargo must not become spendable coins');
   assert.deepEqual(['gold', 'silver', 'copper'].map((metal) =>
@@ -304,7 +305,8 @@ test('resident buys one food with gold, receives silver and copper change, and k
 test('personal coin purchase needs exact change; it cannot fall through to fractional legacy gold', () => {
   const { world, community, person, market } = fixture();
   person.carriedWood = 12;
-  person.foodReserve = 99;
+  person.foodReserve = 59;
+  market.stock.food = 1;
   person.personalWallet.stock = { gold: 1, silver: 0, copper: 1 };
   market.prices.food = .37;
   market.stock.silver = 6;
