@@ -32,7 +32,8 @@ try {
     const page = await browser.newPage({ viewport: report.viewport, deviceScaleFactor: 1 });
     const errors = [];
     page.on('pageerror', error => errors.push(String(error)));
-    const url = base + '?profile=1&effects=fixed' + (renderer === 'reference' ? '&render=reference' : '');
+    const url = base + '?profile=1&effects=fixed&seed=42&paused=1' +
+      (renderer === 'reference' ? '&render=reference' : '');
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45_000 });
     await page.waitForFunction(() => {
       const snapshot = window.kingdomProfiler?.snapshot();
@@ -40,8 +41,16 @@ try {
       return canvas?.width > 0 && canvas?.height > 0
         && snapshot?.map?.samples >= 12 && snapshot?.frames?.samples >= 12;
     }, null, { timeout: 150_000 });
-    // Measure after loading and initial cache warm-up. Same viewport and
-    // measurement window on both renderers; results are diagnostic, not a gate.
+    // Compare the same seed, pause state, camera zoom and viewport. The
+    // unzoomed 50% view hides individual mineral deposits; zoom to the regular
+    // 200% map inspection view before collecting samples.
+    await page.locator('#mapZoomReset').click();
+    await page.waitForFunction(() => Math.abs((window.kingdomProfiler?.snapshot()?.context?.zoom ?? 0) - 2) < .02);
+    await page.evaluate(() => window.kingdomProfiler.reset());
+    await page.waitForFunction(() => {
+      const p = window.kingdomProfiler?.snapshot();
+      return p?.map.samples >= 12 && p?.frames.samples >= 12 && p.context?.seed === 42;
+    }, null, { timeout: 120_000 });
     await page.waitForTimeout(1600);
     const metrics = await page.evaluate(() => {
       const p = window.kingdomProfiler.snapshot();
@@ -53,6 +62,8 @@ try {
         seed: p.context?.seed, canvasWidth: c.width, canvasHeight: c.height,
         snapshotContext: p.context };
     });
+    if (metrics.seed !== 42 || Math.abs(metrics.snapshotContext?.zoom - 2) > .02)
+      throw new Error(renderer + ': baseline seed/zoom drifted during browser capture');
     const image = resolve(outputDir, renderer + '-map.png');
     // Save the raw 2D map pixels, not an element screenshot obscured by the
     // atmospheric overlay, floating panels or profiler. Keep a separate
