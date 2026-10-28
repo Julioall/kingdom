@@ -132,7 +132,8 @@ export function enlistSoldier(world, person, center, day = world.day, militaryCl
   person.militaryDutyCenterId = center.id;
   person.militaryTraining = 0;
   person.militaryServiceDay = day;
-  person.nextMilitaryPayDay = day;
+  // The first wage is due after a complete service period; enlistment is not a payday.
+  person.nextMilitaryPayDay = day + MILITARY_PAY.days;
   person.militaryPayArrears = 0;
   person.militaryWallet ||= { stock: { gold: 0 } };
   person.state = 'em serviço militar';
@@ -147,7 +148,8 @@ function paySoldier(world, person, day) {
   const kingdom = world.kingdoms.find(item => item.id === person.kingdomId);
   if (!kingdom) return;
   person.militaryWallet ||= { stock: { gold: 0 } };
-  person.nextMilitaryPayDay ??= day;
+  // Existing initial soldiers without a pay clock begin their first full service period now.
+  person.nextMilitaryPayDay ??= day + MILITARY_PAY.days;
   person.militaryPayArrears ||= 0;
   const previousArrears = person.militaryPayArrears;
   let missedPayDay = null;
