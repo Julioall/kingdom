@@ -196,7 +196,11 @@ function personalMarketOffer(world, community, person, marketOwner) {
       carried - (resource === 'iron' ? 4 : PERSONAL_SALE_FLOOR),
       Math.max(0, 260 - marketAmount));
     const gold = amount * price / 2;
-    if (amount > .01 && canSpend(market, 'gold', gold)
+    if (coinMode) {
+      const priceCopper = goldPriceToCopper(gold);
+      if (amount > .01 && priceCopper && quoteCoinPayment(market, wallet, priceCopper))
+        return { action: 'sell-coins-' + resource, resource, amount, priceCopper };
+    } else if (amount > .01 && canSpend(market, 'gold', gold)
         && canReceiveUpTo(wallet, 'gold', gold, Infinity)) {
       return { action: 'sell-' + resource, resource, amount, gold };
     }
@@ -224,6 +228,12 @@ function executePersonalMarketTrade(world, person, community, marketOwner) {
     movedGold = transferResource(wallet, market, 'gold', offer.gold);
     movedResource = transferResource(market, person, 'food', offer.amount,
       'foodReserve', 100);
+  } else if (offer.action.startsWith('sell-coins-')) {
+    const cargoField = 'carried' + offer.resource[0].toUpperCase() + offer.resource.slice(1);
+    coinReceipt = settleCoinTrade(market, wallet, offer.priceCopper,
+      person, market, cargoField, offer.amount, 260, offer.resource);
+    if (!coinReceipt) return false;
+    movedResource = offer.amount;
   } else {
     const cargoField = 'carried' + offer.resource[0].toUpperCase() + offer.resource.slice(1);
     movedResource = transferResource(person, market, cargoField, offer.amount, offer.resource, 260);
@@ -273,7 +283,9 @@ function executePersonalMarketTrade(world, person, community, marketOwner) {
         : offer.action === 'buy-food'
           ? { walletGold: -movedGold, foodReserveDays: movedResource * FOOD_DAYS_PER_UNIT }
         : { ['carried' + offer.resource[0].toUpperCase() + offer.resource.slice(1)]: -movedResource,
-          walletGold: movedGold }
+          walletGold: coinReceipt ? coinReceipt.transfers.gold : movedGold,
+          ...(coinReceipt ? { walletSilver: coinReceipt.transfers.silver,
+            walletCopper: coinReceipt.transfers.copper } : {}) }
     }],
     market: {
       ownerType: marketOwner.ownerType || 'market', ownerId: marketOwner.ownerId ?? null,
