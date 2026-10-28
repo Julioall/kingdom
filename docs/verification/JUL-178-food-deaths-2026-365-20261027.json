@@ -1,0 +1,398 @@
+{
+  "sourceRevision": "e4993665704716fdb3f5c8d4a95c0a93ad25385d",
+  "seed": 2026,
+  "requestedDays": 365,
+  "observedThroughDay": 365,
+  "starvationDeaths": 15,
+  "deathsCaptured": 1,
+  "firstDeaths": [
+    {
+      "day": 299,
+      "id": 83,
+      "name": "Ayo I",
+      "role": "soldier",
+      "ageDays": 12519.811278512701,
+      "deathDetails": {
+        "day": 299,
+        "cause": "starvation",
+        "ageDays": 12519.811278512701,
+        "health": 0,
+        "foodReserve": 0,
+        "hydration": 20.546365314582804,
+        "injury": 0,
+        "carriedFood": 0,
+        "recentHealth": {
+          "days": 30,
+          "losses": {
+            "starvation": 0.83
+          },
+          "recovery": {}
+        }
+      },
+      "state": "retornando ao centro militar para repouso",
+      "lastLesson": "Em paz, o soldado volta ao centro militar quando precisa de comida ou descanso; a ração reduzida vem do estoque do reino.",
+      "x": 63,
+      "y": 39,
+      "communityId": 27,
+      "kingdomId": 25,
+      "homeId": 35,
+      "guardianId": null,
+      "parents": [],
+      "assignment": null,
+      "campaignId": null,
+      "militaryCenterId": 32,
+      "towerDutyId": null,
+      "towerRecovering": false,
+      "preDeathState": {
+        "day": 298,
+        "x": 64,
+        "y": 38,
+        "health": 0.12920852949128026,
+        "foodReserve": 0,
+        "hydration": 20.846365314582805,
+        "energy": 75.45219697014868,
+        "state": "retornando ao centro militar para repouso",
+        "action": "return_garrison",
+        "foodTarget": null,
+        "movementCooldown": 0
+      },
+      "recentHistory": [
+        {
+          "day": 285,
+          "x": 60,
+          "y": 47,
+          "health": 0.8292085294912803,
+          "foodReserve": 0,
+          "hydration": 24.746365314582814,
+          "energy": 79.85835696976507,
+          "state": "indo descansar na casa",
+          "action": "rest",
+          "foodTarget": null,
+          "movementCooldown": 0
+        },
+        {
+          "day": 286,
+          "x": 60,
+          "y": 46,
+          "health": 0.8292085294912803,
+          "foodReserve": 0,
+          "hydration": 24.446365314582813,
+          "energy": 79.49403696979458,
+          "state": "indo descansar na casa",
+          "action": "rest",
+          "foodTarget": null,
+          "movementCooldown": 0
+        },
+        {
+          "day": 287,
+          "x": 61,
+          "y": 45,
+          "health": 0.8292085294912803,
+          "foodReserve": 0,
+          "hydration": 24.146365314582813,
+          "energy": 79.12971696982409,
+          "state": "indo descansar na casa",
+          "action": "rest",
+          "foodTarget": null,
+          "movementCooldown": 0
+        },
+        {
+          "day": 288,
+          "x": 62,
+          "y": 44,
+          "health": 0.8292085294912803,
+          "foodReserve": 0,
+          "hydration": 23.846365314582812,
+          "energy": 78.7653969698536,
+          "state": "indo descansar na casa",
+          "action": "rest",
+          "foodTarget": null,
+          "movementCooldown": 0
+        },
+        {
+          "day": 289,
+          "x": 62,
+          "y": 43,
+          "health": 0.8292085294912803,
+          "foodReserve": 0,
+          "hydration": 23.54636531458281,
+          "energy": 78.4010769698831,
+          "state": "indo descansar na casa",
+          "action": "rest",
+          "foodTarget": null,
+          "movementCooldown": 0
+        },
+        {
+          "day": 290,
+          "x": 63,
+          "y": 42,
+          "health": 0.8292085294912803,
+          "foodReserve": 0,
+          "hydration": 23.24636531458281,
+          "energy": 78.03675696991262,
+          "state": "indo descansar na casa",
+          "action": "rest",
+          "foodTarget": null,
+          "movementCooldown": 0
+        },
+        {
+          "day": 291,
+          "x": 63,
+          "y": 41,
+          "health": 0.8292085294912803,
+          "foodReserve": 0,
+          "hydration": 22.94636531458281,
+          "energy": 77.67243696994213,
+          "state": "retornando da campanha",
+          "action": "campaign",
+          "foodTarget": null,
+          "movementCooldown": 0
+        },
+        {
+          "day": 292,
+          "x": 63,
+          "y": 40,
+          "health": 0.8292085294912803,
+          "foodReserve": 0,
+          "hydration": 22.64636531458281,
+          "energy": 77.30811696997164,
+          "state": "retornando da campanha",
+          "action": "campaign",
+          "foodTarget": null,
+          "movementCooldown": 0
+        },
+        {
+          "day": 293,
+          "x": 63,
+          "y": 39,
+          "health": 0.8292085294912803,
+          "foodReserve": 0,
+          "hydration": 22.34636531458281,
+          "energy": 76.94379697000115,
+          "state": "retornando da campanha",
+          "action": "campaign",
+          "foodTarget": null,
+          "movementCooldown": 0
+        },
+        {
+          "day": 294,
+          "x": 64,
+          "y": 38,
+          "health": 0.8292085294912803,
+          "foodReserve": 0,
+          "hydration": 22.046365314582808,
+          "energy": 76.57947697003065,
+          "state": "retornando da campanha",
+          "action": "campaign",
+          "foodTarget": null,
+          "movementCooldown": 0
+        },
+        {
+          "day": 295,
+          "x": 64,
+          "y": 37,
+          "health": 0.8292085294912803,
+          "foodReserve": 0,
+          "hydration": 21.746365314582807,
+          "energy": 76.21515697006016,
+          "state": "retornando da campanha",
+          "action": "campaign",
+          "foodTarget": null,
+          "movementCooldown": 0
+        },
+        {
+          "day": 296,
+          "x": 64,
+          "y": 36,
+          "health": 0.8292085294912803,
+          "foodReserve": 0,
+          "hydration": 21.446365314582806,
+          "energy": 75.85083697008967,
+          "state": "retornando da campanha",
+          "action": "campaign",
+          "foodTarget": null,
+          "movementCooldown": 0
+        },
+        {
+          "day": 297,
+          "x": 64,
+          "y": 37,
+          "health": 0.4792085294912803,
+          "foodReserve": 0,
+          "hydration": 21.146365314582805,
+          "energy": 75.65151697011918,
+          "state": "retornando ao centro militar para repouso",
+          "action": "return_garrison",
+          "foodTarget": null,
+          "movementCooldown": 0
+        },
+        {
+          "day": 298,
+          "x": 64,
+          "y": 38,
+          "health": 0.12920852949128026,
+          "foodReserve": 0,
+          "hydration": 20.846365314582805,
+          "energy": 75.45219697014868,
+          "state": "retornando ao centro militar para repouso",
+          "action": "return_garrison",
+          "foodTarget": null,
+          "movementCooldown": 0
+        }
+      ],
+      "foodTarget": null,
+      "selectedFoodTarget": {
+        "x": 66,
+        "y": 39
+      },
+      "lastDecision": {
+        "action": "return_garrison",
+        "scores": null,
+        "inputs": [
+          1,
+          0.70648049550596,
+          0,
+          1,
+          0.552786404500042,
+          0.9301228757031316,
+          1,
+          0.2919981594411017,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0.5637223137749566,
+          0,
+          0.10068498535722209,
+          0,
+          0.010876358117298647
+        ],
+        "day": 298
+      },
+      "communityFood": 12595.252411942583,
+      "nearestAdults": [
+        {
+          "id": 102,
+          "name": "Davi U",
+          "distance": 1.4142135623730951,
+          "role": "soldier",
+          "ageDays": 7277.150990046561,
+          "foodReserve": 33,
+          "state": "retornando da campanha",
+          "campaignId": 195,
+          "communityId": 27
+        },
+        {
+          "id": 73,
+          "name": "Zuri V",
+          "distance": 2.23606797749979,
+          "role": "soldier",
+          "ageDays": 12189.134910074994,
+          "foodReserve": 37,
+          "state": "retornando ao centro militar para repouso",
+          "campaignId": null,
+          "communityId": 27
+        },
+        {
+          "id": 91,
+          "name": "Iara G",
+          "distance": 2.23606797749979,
+          "role": "soldier",
+          "ageDays": 11961.811010563746,
+          "foodReserve": 48,
+          "state": "indo descansar na casa",
+          "campaignId": null,
+          "communityId": 27
+        }
+      ],
+      "nearestFood": [
+        {
+          "x": 63,
+          "y": 39,
+          "distance": 0,
+          "edibleBiomass": 76.76567077636719,
+          "berryAnchor": true,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 1.4142135623730951,
+            "biomass": {
+              "grass": 48.25519561767578,
+              "berry": 76.76567077636719
+            },
+            "harvestableBiomass": {
+              "grass": 48.25519561767578,
+              "berry": 76.76567077636719
+            }
+          }
+        },
+        {
+          "x": 63,
+          "y": 40,
+          "distance": 1,
+          "edibleBiomass": 68.66185760498047,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 2.23606797749979,
+            "biomass": {
+              "grass": 50.701019287109375,
+              "berry": 68.66185760498047
+            },
+            "harvestableBiomass": {
+              "grass": 50.701019287109375,
+              "berry": 68.66185760498047
+            }
+          }
+        },
+        {
+          "x": 64,
+          "y": 38,
+          "distance": 1.4142135623730951,
+          "edibleBiomass": 75.23499298095703,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 0,
+            "biomass": {
+              "grass": 52.550453186035156,
+              "berry": 75.23499298095703
+            },
+            "harvestableBiomass": {
+              "grass": 52.550453186035156,
+              "berry": 75.23499298095703
+            }
+          }
+        },
+        {
+          "x": 61,
+          "y": 39,
+          "distance": 2,
+          "edibleBiomass": 62.50053787231445,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": {
+            "distance": 3.1622776601683795,
+            "biomass": {
+              "grass": 44.95841598510742,
+              "berry": 62.50053787231445
+            },
+            "harvestableBiomass": {
+              "grass": 44.95841598510742,
+              "berry": 62.50053787231445
+            }
+          }
+        },
+        {
+          "x": 61,
+          "y": 37,
+          "distance": 2.8284271247461903,
+          "edibleBiomass": 61.670440673828125,
+          "berryAnchor": false,
+          "cropFieldId": null,
+          "perceived": null
+        }
+      ]
+    }
+  ]
+}
