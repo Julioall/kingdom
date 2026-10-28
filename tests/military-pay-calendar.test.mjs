@@ -60,6 +60,7 @@ test('unpaid peacetime wages remain due and later recovery preserves social evid
   world.kingdoms[0].treasury.stock.gold = 3; // External funding in fixture; salary itself never mints funds.
   payOn(world, 60);
   assert.equal(soldier.militaryPayArrears, 0);
+  assert.equal(soldier.militaryPayArrearsCopper, 0);
   assert.equal(soldier.militaryWallet.stock.gold, 3);
   assert.equal(world.kingdoms[0].treasury.stock.gold, 0);
   assert.ok(world.socialEvidence.facts.some(f => f.type === 'military_pay_recovered'));
@@ -79,7 +80,7 @@ test('military pay schedule produces identical deterministic account and event r
   const replay = () => {
     const world = fixture({ treasuryGold: 0 });
     for (const day of [0, 1, 30, 60, 60, 90]) {
-      if (day === 60 && world.kingdoms[0].treasury.stock.gold === 0 && world.people[0].militaryPayArrears > 0) world.kingdoms[0].treasury.stock.gold = 3;
+      if (day === 60 && world.kingdoms[0].treasury.stock.gold === 0 && world.people[0].militaryPayArrearsCopper > 0) world.kingdoms[0].treasury.stock.gold = 3;
       payOn(world, day);
     }
     return JSON.stringify({
