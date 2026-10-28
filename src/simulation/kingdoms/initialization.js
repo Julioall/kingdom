@@ -84,7 +84,7 @@ export function initializeKingdoms(world) {
       x: start.x, y: start.y, createdDay: world.day, rulerId: null, memberIds: [],
       innerX: start.innerX, innerY: start.innerY, communityId: null,
       settlementIds: [], structureIds: [], homeIds: [], towerIds: [], militaryCenterIds: [], territoryTileCount: 0,
-      treasury: { ownerType: 'kingdom', ownerId: id, stock: { food: 4800, wood: 1200, stone: 700, gold: 9000, copper: 0, silver: 0, iron: 0, feed: 180, seeds: 32 } },
+      treasury: { ownerType: 'kingdom', ownerId: id, stock: { food: 4800, wood: 1200, stone: 700, gold: 9000, copper: 0, silver: 0, iron: 0, feed: 180, seeds: 0 } },
       policy: { taxRate: .075, droughtReserveDays: 30, priorities: ['food', 'water', 'housing', 'defense'] },
       satisfaction: .62, prestige: 0, legacy: null,
       frontierExpansion: {
@@ -145,7 +145,7 @@ export function initializeKingdoms(world) {
     kingdom.capitalSettlementId = settlement.id;
     kingdom.market = { ownerType: 'kingdom-market', ownerId: kingdom.id, stock: { food: 0, wood: 0, stone: 0, gold: 0, copper: 0, silver: 0, iron: 0, feed: 0, seeds: 0 }, prices: { ...BASE_PRICES }, supply: {}, demand: {}, transactions: 0, lastUpdateDay: -1 };
     for (const resource of Object.keys(BASE_PRICES)) {
-      const openingStock = { food: 42, wood: 12, stone: 8, gold: 18, feed: 12, iron: 0, seeds: 24 }[resource];
+      const openingStock = { food: 42, wood: 12, stone: 8, gold: 18, feed: 12, iron: 0, seeds: 0 }[resource];
       if (openingStock > 0) transferInventory(kingdom.treasury, kingdom.market, resource, openingStock);
     }
     // Recoin five pieces of existing royal gold into 20 silver and 300 copper.
