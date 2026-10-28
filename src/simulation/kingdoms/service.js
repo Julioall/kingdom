@@ -3,7 +3,7 @@ import { militaryCivilianFoodFloor } from '../economy/food-policy.js';
 import { DAILY_FOOD_NEED, FOOD_DAYS_PER_UNIT } from '../../config/ecosystem.js';
 import { distance } from '../core/math.js';
 import {
-  addFoodReserve, communityFoodStock, spendInventory, transferInventory, transferResource, withdrawCommunityFood
+  addFoodReserve, communityFoodStock, spendInventory, transferResource, withdrawCommunityFood
 } from '../economy/inventories.js';
 import { MILITARY_CLASSES } from './military.js';
 import { isOperationalMilitarySource } from './military-sources.js';
@@ -306,7 +306,6 @@ export function buyMilitaryMeal(world, person, rationNeed = DAILY_FOOD_NEED) {
   const useCoins = wallet.coinMode || market.stock.coinMode
     || (wallet.silver || 0) > 0 || (wallet.copper || 0) > 0;
   let foodPurchased = 0;
-  let paidGold = 0;
   let moneyDelta;
   if (useCoins) {
     const priceCopper = goldPriceToCopper(price * foodLimit);
@@ -314,7 +313,6 @@ export function buyMilitaryMeal(world, person, rationNeed = DAILY_FOOD_NEED) {
       market.stock, person, 'food', foodLimit, Infinity, 'militaryFoodPurchased');
     if (!quote) return 0;
     foodPurchased = foodLimit;
-    paidGold = priceCopper / 100; // Gold-equivalent display only; no fractional coin.
     moneyDelta = {
       gold: -quote.transfers.gold, silver: -quote.transfers.silver, copper: -quote.transfers.copper
     };
@@ -322,7 +320,7 @@ export function buyMilitaryMeal(world, person, rationNeed = DAILY_FOOD_NEED) {
     // Untouched legacy accounts retain their historical gold-denominated path.
     const food = Math.min(foodLimit, (wallet.gold || 0) / price);
     if (!(food > .01)) return 0;
-    paidGold = transferResource(wallet, market.stock, 'gold', food * price);
+    const paidGold = transferResource(wallet, market.stock, 'gold', food * price);
     foodPurchased = transferResource(market.stock, person, 'food', food, 'militaryFoodPurchased');
     if (!(foodPurchased > .01)) {
       transferResource(market.stock, wallet, 'gold', paidGold);
