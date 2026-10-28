@@ -11,11 +11,20 @@ export function resourceSummary(world, kingdomId = null) {
   const communities = world.communities.filter(c => !c.dissolved && (kingdomId == null
     || kingdoms.some(k => k.communityId === c.id)));
   const accounts = [...kingdoms.flatMap(k => [k.treasury?.stock, k.market?.stock]), ...communities.map(c => c.stores), ...(kingdomId == null && world.market ? [world.market] : [])];
+  // Account ownership is not physical access: community stores, treasury and markets
+  // remain separate even though the HUD displays their aggregate in adult person-days.
+  const foodByAccount = {
+    community: sum(communities, c => food(c.stores)),
+    treasury: sum(kingdoms, k => food(k.treasury?.stock)),
+    market: sum(kingdoms, k => food(k.market?.stock)),
+    unassignedMarket: kingdomId == null ? food(world.market) : 0
+  };
   const deceased = world.people.filter(p => !p.alive && (kingdomId == null || (p.deathKingdomId !== undefined ? p.deathKingdomId : p.kingdomId) === kingdomId));
   const born = world.people.filter(p => p.parents?.length && (kingdomId == null || (p.birthKingdomId !== undefined ? p.birthKingdomId : p.kingdomId) === kingdomId));
   return {
     people: people.length,
     food: sum(accounts, food),
+    foodByAccount,
     gold: sum(accounts, s => s?.gold) + sum(people, p => (p.carriedGold || 0) + (p.militaryWallet?.stock?.gold || 0)),
     births: born.length, deaths: deceased.length,
     hungry: people.filter(p => p.foodReserve < 30).length,
