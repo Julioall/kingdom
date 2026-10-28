@@ -6,6 +6,7 @@ import { rand } from '../core/random.js';
 import { log } from '../core/events.js';
 import { plantBiomass } from '../ecology/plants.js';
 import { communityFoodStock, transferStores } from '../economy/inventories.js';
+import { releaseSeedCargo, reassignMergedSeedOwnership } from '../economy/seed-cargo.js';
 
 export function activeCommunity(w, person) {
     return person.communityId === null ? null : w.communities.find(c => c.id === person.communityId && !c.dissolved) || null;
@@ -61,7 +62,12 @@ export function createCommunity(w, members) {
     const naming = communityName(w, members);
     const c = { id, name: naming.name, nameSource: naming.source, color: COLORS[(id + Math.floor(rand(w) * COLORS.length)) % COLORS.length], memberIds: [], stage: 'vínculo', previousStage: 'vínculo', x: center.x, y: center.y, cohesion: .2, satisfaction: .5, leaderId: null, leadershipChallenge: null, assignments: [], properties: [], lastGovernanceDay: -999, lastPropertyDay: -999, createdDay: w.day, history: [], usedCells: {}, grounds: { hunting: null, fishing: null }, lastBuildDay: -999, stores: { food: 0, meat: 0, wood: 0, stone: 0, feed: 0, gold: 0, seeds: 0 }, tradeCount: 0, splitCooldown: 0 };
     w.communities.push(c);
-    for (const p of members) { p.communityId = id; if (!c.memberIds.includes(p.id)) c.memberIds.push(p.id); recordCommunityUse(w, p); }
+    for (const p of members) {
+      if (p.communityId != null && p.communityId !== id) releaseSeedCargo(w, p, { reason: 'community-change' });
+      p.communityId = id;
+      if (!c.memberIds.includes(p.id)) c.memberIds.push(p.id);
+      recordCommunityUse(w, p);
+    }
     selectCommunityLeader(w, c, members);
     c.history.push('Nome escolhido pelos primeiros membros a partir da paisagem próxima.');
     log(w, naming.source + ' propôs o nome ' + naming.name + ' após encontros repetidos entre os primeiros membros.');
@@ -72,6 +78,8 @@ export function joinCommunity(w, person, communityId) {
     const c = w.communities.find(g => g.id === communityId);
     if (!c || !person.alive) return;
     if (c.isKingdomGroup && person.kingdomId !== c.kingdomId) return;
+    if (person.communityId != null && person.communityId !== c.id)
+      releaseSeedCargo(w, person, { reason: 'community-change' });
     if (person.assignment && person.assignment.communityId !== c.id) person.assignment = null;
     person.communityId = c.id;
     if (!c.memberIds.includes(person.id)) c.memberIds.push(person.id);
@@ -83,9 +91,12 @@ export function mergeCommunities(w, aId, bId) {
     const a = w.communities.find(c => c.id === aId), b = w.communities.find(c => c.id === bId);
     if (!a || !b || a.id === b.id || a.isKingdomGroup || b.isKingdomGroup || a.kingdomId !== b.kingdomId) return;
     const keep = a.createdDay <= b.createdDay ? a : b, lose = keep === a ? b : a;
+    // A merger succeeds to all seed obligations; do not abandon physical bags
+    // or leave parcels owned by a dissolved community.
+    reassignMergedSeedOwnership(w, lose.id, keep.id);
     for (const p of w.people) if (p.communityId === lose.id) { p.communityId = keep.id; if (!keep.memberIds.includes(p.id)) keep.memberIds.push(p.id); }
     keep.usedCells = Object.assign(keep.usedCells || {}, lose.usedCells || {});
-    for (const key of ['food', 'meat', 'wood', 'stone', 'feed', 'gold']) {
+    for (const key of ['food', 'meat', 'wood', 'stone', 'feed', 'gold', 'seeds']) {
       transferStores(lose, keep, key, lose.stores[key] || 0);
     }
     ensureCommunityGovernanceState(keep); ensureCommunityGovernanceState(lose);
@@ -180,6 +191,9 @@ export function splitCommunities(w) {
       const tense = Object.values(w.communityRelations).some(r => (r.a === c.id || r.b === c.id) && r.tension > .5);
       if (trust < .32 || (!lowFood && !tense)) continue;
       const share = distant.length / members.length;
+      // A splitting group may not transport another community's commissioned
+      // seed bags as its own property. Drop at the current position for recovery.
+      for (const person of distant) releaseSeedCargo(w, person, { reason: 'community-split' });
       const newGroup = createCommunity(w, distant.slice(0, 2));
       for (const p of distant.slice(2)) { p.communityId = newGroup.id; newGroup.memberIds.push(p.id); }
       ensureCommunityGovernanceState(c); ensureCommunityGovernanceState(newGroup);
