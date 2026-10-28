@@ -83,7 +83,7 @@ export function initializeKingdoms(world) {
       x: start.x, y: start.y, createdDay: world.day, rulerId: null, memberIds: [],
       innerX: start.innerX, innerY: start.innerY, communityId: null,
       settlementIds: [], structureIds: [], homeIds: [], towerIds: [], militaryCenterIds: [], territoryTileCount: 0,
-      treasury: { ownerType: 'kingdom', ownerId: id, stock: { food: 4800, wood: 1200, stone: 700, gold: 9000, feed: 180 } },
+      treasury: { ownerType: 'kingdom', ownerId: id, stock: { food: 4800, wood: 1200, stone: 700, gold: 9000, copper: 0, silver: 0, iron: 0, feed: 180 } },
       policy: { taxRate: .075, droughtReserveDays: 30, priorities: ['food', 'water', 'housing', 'defense'] },
       satisfaction: .62, prestige: 0, legacy: null,
       frontierExpansion: {
@@ -105,7 +105,7 @@ export function initializeKingdoms(world) {
       cohesion: .2, satisfaction: .62, leaderId: null, leadershipChallenge: null, assignments: [], properties: [],
       lastGovernanceDay: -999, lastPropertyDay: -999, createdDay: world.day, history: [], usedCells: {},
       grounds: { hunting: null, fishing: null }, lastBuildDay: -999,
-      stores: { food: 0, meat: 0, wood: 0, stone: 0, feed: 0, gold: 0, seeds: 0 }, tradeCount: 0, splitCooldown: 0
+      stores: { food: 0, meat: 0, wood: 0, stone: 0, feed: 0, gold: 0, copper: 0, silver: 0, iron: 0, seeds: 0 }, tradeCount: 0, splitCooldown: 0
     });
   }
 
@@ -142,7 +142,7 @@ export function initializeKingdoms(world) {
     world.settlements.push(settlement);
     kingdom.settlementIds.push(settlement.id);
     kingdom.capitalSettlementId = settlement.id;
-    kingdom.market = { ownerType: 'kingdom-market', ownerId: kingdom.id, stock: { food: 0, wood: 0, stone: 0, gold: 0, feed: 0 }, prices: { ...BASE_PRICES }, supply: {}, demand: {}, transactions: 0, lastUpdateDay: -1 };
+    kingdom.market = { ownerType: 'kingdom-market', ownerId: kingdom.id, stock: { food: 0, wood: 0, stone: 0, gold: 0, copper: 0, silver: 0, iron: 0, feed: 0 }, prices: { ...BASE_PRICES }, supply: {}, demand: {}, transactions: 0, lastUpdateDay: -1 };
     for (const resource of Object.keys(BASE_PRICES)) {
       const openingStock = { food: 42, wood: 12, stone: 8, gold: 18, feed: 12 }[resource];
       transferInventory(kingdom.treasury, kingdom.market, resource, openingStock);
