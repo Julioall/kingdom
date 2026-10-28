@@ -44,8 +44,19 @@ export function seedAdditionalMinerals(world) {
   const conifer = PLANTS.findIndex(plant => plant.id === 'conifer');
   const treeSiteCount = land.filter(tile =>
     (tile.plants[broadleaf] || 0) > .01 || (tile.plants[conifer] || 0) > .01).length;
-  // Comparable to living tree-site frequency, not to the fixed coin exchange
-  // rate. Terrain features guide the patches; mineable reserves stay finite.
-  const ironSites = rankedSites(world.seed, land, 211, 'high').slice(0, treeSiteCount);
+  // Prefer unoccupied ground to avoid putting ore hitboxes on top of trees,
+  // precious-metal deposits or stone. If there is not enough free land, use
+  // deterministic fallback patches rather than silently lowering abundance.
+  const clearGround = land.filter(tile =>
+    tile.goldOre <= .05 && tile.silverOre <= .05 && tile.copperOre <= .05
+    && tile.stoneDeposit <= .7
+    && (tile.plants[broadleaf] || 0) <= .01 && (tile.plants[conifer] || 0) <= .01);
+  const available = new Set(clearGround);
+  const fallback = land.filter(tile => !available.has(tile));
+  const ironSites = rankedSites(world.seed, clearGround, 211, 'high').slice(0, treeSiteCount);
+  if (ironSites.length < treeSiteCount) {
+    ironSites.push(...rankedSites(world.seed, fallback, 229, 'high')
+      .slice(0, treeSiteCount - ironSites.length));
+  }
   for (const tile of ironSites) tile.ironOre = 3 + hash01(world.seed + 227, tile.x, tile.y) * 9;
 }
