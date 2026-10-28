@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import engine from '../src/simulation/engine.js';
-import { findTradePartner, marketHasTradeOpportunity, performTrade } from '../src/simulation/economy/trade.js';
+import { findTradePartner, marketHasTradeOpportunity, performTrade, purchaseFieldSeedsForConstruction } from '../src/simulation/economy/trade.js';
 import { PLANTS } from '../src/config/ecosystem.js';
 import { chooseBuildSite, workOnCommunityStructure } from '../src/simulation/settlements/construction.js';
 
@@ -20,6 +20,7 @@ function setup() {
   trader.carriedStone = 0;
   trader.carriedIron = 0;
   trader.personalWallet = { stock: { gold: 0 } };
+  world.tradeDiagnostics = {};
   return { world, kingdom, community, station, trader, market: kingdom.market.stock };
 }
 
@@ -45,7 +46,6 @@ test('resident visits the local market, buys an exact seed batch from finite roy
   assert.equal(community.stores.seeds, 8);
   assert.equal(market.seeds, 16);
   assert.equal(kingdom.treasury.stock.seeds, 8);
-  assert.equal(kingdom.treasury.stock.gold + 4 + market.gold - 4, totalGold);
   assert.equal(kingdom.treasury.stock.seeds + market.seeds + community.stores.seeds, totalSeeds);
   assert.equal(kingdom.treasury.stock.gold + market.gold + community.stores.gold, totalGold);
   const record = community.tradeLedger.history.at(-1);
@@ -64,7 +64,11 @@ test('empty seed stock or an insolvent treasury cannot create market seed purcha
   for (const missing of ['seeds', 'gold']) {
     const { world, kingdom, community, station, trader, market } = setup();
     if (missing === 'seeds') market.seeds = 0;
-    else kingdom.treasury.stock.gold = 0;
+    else {
+      kingdom.treasury.stock.gold = 0;
+      kingdom.treasury.stock.silver = 0;
+      kingdom.treasury.stock.copper = 0;
+    }
     // Disable every unrelated market exchange to isolate the seed contract.
     community.stores.food = 60;
     community.stores.wood = 30;
@@ -108,4 +112,24 @@ test('farm construction no longer consumes wild berries as seed currency', () =>
   assert.equal(community.stores.seeds, 0);
   const wildBerriesAfter = world.tiles.reduce((sum, tile) => sum + (tile.plants[berryIndex] || 0), 0);
   assert.equal(wildBerriesAfter, wildBerriesBefore, 'planning cannot harvest any natural berry');
+});
+
+test('assigned farm builder actively buys the finite lot rather than awaiting a random trade choice', () => {
+  const { world, community, trader, market } = setup();
+  community.stores.wood = 100;
+  community.stores.stone = 100;
+  workOnCommunityStructure(world, trader, community, community.memberIds.length);
+  assert.equal(community.stores.seeds, 8);
+  assert.equal(market.seeds, 16);
+  assert.match(trader.state, /sementes compradas/);
+});
+
+test('field purchase command cannot teleport stock across an unreachable route', () => {
+  const { world, kingdom, community, station, trader, market } = setup();
+  trader.x = station.x + 6;
+  trader.y = station.y + 6;
+  world.tiles = [];
+  const before = structuredClone({ treasury: kingdom.treasury.stock, community: community.stores, market });
+  assert.equal(purchaseFieldSeedsForConstruction(world, trader, community), 'route-blocked');
+  assert.deepEqual({ treasury: kingdom.treasury.stock, community: community.stores, market }, before);
 });
