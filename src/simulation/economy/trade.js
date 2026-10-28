@@ -122,9 +122,15 @@ function personalMarketOffer(world, community, person, marketOwner) {
   if (kingdom && (kingdom.market !== marketOwner || marketOwner.ownerId !== kingdom.id)) return null;
   if (kingdom && person.kingdomId != null && person.kingdomId !== kingdom.id) return null;
   if (!kingdom && person.kingdomId != null) return null;
+  // Mined gold is physical cargo, not money owned by the resident. A legacy
+  // save without a personal wallet has zero spendable funds until a real sale.
+  // Do not migrate carriedGold into the wallet or borrow shared inventories.
+  const wallet = person.personalWallet == null ? { gold: 0 } : person.personalWallet?.stock;
+  if (!wallet || typeof wallet !== 'object' || Array.isArray(wallet)
+      || wallet === person || wallet === market || wallet === community.stores) return null;
   const foodPrice = marketOwner.prices.food;
   const foodAmount = accountAmount(market, 'food');
-  const goldHeld = accountAmount(person, 'carriedGold');
+  const goldHeld = accountAmount(wallet, 'gold');
   const reserve = accountAmount(person, 'foodReserve');
   if (Number.isFinite(foodPrice) && foodPrice > 0 && foodAmount !== null
       && goldHeld !== null && reserve !== null && reserve < 60) {
@@ -143,7 +149,7 @@ function personalMarketOffer(world, community, person, marketOwner) {
       Math.max(0, 260 - marketAmount));
     const gold = amount * price / 2;
     if (amount > .01 && canSpend(market, 'gold', gold)
-        && canReceiveUpTo(person, 'carriedGold', gold, Infinity)) {
+        && canReceiveUpTo(wallet, 'gold', gold, Infinity)) {
       return { action: 'sell-' + resource, resource, amount, gold };
     }
   }
@@ -154,17 +160,21 @@ function executePersonalMarketTrade(world, person, community, marketOwner) {
   const offer = personalMarketOffer(world, community, person, marketOwner);
   if (!offer) return false;
   const market = marketOwner.stock || marketOwner;
+  // Only create a zeroed account after a valid trade is preflighted.
+  // Older saves keep their mined cargo untouched.
+  person.personalWallet ||= { stock: { gold: 0 } };
+  const wallet = person.personalWallet.stock;
   const before = tradeBalances(market);
   let movedResource = 0, movedGold = 0;
   if (offer.action === 'buy-food') {
     // Both transfers are preflighted; no partial payment or partial ration is allowed.
-    movedGold = transferResource(person, market, 'carriedGold', offer.gold, 'gold');
+    movedGold = transferResource(wallet, market, 'gold', offer.gold);
     movedResource = transferResource(market, person, 'food', offer.amount,
       'foodReserve', 100);
   } else {
     const cargoField = 'carried' + offer.resource[0].toUpperCase() + offer.resource.slice(1);
     movedResource = transferResource(person, market, cargoField, offer.amount, offer.resource, 260);
-    movedGold = transferResource(market, person, 'gold', offer.gold, 'carriedGold');
+    movedGold = transferResource(market, wallet, 'gold', offer.gold);
   }
   if (Math.abs(movedResource - offer.amount) > 1e-8
       || Math.abs(movedGold - offer.gold) > 1e-8) {
@@ -187,6 +197,7 @@ function executePersonalMarketTrade(world, person, community, marketOwner) {
     },
     balancesAfter: {
       person: {
+        walletGold: wallet.gold || 0,
         carriedGold: person.carriedGold || 0,
         foodReserveDays: person.foodReserve || 0,
         carriedWood: person.carriedWood || 0,
@@ -197,9 +208,9 @@ function executePersonalMarketTrade(world, person, community, marketOwner) {
     participants: [{
       personId: person.id, communityId: community.id,
       delta: offer.action === 'buy-food'
-        ? { carriedGold: -movedGold, foodReserveDays: movedResource * FOOD_DAYS_PER_UNIT }
+        ? { walletGold: -movedGold, foodReserveDays: movedResource * FOOD_DAYS_PER_UNIT }
         : { ['carried' + offer.resource[0].toUpperCase() + offer.resource.slice(1)]: -movedResource,
-          carriedGold: movedGold }
+          walletGold: movedGold }
     }],
     market: {
       ownerType: marketOwner.ownerType || 'market', ownerId: marketOwner.ownerId ?? null,
