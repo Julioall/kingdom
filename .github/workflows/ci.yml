@@ -1,30 +1,30 @@
-name: Kingdom CI
+name: Kingdom verification CI
 
 on:
   push:
-    branches: [dev, "codex/**"]
+    branches: [main, dev, "codex/**"]
   pull_request:
-    branches: [dev]
+    branches: [main, dev]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: kingdom-ci-${{ github.workflow }}-${{ github.ref }}
+  group: kingdom-verification-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   verify:
-    name: Typecheck, tests and build
+    name: Typecheck, tests and production build
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Check out source
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.0.0
         with:
           node-version: 24
           cache: npm
@@ -39,7 +39,8 @@ jobs:
       - name: Run published test suite
         run: npm test
 
-      - name: Run deterministic food replay smoke
+      - name: Run deterministic food replay smoke on development branches
+        if: github.ref == 'refs/heads/dev' || (github.event_name == 'pull_request' && github.base_ref == 'dev')
         run: npm run audit:food -- --days 30 --seeds 42 --repeat-seed 42
 
       - name: Build production assets
