@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createTerrainChunkCache } from '../src/ui/terrain-chunks.js';
 import { createPixelTileCache } from '../src/ui/pixel-tile-cache.js';
 import { compareDepth, mergeDepthItems } from '../src/ui/depth-order.js';
+import { createStaticDepthSpatialIndex } from '../src/ui/depth-spatial-index.js';
 import { alignedTileRect, mapCamera } from '../src/ui/map-camera.js';
 import view from '../src/ui/simulation-view.js';
 import engine from '../src/simulation/engine.js';
@@ -126,4 +127,51 @@ test('merging cached static depth with actors exactly matches a full sort', () =
     assert.deepEqual(mergeDepthItems(statics, dynamics), expected);
     assert.deepEqual(statics, original);
   }
+});
+
+test('static depth spatial index preserves exact painter order for camera bounds and all ore kinds', () => {
+  const all = [];
+  const kinds = ['mineral', 'tree', 'bush', 'structure', 'stump', 'decoration'];
+  for (let index = 0; index < 24000; index++) {
+    const x = index % 240, y = Math.floor(index / 240);
+    all.push({ id: index, x, y, kind: kinds[index % kinds.length],
+      order: index % 5, sequence: index, depth: (y + 1) * 2048 + (index % 13) });
+  }
+  const original = all.slice().sort(compareDepth);
+  const index = createStaticDepthSpatialIndex(original, 16);
+  for (const bounds of [
+    { minX: 10, maxX: 25, minY: 11, maxY: 33 },
+    { minX: 15.5, maxX: 16, minY: 0, maxY: 16 },
+    { minX: -20, maxX: 14, minY: 40, maxY: 49 },
+    { minX: 220, maxX: 270, minY: 70, maxY: 130 }
+  ]) {
+    const expected = original.filter(item => item.x >= bounds.minX && item.x <= bounds.maxX
+      && item.y >= bounds.minY && item.y <= bounds.maxY);
+    const actual = index.query(bounds);
+    assert.deepEqual(actual, expected, 'viewport culling must not omit or reorder a mineral');
+    assert.ok(index.stats().lastExamined <= original.length);
+  }
+  index.query({ minX: 0, maxX: 11, minY: 0, maxY: 11 });
+  assert.ok(index.stats().lastExamined < original.length / 10,
+    'small viewport should examine a spatial subset rather than scanning all static items');
+  assert.deepEqual(original, all.slice().sort(compareDepth), 'culling must not mutate source snapshot');
+  assert.deepEqual(index.query({ minX: 10, maxX: -10, minY: 0, maxY: 3 }), []);
+});
+
+test('spatially culled static items still merge with actors in original exact order', () => {
+  const staticItems = Array.from({ length: 900 }, (_, i) => ({
+    x: i % 30, y: Math.floor(i / 30), depth: (Math.floor(i / 30) + 1) * 2048,
+    order: .15, sequence: i, id: i, kind: 'mineral'
+  })).sort(compareDepth);
+  const actors = Array.from({ length: 80 }, (_, i) => ({
+    x: i % 10, y: Math.floor(i / 10), depth: (Math.floor(i / 10) + 1) * 2048,
+    order: 4, sequence: i + 900, id: i + 900, kind: 'person'
+  }));
+  const bounds = { minX: 2, maxX: 8, minY: 2, maxY: 7 };
+  const expected = [...staticItems, ...actors].filter(p => p.x >= bounds.minX
+    && p.x <= bounds.maxX && p.y >= bounds.minY && p.y <= bounds.maxY).sort(compareDepth);
+  const index = createStaticDepthSpatialIndex(staticItems, 8);
+  const onScreen = actors.filter(p => p.x >= bounds.minX && p.x <= bounds.maxX
+    && p.y >= bounds.minY && p.y <= bounds.maxY);
+  assert.deepEqual(mergeDepthItems(index.query(bounds), onScreen), expected);
 });
