@@ -48,6 +48,11 @@ test('resident sells only loaded wood to finite local market and buys actual foo
   assert.equal(person.tradeLedger.count, 1);
   assert.equal(person.tradeLedger.history[0].kind, 'market');
   assert.equal(person.tradeLedger.history[0].scope, 'personal');
+  assert.deepEqual(person.tradeLedger.history[0].pricing, {
+    resource: 'wood', quantity: 4, goldPerUnit: 1, goldTransferred: 4
+  });
+  assert.equal(person.tradeLedger.history[0].balancesAfter.person.carriedGold, 4);
+  assert.equal(person.tradeLedger.history[0].balancesAfter.market.gold, 16);
   assert.deepEqual(person.tradeLedger.history[0].market.delta, { wood: 4, gold: -4 });
   assert.deepEqual(community.stores, communityBefore, 'personal sales never debit shared property');
 
@@ -131,4 +136,36 @@ test('a market with insufficient gold does not buy personal stone', () => {
   assert.equal(findTradePartner(world, community, person), null);
   assert.equal(person.carriedStone, 18);
   assert.equal(person.carriedGold, 0);
+});
+
+
+test('personal commerce never falls back to unassigned world market or another kingdom owner', () => {
+  const { world, community, person, market } = fixture();
+  world.market = market;
+  world.kingdoms[0].market = null;
+  assert.equal(findTradePartner(world, community, person), null,
+    'kingdom resident cannot sell cargo through global market if local market is absent');
+  world.kingdoms[0].market = market;
+  market.ownerId = 2;
+  assert.equal(findTradePartner(world, community, person), null,
+    'wrong ownerId cannot authorize kingdom market personal sales');
+  assert.equal(world.trades, undefined);
+  assert.equal(market.transactions, 0);
+  assert.equal(person.carriedWood, 16);
+});
+
+test('personal market trade requires a real route to the station', () => {
+  const { world, community, person, market, station } = fixture();
+  station.x = 27;
+  world.tiles = [];
+  const offer = findTradePartner(world, community, person);
+  assert.equal(offer?.isMarket, true, 'the market is visible within the search radius');
+  const before = structuredClone(market.stock);
+  assert.equal(performTrade(world, person, community, offer), false,
+    'a missing navigable destination blocks the transfer');
+  assert.equal(world.tradeDiagnostics.marketBlocked['route-blocked'], 1);
+  assert.deepEqual(market.stock, before);
+  assert.equal(person.carriedWood, 16);
+  assert.equal(person.carriedGold, 0);
+  assert.equal(world.trades, undefined);
 });
