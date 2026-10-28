@@ -1,5 +1,6 @@
 import { DOMESTIC_SHEEP_DAILY_FEED, MEAT_NUTRITIONAL_VALUE, PLANTS } from '../../config/ecosystem.js';
 import { communityFoodStock, transferInventoryToStores } from '../economy/inventories.js';
+import { communitySeedSupply } from '../economy/seed-cargo.js';
 import {
   COMMUNITY_FOOD_BUFFER_DAYS, communityFoodBufferDays, communityFoodBufferTarget, foodUnitsPerDay, kingdomFoodDemand
 } from '../economy/food-policy.js';
@@ -124,7 +125,8 @@ export function observeKingdomStrategy(world, kingdomId) {
   const seedStock = Math.max(0, finite(communityStock.seeds));
   const spentFields = fieldStructures.filter(field => field.complete && field.cropCycleState === 'spent')
     .sort((a, b) => finite(a.cropLastSowedDay, a.builtDay || 0) - finite(b.cropLastSowedDay, b.builtDay || 0) || a.id - b.id);
-  const replantField = seedStock > .01 ? spentFields[0] || null : null;
+  const replantAvailable = community ? communitySeedSupply(world, community.id, 'replant') : 0;
+  const replantField = replantAvailable > .01 ? spentFields[0] || null : null;
   const cropIndex = PLANTS.findIndex(plant => plant.id === 'cultivated-root');
   const cropRootReserve = cropIndex >= 0 ? Math.max(0, finite(PLANTS[cropIndex].rootReserve)) : 0;
   let standingCropBiomass = 0, harvestableCropPotential = 0;
@@ -171,7 +173,7 @@ export function observeKingdomStrategy(world, kingdomId) {
     seedStock,
     replantReady: !!replantField,
     replantFieldId: replantField?.id ?? null,
-    replantSeedMass: replantField ? Math.min(seedStock,
+    replantSeedMass: replantField ? Math.min(replantAvailable,
       Math.max(0, finite(replantField.cropSeededBiomass, finite(replantField.seedMass)))) : 0,
     buildSitePrevalidated: false,
     buildSiteRequirement: 'O construtor precisa encontrar área válida e alcançável; prontidão de materiais não confirma o local.',
