@@ -717,6 +717,19 @@ export function gatherMaterials(w, person, community) {
         const value = .52 + Math.min(1.2, resource.goldOre / 1.7) + (goldNeed ? .5 : 0) - distanceCost;
         if (value > bestScore) { best = { kind: 'gold', x: resource.x, y: resource.y, amount: resource.goldOre }; bestScore = value; }
       }
+      // Copper and silver are distinct monetary metals. Iron is carried as a
+      // physical building material for a later construction phase.
+      for (const [kind, stockLimit, incentive] of [
+        ['copper', 35, .12], ['silver', 15, .2], ['iron', 50, .14]
+      ]) {
+        const amount = resource[kind + 'Ore'] || 0;
+        if (amount <= .05 || (community && (community.stores?.[kind] || 0) >= stockLimit)) continue;
+        const value = .46 + Math.min(.9, amount / 6) + incentive - distanceCost;
+        if (value > bestScore) {
+          best = { kind, x: resource.x, y: resource.y, amount };
+          bestScore = value;
+        }
+      }
     }
     if (!best) return 0;
     const tile = cellAt(w, best.x, best.y);
@@ -751,9 +764,15 @@ export function gatherMaterials(w, person, community) {
         person.state = 'extraindo pedra'; person.lastLesson = 'A jazida diminuiu e a pedra extraída agora precisa ser transportada ao abrigo.';
       }
     } else {
-      const intended = Math.min(1.8, tile.goldOre, .5 + person.skills.gather * .7);
-      gathered = transferResource(tile, person, 'goldOre', intended, 'carriedGold');
-      person.state = 'extraindo ouro'; person.lastLesson = 'A jazida de ouro é finita; o minério guardado poderá financiar compras no posto de coleta.';
+      const kind = best.kind;
+      const field = kind + 'Ore';
+      const carried = 'carried' + kind[0].toUpperCase() + kind.slice(1);
+      const intended = Math.min(1.8, tile[field] || 0, .5 + person.skills.gather * .7);
+      gathered = transferResource(tile, person, field, intended, carried);
+      person.state = 'extraindo ' + ({ gold: 'ouro', copper: 'cobre', silver: 'prata', iron: 'ferro' }[kind]);
+      person.lastLesson = kind === 'iron'
+        ? 'O ferro foi extraído e pode ser transportado, mas ainda não entra nos custos de construção.'
+        : 'O metal monetário foi extraído da jazida finita e precisa ser transportado e contabilizado antes de circular na economia.';
     }
     if (gathered <= .01) return 0;
     if (previousMineralCollision !== null && previousMineralCollision !== mineralCollisionClass(tile)) invalidateNavigation(w);
@@ -1072,7 +1091,8 @@ function updatePeopleCore(w) {
       const canBuild = community && communitySize >= 3 && p.buildCooldown <= 0 && p.energy > 27 && p.hydration > 18 && p.foodReserve > 16
         && canCommunityBuild(w, community, communitySize);
       const canGather = p.perception.resources.some(resource => resource.visible && resource.terrain === 'land'
-        && (resource.stone > 0 || resource.goldOre > 0 || ['broadleaf', 'conifer'].some(id => (resource.biomass[id] || 0) > 260)));
+        && (resource.stone > 0 || resource.goldOre > 0 || resource.copperOre > 0
+          || resource.silverOre > 0 || resource.ironOre > 0 || ['broadleaf', 'conifer'].some(id => (resource.biomass[id] || 0) > 260)));
       const communityFoodAidAvailable = !!(community && foodAidTarget
         && foodAidTarget.communityId === community.id && community.memberIds.includes(foodAidTarget.id)
         && distance(p, community) <= 7 && distance(p, foodAidTarget) <= 7
@@ -1366,6 +1386,10 @@ function updatePeopleCore(w) {
           if (p.carriedWood > .01) moveCarriedResource(p, 'carriedWood', receivingCommunity, 'wood', p.carriedWood);
           if (p.carriedStone > .01) moveCarriedResource(p, 'carriedStone', receivingCommunity, 'stone', p.carriedStone);
           if (p.carriedGold > .01) moveCarriedResource(p, 'carriedGold', receivingCommunity, 'gold', p.carriedGold);
+          for (const metal of ['Copper', 'Silver', 'Iron']) {
+            const cargo = 'carried' + metal, stored = metal.toLowerCase();
+            if ((p[cargo] || 0) > .01) moveCarriedResource(p, cargo, receivingCommunity, stored, p[cargo]);
+          }
           if (p.carriedMaterial > .01) moveCarriedResource(p, 'carriedMaterial', receivingCommunity, 'wood', p.carriedMaterial);
           p.state = carryingMeat ? 'carne armazenada no abrigo' : fruitInShelter ? 'frutos armazenados no abrigo' : carryingFruit ? 'frutos na reserva comunitária' : carryingFeed ? 'ração guardada no curral' : carryingFood ? 'alimento armazenado no abrigo' : 'recursos armazenados no abrigo';
           p.lastLesson = carryingFeed && !carryingFruit
