@@ -1,5 +1,6 @@
 import { clamp, distance, hash01 } from '../core/math.js';
 import { communityFoodStock, spendStoreInventory } from '../economy/inventories.js';
+import { communitySeedSupply } from '../economy/seed-cargo.js';
 import { domesticatedSheep } from '../ecology/animals.js';
 import { availableCommunityPen } from '../ecology/herd.js';
 import { canCommunityBuild, canRepairKingdomStructure, communityBuildingNeed, communityStructures, nextCommunityStructure,
@@ -169,7 +170,7 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
     const cropReplant = desired.action === 'build' && desired.goal === 'replant-cultivated-food';
     const replantField = cropReplant ? structures.filter(structure => structure.type === 'roça' && structure.complete
       && structure.cropCycleState === 'spent' && structure.destroyedDay == null && structure.integrity !== 0
-      && (community.stores.seeds || 0) > .01).sort((a, b) => a.id - b.id)[0] : null;
+      && communitySeedSupply(w, community.id, 'replant') > .01).sort((a, b) => a.id - b.id)[0] : null;
     const fieldMaterialPreparation = desired.action === 'gather' && desired.goal === 'prepare-cultivated-field';
     const activeFieldProject = structures.some(structure => structure.type === 'roça' && !structure.complete);
     const fieldBuilderReserveFloor = fieldMaterialPreparation || cropInvestment && activeFieldProject
@@ -468,7 +469,7 @@ export function updateCommunityGovernance(w, kingdomPlanner) {
       if (community.isKingdomGroup) for (const member of members) {
         const assignment = member.assignment;
         if (member.role !== 'soldier' && assignment?.action === 'build'
-            && assignment.goal === 'invest-in-cultivated-food'
+            && ['invest-in-cultivated-food', 'replant-cultivated-food'].includes(assignment.goal)
             && ((member.carriedSeeds || 0) > 0 || (member.carriedCommunitySeeds || 0) > 0)) {
           assignment.expiresDay = Math.max(assignment.expiresDay, w.day + 3);
         }
