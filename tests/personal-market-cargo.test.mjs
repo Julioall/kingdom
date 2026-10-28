@@ -11,7 +11,7 @@ function fixture() {
   const person = {
     id: 7, alive: true, role: 'resident', communityId: 11, kingdomId: 1,
     x: 20, y: 20, foodReserve: 95, carriedFood: 0, carriedWood: 16,
-    carriedStone: 0, carriedGold: 0, skills: { diplomacy: 0 },
+    carriedStone: 0, carriedGold: 0, personalWallet: { stock: { gold: 0 } }, skills: { diplomacy: 0 },
     energy: 80, perception: { people: [] }
   };
   const market = {
@@ -33,7 +33,7 @@ test('resident sells only loaded wood to finite local market and buys actual foo
   const communityBefore = structuredClone(community.stores);
   const physicalFoodBefore = market.stock.food + community.stores.food + person.foodReserve;
   const physicalWoodBefore = market.stock.wood + community.stores.wood + person.carriedWood;
-  const physicalGoldBefore = market.stock.gold + community.stores.gold + person.carriedGold;
+  const physicalGoldBefore = market.stock.gold + community.stores.gold + person.carriedGold + person.personalWallet.stock.gold;
   assert.equal(marketHasTradeOpportunity(world, community), false,
     'no community-funded transaction is available in the fixture');
 
@@ -41,7 +41,8 @@ test('resident sells only loaded wood to finite local market and buys actual foo
   assert.equal(sale?.isMarket, true, 'personal offer unlocks normal market action');
   assert.equal(performTrade(world, person, community, sale), true);
   assert.equal(person.carriedWood, 12, 'protected loaded reserve remains with the gatherer');
-  assert.equal(person.carriedGold, 4);
+  assert.equal(person.personalWallet.stock.gold, 4);
+  assert.equal(person.carriedGold, 0, 'gold cargo stays independent from wallet credits');
   assert.equal(market.stock.wood, 4);
   assert.equal(market.stock.gold, 16);
   assert.equal(market.transactions, 1);
@@ -51,25 +52,27 @@ test('resident sells only loaded wood to finite local market and buys actual foo
   assert.deepEqual(person.tradeLedger.history[0].pricing, {
     resource: 'wood', quantity: 4, goldPerUnit: 1, goldTransferred: 4
   });
-  assert.equal(person.tradeLedger.history[0].balancesAfter.person.carriedGold, 4);
+  assert.equal(person.tradeLedger.history[0].balancesAfter.person.walletGold, 4);
+  assert.equal(person.tradeLedger.history[0].balancesAfter.person.carriedGold, 0);
   assert.equal(person.tradeLedger.history[0].balancesAfter.market.gold, 16);
   assert.deepEqual(person.tradeLedger.history[0].market.delta, { wood: 4, gold: -4 });
   assert.deepEqual(community.stores, communityBefore, 'personal sales never debit shared property');
 
   person.foodReserve = 45;
   const foodBeforePurchase = market.stock.food + person.foodReserve;
-  const goldBeforePurchase = market.stock.gold + person.carriedGold;
+  const goldBeforePurchase = market.stock.gold + person.personalWallet.stock.gold;
   const buy = findTradePartner(world, community, person);
   assert.equal(buy?.isMarket, true);
   assert.equal(performTrade(world, person, community, buy), true);
   assert.equal(person.foodReserve, 49);
+  assert.equal(person.personalWallet.stock.gold, 0);
   assert.equal(person.carriedGold, 0);
   assert.equal(market.stock.food, 16);
   assert.equal(market.stock.gold, 20);
   assert.equal(market.stock.food + person.foodReserve, foodBeforePurchase);
-  assert.equal(market.stock.gold + person.carriedGold, goldBeforePurchase);
+  assert.equal(market.stock.gold + person.personalWallet.stock.gold, goldBeforePurchase);
   assert.equal(market.stock.wood + community.stores.wood + person.carriedWood, physicalWoodBefore);
-  assert.equal(market.stock.gold + community.stores.gold + person.carriedGold, physicalGoldBefore);
+  assert.equal(market.stock.gold + community.stores.gold + person.carriedGold + person.personalWallet.stock.gold, physicalGoldBefore);
   assert.equal(market.stock.food + community.stores.food + person.foodReserve,
     physicalFoodBefore - 50, 'only the test fixture change to personal hunger alters physical food');
   assert.deepEqual(community.stores, communityBefore);
@@ -86,7 +89,7 @@ test('no gold, product, valid price or available carry reserve means no personal
   person.foodReserve = 40;
   assert.equal(findTradePartner(world, community, person), null,
     'a hungry resident cannot buy without gold');
-  person.carriedGold = 4;
+  person.personalWallet.stock.gold = 4;
   market.stock.food = 0;
   assert.equal(findTradePartner(world, community, person), null,
     'gold does not conjure product from empty local market');
@@ -168,4 +171,54 @@ test('personal market trade requires a real route to the station', () => {
   assert.equal(person.carriedWood, 16);
   assert.equal(person.carriedGold, 0);
   assert.equal(world.trades, undefined);
+});
+
+
+test('extracted gold cargo never becomes spendable balance or silently migrates', () => {
+  const { world, community, person, market } = fixture();
+  person.carriedWood = 12;
+  person.carriedGold = 15; // finite mined cargo, not market earnings
+  person.foodReserve = 35;
+  const before = structuredClone(market.stock);
+  assert.equal(findTradePartner(world, community, person), null,
+    'personal food cannot be bought with gold mined for the community');
+  assert.equal(person.personalWallet.stock.gold, 0);
+  assert.equal(person.carriedGold, 15);
+  assert.deepEqual(market.stock, before);
+  assert.equal(world.trades, undefined);
+});
+
+test('an older saved resident receives an empty wallet only on a successful market sale', () => {
+  const { world, community, person, market, station } = fixture();
+  delete person.personalWallet;
+  person.carriedGold = 9;
+  const beforeMarketGold = market.stock.gold;
+
+  const proposed = findTradePartner(world, community, person);
+  assert.equal(proposed?.isMarket, true, 'a loaded seller with a legacy save remains eligible');
+  station.destroyedDay = world.day;
+  assert.equal(performTrade(world, person, community, proposed), false);
+  assert.equal(person.personalWallet, undefined, 'failed trade must not mutate legacy resident');
+  station.destroyedDay = null;
+  assert.equal(performTrade(world, person, community, proposed), true);
+  assert.deepEqual(person.personalWallet, { stock: { gold: 4 } });
+  assert.equal(person.carriedGold, 9, 'old physical gold remains cargo');
+  assert.equal(market.stock.gold, beforeMarketGold - 4);
+  assert.equal(world.trades, 1);
+});
+
+test('wallet cannot alias market or community accounts and malformed wallets cannot mint money', () => {
+  const { world, community, person, market } = fixture();
+  person.personalWallet.stock = market.stock;
+  const before = structuredClone(market.stock);
+  assert.equal(findTradePartner(world, community, person), null);
+  assert.deepEqual(market.stock, before);
+  person.personalWallet.stock = community.stores;
+  assert.equal(findTradePartner(world, community, person), null);
+  person.personalWallet.stock = { gold: Number.NaN };
+  assert.equal(findTradePartner(world, community, person), null);
+  person.personalWallet = { stock: null };
+  assert.equal(findTradePartner(world, community, person), null);
+  assert.equal(world.trades, undefined);
+  assert.equal(person.carriedWood, 16);
 });
