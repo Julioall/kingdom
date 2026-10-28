@@ -303,8 +303,8 @@ export function marketHasTradeOpportunity(w, community) {
       accountAmount(store, sale.resource) !== null
         && accountAmount(store, sale.resource) >= sale.reserve + sale.amount
         && canReceiveUpTo(market, sale.resource, sale.amount, sale.capacity)
-        && marketSaleGold(sale, marketOwner) !== null
-        && canSpend(market, 'gold', marketSaleGold(sale, marketOwner)));
+        && (!sale.dynamicPrice || (marketSaleGold(sale, marketOwner) !== null
+          && canSpend(market, 'gold', marketSaleGold(sale, marketOwner)))));
     return canBuyFood || canBuyWood || canBuyStone || canBuyFeed || canBuySheep || canBarterFood || canSell;
   }
 
