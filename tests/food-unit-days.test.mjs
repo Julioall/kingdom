@@ -32,7 +32,8 @@ test('adults, dependents, and peacetime soldiers all consume one person-day per 
   assert.equal(communityFoodBufferTarget(50, 180), 9_000);
 });
 
-test('meat remains a physical stock with an explicit adult-day nutrition conversion', () => {
-  assert.equal(MEAT_NUTRITIONAL_VALUE, 2.5);
-  assert.equal(communityFoodStock({ stores: { food: 1, meat: 1 } }), 3.5);
+test('daily need stays at one person-day and each physical meat unit supplies ten days', () => {
+  assert.equal(DAILY_FOOD_NEED, 1);
+  assert.equal(MEAT_NUTRITIONAL_VALUE, 10);
+  assert.equal(communityFoodStock({ stores: { food: 1, meat: 1 } }), 11);
 });

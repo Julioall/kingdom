@@ -95,6 +95,30 @@ test('a hungry peacetime soldier returns to a stocked garrison before foraging',
   assert.ok(distance(soldier, center) < before, 'the soldier moves toward the actual ration source');
 });
 
+test('a returning soldier receives one emergency ration on friendly territory before reaching the garrison', () => {
+  const { world, soldier } = starvingPeacetimeSoldierFixture();
+  const kingdom = world.kingdoms.find(item => item.id === soldier.kingdomId);
+  const center = world.structures.find(item => item.id === soldier.militaryCenterId);
+  assert.ok(center, 'the soldier has a valid military center');
+  assert.ok(distance(soldier, center) > 2.5, 'the soldier is still outside garrison ration range');
+  soldier.militaryReturningHome = true;
+  soldier.health = 100;
+  soldier.energy = 100;
+  soldier.foodReserve = 0;
+  kingdom.treasury.stock.food = 5;
+  const tile = cellAt(world, Math.round(soldier.x), Math.round(soldier.y));
+  tile.kingdomId = soldier.kingdomId;
+
+  engine.modules.SocietyExperiment.updatePeople(world);
+
+  const community = world.communities.find(item => item.id === kingdom.communityId);
+  assert.equal(kingdom.treasury.stock.food + community.stores.food, 4,
+    'the return route consumes one whole daily ration while the remaining four units stay in kingdom stores');
+  assert.equal(soldier.foodReserve, 0, 'the soldier eats the delivered ration that day');
+  assert.equal(soldier.health, 100, 'the soldier avoids starvation damage while returning');
+  assert.notEqual(soldier.lastDecision.action, 'forage', 'the soldier remains on military supply');
+});
+
 test('cultivated food delivered at the field is attributed to that field and community stock', () => {
   const { world, soldier: worker } = starvingPeacetimeSoldierFixture();
   worker.role = 'resident';

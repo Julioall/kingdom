@@ -1,12 +1,14 @@
 import { nearestLoot, collectLoot } from '../economy/loot.js';
 import { ANIMALS, COMMUNITY_FOOD_CARRY_CAPACITY, DAILY_FOOD_NEED, FOOD_DAYS_PER_UNIT, HUMAN_FOOD, MEAT_NUTRITIONAL_VALUE, PEOPLE_ACTIONS, PLANTS, SHEEP_ADULT_AGE_DAYS } from '../../config/ecosystem.js';
+import { formatWholeMeasure } from '../../config/whole-measures.js';
 import { clamp, distance, species } from '../core/math.js';
 import { cellAt, cellsWithin, nearby } from '../world/spatial.js';
 import { resourceUsePressure } from '../world/roads.js';
 import { activeCommunity, localNameFeature, recordCommunityUse, splitCommunities, updateCommunityStages, updateSocialLinks } from '../society/communities.js';
 import { log } from '../core/events.js';
 import { rand } from '../core/random.js';
-import { addFoodReserve, addHarvestedFood, addResource, carriedResources, communityFoodStock, communityMaterialStock, consumeEdibleCargo, consumeFoodReserve, harvestedFoodCapacity, moveCarriedResource, storeCommunityFruit, transferResource, withdrawCommunityFood } from '../economy/inventories.js';
+import { addFoodReserve, addHarvestedFood, addResource, carriedResources, communityFoodStock, communityMaterialStock, consumeEdibleCargo, consumeFoodReserve, harvestedFoodCapacity, moveCarriedResource, storeCommunityFruit, transferCommunityFoodToReserve, transferResource, withdrawCommunityFood } from '../economy/inventories.js';
+import { recordFoodAuditBlocked, withFoodAuditOperation } from '../economy/food-audit-ledger.js';
 import { CULTIVATED_FIELD_HARVEST_PER_WORKER, dailyFoodNeedForMembers, foodUnitsPerDay } from '../economy/food-policy.js';
 import { moveOne } from './movement.js';
 import { bushHarvestHitbox, collidesWithWorldAt, hitboxesOverlap, mineralHitbox, npcHitbox, worldCollisionIndex } from '../physics/hitboxes.js';
@@ -215,6 +217,19 @@ export function moveTowardFood(w, person, foodTile) {
 
 export function collectFoodForCommunity(w, person, tile) {
     if (!person || !tile) return 0;
+    return withFoodAuditOperation({
+      kind: 'harvest',
+      category: tile.cropFieldId == null ? 'wild-berry-harvest' : 'cultivated-field-harvest',
+      resource: 'food',
+      amount: tile.cropFieldId == null ? COMMUNITY_FOOD_CARRY_CAPACITY : CULTIVATED_FIELD_HARVEST_PER_WORKER,
+      source: { type: tile.cropFieldId == null ? 'berry-patch-biomass' : 'cultivated-root-biomass', tileIndex: tile.i,
+        fieldId: tile.cropFieldId ?? null },
+      destination: { type: 'community-food-or-cargo', communityId: person.communityId ?? null },
+      actor: person, destinationPosition: { x: tile.x, y: tile.y }
+    }, () => collectFoodForCommunityCore(w, person, tile));
+  }
+
+function collectFoodForCommunityCore(w, person, tile) {
     if (tile.cropFieldId == null && !touchesHarvestBush(w, person, tile, 'berry')) return 0;
     const field = tile.cropFieldId == null ? null : (w.structures || []).find(structure => structure.id === tile.cropFieldId
       && structure.type === 'roça' && structure.complete && structure.communityId === person.communityId
@@ -223,7 +238,10 @@ export function collectFoodForCommunity(w, person, tile) {
     if (field && community && field.cropCycleState === 'ready') {
       const remainingTarget = Math.max(0, Number(field.cropYieldTarget) - (Number(field.cropHarvestedThisCycle) || 0));
       let remaining = Math.min(CULTIVATED_FIELD_HARVEST_PER_WORKER, remainingTarget);
-      if (remaining <= .01) return 0;
+      if (remaining <= .01) {
+        recordFoodAuditBlocked('field-harvest-target-exhausted', { resource: 'food', requested: CULTIVATED_FIELD_HARVEST_PER_WORKER, available: remainingTarget });
+        return 0;
+      }
       const fieldTiles = (field.fieldTileIndices || []).map(index => w.tiles[index])
         .filter(candidate => candidate && candidate.cropFieldId === field.id)
         .sort((a, b) => plantBiomass(b, ['cultivated-root']) - plantBiomass(a, ['cultivated-root']) || a.i - b.i);
@@ -239,13 +257,17 @@ export function collectFoodForCommunity(w, person, tile) {
       if (field.cropCycleState === 'spent' && !field.cropSeedsRetainedThisCycle) {
         const seedReserve = Math.max(0, Number(field.cropSeededBiomass) || Number(field.seedMass) || 0);
         if (seedReserve > .01 && community.stores.food + .001 >= seedReserve) {
-          community.stores.food = Math.max(0, community.stores.food - seedReserve);
-          community.stores.seeds = Math.max(0, Number(community.stores.seeds) || 0) + seedReserve;
+          withFoodAuditOperation({ kind: 'food-to-seed-conversion', category: 'cultivation-seed-retention',
+            resource: 'food', sourceAccount: community.stores, sourceResource: 'food',
+            destinationAccount: community.stores, destinationResource: 'seeds', amount: seedReserve }, () => {
+            community.stores.food = Math.max(0, community.stores.food - seedReserve);
+            community.stores.seeds = Math.max(0, Number(community.stores.seeds) || 0) + seedReserve;
+          });
           field.cropSeedsRetainedThisCycle = seedReserve;
           field.cropSeedsRetainedTotal = (Number(field.cropSeedsRetainedTotal) || 0) + seedReserve;
           field.foodDelivered = Math.max(0, field.foodDelivered - seedReserve);
           w.ecologyFlows.humanFoodCultivationSeedRetained = (w.ecologyFlows.humanFoodCultivationSeedRetained || 0) + seedReserve;
-          const message = community.name + ' reservou ' + seedReserve.toFixed(2)
+          const message = community.name + ' reservou ' + formatWholeMeasure(seedReserve)
             + ' unidades da colheita como sementes para manter o próximo ciclo da roça.';
           community.history.push(message);
           log(w, message, w.day + 1);
@@ -260,11 +282,17 @@ export function collectFoodForCommunity(w, person, tile) {
       return delivered;
     }
     const capacity = Math.max(0, COMMUNITY_FOOD_CARRY_CAPACITY - (person.carriedFood || 0));
-    if (capacity <= .01) return 0;
+    if (capacity <= .01) {
+      recordFoodAuditBlocked('worker-cargo-capacity-full', { resource: 'food', requested: COMMUNITY_FOOD_CARRY_CAPACITY, available: 0, capacity: COMMUNITY_FOOD_CARRY_CAPACITY });
+      return 0;
+    }
     const harvestLimit = tile.cropFieldId != null
       ? COMMUNITY_FOOD_CARRY_CAPACITY
       : clamp(1.8 + person.skills.forage * 3.2, 1.8, 5);
     const harvest = harvestHumanFood(w, tile, Math.min(capacity, harvestLimit));
+    if (harvest <= .01) recordFoodAuditBlocked('no-harvestable-plant-biomass', {
+      resource: 'food', requested: Math.min(capacity, harvestLimit), available: 0
+    });
     const carried = addResource(person, 'carriedFood', harvest, COMMUNITY_FOOD_CARRY_CAPACITY);
     if (carried <= .01) return 0;
     if (tile.cropFieldId == null) hideCollectedBush(w, tile, 'berry');
@@ -458,7 +486,7 @@ export function attemptHumanHunt(w, person, prey, community) {
       person.lastLesson = 'Sem um abrigo, a caça não pode ser guardada; procurar alimento ou migrar evita insistir sem retorno.';
       return false;
     }
-    const meat = clamp(prey.massKg * .48, 1.2, 28);
+    const meat = Math.round(clamp(prey.massKg * .48, 1.2, 28));
     const carriedMeat = person.carriedMeat ?? 0;
     if (!Number.isFinite(meat) || !Number.isFinite(carriedMeat) || carriedMeat < 0 || meat > 28 - carriedMeat) {
       person.state = 'sem espaço para carregar a caça';
@@ -479,7 +507,11 @@ export function attemptHumanHunt(w, person, prey, community) {
       person.lastLesson = 'A presa escapou; perseguir custou energia e hidratação. Uma área com mais presas ou ajuda de outros membros melhora a próxima tentativa.';
       return false;
     }
-    const meatAdded = addResource(person, 'carriedMeat', meat, 28);
+    const meatAdded = withFoodAuditOperation({ kind: 'animal-harvest', category: livestock ? 'livestock-abattoir-harvest' : 'wildlife-hunt',
+      resource: 'meat', amount: meat,
+      source: { type: 'animal-biomass', animalId: prey.id, speciesId: prey.speciesId, herdCommunityId: prey.herdCommunityId ?? null },
+      destination: { type: 'person-cargo', personId: person.id }, actor: person,
+      destinationPosition: { x: prey.x, y: prey.y } }, () => addResource(person, 'carriedMeat', meat, 28, 'meat-harvest'));
     if (meatAdded + .001 < meat) return false;
     prey.alive = false; w.deaths++; w.deathsByCause.harvest++;
     if (livestock) {
@@ -494,7 +526,7 @@ export function attemptHumanHunt(w, person, prey, community) {
     person.lastLesson = 'A captura converteu um animal em carne carregada; a reserva só recebe o alimento quando a carga chega ao abrigo.';
     if (!livestock) markCommunityGround(w, person, 'hunting', tile);
     log(w, person.name + (livestock ? ' abateu uma ovelha adulta excedente de ' + community.name : ' caçou ' + profile.name.toLowerCase())
-      + ' e carregou ' + meat.toFixed(1) + ' unidades de carne para armazenar em um abrigo.');
+      + ' e carregou ' + formatWholeMeasure(meat) + ' unidades de carne para armazenar em um abrigo.');
     return true;
   }
 
@@ -520,13 +552,16 @@ export function attemptHumanFishing(w, person, fish, community) {
     fish.alive = false; w.deaths++; w.deathsByCause.harvest++;
     w.harvests.fishing++;
     if (tile) tile.detritusGPerM2 += fish.massKg * 4;
-    const foodResult = addHarvestedFood(person, community, meat);
+    const foodResult = withFoodAuditOperation({ kind: 'animal-harvest', category: 'fishing-catch', resource: 'food', amount: meat,
+      source: { type: 'fish-biomass', fishId: fish.id, speciesId: fish.speciesId },
+      destination: { type: 'personal-reserve-or-community-stock', personId: person.id, communityId: community?.id ?? null },
+      actor: person, destinationPosition: { x: fish.x, y: fish.y } }, () => addHarvestedFood(person, community, meat));
     person.skills.fish = clamp(person.skills.fish + .012, 0, 1);
     person.state = 'pescando';
     person.lastLesson = 'A captura trouxe alimento; retirar muitos peixes antes da reprodução reduz o estoque e torna este ponto pior para pescar.';
     markCommunityGround(w, person, 'fishing', tile);
     const fishingWater = tile?.waterKind === 'ocean' ? 'o oceano' : tile?.waterKind === 'lake' ? 'um lago' : 'um trecho de rio';
-    log(w, person.name + ' pescou em ' + fishingWater + ' e obteve ' + meat.toFixed(1) + ' unidades de alimento.');
+    log(w, person.name + ' pescou em ' + fishingWater + ' e obteve ' + formatWholeMeasure(meat) + ' unidades de alimento.');
     return true;
   }
 
@@ -690,7 +725,7 @@ export function attemptRaid(w, person, community, target) {
     community.tradeCount = community.tradeCount || 0; w.conflicts++;
     person.state = 'carregando alimento saqueado'; person.lastRaidSuccess = true;
     person.lastLesson = 'O reino tomou alimento do armazém. A carga ainda precisa chegar ao próprio abrigo; o reino rival perdeu estoque, as relações pioraram e a chance de retaliação cresceu.';
-    const message = community.name + ' retirou ' + stolen.nutrition.toFixed(1) + ' unidades nutricionais do armazém de ' + targetGroup.name + '; o saque ainda precisa ser transportado.';
+    const message = community.name + ' retirou ' + formatWholeMeasure(stolen.nutrition) + ' unidades nutricionais do armazém de ' + targetGroup.name + '; o saque ainda precisa ser transportado.';
     community.history.push(message); targetGroup.history.push(message); log(w, message);
     return stolen.nutrition > .01;
   }
@@ -823,19 +858,26 @@ export function collectSheepFeed(w, person, community, target) {
     const capacity = Math.max(0, 18 - (person.carriedFeed || 0));
     const take = Math.min(capacity / sizeFactor, 5.5 + person.skills.care * 4.5, before);
     if (take <= .05) { person.state = 'arbusto sem brotos'; return 0; }
-    target.plants[index] -= take;
-    hideCollectedBush(w, target, 'browse');
-    target.detritusGPerM2 += take * .035;
     const storedFeed = take * sizeFactor;
-    addResource(person, 'carriedFeed', storedFeed, 18);
-    person.visualActivity = { kind: 'harvest', x: target.x, y: target.y, day: w.day + 1, tool: 'knife' };
-    consumePersonEnergy(person, .32);
-    person.skills.care = clamp(person.skills.care + .004, 0, 1);
-    person.state = before >= 70 ? 'recolhendo arbustos grandes' : 'recolhendo arbustos pequenos';
-    person.lastLesson = before >= 70
-      ? 'O arbusto grande rendeu mais alimento para o curral, mas a coleta reduziu o recurso disponível no local.'
-      : 'Os brotos foram armazenados como ração; arbustos pequenos rendem menos e precisam se recuperar.';
-    return storedFeed;
+    return withFoodAuditOperation({ kind: 'sheep-feed-foraging', category: 'livestock-feed-gathering', resource: 'feed',
+      amount: storedFeed, source: { type: 'browse-plant-biomass', tileIndex: target.i, plantId: 'browse',
+        communityId: community.id, biomassAmount: take, biomassUnit: 'plant-biomass', feedConversionFactor: sizeFactor },
+      destination: { type: 'person-cargo', personId: person.id }, actor: person,
+      sourcePosition: { x: target.x, y: target.y }, destinationPosition: { x: person.x, y: person.y }
+    }, () => {
+      target.plants[index] -= take;
+      hideCollectedBush(w, target, 'browse');
+      target.detritusGPerM2 += take * .035;
+      addResource(person, 'carriedFeed', storedFeed, 18);
+      person.visualActivity = { kind: 'harvest', x: target.x, y: target.y, day: w.day + 1, tool: 'knife' };
+      consumePersonEnergy(person, .32);
+      person.skills.care = clamp(person.skills.care + .004, 0, 1);
+      person.state = before >= 70 ? 'recolhendo arbustos grandes' : 'recolhendo arbustos pequenos';
+      person.lastLesson = before >= 70
+        ? 'O arbusto grande rendeu mais alimento para o curral, mas a coleta reduziu o recurso disponível no local.'
+        : 'Os brotos foram armazenados como ração; arbustos pequenos rendem menos e precisam se recuperar.';
+      return storedFeed;
+    });
   }
 
 export function claimForagePatch(w, person, tile, resourceKind) {
@@ -955,34 +997,42 @@ function updatePeopleCore(w) {
       const campaignOrder = campaignOrderFor(w, p);
       const peacetimeSoldier = p.role === 'soldier' && p.campaignId == null
         && !campaignOrder?.campaign && !campaignOrder?.returning;
-      const militaryCenter = peacetimeSoldier ? militaryDutyCenterFor(w, p) : null;
-      const garrisonKingdom = peacetimeSoldier ? w.kingdoms.find(item => item.id === p.kingdomId) : null;
+      const militaryCenter = p.role === 'soldier' ? militaryDutyCenterFor(w, p) : null;
+      const garrisonKingdom = p.role === 'soldier' ? w.kingdoms.find(item => item.id === p.kingdomId) : null;
       const garrisonCommunity = garrisonKingdom && w.communities.find(item =>
         item.id === garrisonKingdom.communityId && item.kingdomId === p.kingdomId);
       const garrisonFoodAvailable = Math.max(0, Number(garrisonKingdom?.treasury?.stock?.food) || 0)
         + communityFoodStock(garrisonCommunity);
       const dailyFoodNeed = peacetimeSoldier ? PEACETIME_SOLDIER_FOOD_NEED : DAILY_FOOD_NEED;
+      const currentTerritoryOwner = cellAt(w, Math.round(p.x), Math.round(p.y))?.kingdomId;
+      const onOwnTerritory = currentTerritoryOwner === p.kingdomId;
+      const onFriendlySupplyGround = !campaignOrder || onOwnTerritory;
+      const returnToGarrison = peacetimeSoldier && p.foodReserve < GARRISON_RECOVERY.food
+        && garrisonFoodAvailable > .01 && militaryCenter && distance(p, militaryCenter) > 2;
       const communitySize = community ? (communityCounts.get(community.id) || 0) : 0;
       const sheltered = w.structures.some(s => s.complete && s.type === 'abrigo' && community && p.communityId === s.communityId && distance(p, s) <= 4);
       consumePersonEnergy(p, (peacetimeSoldier ? .18 : sheltered ? .4 : .48) + p.injury * .006);
       p.hydration = clamp(p.hydration - .3, 0, 100);
       const campaignRation = drawCampaignRation(w, p, dailyFoodNeed);
-      if (campaignRation > .01) addFoodReserve(p, campaignRation, 'campaign-ration');
       if (peacetimeSoldier) drawGarrisonRation(w, p, militaryCenter, GARRISON_RATION_TARGET);
+      const returningToMilitarySupply = p.role === 'soldier' && p.campaignId == null
+        && (campaignOrder?.returning || p.militaryReturningHome || returnToGarrison);
+      const emergencyGarrisonRation = returningToMilitarySupply && onOwnTerritory
+        && p.foodReserve < dailyFoodNeed && garrisonFoodAvailable > .01
+        ? drawGarrisonRation(w, p, militaryCenter, dailyFoodNeed, { allowAwayFromCenter: true }) : 0;
       const marketRationNeed = peacetimeSoldier
         ? Math.max(0, GARRISON_RATION_TARGET - p.foodReserve)
-        : Math.max(0, dailyFoodNeed - campaignRation);
+        : Math.max(0, dailyFoodNeed - campaignRation - emergencyGarrisonRation);
       const purchasedRation = buyMilitaryMeal(w, p, marketRationNeed);
       const communityRationNeed = p.role === 'soldier' || p.foodReserve >= PERSONAL_FOOD_PRESSURE_THRESHOLD
         ? 0 : Math.max(0, dailyFoodNeed - campaignRation - purchasedRation);
-      const onFriendlySupplyGround = !campaignOrder || cellAt(w, Math.round(p.x), Math.round(p.y))?.kingdomId === p.kingdomId;
       if (community && onFriendlySupplyGround && communityRationNeed > .01 && communityFoodStock(community) > .01) {
         const personalCapacity = Math.max(0, 100 - p.foodReserve) / FOOD_DAYS_PER_UNIT;
         const meal = Math.min(communityRationNeed / FOOD_DAYS_PER_UNIT, communityFoodStock(community), personalCapacity);
         if (meal > .01) {
-          withdrawCommunityFood(w, community, meal, 'resident-food-issue');
-          addFoodReserve(p, meal * FOOD_DAYS_PER_UNIT, 'resident-community-meal');
-          p.sharedMeals = (p.sharedMeals || 0) + meal;
+          const transfer = transferCommunityFoodToReserve(w, community, p, meal,
+            'resident-food-issue', 'resident-community-meal');
+          p.sharedMeals = (p.sharedMeals || 0) + transfer.nutrition;
         }
       }
       const personalRationDeficit = Math.max(0, dailyFoodNeed - p.foodReserve);
@@ -993,9 +1043,9 @@ function updatePeopleCore(w) {
           addFoodReserve(p, consumedCarriedFood * FOOD_DAYS_PER_UNIT, 'emergency-carried-food-ration');
           if (p.lastEmergencyRationDay !== w.day - 1) {
             const carriedFor = community ? 'carga destinada ao estoque de ' + community.name : 'carga transportada';
-            log(w, 'Ração emergencial: ' + p.name + ' consumiu ' + consumedCarriedFood.toFixed(2) + ' unidades da ' + carriedFor
-              + ' para completar a ração diária; reserva pessoal antes: ' + (p.foodReserve - consumedCarriedFood * FOOD_DAYS_PER_UNIT).toFixed(2)
-              + ' dias; estoque comunitário: ' + communityFoodStock(community).toFixed(2) + ' dias alimentares equivalentes.');
+            log(w, 'Ração emergencial: ' + p.name + ' consumiu ' + formatWholeMeasure(consumedCarriedFood) + ' unidades da ' + carriedFor
+              + ' para completar a ração diária; reserva pessoal antes: ' + formatWholeMeasure(p.foodReserve - consumedCarriedFood * FOOD_DAYS_PER_UNIT)
+              + ' dias; estoque comunitário: ' + formatWholeMeasure(communityFoodStock(community)) + ' dias alimentares equivalentes.');
           }
           p.lastEmergencyRationDay = w.day;
         }
@@ -1201,20 +1251,20 @@ function updatePeopleCore(w) {
       const assignedBuildDuty = assignment && assignment.action === 'build' && !assignmentConflict && !survivalAction
         && !homeRest && !carryingGoods && !p.leadingSheepId;
       // Food and water require resupply or drinking, never an endless sleep.
-      const returnToGarrison = peacetimeSoldier && p.foodReserve < GARRISON_RECOVERY.food
-        && garrisonFoodAvailable > .01 && militaryCenter && distance(p, militaryCenter) > 2;
       const planContext = {
         militaryDuty: !!campaignOrder || !!p.towerMounted || !!p.towerDutyId,
         urgentNeeds: !!(survivalAction || carrierMaintenanceAction)
           || p.role === 'soldier' && p.hydration < 40 && !!waterTarget,
         rest: homeRest, cargo: carryingGoods || !!p.leadingSheepId,
-        resupply: returnToGarrison, busy: socialMeetingParticipants
+        resupply: returnToGarrison, busy: socialMeetingParticipants,
+        constructionDuty: !!assignedBuildDuty && canContinueFoodFieldWork
       };
       // Propose only when there is an opportunity to execute the first step today.
       // Existing plans survive interruptions, but duties do not generate new impossible promises.
       if (!aidPlanIntention && perceivedFoodHelper && !physicalIntentionBlockers(p, w.day).length
           && !planContext.militaryDuty && !planContext.urgentNeeds && !planContext.rest
-          && !planContext.cargo && !planContext.resupply && !socialMeetingParticipants.has(p.id)) {
+          && !planContext.cargo && !planContext.resupply && !socialMeetingParticipants.has(p.id)
+          && !planContext.constructionDuty) {
         aidPlanIntention = ensureFoodAidPlan(w, p, perceivedFoodHelper, {
           evidenceEventIds: foodAidEvidenceIds(w, p, perceivedFoodHelper.id)
         })?.intention || null;
@@ -1312,20 +1362,33 @@ function updatePeopleCore(w) {
             const directStorage = community && ((fruitShelter && distance(p, fruitShelter) <= 1.5)
               || (!fruitShelter && distance(p, community) <= 5));
             const harvestLimit = personalFoodHarvestLimit(p, desiredHarvest, reserveCapacity, !!directStorage);
-            const harvest = harvestHumanFood(w, food, harvestLimit);
-            const use = Math.min(harvest, reserveCapacity);
-            addFoodReserve(p, use * FOOD_DAYS_PER_UNIT, 'personal-harvest');
+            const harvestResult = withFoodAuditOperation({
+              kind: 'harvest-and-distribute', category: 'personal-foraging', resource: 'food', amount: harvestLimit,
+              source: { type: food.cropFieldId == null ? 'berry-patch-biomass' : 'cultivated-root-biomass',
+                tileIndex: food.i, fieldId: food.cropFieldId ?? null },
+              destination: { type: 'personal-reserve-and-local-stock', personId: p.id, communityId: community?.id ?? null },
+              actor: p, destinationPosition: { x: food.x, y: food.y }
+            }, () => {
+              const harvest = harvestHumanFood(w, food, harvestLimit);
+              if (harvest <= .01) recordFoodAuditBlocked('no-harvestable-plant-biomass', {
+                resource: 'food', requested: harvestLimit, available: 0
+              });
+              const use = Math.min(harvest, reserveCapacity);
+              addFoodReserve(p, use * FOOD_DAYS_PER_UNIT, 'personal-harvest');
+              p.energy = clamp(p.energy + use * .18, 0, 100);
+              const surplus = Math.max(0, harvest - use);
+              if (community && fruitShelter && distance(p, fruitShelter) <= 1.5) storeCommunityFruit(w, community, fruitShelter, surplus);
+              else if (community && !fruitShelter && distance(p, community) <= 5) storeCommunityFruit(w, community, null, surplus);
+              else addResource(p, 'carriedFruit', surplus, 24, 'forage-surplus-cargo');
+              return { harvest, use, surplus };
+            });
+            const { harvest, use } = harvestResult;
             if (harvest > .1) {
               if (food.cropFieldId == null) hideCollectedBush(w, food, 'berry');
               p.visualActivity = { kind: 'harvest', x: food.x, y: food.y, day: w.day + 1,
                 ...(food.cropFieldId == null ? { tool: 'knife' } : {}) };
             }
 
-            p.energy = clamp(p.energy + use * .18, 0, 100);
-            const surplus = Math.max(0, harvest - use);
-            if (community && fruitShelter && distance(p, fruitShelter) <= 1.5) storeCommunityFruit(w, community, fruitShelter, surplus);
-            else if (community && !fruitShelter && distance(p, community) <= 5) storeCommunityFruit(w, community, null, surplus);
-            else addResource(p, 'carriedFruit', surplus, 24);
             consumePersonEnergy(p, .22);
             p.skills.forage = clamp(p.skills.forage + .004, 0, 1);
             p.state = harvest > .1 ? 'coletando alimento' : 'recurso esgotado';
@@ -1615,7 +1678,7 @@ function updatePeopleCore(w) {
       }
       if (emergencyCarriedRationToday > .001) {
         p.lastLesson = (p.lastLesson ? p.lastLesson + ' ' : '')
-          + 'A ração de hoje consumiu ' + emergencyCarriedRationToday.toFixed(2) + ' unidades da carga alimentar.';
+          + 'A ração de hoje consumiu ' + formatWholeMeasure(emergencyCarriedRationToday) + ' unidades da carga alimentar.';
       }
       if (p.carriedFruit > .1 && community) {
         const fruitShelter = nearestShelterFor(w, p);
@@ -1661,8 +1724,8 @@ function updatePeopleCore(w) {
           if (leftAfterLongAbsence) reasons.push('ausência de ' + p.awayDays + ' dias com satisfação abaixo de 0,400 (valor '
             + satisfaction.toFixed(6) + ')');
           if (leftAfterAccumulatedDissatisfaction) reasons.push('insatisfação acumulada por ' + p.dissatisfactionDays + ' dias');
-          const personalFoodDaysAtExit = p.foodReserve.toFixed(1);
-          const sharedFoodAtExit = communityFoodStock(community).toFixed(1);
+          const personalFoodDaysAtExit = formatWholeMeasure(p.foodReserve);
+          const sharedFoodAtExit = formatWholeMeasure(communityFoodStock(community));
           p.communityId = null; p.kingdomId = null; p.homeId = null; p.awayDays = 0;
           clearMilitaryCommand(p);
           community.memberIds = community.memberIds.filter(id => id !== p.id);

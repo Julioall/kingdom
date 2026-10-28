@@ -2,9 +2,11 @@ import { rearProjection, safeCorralFootprint } from '../kingdoms/rear-sites.js';
 import { initializeStructureHealth } from '../kingdoms/fortifications.js';
 import { clamp, distance, hash01 } from '../core/math.js';
 import { communityFoodStock, consumeFoodReserve, spendInventory, spendStoreInventory, transferResource, withdrawCommunityFood } from '../economy/inventories.js';
+import { recordFoodAuditBlocked, withFoodAuditOperation } from '../economy/food-audit-ledger.js';
 import { cellAt, cellsWithin } from '../world/spatial.js';
 import { collectCommunityFieldSeeds, plantBiomass, sowCommunityField } from '../ecology/plants.js';
 import { PLANTS } from '../../config/ecosystem.js';
+import { formatWholeMeasure } from '../../config/whole-measures.js';
 import { localNameFeature } from '../society/communities.js';
 import { log } from '../core/events.js';
 import { moveOne, reachableAreaAround } from '../individuals/movement.js';
@@ -364,6 +366,10 @@ export function workOnReplantingField(w, person, community, fieldId = person?.as
     && item.communityId === community.id && item.complete && item.destroyedDay == null && item.integrity !== 0);
   const availableSeeds = Math.max(0, Number(community.stores.seeds) || 0);
   if (!field || field.cropCycleState !== 'spent' || availableSeeds <= .01) {
+    recordFoodAuditBlocked(!field ? 'field-unavailable-for-replanting' : availableSeeds <= .01
+      ? 'community-seed-stock-empty' : 'field-not-ready-for-replanting', {
+      resource: 'seeds', requested: availableSeeds || 1, available: availableSeeds, actorId: person.id
+    });
     person.state = !field ? 'roça para replantio indisponível' : 'aguardando sementes para replantio';
     return false;
   }
@@ -372,12 +378,18 @@ export function workOnReplantingField(w, person, community, fieldId = person?.as
     .filter(tile => tile && tile.cropFieldId === field.id && tile.terrain === 'land')
     .sort((a, b) => distance(person, a) - distance(person, b) || a.i - b.i);
   if (!cropTiles.length) {
+    recordFoodAuditBlocked('field-area-unavailable-for-replanting', {
+      resource: 'seeds', requested: availableSeeds, available: 0, actorId: person.id
+    });
     person.state = 'área da roça indisponível para replantio';
     return false;
   }
   const plantingTile = cropTiles.find(tile => distance(person, tile) <= 1.6);
   if (!plantingTile) {
     const moved = cropTiles.some(tile => moveOne(w, person, cellAt(w, tile.x, tile.y), false));
+    if (!moved) recordFoodAuditBlocked('route-blocked-to-field-for-replanting', {
+      resource: 'seeds', requested: availableSeeds, available: availableSeeds, actorId: person.id
+    });
     person.state = moved ? 'indo semear a roça' : 'rota da roça bloqueada para replantio';
     person.buildCooldown = moved ? 1 : 3;
     return false;
@@ -385,20 +397,33 @@ export function workOnReplantingField(w, person, community, fieldId = person?.as
 
   const previousSeedMass = Math.max(0, Number(field.cropSeededBiomass) || Number(field.seedMass) || 0);
   const seedMass = Math.min(availableSeeds, previousSeedMass || availableSeeds);
-  if (seedMass <= .01) return false;
-  const movedSeeds = transferResource(community.stores, field, 'seeds', seedMass, 'cropSeedStored');
-  if (movedSeeds <= .01) return false;
-  const planted = sowCommunityField(w, field);
-  if (planted <= .01) {
-    transferResource(field, community.stores, 'cropSeedStored', movedSeeds, 'seeds');
+  if (seedMass <= .01) {
+    recordFoodAuditBlocked('no-seeds-to-replant', { resource: 'seeds', requested: previousSeedMass || 1, available: seedMass, actorId: person.id });
     return false;
   }
+  const replantResult = withFoodAuditOperation({ kind: 'field-replant', category: 'worker-replanting',
+    resource: 'seeds', amount: seedMass, sourceAccount: community.stores, sourceResource: 'seeds',
+    destinationAccount: field, destinationResource: 'cropSeedStored',
+    source: { type: 'community-seed-stock', communityId: community.id },
+    destination: { type: 'field-seed-stock', structureId: field.id },
+    actor: person, destinationPosition: { x: field.x, y: field.y } }, () => {
+    const movedSeeds = transferResource(community.stores, field, 'seeds', seedMass, 'cropSeedStored', Infinity, 'field-replanting');
+    if (movedSeeds <= .01) return null;
+    const planted = sowCommunityField(w, field);
+    if (planted <= .01) {
+      transferResource(field, community.stores, 'cropSeedStored', movedSeeds, 'seeds', Infinity, 'return-unused-seeds');
+      return null;
+    }
+    return { movedSeeds, planted };
+  });
+  if (!replantResult) return false;
+  const { planted } = replantResult;
   field.cropSeedsRetainedThisCycle = 0;
   field.cropLastSowedDay = w.day;
   if (person.assignment) person.assignment.replantSowedDay = w.day;
   person.state = 'semeando a roça';
   person.lastLesson = 'O morador debitou sementes reservadas e replantou a área existente; o crescimento começa em um novo lote finito.';
-  community.history.push('Replantou a roça com ' + planted.toFixed(2) + ' unidades de sementes reservadas no estoque comum.');
-  log(w, community.name + ' replantou uma roça com ' + planted.toFixed(2) + ' unidades de sementes; novo lote iniciado.', w.day + 1);
+  community.history.push('Replantou a roça com ' + formatWholeMeasure(planted) + ' unidades de sementes reservadas no estoque comum.');
+  log(w, community.name + ' replantou uma roça com ' + formatWholeMeasure(planted) + ' unidades de sementes; novo lote iniciado.', w.day + 1);
   return true;
 }

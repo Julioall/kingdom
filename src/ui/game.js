@@ -31,6 +31,7 @@ import { createRenderDiagnostics } from './render-profiler-panel.js';
 import { createTerrainChunkCache } from './terrain-chunks.js';
 import { createPixelTileCache } from './pixel-tile-cache.js';
 import { compareDepth, mergeDepthItems } from './depth-order.js';
+import { formatWholeMeasure } from './whole-measures.js';
 
 const IMAGE_ASSET_EXTENSION = import.meta.env?.PROD ? 'webp' : 'png';
 const imageFileName = name => `${name}.${IMAGE_ASSET_EXTENSION}`;
@@ -671,7 +672,8 @@ export function mountGame() {
   }
   // Kingdom palettes load when the Worker first returns its world snapshot.
 
-  function fmt(n, digits) { return Number(n || 0).toLocaleString('pt-BR', { maximumFractionDigits: digits || 0 }); }
+  function fmt(n) { return formatWholeMeasure(n); }
+  function fmtRationPortions(feed) { return fmt((Number(feed) || 0) / DOMESTIC_SHEEP_DAILY_FEED); }
   function qualityLabel(score) { return score >= .62 ? 'boa' : score >= .28 ? 'moderada' : 'ruim'; }
   function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); }
   function rgb(hex) {
@@ -2434,7 +2436,7 @@ export function mountGame() {
     const avgTemp = world.regions.reduce((s, r) => s + r.temperatureC, 0) / world.regions.length;
     const calendar = Sim.modules.Cosmos.calendarDate(world.day);
     const global = resourceSummary(world);
-    $('globalFood').textContent = fmt(global.food, 1);
+    $('globalFood').textContent = fmt(global.food);
     $('globalFood').title = 'Comida física agregada (dias adultos): ' +
       'estoques comunitários ' + fmt(global.foodByAccount.community, 1) +
       ' · tesouros ' + fmt(global.foodByAccount.treasury, 1) +
@@ -2452,7 +2454,7 @@ export function mountGame() {
     $('deathCount').textContent = fmt(global.deaths);
     $('conflictCount').textContent = fmt(stats.borderIncidents);
     $('harvestCount').textContent = fmt(stats.harvests.hunting);
-    $('meatCount').textContent = fmt(stats.meatCarried, 1) + '/' + fmt(stats.meatStored, 1);
+    $('meatCount').textContent = fmt(stats.meatCarried) + '/' + fmt(stats.meatStored);
     $('season').textContent = seasonNames[stats.season].toUpperCase();
     $('temperature').textContent = Math.round(avgTemp) + ' °C';
     $('rainfall').textContent = fmt(stats.rainfallMm, 1) + ' mm';
@@ -2558,9 +2560,9 @@ export function mountGame() {
             ? 'estoque abaixo de um dia; piso de seca liberado'
             : item.foodReason === 'restore-two-day-community-buffer' ? 'buffer comunitário de dois dias'
               : item.feedReason ? 'buffer de ração do rebanho' : 'reserva comunitária';
-          return '<div class="event">Dia ' + fmt(item.day, 0) + ' · tesouro → comunidade · ' + fmt(item.food, 3) + ' alimento / '
-            + fmt(item.feed, 3) + ' ração · tesouro restante ' + fmt(item.treasuryFood, 3) + ' alimento · reserva comum '
-            + fmt(item.communityFood, 3) + ' · piso de seca ' + fmt(item.protectedFoodFloor, 3) + ' · ' + esc(reason) + '</div>';
+          return '<div class="event">Dia ' + fmt(item.day) + ' · tesouro → comunidade · ' + fmt(item.food) + ' alimento / '
+            + fmtRationPortions(item.feed) + ' porções de ração · tesouro restante ' + fmt(item.treasuryFood) + ' alimento · reserva comum '
+            + fmt(item.communityFood) + ' · piso de seca ' + fmt(item.protectedFoodFloor) + ' · ' + esc(reason) + '</div>';
         }).join('')
         : '';
       const towers = structures.filter(s => s.type === 'torre' && s.complete && !s.frontierOutpost);
@@ -2673,7 +2675,7 @@ export function mountGame() {
           + '<div class="data-row"><span>Evidências agregadas</span><b>' + fmt(strategy.evidence && strategy.evidence.population) + ' moradores · '
           + fmt(strategy.evidence && strategy.evidence.sharedFood, 1) + ' alimento compartilhado · '
           + fmt(strategy.evidence && strategy.evidence.foodPerResident, 1) + ' por morador · '
-          + fmt(strategy.evidence && strategy.evidence.feedStock, 1) + '/' + fmt(strategy.evidence && strategy.evidence.feedTarget, 1) + ' ração</b></div>'
+          + fmt(strategy.evidence && strategy.evidence.feedStock) + '/' + fmt(strategy.evidence && strategy.evidence.feedTarget) + ' porções de ração</b></div>'
           + (repairEvidence ? '<div class="data-row"><span>Construções danificadas que o rei conhece</span><b>'
             + repairEvidence.damagedStructureCount + ' encontradas · ' + repairEvidence.criticalStructureCount + ' críticas'
             + (repairEvidenceText ? ' · ' + esc(repairEvidenceText) : '') + '</b></div>' : '')
@@ -2756,6 +2758,7 @@ export function mountGame() {
         (missingMilitarySources.length ? '<p class="quiet">Sem fonte operacional: ' + missingMilitarySources.map(unitClass => esc(MILITARY_SOURCE_LABELS[unitClass === 'guerreiro' ? 'centro_militar' : unitClass === 'arqueiro' ? 'arquearia' : 'monasterio'])).join(' · ') + '. Novos membros e progressão dessas classes ficam pausados.</p>' : '') +
         (pausedRecruitments.length ? '<p class="quiet">Treinamentos pausados: ' + pausedRecruitments.map(person => esc(person.name) + ' — ' + esc(person.recruitmentOrder.pauseReason)).join(' · ') + '. O custo e o progresso são preservados.</p>' : '') +
         '<p class="quiet">Soldo: ' + MILITARY_PAY.copper + ' cobres a cada ' + MILITARY_PAY.days + ' dias, após 30 dias de serviço. Pagamento em moedas reais conforme a disponibilidade do tesouro; obrigações antigas permanecem devidas.</p>' +
+
         (kingdomActionNotice ? '<div class="note-card kingdom-action-notice" role="status">' + esc(kingdomActionNotice) + '</div>' : '') +
 
         '<p class="quiet">As casas ficam distribuídas em torno do castelo. As torres estendem o território; os centros militares abrigam os soldados. O mercado e o tesouro mantêm estoques separados.</p></details>';
@@ -2816,7 +2819,7 @@ export function mountGame() {
         (p.towerMounted ? '<div class="data-row"><span>Posto na torre</span><b>Alcance: 14 células</b></div>' : '') +
         '<div class="data-row"><span>Energia / saúde</span><b>' + Math.round(p.energy) + ' / ' + Math.round(p.health) + '%</b></div>' +
         '<div class="data-row"><span>Reino / moradia</span><b>' + esc(kingdom ? kingdom.name : 'sem reino') + ' · ' + esc(p.homeId ? 'moradia ' + p.homeId : 'sem moradia registrada') + '</b></div>' +
-        '<div class="data-row"><span>Ferimentos / carga</span><b>' + Math.round(p.injury) + ' · carne ' + fmt(p.carriedMeat, 1) + ' · madeira ' + fmt(p.carriedWood, 1) + ' · pedra ' + fmt(p.carriedStone, 1) + ' · ração ' + fmt(p.carriedFeed, 1) + '</b></div>' +
+        '<div class="data-row"><span>Ferimentos / carga</span><b>' + Math.round(p.injury) + ' · carne ' + fmt(p.carriedMeat) + ' · madeira ' + fmt(p.carriedWood) + ' · pedra ' + fmt(p.carriedStone) + ' · ração ' + fmtRationPortions(p.carriedFeed) + ' porções</b></div>' +
         ((p.carriedFood > .01 || p.carriedFruit > .01) ? '<div class="data-row"><span>Alimento na carga</span><b>' + fmt(p.carriedFood, 1) + ' para o estoque · ' + fmt(p.carriedFruit, 1) + ' frutos</b></div>' : '') +
         '<div class="data-row"><span>Necessidade social</span><b>' + Math.round(p.socialNeed) + '%</b></div>' +
         '<div class="data-row"><span>Caminhos aprendidos</span><b>' + (p.knownRoutes?.length || 0) + ' · reutilizações: ' + (p.navigationCacheHits || 0) + '</b></div>' +
@@ -2827,7 +2830,8 @@ export function mountGame() {
           + (progressionAuditText ? '<div class="data-row"><span>Progressão de classe</span><b>' + esc(progressionAuditText) + '</b></div>' : '')
           + (p.campaignId != null && p.fieldCommand ? '<div class="note-card"><b>' + (p.fieldCommand.issuerId === p.id ? 'Ordem emitida' : 'Ordem recebida de ' + esc(getPerson(p.fieldCommand.issuerId)?.name || 'general')) + '</b><span>' + esc(p.fieldCommand.reason) + ' Formação: ' + (p.fieldCommand.formationType === 'line' ? 'linha' : 'coluna') + '. Alvo: ' + p.fieldCommand.target.x + ',' + p.fieldCommand.target.y + '.</span></div>' : '')
           + '<div class="data-row"><span>Soldo do rei</span><b>' + MILITARY_PAY.copper + ' cobres / ' + MILITARY_PAY.days + ' dias</b></div>'
-          + '<div class="data-row"><span>Carteira / pendências</span><b>' + fmt(p.militaryWallet?.stock?.gold || 0) + ' ouro · ' + fmt(p.militaryWallet?.stock?.silver || 0) + ' prata · ' + fmt(p.militaryWallet?.stock?.copper || 0) + ' cobre; legado: ' + fmt(p.militaryPayArrears || 0, 3) + ' ouro; novo: ' + fmt(p.militaryPayArrearsCopper || 0) + ' cobres</b></div>'
+          + '<div class="data-row"><span>Carteira / pendências</span><b>' + fmt(p.militaryWallet?.stock?.gold || 0) + ' ouro · ' + fmt(p.militaryWallet?.stock?.silver || 0) + ' prata · ' + fmt(p.militaryWallet?.stock?.copper || 0) + ' cobre; legado: ' + fmt(p.militaryPayArrears || 0, 3) + ' ouro; novo: ' + fmt(p.militaryPayArrearsCopper || 0) + ' cobres</b></div>
+
           + '<div class="data-row"><span>Próximo soldo</span><b>Dia ' + (p.nextMilitaryPayDay ?? '—') + '</b></div>' : '') +
         '<h3>Reino e fronteiras</h3><div class="note-card"><b>' + esc(kingdom ? kingdom.name : 'Terra comum') + '</b><span>' + esc(p.perception && p.perception.territorialAwareness && p.perception.territorialAwareness.warningText || (kingdom ? 'Você reconhece este domínio e os riscos de atravessar fronteiras estrangeiras.' : 'Você vive em terra comum, sem a proteção territorial de um reino.')) + '</span></div>' +
         '<h3>Decisão e aprendizado</h3><div class="brain-box"><strong>' + (p.militaryBrain && p.role === 'soldier' ? 'Rede militar' : 'Rede individual') + ' · ' + decisionBrain.inputSize + ' → ' + decisionBrain.hiddenSize + ' → ' + decisionBrain.actionCount + '</strong><small>' + (p.role === 'soldier' ? 'Compara guarda, patrulha e treino. Campanhas e necessidades urgentes limitam as opções disponíveis; os resultados ajustam seus pesos militares.' : p.role === 'ruler' ? 'O rei usa uma rede maior para comparar necessidades, recursos e riscos do reino; seus pesos também aprendem com os resultados.' : 'Avalia necessidades, alimento, água, risco de fronteira e áreas próximas; resultados positivos e negativos ajustam decisões futuras.') + '</small><div class="brain-metrics"><span>Intenção<b>' + esc(actionLabels[p.brain.lastAction] || p.brain.lastAction) + '</b></span><span>Atualizações<b>' + fmt(decisionBrain.updates) + '</b></span><span>Recompensa média<b>' + decisionBrain.rewardMean.toFixed(2) + '</b></span><span>Memória por ação<b>individual</b></span></div></div>' +
@@ -2868,8 +2872,8 @@ export function mountGame() {
         '<div class="data-row"><span>Energia / hidratação</span><b>' + Math.round(a.energy) + ' / ' + Math.round(a.hydration) + '%</b></div>' +
         (a.speciesId === 'sheep' && a.herdCommunityId != null
           ? '<div class="brain-box"><strong>Manejo do rebanho · IA individual desligada</strong><small>' + (a.herdPenId != null
-            ? 'A ovelha está associada a um curral e recebe uma ração pequena. Os moradores recolhem brotos para manter o estoque comunitário.'
-            : 'A ovelha pertence ao rebanho comunitário, mas aguarda vaga em um curral. A ração vem do estoque compartilhado.') + '</small><div class="brain-metrics"><span>Ração diária<b>' + fmt(DOMESTIC_SHEEP_DAILY_FEED, 2) + '</b></span><span>Recebida hoje<b>' + fmt(a.lastFeedAmount || 0, 2) + '</b></span><span>Ração no reino<b>' + fmt((getCommunity(a.herdCommunityId) || { stores: {} }).stores.feed || 0, 1) + '</b></span><span>Aprendizado<b>desativado</b></span></div></div>'
+            ? 'A ovelha está associada a um curral e recebe uma porção diária. Os moradores recolhem brotos para manter o estoque comunitário.'
+            : 'A ovelha pertence ao rebanho comunitário, mas aguarda vaga em um curral. A ração vem do estoque compartilhado.') + '</small><div class="brain-metrics"><span>Ração diária<b>1 porção</b></span><span>Recebida hoje<b>' + fmtRationPortions(a.lastFeedAmount || 0) + ' porção</b></span><span>Ração no reino<b>' + fmtRationPortions((getCommunity(a.herdCommunityId) || { stores: {} }).stores.feed || 0) + ' porções</b></span><span>Aprendizado<b>desativado</b></span></div></div>'
           : '<div class="brain-box"><strong>Controlador individual · rede ' + a.brain.inputSize + ' → ' + a.brain.hiddenSize + ' → ' + a.brain.actionCount + '</strong><small>As necessidades e o habitat limitam as ações possíveis; a rede aprende com os resultados das decisões.</small><div class="brain-metrics"><span>Última intenção<b>' + esc(a.brain.lastAction) + '</b></span><span>Decisões<b>' + a.brain.decisions + '</b></span><span>Atualizações<b>' + a.brain.updates + '</b></span><span>Pesos<b>independentes</b></span></div></div>') +
         '<p class="quiet">' + (profile.prey.length ? 'A dieta inclui ' + profile.prey.map(id => Sim.animals.find(s => s.id === id).name.toLowerCase()).join(', ') + '; a predação depende de encontros e do estado da presa.' : 'A dieta retira biomassa vegetal disponível; não há reposição automática de indivíduos.') + '</p>';
       return;
@@ -2928,7 +2932,7 @@ export function mountGame() {
         '<div class="data-row"><span>Coesão média</span><b>' + Math.round(c.cohesion * 100) + '%</b></div>' +
         '<div class="data-row"><span>' + (c.stage === 'reino' ? 'Rei' : 'Prefeito') + '</span><b>' + (leader ? esc(leader.name) : 'ainda sem nomeação') + ' · prestígio ' + fmt(leader && leader.prestige || 0, 1) + '</b></div>' +
         '<div class="data-row"><span>Satisfação</span><b>' + Math.round((c.satisfaction || 0) * 100) + '% · mede alimento, saúde, abrigo e vínculos</b></div>' +
-        '<div class="data-row"><span>Reservas compartilhadas</span><b>alimento ' + fmt(c.stores.food, 1) + ' · carne ' + fmt(c.stores.meat, 1) + ' · madeira ' + fmt(c.stores.wood, 1) + ' · pedra ' + fmt(c.stores.stone, 1) + ' · ração ' + fmt(c.stores.feed, 1) + ' · ouro ' + fmt(c.stores.gold, 1) + '</b></div>' +
+        '<div class="data-row"><span>Reservas compartilhadas</span><b>alimento ' + fmt(c.stores.food) + ' · carne ' + fmt(c.stores.meat) + ' · madeira ' + fmt(c.stores.wood) + ' · pedra ' + fmt(c.stores.stone) + ' · ração ' + fmtRationPortions(c.stores.feed) + ' porções · ouro ' + fmt(c.stores.gold) + '</b></div>' +
         '<div class="data-row"><span>Tarefas / propriedades</span><b>' + tasksCompleted + ' concluídas · ' + taskCount + ' ativas · ' + propertyCount + ' propriedade(s)</b></div>' +
         '<div class="data-row"><span>Trocas / disputas / assaltos</span><b>' + c.tradeCount + ' / ' + disputes + ' / ' + raids + ' no mundo</b></div>' +
         '<div class="data-row"><span>Primeiro vínculo</span><b>dia ' + c.createdDay + '</b></div>' +

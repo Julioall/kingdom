@@ -5,6 +5,7 @@ import { spendResource } from '../economy/inventories.js';
 import { invalidateNavigation } from '../individuals/navigation-cache.js';
 import { isRoadTile, resourceUsePressure } from '../world/roads.js';
 import { CULTIVATED_FOOD_PER_SEED_UNIT } from '../economy/food-policy.js';
+import { recordFoodAuditBlocked, withFoodAuditOperation } from '../economy/food-audit-ledger.js';
 
 const RESOURCE_REGEN_INTERVAL_DAYS = 7;
 const RESOURCE_REGEN_FACTOR = .3;
@@ -272,17 +273,30 @@ export function collectCommunityFieldSeeds(w, structure) {
     const berryIndex = PLANTS.findIndex(plant => plant.id === 'berry');
     const tiles = (structure.fieldTileIndices || []).map(index => w.tiles[index]).filter(Boolean)
       .sort((a, b) => b.plants[berryIndex] - a.plants[berryIndex] || a.i - b.i);
-    if (!seedMass || berryIndex < 0 || tiles.reduce((sum, tile) => sum + tile.plants[berryIndex], 0) + .001 < seedMass) return 0;
-    let remaining = seedMass;
-    for (const tile of tiles) {
-      const take = Math.min(remaining, tile.plants[berryIndex]);
-      tile.plants[berryIndex] -= take;
-      remaining -= take;
-      if (remaining <= .001) break;
-    }
-    structure.cropSeedStored = seedMass;
-    w.ecologyFlows.humanFoodCultivationSeeded = (w.ecologyFlows.humanFoodCultivationSeeded || 0) + seedMass;
-    return seedMass;
+    const availableWildSeedMass = berryIndex >= 0 ? tiles.reduce((sum, tile) => sum + tile.plants[berryIndex], 0) : 0;
+    return withFoodAuditOperation({
+      kind: 'seed-collection', category: 'wild-berry-to-field-seeds', resource: 'seeds', amount: seedMass,
+      source: { type: 'wild-berry-biomass', fieldId: structure.id, tileCount: tiles.length },
+      destination: { type: 'field-seed-stock', structureId: structure.id },
+      destinationPosition: { x: structure.x, y: structure.y }
+    }, () => {
+      if (!seedMass || berryIndex < 0 || availableWildSeedMass + .001 < seedMass) {
+        recordFoodAuditBlocked(availableWildSeedMass < seedMass ? 'insufficient-wild-seed-biomass' : 'invalid-seed-requirement', {
+          resource: 'seeds', requested: seedMass, available: availableWildSeedMass
+        });
+        return 0;
+      }
+      let remaining = seedMass;
+      for (const tile of tiles) {
+        const take = Math.min(remaining, tile.plants[berryIndex]);
+        tile.plants[berryIndex] -= take;
+        remaining -= take;
+        if (remaining <= .001) break;
+      }
+      structure.cropSeedStored = seedMass;
+      w.ecologyFlows.humanFoodCultivationSeeded = (w.ecologyFlows.humanFoodCultivationSeeded || 0) + seedMass;
+      return seedMass;
+    });
   }
 
 export function sowCommunityField(w, structure) {
@@ -294,31 +308,42 @@ export function sowCommunityField(w, structure) {
       .filter(tile => tile && tile.terrain === 'land' && (tile.cropFieldId == null || tile.cropFieldId === structure.id));
     if (!tiles.length) return 0;
     const seedMass = Math.max(0, Number(structure.cropSeedStored) || 0);
-    if (!seedMass) return 0;
-    const perTile = seedMass / tiles.length;
-    for (const tile of tiles) {
-      tile.cropFieldId = structure.id;
-      tile.plants.fill(0);
-      tile.plants[cropIndex] = perTile;
-      tile.plantResourceMask = 1 << cropIndex;
-      tile.stoneDeposit = 0;
-      tile.goldOre = 0;
-      tile.stump = null;
-      tile.roadWear = 0;
-    }
-    structure.fieldTileIndices = tiles.map(tile => tile.i);
-    structure.cropSeedStored = 0;
-    structure.cropSeededBiomass = seedMass;
-    structure.cropYieldTarget = cultivatedFieldYieldTarget(seedMass, tiles.length);
-    structure.cropGrowthGenerated = seedMass;
-    structure.cropHarvestedThisCycle = 0;
-    structure.cropCycleState = 'growing';
-    structure.cropCycleStartedDay = w.day;
-    structure.cropSowCount = (Number(structure.cropSowCount) || 0) + 1;
-    structure.cropTileCapacity = structure.cropYieldTarget / tiles.length;
-    structure.cropHarvested = structure.cropHarvested || 0;
-    invalidateNavigation(w);
-    return seedMass;
+    return withFoodAuditOperation({
+      kind: 'planting', category: 'field-seed-to-standing-crop', resource: 'seeds', amount: seedMass,
+      sourceAccount: structure, sourceResource: 'cropSeedStored',
+      source: { type: 'field-seed-stock', structureId: structure.id },
+      destination: { type: 'standing-cultivated-root-biomass', structureId: structure.id, tileCount: tiles.length },
+      destinationPosition: { x: structure.x, y: structure.y }
+    }, () => {
+      if (!seedMass) {
+        recordFoodAuditBlocked('field-has-no-seeds', { resource: 'seeds', requested: 1, available: 0 });
+        return 0;
+      }
+      const perTile = seedMass / tiles.length;
+      for (const tile of tiles) {
+        tile.cropFieldId = structure.id;
+        tile.plants.fill(0);
+        tile.plants[cropIndex] = perTile;
+        tile.plantResourceMask = 1 << cropIndex;
+        tile.stoneDeposit = 0;
+        tile.goldOre = 0;
+        tile.stump = null;
+        tile.roadWear = 0;
+      }
+      structure.fieldTileIndices = tiles.map(tile => tile.i);
+      structure.cropSeedStored = 0;
+      structure.cropSeededBiomass = seedMass;
+      structure.cropYieldTarget = cultivatedFieldYieldTarget(seedMass, tiles.length);
+      structure.cropGrowthGenerated = seedMass;
+      structure.cropHarvestedThisCycle = 0;
+      structure.cropCycleState = 'growing';
+      structure.cropCycleStartedDay = w.day;
+      structure.cropSowCount = (Number(structure.cropSowCount) || 0) + 1;
+      structure.cropTileCapacity = structure.cropYieldTarget / tiles.length;
+      structure.cropHarvested = structure.cropHarvested || 0;
+      invalidateNavigation(w);
+      return seedMass;
+    });
   }
 
 export function decompose(w) {
