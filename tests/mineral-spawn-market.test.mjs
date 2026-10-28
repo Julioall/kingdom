@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createWorld } from '../src/simulation/world/generation.js';
 import { PLANTS } from '../src/config/ecosystem.js';
 import { updateKingdomMarkets } from '../src/simulation/kingdoms/initialization.js';
+import { mineralHitbox, resourceCollisionIndex } from '../src/simulation/physics/hitboxes.js';
 import { findTradePartner, marketHasTradeOpportunity, performTrade } from '../src/simulation/economy/trade.js';
 
 test('gold, silver and copper use exact 1:10:100 mineral-site spawn counts on seeded maps', () => {
@@ -19,6 +20,15 @@ test('gold, silver and copper use exact 1:10:100 mineral-site spawn counts on se
     assert.ok(treeSites > 0);
     assert.equal(count('ironOre'), treeSites, 'iron deposit frequency is comparable to tree sites');
     assert.ok(land.every(tile => tile.copperOre >= 0 && tile.silverOre >= 0 && tile.ironOre >= 0));
+    const ironPatch = land.find(tile => tile.ironOre > .05
+      && tile.goldOre <= .05 && tile.silverOre <= .05 && tile.copperOre <= .05
+      && tile.cropFieldId == null);
+    assert.equal(mineralHitbox(ironPatch)?.resourceKind, 'iron',
+      'iron remains an interactable mining resource');
+    const collisions = resourceCollisionIndex(world).hitboxes;
+    assert.ok(collisions.every(hitbox => !['copper', 'silver', 'iron'].includes(hitbox.resourceKind)),
+      'abundant small mineral sites must not obstruct navigation');
+
     const again = createWorld(seed);
     assert.deepEqual(land.map(t => [t.goldOre, t.silverOre, t.copperOre, t.ironOre]),
       again.tiles.filter(t => t.terrain === 'land').map(t => [t.goldOre, t.silverOre, t.copperOre, t.ironOre]),
