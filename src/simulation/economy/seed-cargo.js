@@ -69,12 +69,15 @@ export function recoverSeedCargo(world, person, community, purpose = 'constructi
   const key = personal ? 'carriedSeeds' : 'carriedCommunitySeeds';
   const already = person[key] ?? 0;
   if (!validAmount(already) || already > SEED_COURIER_CAPACITY) return 'invalid';
-  if (!personal && already > 0 && person.seedCargoCommunityId !== community.id) return 'invalid';
+  if (!personal && already > 0 && (person.seedCargoCommunityId !== community.id
+      || person.seedCargoPurpose !== purpose
+      || (fieldId != null && person.seedCargoFieldId != null && person.seedCargoFieldId !== fieldId)))
+    return 'invalid';
   const parcels = (world.seedCargoDrops || []).filter(parcel =>
     parcel.available && validAmount(parcel.seeds) && parcel.seeds > 0 &&
     (personal ? parcel.purpose === 'wild' && parcel.ownerCommunityId == null
       : parcel.ownerCommunityId === community.id &&
-        (parcel.purpose === purpose || purpose === 'construction' && parcel.purpose === 'construction')
+        parcel.purpose === purpose
         && (fieldId == null || parcel.fieldId == null || parcel.fieldId === fieldId))
     && distance(person, parcel) <= 32
   ).sort((a, b) => distance(person, a) - distance(person, b) || a.id - b.id);
