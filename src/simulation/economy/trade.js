@@ -213,8 +213,13 @@ function executePersonalMarketTrade(world, person, community, marketOwner) {
   person.personalWallet ||= { stock: { gold: 0 } };
   const wallet = person.personalWallet.stock;
   const before = tradeBalances(market);
-  let movedResource = 0, movedGold = 0;
-  if (offer.action === 'buy-food') {
+  let movedResource = 0, movedGold = 0, coinReceipt = null;
+  if (offer.action === 'buy-food-coins') {
+    coinReceipt = settleCoinTrade(wallet, market, offer.priceCopper,
+      market, person, 'food', offer.amount, 100, 'foodReserve');
+    if (!coinReceipt) return false;
+    movedResource = offer.amount;
+  } else if (offer.action === 'buy-food') {
     // Both transfers are preflighted; no partial payment or partial ration is allowed.
     movedGold = transferResource(wallet, market, 'gold', offer.gold);
     movedResource = transferResource(market, person, 'food', offer.amount,
@@ -225,7 +230,7 @@ function executePersonalMarketTrade(world, person, community, marketOwner) {
     movedGold = transferResource(market, wallet, 'gold', offer.gold);
   }
   if (Math.abs(movedResource - offer.amount) > 1e-8
-      || Math.abs(movedGold - offer.gold) > 1e-8) {
+      || (!coinReceipt && Math.abs(movedGold - offer.gold) > 1e-8)) {
     throw new Error('Conservative personal market preflight did not match settlement');
   }
   marketOwner.transactions = (marketOwner.transactions || 0) + 1;
@@ -233,19 +238,24 @@ function executePersonalMarketTrade(world, person, community, marketOwner) {
   countTradeDiagnostic(world, 'marketCompleted');
   consumePersonEnergy(person, .35);
   if (person.skills) person.skills.diplomacy = clamp((person.skills.diplomacy || 0) + .008, 0, 1);
-  person.state = offer.action === 'buy-food' ? 'comprando alimento para si'
+  person.state = offer.action.startsWith('buy-food') ? 'comprando alimento para si'
     : 'vendendo carga pessoal';
-  person.lastLesson = 'A troca mudou somente os estoques físicos e o ouro efetivamente existentes.';
+  person.lastLesson = 'A troca transferiu somente moedas e recursos existentes, com troco conservado.';
   recordTrade(world, {
     kind: 'market', scope: 'personal', action: offer.action,
     pricing: {
-      resource: offer.action === 'buy-food' ? 'food' : offer.resource,
-      quantity: movedResource, goldPerUnit: offer.gold / offer.amount,
-      goldTransferred: movedGold
+      resource: offer.action.startsWith('buy-food') ? 'food' : offer.resource,
+      quantity: movedResource, goldPerUnit: coinReceipt
+        ? coinReceipt.priceCopper / 100 / offer.amount : offer.gold / offer.amount,
+      goldTransferred: movedGold,
+      ...(coinReceipt ? { priceCopper: coinReceipt.priceCopper,
+        tender: coinReceipt.tender, change: coinReceipt.change } : {})
     },
     balancesAfter: {
       person: {
         walletGold: wallet.gold || 0,
+        walletSilver: wallet.silver || 0,
+        walletCopper: wallet.copper || 0,
         carriedGold: person.carriedGold || 0,
         foodReserveDays: person.foodReserve || 0,
         carriedWood: person.carriedWood || 0,
@@ -255,8 +265,13 @@ function executePersonalMarketTrade(world, person, community, marketOwner) {
     },
     participants: [{
       personId: person.id, communityId: community.id,
-      delta: offer.action === 'buy-food'
-        ? { walletGold: -movedGold, foodReserveDays: movedResource * FOOD_DAYS_PER_UNIT }
+      delta: offer.action === 'buy-food-coins'
+        ? { walletGold: -coinReceipt.transfers.gold,
+          walletSilver: -coinReceipt.transfers.silver,
+          walletCopper: -coinReceipt.transfers.copper,
+          foodReserveDays: movedResource * FOOD_DAYS_PER_UNIT }
+        : offer.action === 'buy-food'
+          ? { walletGold: -movedGold, foodReserveDays: movedResource * FOOD_DAYS_PER_UNIT }
         : { ['carried' + offer.resource[0].toUpperCase() + offer.resource.slice(1)]: -movedResource,
           walletGold: movedGold }
     }],
