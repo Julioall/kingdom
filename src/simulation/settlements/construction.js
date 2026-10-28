@@ -444,8 +444,13 @@ export function workOnReplantingField(w, person, community, fieldId = person?.as
     }
     const seedMass = Math.min(availableSeeds, previousSeedMass || availableSeeds, SEED_COURIER_CAPACITY);
     if (seedMass <= .01) return false;
-    const movedSeeds = transferResource(community.stores, person, 'seeds',
-      seedMass, 'carriedCommunitySeeds', SEED_COURIER_CAPACITY);
+    const movedSeeds = withFoodAuditOperation({
+      kind: 'seed-courier-pickup', category: 'field-replanting-seed-pickup', resource: 'seeds',
+      sourceAccount: community.stores, sourceResource: 'seeds',
+      destinationAccount: person, destinationResource: 'carriedCommunitySeeds',
+      amount: seedMass, actor: person, destinationPosition: { x: person.x, y: person.y }
+    }, () => transferResource(community.stores, person, 'seeds',
+      seedMass, 'carriedCommunitySeeds', SEED_COURIER_CAPACITY, 'field-replanting-seed-pickup'));
     if (Math.abs(movedSeeds - seedMass) > .001) throw new Error('Lote do replantio não conservado ao retirar do depósito');
     person.seedCargoCommunityId = community.id;
     person.seedCargoPurpose = 'replant';
@@ -471,15 +476,30 @@ export function workOnReplantingField(w, person, community, fieldId = person?.as
   }
   const seedMass = Math.min(carried, previousSeedMass || carried);
   if (seedMass <= .01) return false;
-  const movedSeeds = transferResource(person, field, 'carriedCommunitySeeds', seedMass, 'cropSeedStored');
-  if (Math.abs(movedSeeds - seedMass) > .001) throw new Error('Entrega física ao talhão não conservou sementes');
-  const planted = sowCommunityField(w, field);
-  if (planted <= .01) {
-    transferResource(field, person, 'cropSeedStored', movedSeeds, 'carriedCommunitySeeds', SEED_COURIER_CAPACITY);
-    person.state = 'plantio bloqueado; sementes preservadas na carga';
-
-    return false;
-  }
+  const replantResult = withFoodAuditOperation({
+    kind: 'field-replant', category: 'worker-replanting', resource: 'seeds', amount: seedMass,
+    sourceAccount: person, sourceResource: 'carriedCommunitySeeds',
+    destinationAccount: field, destinationResource: 'cropSeedStored',
+    actor: person, destinationPosition: { x: field.x, y: field.y }
+  }, () => {
+    const movedSeeds = transferResource(person, field, 'carriedCommunitySeeds',
+      seedMass, 'cropSeedStored', Infinity, 'field-replanting-delivery');
+    if (Math.abs(movedSeeds - seedMass) > .001)
+      throw new Error('Entrega física ao talhão não conservou sementes');
+    const planted = sowCommunityField(w, field);
+    if (planted <= .01) {
+      recordFoodAuditBlocked('field-replanting-planting-failed', {
+        resource: 'seeds', requested: seedMass, available: movedSeeds, actorId: person.id
+      });
+      transferResource(field, person, 'cropSeedStored', movedSeeds, 'carriedCommunitySeeds',
+        SEED_COURIER_CAPACITY, 'return-unused-replant-seeds');
+      person.state = 'plantio bloqueado; sementes preservadas na carga';
+      return null;
+    }
+    return { movedSeeds, planted };
+  });
+  if (!replantResult) return false;
+  const { planted } = replantResult;
   if (!(person.carriedCommunitySeeds > .01)) {
     person.seedCargoCommunityId = null;
     person.seedCargoPurpose = null;
@@ -491,8 +511,8 @@ export function workOnReplantingField(w, person, community, fieldId = person?.as
   if (person.assignment) person.assignment.replantSowedDay = w.day;
   person.state = 'semeando a roça';
   person.lastLesson = 'Levou sementes retidas desde o depósito, entregou o lote ao talhão e reiniciou o cultivo.';
-  community.history.push('Replantou a roça com ' + planted.toFixed(2) + ' unidades de sementes transportadas do depósito.');
-  log(w, community.name + ' replantou uma roça com ' + planted.toFixed(2)
+  community.history.push('Replantou a roça com ' + formatWholeMeasure(planted) + ' unidades de sementes transportadas do depósito.');
+  log(w, community.name + ' replantou uma roça com ' + formatWholeMeasure(planted)
     + ' sementes entregues fisicamente; novo lote iniciado.', w.day + 1);
 
   return true;
