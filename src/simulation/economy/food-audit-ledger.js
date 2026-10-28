@@ -233,7 +233,7 @@ function registerCampaign(audit, campaign) {
     registerAccountObject(audit, side.supply.stock, {
       ownerType: 'campaign-side', ownerId: campaign.id, ownerName: side.role,
       kingdomId: side.kingdomId ?? null, communityId: null, ownerRef: side,
-      positionRef: null, accountName: 'field-supply'
+      positionRef: null, accountName: 'field-supply-' + side.role
     });
   }
 }

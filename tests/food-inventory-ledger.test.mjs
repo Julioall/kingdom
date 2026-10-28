@@ -133,3 +133,30 @@ test('food barter records both sides of the exchange as whole-unit costs', () =>
   assert.equal(barter.moved, 3);
   assert.ok(report.coverage.balanced);
 });
+
+test('campaign attacker and defender supply accounts stay separate and reconcile', () => {
+  const world = makeWorld();
+  world.campaigns.push({ id: 9,
+    attacker: { role: 'attacker', kingdomId: 3, supply: { stock: { food: 10, meat: 0, feed: 0, seeds: 0 } } },
+    defender: { role: 'defender', kingdomId: 4, supply: { stock: { food: 20, meat: 0, feed: 0, seeds: 0 } } }
+  });
+  const audit = startFoodInventoryAudit(world);
+  audit.beginDay(1);
+
+  world.campaigns[0].attacker.supply.stock.food -= 3;
+  world.campaigns[0].defender.supply.stock.food += 4;
+  audit.endDay();
+  const report = audit.finish();
+  const sideAccounts = report.accounts.filter(account => account.ownerType === 'campaign-side' && account.resource === 'food');
+
+  assert.equal(sideAccounts.length, 2);
+  assert.deepEqual(new Set(sideAccounts.map(account => account.account)), new Set(['field-supply-attacker', 'field-supply-defender']));
+  assert.ok(report.coverage.balanced);
+  for (const account of sideAccounts) {
+    const balance = report.accountDailyBalances.find(row => row[0] === 1 && row[1] === account.index);
+    assert.equal(balance[7], 0);
+    assert.equal(balance[8], true);
+  }
+  assert.equal(report.accountDailyBalances.find(row => row[1] === sideAccounts.find(account => account.account === 'field-supply-attacker').index)[6], 7);
+  assert.equal(report.accountDailyBalances.find(row => row[1] === sideAccounts.find(account => account.account === 'field-supply-defender').index)[6], 24);
+});
