@@ -70,14 +70,14 @@ export function quoteCoinPayment(payer, seller, priceCopper) {
 }
 
 export function settleCoinTrade(payer, seller, priceCopper,
-  goodsSource, goodsTarget, resource, quantity, maxTarget = Infinity) {
+  goodsSource, goodsTarget, resource, quantity, maxTarget = Infinity, targetResource = resource) {
   if (!payer || !seller || !goodsSource || !goodsTarget || goodsSource === goodsTarget
-      || !resource || COIN_TYPES.includes(resource)
+      || !resource || !targetResource || COIN_TYPES.includes(resource) || COIN_TYPES.includes(targetResource)
       || !Number.isFinite(quantity) || quantity <= 0
       || !(maxTarget === Infinity || (Number.isFinite(maxTarget) && maxTarget >= 0))) return null;
   const quote = quoteCoinPayment(payer, seller, priceCopper);
   const available = goodsSource[resource] ?? 0;
-  const held = goodsTarget[resource] ?? 0;
+  const held = goodsTarget[targetResource] ?? 0;
   if (!quote || !Number.isFinite(available) || available < quantity
       || !Number.isFinite(held) || held < 0 || held + quantity > maxTarget
       || !Number.isFinite(held + quantity)) return null;
@@ -94,6 +94,6 @@ export function settleCoinTrade(payer, seller, priceCopper,
     seller[coin] = (seller[coin] ?? 0) + quote.transfers[coin];
   }
   goodsSource[resource] = available - quantity;
-  goodsTarget[resource] = held + quantity;
+  goodsTarget[targetResource] = held + quantity;
   return quote;
 }
