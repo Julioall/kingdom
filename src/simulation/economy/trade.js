@@ -227,9 +227,9 @@ export function findTradePartner(w, community, person) {
     if (!post) countTradeDiagnostic(w, 'marketOpportunityBlocked', 'no-market-station');
     else if (distance(person, post) > 16) countTradeDiagnostic(w, 'marketOpportunityBlocked', 'station-out-of-range');
     else if (marketHasTradeOpportunity(w, community)
-        || personalMarketOffer(w, community, person, kingdom?.market || w.market)) {
+        || personalMarketOffer(w, community, person, kingdom ? kingdom.market : w.market)) {
       countTradeDiagnostic(w, 'marketOpportunities');
-      return { isMarket: true, station: post, market: kingdom && kingdom.market || w.market, distance: distance(person, post) };
+      return { isMarket: true, station: post, market: kingdom ? kingdom.market : w.market, distance: distance(person, post) };
     } else countTradeDiagnostic(w, 'marketOpportunityBlocked', 'no-exchange-offer');
     const visibleMembers = (person.perception && person.perception.people || []).filter(s => s.visible)
       .map(s => w.people.find(p => p.id === s.id && p.alive)).filter(Boolean);
@@ -248,7 +248,8 @@ export function findTradePartner(w, community, person) {
 export function marketHasTradeOpportunity(w, community) {
     if (!community || !community.stores) return false;
     const kingdom = (w.kingdoms || []).find(item => item.communityId === community.id);
-    const marketOwner = kingdom && kingdom.market || w.market || {};
+    const marketOwner = kingdom ? kingdom.market : w.market;
+    if (!marketOwner) return false;
     const market = marketOwner.stock || marketOwner;
     const store = community.stores;
     const food = accountAmount(store, 'food'), meat = accountAmount(store, 'meat');
@@ -518,7 +519,7 @@ export function performTrade(w, person, community, partner) {
     if (!community || !partner) return false;
     if (partner.isMarket) {
       const kingdom = (w.kingdoms || []).find(item => item.communityId === community.id);
-      const currentMarket = kingdom?.market || w.market;
+      const currentMarket = kingdom ? kingdom.market : w.market;
       if (!(w.communities || []).includes(community) || community.dissolved
           || !(w.people || []).includes(person) || !person?.alive
           || person.communityId !== community.id
@@ -572,7 +573,7 @@ export function performTrade(w, person, community, partner) {
       const storeBefore = { ...store };
       const tradeStoreBefore = tradeBalances(store);
       const animalsBefore = w.animals.length;
-      const marketOwner = partner.market || w.market;
+      const marketOwner = partner.market;
       const market = marketOwner && marketOwner.stock || marketOwner;
       if (!market) {
         countTradeDiagnostic(w, 'marketBlocked', 'market-account-missing');

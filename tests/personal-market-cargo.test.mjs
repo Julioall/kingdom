@@ -169,3 +169,36 @@ test('personal market trade requires a real route to the station', () => {
   assert.equal(person.carriedGold, 0);
   assert.equal(world.trades, undefined);
 });
+
+test('a kingdom without its own market cannot spend community gold at the global market', () => {
+  const { world, community, person, market, station } = fixture();
+  community.stores.food = 0;
+  community.stores.gold = 12;
+  person.carriedWood = 0;
+  person.foodReserve = 100;
+  world.market = market;
+  world.kingdoms[0].market = null;
+  const before = structuredClone({ community: community.stores, market: market.stock });
+
+  assert.equal(marketHasTradeOpportunity(world, community), false,
+    'the global market is not a fallback for a kingdom with no local market');
+  assert.equal(findTradePartner(world, community, person), null);
+  assert.equal(performTrade(world, person, community,
+    { isMarket: true, station, market, distance: 1 }), false,
+    'a stale or forged global-market offer cannot settle against kingdom funds');
+  assert.deepEqual(community.stores, before.community);
+  assert.deepEqual(market.stock, before.market);
+  assert.equal(world.trades, undefined);
+
+  world.kingdoms = [];
+  person.kingdomId = null;
+  assert.equal(marketHasTradeOpportunity(world, community), true,
+    'a community without a kingdom retains its explicitly global market');
+  const offer = findTradePartner(world, community, person);
+  assert.equal(offer?.market, market);
+  assert.equal(performTrade(world, person, community, offer), true);
+  assert.equal(community.stores.food, 12);
+  assert.equal(community.stores.gold, 6);
+  assert.equal(market.stock.food, 8);
+  assert.equal(market.stock.gold, 26);
+});

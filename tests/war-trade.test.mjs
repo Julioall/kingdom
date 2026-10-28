@@ -92,6 +92,7 @@ test('market opportunity and failed attempt expose why no trade happened', () =>
   home.stores = { food: 40, meat: 0, wood: 0, stone: 0, gold: 0, feed: 0 };
   trader.perception.people = [];
   world.market = { transactions: 0, stock: { food: 0, wood: 0, stone: 0, gold: 0, feed: 0, sheep: 0 } };
+  world.kingdoms[0].market = world.market;
   world.structures.push({ id: 31, type: 'posto de coleta', communityId: home.id, complete: true, x: 21, y: 20 });
 
   assert.equal(findTradePartner(world, home, trader), null);
@@ -116,6 +117,7 @@ test('market opportunity requires the full purchasable lot for each resource', (
     const { world, home } = tradeFixture();
     home.stores = { food: 0, meat: 0, wood: 0, stone: 0, gold, feed: 0 };
     world.market = { stock: { food: 0, wood: 0, stone: 0, feed: 0, sheep: 0 } };
+    world.kingdoms[0].market = world.market;
     world.market.stock[resource] = below;
 
     assert.equal(marketHasTradeOpportunity(world, home), false,
@@ -138,6 +140,7 @@ test('market opportunity preserves protected household stock before selling', ()
     const { world, home } = tradeFixture();
     home.stores = { food: 0, meat: 0, wood: 0, stone: 0, gold: 0, feed: 0 };
     world.market = { stock: { food: 0, wood: 0, stone: 0, feed: 0, sheep: 0 } };
+    world.kingdoms[0].market = world.market;
     home.stores[resource] = reserve + amount - 1;
 
     assert.equal(marketHasTradeOpportunity(world, home), false,
@@ -153,6 +156,7 @@ test('a pawn is not sent to a market for an offer smaller than its food purchase
   world.tradeDiagnostics = {};
   home.stores = { food: 0, meat: 0, wood: 0, stone: 0, gold: 6, feed: 0 };
   world.market = { stock: { food: 11, wood: 0, stone: 0, feed: 0, sheep: 0 } };
+  world.kingdoms[0].market = world.market;
   trader.perception.people = [];
   world.structures.push({ id: 31, type: 'posto de coleta', communityId: home.id, complete: true, x: 21, y: 20 });
 
