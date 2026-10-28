@@ -5,6 +5,7 @@ import { spendResource } from '../economy/inventories.js';
 import { invalidateNavigation } from '../individuals/navigation-cache.js';
 import { isRoadTile, resourceUsePressure } from '../world/roads.js';
 import { CULTIVATED_FOOD_PER_SEED_UNIT } from '../economy/food-policy.js';
+import { recordFoodAuditBlocked, withFoodAuditOperation } from '../economy/food-audit-ledger.js';
 
 const RESOURCE_REGEN_INTERVAL_DAYS = 7;
 const RESOURCE_REGEN_FACTOR = .3;
@@ -276,6 +277,7 @@ export function eatPlants(w, tile, diet, amount) {
     return eaten;
   }
 
+
 export function sowCommunityField(w, structure) {
     if (!w || !structure || structure.type !== 'roça') return 0;
     const cropIndex = PLANTS.findIndex(plant => plant.id === 'cultivated-root');
@@ -285,8 +287,18 @@ export function sowCommunityField(w, structure) {
       .filter(tile => tile && tile.terrain === 'land' && (tile.cropFieldId == null || tile.cropFieldId === structure.id));
     if (!tiles.length) return 0;
     const seedMass = Math.max(0, Number(structure.cropSeedStored) || 0);
-    if (!seedMass) return 0;
-    const perTile = seedMass / tiles.length;
+    return withFoodAuditOperation({
+      kind: 'planting', category: 'field-seed-to-standing-crop', resource: 'seeds', amount: seedMass,
+      sourceAccount: structure, sourceResource: 'cropSeedStored',
+      source: { type: 'field-seed-stock', structureId: structure.id },
+      destination: { type: 'standing-cultivated-root-biomass', structureId: structure.id, tileCount: tiles.length },
+      destinationPosition: { x: structure.x, y: structure.y }
+    }, () => {
+      if (!seedMass) {
+        recordFoodAuditBlocked('field-has-no-seeds', { resource: 'seeds', requested: 1, available: 0 });
+        return 0;
+      }
+      const perTile = seedMass / tiles.length;
     for (const tile of tiles) {
       tile.cropFieldId = structure.id;
       tile.plants.fill(0);
@@ -318,7 +330,8 @@ export function sowCommunityField(w, structure) {
     structure.cropTileCapacity = structure.cropYieldTarget / tiles.length;
     structure.cropHarvested = structure.cropHarvested || 0;
     invalidateNavigation(w);
-    return seedMass;
+      return seedMass;
+    });
   }
 
 export function decompose(w) {

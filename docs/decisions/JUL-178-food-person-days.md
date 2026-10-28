@@ -2,11 +2,17 @@
 
 Data: 27/10/2026
 
+## Situação vigente — 28/10/2026
+
+JUL-178 foi concluída por aceite funcional do escopo essencial: conservação por proprietário, entradas e saídas, capacidade, saldos não negativos, conversões e reconciliação. A evidência de 253 dias e os testes focados pertencem ao SHA `a6c0103daedce77dddf8e50e56f96ff6adb1d152`; os checks de integração e verificação passaram no HEAD `9f9147e3e90b1e379ade452b39230bc0c05ed05f`. A matriz de 730 dias pós-correção não foi executada e permanece uma limitação conhecida, sem ser gate para este aceite. A colheita é creditada diretamente ao estoque comunitário conforme a abstração atual; transporte físico ponta a ponta e avaliação da qualidade da LLM ficam fora desta issue.
+
+**Leitura do histórico:** os checkpoints abaixo, datados de 27/10, preservam as hipóteses, critérios e estados que vigoravam naquele momento. As afirmações de que a issue permanecia *In Progress* ou ainda exigia novas matrizes foram substituídas pela decisão de 28/10; não devem ser lidas como pendências atuais. Os relatórios detalhados não são copiados nesta fatia: continuam publicados na [PR original #12](https://github.com/Julioall/kingdom/pull/12). As referências de código são `887c0b77f61d79481d4889008081ac486da45b80` (15 replays históricos de 253/365/730 dias, sem ledger completo dos fluxos não comerciais), `a6c0103daedce77dddf8e50e56f96ff6adb1d152` (ledger instrumentado, 253 dias) e `25af0f19e4a52c23caaa8e66166c2ce632867628` (checkpoint anterior a correções de refeições, transferências e ração). Os checks remotos anteriores passaram no HEAD `9f9147e3e90b1e379ade452b39230bc0c05ed05f`; não validam esta substituição.
+
 ## Decisão
 
-Uma unidade armazenada de comida vegetal representa **um pessoa-dia**: alimento suficiente para uma pessoa por um dia. O consumo diário é 1 para adultos, dependentes e soldados, em paz ou campanha. `foodReserve` passa a ser lido diretamente como dias restantes; por exemplo, 30 significa 30 dias e o teto atual de 100 significa 100 dias.
+Uma unidade de comida vegetal representa **um pessoa-dia**: alimento suficiente para uma pessoa por um dia. O consumo diário é 1 para adultos, dependentes e soldados, em paz ou campanha. `foodReserve` passa a ser lido diretamente como dias restantes; por exemplo, 30 significa 30 dias e o teto atual de 100 significa 100 dias. Uma unidade física de carne rende 10 pessoa-dias, como um produto concentrado separado; o estoque e o transporte continuam registrados em unidades físicas.
 
-Carne continua como estoque físico separado. Sua conversão nutricional existente permanece explícita em 2,5 pessoa-dias por unidade de carne. Sementes, ração animal e biomassa em pé continuam em suas próprias unidades. O potencial da roça é uma estimativa de colheita futura; a comida só entra no estoque quando colhida e entregue. O registro de frutos/carne em abrigo continua sendo subregistro/localização do estoque compartilhado, nunca um saldo adicional.
+Carne continua como item de estoque separado para manejo, transporte e venda. Sementes, ração animal e biomassa em pé continuam em suas próprias unidades. O potencial da roça é uma estimativa de colheita futura; a comida só entra no estoque quando colhida e entregue. O registro de frutos/carne em abrigo continua sendo subregistro/localização do estoque compartilhado, nunca um saldo adicional.
 
 No mercado, quantidade de comida e preço passam a ser lidos em dias de alimento; o preço atual em ouro por unidade permanece, portanto passa a ser ouro por pessoa-dia. O ciclo de sementes, o rendimento físico da roça e o limite de carga não mudam nesta decisão.
 
@@ -22,7 +28,9 @@ O baseline repetido de 253 dias, seed 42, no SHA `bf9ad54ab371ec972a15de442955e6
 
 - **Manter “pontos” e só renomear a interface:** preservaria as fórmulas, mas 1.000 unidades continuariam sem significar 1.000 dias; não atende à escala solicitada.
 - **Manter descontos de crianças e soldados:** exigiria exceções para estimar reservas, mercado e rações. A regra comum de 1 pessoa-dia elimina essas conversões sem dar comida gratuita; cada pessoa continua podendo ficar sem acesso e morrer de fome.
-- **Alterar o valor nutricional da carne:** rejeitado nesta fatia. A conversão 2,5 já existe e pode permanecer como fator separado e visível.
+- **Manter 2,5 pessoa-dias por unidade de carne:** rejeitado na revisão de 27/10/2026 por subestimar o rendimento do abate adulto no jogo.
+- **Usar 5 pessoa-dias por unidade:** alternativa inteira e mais conservadora; deixaria o abate potencial de 33 ovelhas adultas padrão em cerca de 76 dias para 50 pessoas, menos de metade do buffer alvo de 180 dias.
+- **Usar 10 pessoa-dias por unidade:** escolhido. Para a massa média adulta e a fração de carcaça já implementadas, o abate potencial de 33 ovelhas equivale a cerca de 152 dias para 50 pessoas, ainda abaixo de um buffer de 180 dias e de um lote de roça de 10.000 unidades. É uma reserva forte para escassez, mantendo alimento vegetal como fonte regular.
 
 ## Reavaliação puxada pelo replay
 
@@ -44,4 +52,88 @@ A matriz de 730 dias também concluiu no mesmo SHA. Os estoques comunitários fi
 
 ## Validação
 
-Suite completa: **284/284**. A matriz direcionada de estresse passou **67/67**, cobrindo falta de comida, mercado vazio/oferta incompleta, fronteira/rota bloqueada, carga cheia, ausência de trabalhador/seed e guerra sem ração; os nomes e limites de cada cenário estão em `docs/verification/JUL-178-food-stress-matrix-20261027.md`. `npm run build` também passou no SHA de código `1a2a8d6ff8b7c96afa08ae8486c70d1a61cea310`. A interface do navegador mostrou comida como dias equivalentes, separou o texto de reservas pessoais e manteve carne como 2,5 dias/unidade física. Matrizes normais de 253, 365 e 730 dias concluídas nesse SHA; seed 42 repetiu estado e crônica nas três janelas. A matriz de estresse usa fixtures unitárias/de integração, não replays longos de mundo inteiro sob cada choque. Ainda falta demonstrar transporte físico da colheita e acesso individual quando o estoque comunitário é alto; a auditoria JUL-178 não deve ser concluída enquanto esses pontos permanecerem sem evidência. Não há salvamento persistente do mundo para migrar; as únicas referências a `localStorage` neste checkout são preferências de IA e áudio.
+Suite completa: **284/284**. A matriz direcionada de estresse passou **67/67**, cobrindo falta de comida, mercado vazio/oferta incompleta, fronteira/rota bloqueada, carga cheia, ausência de trabalhador/seed e guerra sem ração; os nomes e limites de cada cenário estão em `docs/verification/JUL-178-food-stress-matrix-20261027.md`. `npm run build` também passou no SHA de código `1a2a8d6ff8b7c96afa08ae8486c70d1a61cea310`. Esses replays e resultados são do contrato anterior, com carne a 2,5 dias/unidade, e não validam o ajuste atual. A matriz de estresse usa fixtures unitárias/de integração, não replays longos de mundo inteiro sob cada choque. Ainda falta demonstrar transporte físico da colheita e acesso individual quando o estoque comunitário é alto; a auditoria JUL-178 não deve ser concluída enquanto esses pontos permanecerem sem evidência. Não há salvamento persistente do mundo para migrar; as únicas referências a `localStorage` neste checkout são preferências de IA e áudio.
+
+## Revisão de valor da carne — 27/10/2026
+
+A necessidade permanece simples: **1 unidade de comida por pessoa por dia** para adultos, dependentes e soldados. A carne é item físico próprio, e sua conversão de gameplay passa a ser `MEAT_NUTRITIONAL_VALUE = 10` pessoa-dias por unidade. O rei, o mercado, os abrigos, os totais comunitários, a distribuição e o consumo usam esse mesmo fator.
+
+Para facilitar a leitura, estoques, colheitas, sementes, carga, preços e dias de alimento são exibidos em números inteiros; uma sobra positiva menor que uma unidade aparece como “menos de 1”. A IA do rei e do general recebe essas mesmas medidas inteiras. A ração é expressa em porções: **1 porção alimenta 1 ovelha por 1 dia**. O curral mostra o estoque em porções, o consumo diário do rebanho e quantos dias esse estoque cobre. O código conserva subdivisões internas para a simulação; elas não aparecem como unidades partidas ao jogador nem aos agentes.
+
+### Custo e escala no código
+
+- `attemptHumanHunt` calcula o rendimento por massa (`massa × 48%`), limita-o ao intervalo de 1 a 28 unidades inteiras e só permite abater ovelha adulta em emergência, preservando duas adultas para reprodução.
+- Uma ovelha adulta média (48 kg no modelo) rende **23 unidades físicas de carne**; com o fator 10, são **230 pessoa-dias**, ou cerca de **5 dias para 50 moradores**. Uma ovelha de 67 kg atinge 28 unidades, equivalentes a 280 pessoa-dias.
+- Um curral comporta 35 animais; preservando duas reprodutoras, o limite teórico de 33 ovelhas adultas médias rende 7.590 pessoa-dias, cerca de **152 dias para 50 pessoas**. É um teto de abate, não uma produção contínua: elimina quase todo o plantel disponível.
+- O cordeiro precisa de **180 porções** até a idade adulta. Um curral lotado consome **35 porções por dia**. Essas porções alimentam o rebanho, mas não são somadas à comida das pessoas.
+- Como referência observável, um lote de 10.000 unidades de roça representa 200 dias para 50 pessoas. O teto do curral com fator 10 fica em 76% desse lote; com fator 5 ficaria em 38%. Assim, 10 dá relevância ao rebanho em escassez sem superar sozinho o lote de referência da roça.
+
+## Legibilidade das medidas e continuidade — 27/10/2026
+
+As quantidades apresentadas ao jogador e às IAs ficam inteiras. Ração é mostrada como porções de ovelha-dia, com 1 porção por ovelha por dia; pequenas sobras positivas aparecem como “menos de 1”, sem exibir frações. Estoques, preços, carga, produção de roça, sementes e dias de reserva seguem a mesma regra. A simulação mantém precisão interna quando uma ação consome uma parte de unidade; isso não aparece como medida partida na interface nem nos relatórios de decisão.
+
+O rei conclui uma roça já iniciada ou replanta uma área esgotada antes de comprar pequenas quantidades no mercado, desde que a reserva cubra mais de dois dias e haja trabalhador apto. Com dois dias ou menos, mercado e busca imediata de alimento têm prioridade. Uma ordem antiga de mercado que deixe de ser adequada é invalidada imediatamente, mesmo antes do próximo intervalo normal de decisão. A tarefa de quem está construindo uma roça não é desviada por compromissos sociais enquanto essa pessoa tiver reserva pessoal suficiente para continuar; fome, sede ou descanso críticos ainda podem interromper a obra.
+
+Um replay exploratório da seed 1 até o dia 130, após essa mudança, concluiu a roça de Valedouro no dia 80 e voltou a ter estoque acima de 9.000 unidades no dia 120. A mesma seed sem a prioridade de produção permanecia com a roça incompleta e o estoque perto de zero no dia 130. Este é um sinal causal útil, não a auditoria multissemente final; a conclusão depende da nova matriz longa e de sua repetição determinística.
+
+O fator 10 é uma regra de balanceamento do jogo, não uma conversão nutricional científica. SciSpace encontrou Corazzin et al., *Carcass Characteristics and Meat Quality of Sheep and Goat* (2019, [DOI 10.1007/978-3-030-05484-7_6](https://doi.org/10.1007/978-3-030-05484-7_6)); o resumo apresenta rendimento de carcaça de aproximadamente 40–60%, compatível com os 48% usados pelo código, mas não define pessoa-dias por unidade. Também encontrou Sultana et al., *Effects of age on intake, growth, nutrient utilization and carcass characteristics of castrated native sheep* (2011, [DOI 10.3329/BVET.V27I2.7556](https://doi.org/10.3329/BVET.V27I2.7556)): nesse manejo experimental, a conversão alimentar piora com a idade, enquanto rendimento de carcaça aumenta; isso apoia limitar a comparação ao abate maduro e não envelhecer ovelhas indefinidamente, mas os valores físicos não são mapeáveis diretamente às unidades abstratas de ração do jogo.
+
+SciSpace informa o que os resumos dos estudos cobrem, não valida o balanceamento de Kingdom. O Consensus foi consultado e recusou a busca por limite mensal de 30 pesquisas, com reinício em 1/11/2026. A skill Game Studio foi aplicada como orientação de manter a regra determinística na simulação/configuração, refletir a equivalência claramente na interface e validar o loop no jogo.
+
+No SHA de código `ea6aa0ca9e163ee94fa557b09c21b0e560395a21`, a suíte completa passou **306/306** e `npm run build` passou. O primeiro cenário controlado de escassez do rebanho debitou e conciliou três porções de ração, abateu uma ovelha adulta de 48 kg, entregou 23 unidades ao abrigo e preservou duas adultas. A saída equivale a 230 pessoa-dias, e a repetição da seed 42 foi determinística. Relatório atualizado após a apresentação em porções: `docs/verification/JUL-178-livestock-meat-value-10-20261027.json`.
+
+Os replays históricos de 253/365/730 dias acima foram executados com fator 2,5 e não validam esta revisão. Uma matriz de 365 dias para seeds 1/42/987/2026 e repetição da seed 42 concluiu com o fator 10 no SHA `ea6aa0ca9e163ee94fa557b09c21b0e560395a21`; esse código ainda mostrava algumas medidas com casas decimais e produzia a fração anterior de carne, então o replay não valida a apresentação atual. JUL-178 continua sem aceite final até repetir a auditoria com o valor inteiro de carne e concluir os demais critérios de conservação/acesso alimentar.
+
+## Regra de leitura de números — 27/10/2026
+
+Medidas econômicas que o jogador usa para escolher ações são apresentadas como inteiros e com unidade consistente: comida vegetal em pessoa-dias, carne em unidades físicas e pessoa-dias equivalentes, ração em porções de ovelha-dia, e recursos/preços em unidades inteiras. Uma sobra positiva abaixo de uma unidade aparece como “menos de 1”. Os painéis de reino, edifícios, mercado, abrigo, roça, curral e relatórios de decisão do rei/general compartilham o formatador; precisão fracionária continua apenas na contabilidade interna. Coordenadas, latência, FPS, pesos e pontuações da rede são diagnósticos técnicos, não estoques ou unidades de produção.
+
+**Fontes e limites:** SciSpace encontrou Chang et al. (2024), *Does counting change what counts? Quantification fixation biases decision-making* ([DOI 10.1073/pnas.2400215121](https://doi.org/10.1073/pnas.2400215121)), sobre como apresentar numericamente dimensões de escolha afeta julgamentos; e Thompson et al. (2022), *Leveraging Math Cognition to Combat Health Innumeracy* ([DOI 10.1177/17456916221083277](https://doi.org/10.1177/17456916221083277)), sobre dificuldades de interpretar números racionais em estatísticas de saúde. Nenhum estudo compara diretamente casas decimais e inteiros numa interface de estratégia econômica; portanto esses artigos motivam cautela com a apresentação, mas a regra é uma decisão de legibilidade/produto confirmada pelo pedido do usuário, não uma conclusão experimental para Kingdom. O Consensus recusou a consulta porque a conta atingiu o limite mensal de 30 buscas (reinício em 01/11/2026). O wrapper Linear listou `get_agent_context`, mas o servidor respondeu `Tool get_agent_context not found`; decisões e contexto desta issue foram lidos diretamente em JUL-178. A orientação da skill Game Studio foi aplicada à inspeção manual do HUD e do painel de curral no navegador: comida, ouro, reserva, ração e capacidade apareceram como inteiros em pt-BR.
+
+## Abastecimento militar no retorno — 27/10/2026
+
+**Evidência:** no SHA `e4993665704716fdb3f5c8d4a95c0a93ad25385d`, o replay de 730 dias registrou uma morte humana por fome na seed 42 e outra na seed 2026, embora os reinos mantivessem grandes estoques. O diagnóstico de 365 dias da seed 2026 localizou Ayo I, soldado sem reserva pessoal enquanto havia 12.595 unidades na comunidade. O caminho de retorno liberava ração somente ao chegar ao centro militar; a marcha em território aliado podia durar mais do que a reserva restante.
+
+**Decisão:** enquanto um soldado sem reserva retorna e já está em território do próprio reino, fornecer apenas o alimento que falta para a ração daquele dia, usando excedente comunitário ou tesouro. No centro militar continua valendo a reposição regular até 55 dias. O soldado não coleta comida civil.
+
+**Alternativas descartadas:** permitir forrageio militar contrariaria a regra de produto já definida; liberar 55 dias de qualquer ponto poderia retirar grandes lotes do estoque fora da guarnição; aumentar saúde ou reduzir consumo mascararia a falha de acesso sem entregar alimento ao soldado. A ração diária localizada preserva a reserva civil protegida e mantém o retorno de campanha observável.
+
+**Validação inicial no SHA `7836ea16d29d1b10336fdbaa247a7df2896c0003`:** regressões de alimento/campanha 13/13, suíte 314/314 e build de produção aprovada. As primeiras matrizes revelaram que o limite normal de 120 registros do ledger de mercado ocultava três trocas no replay de 730 dias da seed 1; a auditoria, por isso, ainda não podia afirmar cobertura integral.
+
+## Replays finais com ledger de mercado integral — 27/10/2026
+
+O auditor agora ativa retenção completa de trocas somente durante replays; o jogo continua limitando o histórico normal a 120 registros. Regressão específica confirma ambos os comportamentos. No SHA `887c0b77f61d79481d4889008081ac486da45b80`, a matriz concluiu **253, 365 e 730 dias**, seeds **1, 42, 987 e 2026**, com uma repetição da seed 42 por horizonte. Os **15 resultados** verificaram inventários não negativos a cada dia, cobertura integral de transações do mercado, ledgers militares completos e balanceados, duas roças concluídas, e repetição idêntica dos hashes de estado/crônica da seed 42.
+
+Não houve morte humana por fome; as mortes humanas observadas decorreram de combate ou invasão. O menor estoque comunitário final foi **8.874 unidades**; a menor reserva combinada (comunidade + pessoas) durante qualquer replay foi **51 dias**. Valedouro na seed 1 ficou abaixo de 300 unidades de estoque comunitário durante sete dias; suas reservas combinadas permaneceram acima de 51 dias. As demais comunidades não ficaram abaixo de 300. A evidência completa, por seed, está em `docs/verification/JUL-178-food-audit-matrix-887c0b77-20261027.json` e resumida em `docs/verification/JUL-178-food-audit-matrix-887c0b77-20261027.md`.
+
+A suíte completa no SHA `887c0b77f61d79481d4889008081ac486da45b80` passou **315/315**; `npm run build` passou e otimizou 489 imagens PNG em WebP sem perdas, reduzindo os assets de 8,03 para 5,27 MiB. Os testes existentes também cobrem lote de mercado vazio/insuficiente, rota impedida, capacidade de carga, falta de sementes/trabalhador, insuficiência de ração e guerra.
+
+**Critério ainda aberto:** os replays verificam saldos não negativos por inventário a cada dia e reconciliam transações de mercado e ração de campanha, mas ainda não emitem um registro estruturado completo de cada transferência/consumo alimentar não comercial, com origem, destino, rota e razão de bloqueio por proprietário e dia. JUL-178 permanece *In Progress*; não marcar Done antes de fechar esse último requisito de rastreabilidade ou de obter decisão explícita de escopo.
+
+## Ledger diário de alimentos por proprietário — 27/10/2026
+
+**Decisão de auditoria:** a rastreabilidade será um observador opt-in nos replays, desligado no jogo normal. Ele registra a abertura, entradas, saídas, fechamento e conciliação diária de cada estoque, além de transações com categoria, recurso, custo de escambo, origem, destino, agente, rota e bloqueio observado. Também registra estado diário da roça e atribuições de trabalho alimentar. Inventários criados durante a simulação entram no ledger a partir do dia em que aparecem.
+
+O observador instala acessores temporários apenas nos saldos rastreados e intercepta novos proprietários pelas coleções do mundo. Ao finalizar, restaura descritores e coleções originais. Requisições de transferência com quantidade zero não são classificadas como bloqueios; representam chamadas sem trabalho solicitado. Custos de permuta são registrados nos dois lados, mesmo quando um dos recursos — como ouro — não faz parte da conciliação de alimento.
+
+O ledger preserva precisão fracionária nos dados internos para que a soma de entradas e saídas possa ser auditada. Isso não altera a regra de legibilidade confirmada pelo usuário: ração e todas as quantidades econômicas mostradas no jogo ficam inteiras; sobras positivas menores que uma unidade aparecem como “menos de 1”. Cálculos e auditorias continuam precisos internamente.
+
+A primeira matriz instrumentada, no SHA `0f1fff55a2e51acb7842e0966563f32523000e69`, não foi aceita: mostrou 166–177 divergências por seed, todas em estoques de campanha. A causa foi uma colisão da chave interna que fazia atacante e defensor da mesma campanha compartilharem o índice da conta no observador. A identidade agora inclui o papel de cada lado; a regressão verifica separação e conciliação. Os relatórios preliminares não serão usados como evidência de conclusão; a matriz deve ser repetida no SHA corrigido.
+
+**Critério de conclusão:** a instrumentação ainda precisa rodar na matriz final de 253, 365 e 730 dias para seeds 1, 42, 987 e 2026, com repetição da seed 42. Cada arquivo deve ter balanços conciliados, sem proprietários sem instrumentação e com rotas/bloqueios legíveis. A paridade do estado com observador ligado também deve ser repetida depois da versão final desta mudança. Até anexar esses resultados ao JUL-178, o status permanece *In Progress*.
+
+## Registro de contas antes da transferência — 27/10/2026
+
+A inspeção das matrizes 253/365/730 no SHA `8b4510c5b61601e89cb269b6d6f626f32bd71a8c` encontrou duas classes de operações sem destino identificado: as provisões de reserva transferidas para um bebê antes de adicioná-lo à lista `world.people`, e o financiamento do estoque de campanha antes de adicionar a campanha a `world.campaigns`. Os saldos ainda fechavam, mas a relação origem→destino ficava incompleta; essa evidência não satisfaz a JUL-178.
+
+A correção registra a reserva do novo proprietário quando ele aparece como destino de transferência e registra cada lado da campanha antes de seu primeiro depósito. Não altera valores, ordem de jogo nem balances; apenas permite atribuir cada entrada a uma conta auditável. Regressões cobrem provisões de nascimento e financiamento da campanha antes da publicação de seus objetos no mundo.
+
+Validação nesta revisão: testes direcionados do ledger **6/6**, suíte completa **321/321** e `npm run build` aprovados. A repetição das matrizes longas e a conferência de cobertura integral de origem/destino ainda estão pendentes no SHA corrigido; portanto a issue permanece *In Progress*. A regra de legibilidade continua a mostrar todas as quantidades econômicas, inclusive ração, como inteiros (sobra positiva abaixo de uma unidade: “menos de 1”), mantendo precisão interna para a conciliação.
+
+## Ração de rebanho com origem no arbusto — 28/10/2026
+
+Na matriz de 730 dias da revisão `fa63c7d`, apareceu um evento isolado de ração sem origem atribuída: um pawn debitou brotos de um arbusto para carregar ração. A coleta passava diretamente da biomassa no tile para `carriedFeed`, sem uma operação que nomeasse a planta, o local e o coletor. A implementação agora envolve a coleta na operação `livestock-feed-gathering`, ligando a biomassa de `browse` à carga do pawn; não muda as quantidades nem o comportamento da simulação.
+
+A apresentação permanece em números inteiros para comida, carne, sementes, ração, preços, carga e reservas, inclusive nos relatórios das IAs. Quando há saldo positivo menor que uma unidade, a interface mostra “menos de 1”. Cálculos internos preservam precisão para a simulação e a reconciliação.
+
+Regressão direcionada: coleta de brotos registra origem `browse-plant-biomass`, destino de carga `carriedFeed` e concilia os saldos. Os testes focados de ledger e apresentação passaram **15/15**. O novo SHA ainda precisa passar suíte completa, build, matriz longa e paridade antes de aceitar JUL-178.

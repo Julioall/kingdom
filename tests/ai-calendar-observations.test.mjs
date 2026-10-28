@@ -4,7 +4,8 @@ import engine from '../src/simulation/engine.js';
 import { DAILY_FOOD_NEED, FOOD_DAYS_PER_UNIT, PLANTS } from '../src/config/ecosystem.js';
 import { stripAbsoluteCalendarFields } from '../src/ai/observations.js';
 import {
-  kingdomStrategyChoices, observeKingdomStrategy, planKingdomStrategy, queueKingdomStrategicAiRequests, setStrategicAiEnabled
+  kingdomStrategyChoices, observeKingdomStrategy, planKingdomStrategy, queueKingdomStrategicAiRequests,
+  setStrategicAiEnabled, updateKingdomStrategies
 } from '../src/simulation/kingdoms/strategy.js';
 import { queueCampaignGeneralAiRequests } from '../src/simulation/kingdoms/campaigns.js';
 import { buildKingdomStrategySystemPrompt } from '../src/ai/kingdom-strategy-prompt.js';
@@ -59,6 +60,7 @@ test('kingdom strategy prompt is season-invariant but request expiry metadata st
   assert.equal(Object.hasOwn(spring.request.context.report, 'calendar'), false);
   assert.ok(spring.request.context.decisionGuidance.some(rule => rule.includes('Roça')));
   assert.ok(spring.request.context.decisionGuidance.some(rule => rule.includes('uma unidade de comida representa um dia de alimento')));
+  assert.ok(spring.request.context.decisionGuidance.some(rule => rule.includes('uma porção alimenta uma ovelha por um dia')));
   assert.equal(spring.request.context.report.community.foodInfrastructure.completedCorrals, 1);
   assert.equal(spring.request.context.report.community.foodInfrastructure.sheepCapacity, 35);
   assert.equal(spring.rawReport.community.foodBufferTargetDays, 180);
@@ -95,6 +97,9 @@ test('kingdom forage policy stops repeating once the observed six-month buffer i
 test('kingdom AI keeps feasible food-production options available during a shortage', () => {
   const { rawReport } = strategicRequest(91);
   rawReport.community.foodPerResident = 1;
+  rawReport.community.sharedFood = 400;
+  rawReport.community.dailyFoodNeed = 50;
+  rawReport.community.foodBufferDays = 8;
   rawReport.community.marketFoodTradeable = false;
   rawReport.community.constructionReady = true;
   rawReport.community.safeBuilderAvailable = true;
@@ -177,6 +182,83 @@ test('king sees the seed reserve and chooses to replant a spent field before foo
   assert.ok(!kingdomStrategyChoices(rawReport).some(choice => choice.id === 'replant_cultivated_field'));
 });
 
+test('king completes a ready roça before buying small food batches while the reserve covers more than two days', () => {
+  const { rawReport } = strategicRequest(91);
+  Object.assign(rawReport.community, {
+    sharedFood: 4_000,
+    dailyFoodNeed: 50,
+    foodBufferDays: 80,
+    marketFoodTradeable: true,
+    constructionReady: true,
+    safeBuilderAvailable: true,
+    activeCropProject: true,
+    buildPlan: { type: 'ongoing', woodCost: 0, stoneCost: 0, foodCost: 0 }
+  });
+  Object.assign(rawReport.community.foodInfrastructure, {
+    activeFieldProject: true,
+    nextBuildType: 'roça',
+    nextBuildReady: true,
+    replantReady: false
+  });
+
+  assert.equal(planKingdomStrategy(rawReport).goal, 'invest-in-cultivated-food');
+  const choices = kingdomStrategyChoices(rawReport);
+  assert.ok(choices.some(choice => choice.id === 'build_food_field'));
+  assert.ok(!choices.some(choice => choice.id === 'trade_for_food'), 'trade cannot displace a ready crop project');
+});
+
+test('an old market plan is refused immediately when a ready crop project can continue', () => {
+  const world = engine.createWorld(42);
+  world.day = 200;
+  const kingdom = world.kingdoms[0];
+  const community = world.communities.find(item => item.id === kingdom.communityId);
+  community.stores.food = 4_000;
+  community.stores.gold = 10;
+  kingdom.treasury.stock.food = 0;
+  kingdom.market.stock.food = 42;
+  const worker = world.people.find(person => person.alive && person.communityId === community.id
+    && person.role !== 'soldier' && person.ageDays >= 12 * 365 && person.id !== community.leaderId);
+  Object.assign(worker, { foodReserve: 50, energy: 80, hydration: 80, health: 100, assignment: null });
+  world.structures.push({ id: 99003, type: 'roça', communityId: community.id, x: worker.x + 1, y: worker.y,
+    complete: false, progress: 30, required: 34, destroyedDay: null, integrity: 1, workerIds: [] });
+  setStrategicAiEnabled(world, true);
+  kingdom.strategy = { goal: 'trade-for-shared-food', action: 'trade', evaluatedDay: world.day - 1,
+    aiPlan: { goal: 'trade-for-shared-food', action: 'trade', priority: 'normal', garrisonMode: 'standby',
+      reason: 'ordem antiga', expiresDay: world.day + 12 } };
+
+  updateKingdomStrategies(world);
+
+  assert.equal(kingdom.strategy.goal, 'invest-in-cultivated-food');
+  assert.equal(kingdom.strategy.action, 'build');
+  assert.match(kingdom.strategy.lastOutcome.reason, /replantio ou uma roça pronta/i);
+});
+
+test('king uses immediate food options at a two-day reserve even when planting is ready', () => {
+  const { rawReport } = strategicRequest(91);
+  Object.assign(rawReport.community, {
+    sharedFood: 100,
+    dailyFoodNeed: 50,
+    foodBufferDays: 2,
+    marketFoodTradeable: true,
+    constructionReady: true,
+    safeBuilderAvailable: true,
+    activeCropProject: true,
+    buildPlan: { type: 'ongoing', woodCost: 0, stoneCost: 0, foodCost: 0 }
+  });
+  Object.assign(rawReport.community.foodInfrastructure, {
+    activeFieldProject: true,
+    nextBuildType: 'roça',
+    nextBuildReady: true,
+    replantReady: true
+  });
+
+  assert.equal(planKingdomStrategy(rawReport).goal, 'trade-for-shared-food');
+  const choices = kingdomStrategyChoices(rawReport);
+  assert.ok(choices.some(choice => choice.id === 'trade_for_food'));
+  assert.ok(!choices.some(choice => choice.id === 'replant_cultivated_field'));
+  assert.ok(!choices.some(choice => choice.id === 'build_food_field'), 'new field work waits until immediate food is secured');
+});
+
 test('kingdom model prompt explains farm, corral, and blocked-order constraints', () => {
   const prompt = buildKingdomStrategySystemPrompt(['forage_for_food', 'build_food_field', 'capture_sheep']);
   assert.match(prompt, /biomassa em pé e colheita histórica não são estoque/i);
@@ -185,6 +267,7 @@ test('kingdom model prompt explains farm, corral, and blocked-order constraints'
   assert.match(prompt, /buffer de 180 dias/i);
   assert.match(prompt, /retira o lote inteiro/i);
   assert.match(prompt, /continuidade da roça/i);
+  assert.match(prompt, /compras pequenas não substituem a conclusão da roça/i);
   assert.match(prompt, /replantar a área existente/i);
   assert.match(prompt, /forage_for_food, build_food_field, capture_sheep/);
 });

@@ -3,14 +3,16 @@ import { militaryCivilianFoodFloor } from '../economy/food-policy.js';
 import { DAILY_FOOD_NEED, FOOD_DAYS_PER_UNIT } from '../../config/ecosystem.js';
 import { distance } from '../core/math.js';
 import {
-  addFoodReserve, communityFoodStock, spendInventory, transferResource, withdrawCommunityFood
+  addFoodReserve, communityFoodStock, spendInventory, transferCommunityFoodToReserve,
+  transferResource
 } from '../economy/inventories.js';
+import { withFoodAuditOperation } from '../economy/food-audit-ledger.js';
 import { MILITARY_CLASSES } from './military.js';
 import { isOperationalMilitarySource } from './military-sources.js';
 import { moveOne } from '../individuals/movement.js';
 import { structureInteractionPoint } from '../physics/hitboxes.js';
 import { recordTrade } from '../economy/trade-ledger.js';
-import { goldPriceToCopper, settleCoinPayment, settleCoinTrade } from '../economy/coin-payments.js';
+import { goldPriceToCopper, quoteCoinPayment, settleCoinPayment, settleCoinTrade } from '../economy/coin-payments.js';
 import {
   advanceSocialIntention, defineSocialIntention, recordSocialBeliefEvidence, recordSocialFact,
   rememberSocialFact, SOCIAL_ACTIVE_INTENTION_PER_PERSON_LIMIT
@@ -73,31 +75,41 @@ export function militaryDutyCenterFor(world, person) {
     .filter(Boolean).sort((a, b) => distance(person, a) - distance(person, b) || a.id - b.id)[0] || null;
 }
 
-export function drawGarrisonRation(world, person, center = militaryDutyCenterFor(world, person), target = GARRISON_RATION_TARGET) {
+export function drawGarrisonRation(world, person, center = militaryDutyCenterFor(world, person), target = GARRISON_RATION_TARGET,
+  { allowAwayFromCenter = false } = {}) {
   const restingHouse = world.structures.find(structure => structure.id === person?.restingStructureId
     && structure.complete && structure.kingdomId === person.kingdomId
     && structure.destroyedDay == null && structure.integrity !== 0 && distance(person, structure) <= 1.25);
-  if (!person || person.role !== 'soldier' || person.campaignId != null || !center
-      || center.kingdomId !== person.kingdomId
-      || !(world.structures || []).includes(center)
-      || !isOperationalMilitarySource(center, 'centro_militar')
-      || distance(person, center) > 2.5 && !restingHouse) return 0;
+  const validCenter = center && center.type === 'centro_militar'
+    && center.kingdomId === person?.kingdomId && center.complete
+    && (world.structures || []).includes(center)
+    && isOperationalMilitarySource(center, 'centro_militar');
+  if (!person || person.role !== 'soldier' || person.campaignId != null || !validCenter
+      || !allowAwayFromCenter && distance(person, center) > 2.5 && !restingHouse) return 0;
+
   const need = Math.min(Math.max(0, target - person.foodReserve), Math.max(0, 100 - person.foodReserve));
   if (need <= .01) return 0;
   const kingdom = world.kingdoms.find(item => item.id === person.kingdomId);
   const available = Math.max(0, Number(kingdom?.treasury?.stock?.food) || 0);
   let received = 0;
   const treasuryRation = Math.min(available, need / FOOD_DAYS_PER_UNIT);
-  if (treasuryRation > .01 && spendInventory(kingdom.treasury, { food: treasuryRation }, 'military-garrison-ration')) {
-    received += addFoodReserve(person, treasuryRation * FOOD_DAYS_PER_UNIT, 'military-garrison-ration');
+  if (treasuryRation > .01) {
+    received += withFoodAuditOperation({ kind: 'garrison-ration-transfer', category: 'military-garrison-ration',
+      resource: 'foodReserve', sourceAccount: kingdom.treasury.stock, sourceResource: 'food',
+      destinationAccount: person, destinationResource: 'foodReserve', amount: treasuryRation * FOOD_DAYS_PER_UNIT,
+      actor: person }, () => {
+      if (!spendInventory(kingdom.treasury, { food: treasuryRation }, 'military-garrison-ration')) return 0;
+      return addFoodReserve(person, treasuryRation * FOOD_DAYS_PER_UNIT, 'military-garrison-ration');
+    });
   }
   const remainder = Math.max(0, need - received);
   const community = world.communities.find(item => item.id === kingdom?.communityId && item.kingdomId === person.kingdomId);
   const surplus = Math.max(0, communityFoodStock(community) - militaryCivilianFoodFloor(world, kingdom));
   const communityRation = Math.min(surplus, remainder / FOOD_DAYS_PER_UNIT);
   if (communityRation > .01) {
-    const meal = withdrawCommunityFood(world, community, communityRation, 'military-garrison-ration');
-    received += addFoodReserve(person, meal.nutrition * FOOD_DAYS_PER_UNIT, 'military-garrison-ration');
+    const meal = transferCommunityFoodToReserve(world, community, person, communityRation,
+      'military-garrison-ration', 'military-garrison-ration');
+    received += meal.reserveAdded;
   }
   return received;
 }
@@ -304,47 +316,70 @@ export function buyMilitaryMeal(world, person, rationNeed = DAILY_FOOD_NEED) {
   const foodLimit = Math.min(rationNeed / FOOD_DAYS_PER_UNIT,
     (100 - person.foodReserve) / FOOD_DAYS_PER_UNIT, market.stock.food || 0);
   if (!(foodLimit > .01)) return 0;
+
   const useCoins = wallet.coinMode || market.stock.coinMode
     || (wallet.silver || 0) > 0 || (wallet.copper || 0) > 0;
-  let foodPurchased = 0;
-  let moneyDelta;
-  if (useCoins) {
-    const priceCopper = goldPriceToCopper(price * foodLimit);
-    const quote = priceCopper == null ? null : settleCoinTrade(wallet, market.stock, priceCopper,
-      market.stock, person, 'food', foodLimit, Infinity, 'militaryFoodPurchased');
-    if (!quote) return 0;
-    foodPurchased = foodLimit;
-    moneyDelta = {
-      gold: -quote.transfers.gold, silver: -quote.transfers.silver, copper: -quote.transfers.copper
-    };
-  } else {
-    // Untouched legacy accounts retain their historical gold-denominated path.
-    const food = Math.min(foodLimit, (wallet.gold || 0) / price);
-    if (!(food > .01)) return 0;
-    const paidGold = transferResource(wallet, market.stock, 'gold', food * price);
-    foodPurchased = transferResource(market.stock, person, 'food', food, 'militaryFoodPurchased');
-    if (!(foodPurchased > .01)) {
-      transferResource(market.stock, wallet, 'gold', paidGold);
-      return 0;
+  const food = useCoins ? foodLimit : Math.min(foodLimit, (wallet.gold || 0) / price);
+  if (!(food > .01)) return 0;
+
+  const priceCopper = useCoins ? goldPriceToCopper(price * food) : null;
+  const paymentQuote = useCoins && priceCopper != null
+    ? quoteCoinPayment(wallet, market.stock, priceCopper) : null;
+  if (useCoins && !paymentQuote) return 0;
+
+  const auditDetails = {
+    kind: 'market-meal-purchase',
+    category: 'military-market-meal',
+    resource: 'foodReserve',
+    sourceAccount: market.stock,
+    sourceResource: 'food',
+    destinationAccount: person,
+    destinationResource: 'foodReserve',
+    amount: food * FOOD_DAYS_PER_UNIT,
+    costs: useCoins ? paymentQuote.tender : { gold: food * price },
+    ...(useCoins ? { firstGives: paymentQuote.tender, secondGives: paymentQuote.change } : {}),
+    actor: person
+  };
+
+  return withFoodAuditOperation(auditDetails, () => {
+    let foodPurchased = 0;
+    let moneyDelta;
+    if (useCoins) {
+      const quote = settleCoinTrade(wallet, market.stock, priceCopper,
+        market.stock, person, 'food', food, Infinity, 'militaryFoodPurchased');
+      if (!quote) return 0;
+      foodPurchased = food;
+      moneyDelta = {
+        gold: -quote.transfers.gold, silver: -quote.transfers.silver, copper: -quote.transfers.copper
+      };
+    } else {
+      // Untouched legacy accounts retain their historical gold-denominated path.
+      const paidGold = transferResource(wallet, market.stock, 'gold', food * price);
+      foodPurchased = transferResource(market.stock, person, 'food', food, 'militaryFoodPurchased');
+      if (!(foodPurchased > .01)) {
+        transferResource(market.stock, wallet, 'gold', paidGold);
+        return 0;
+      }
+      moneyDelta = { gold: -paidGold };
     }
-    moneyDelta = { gold: -paidGold };
-  }
-  market.transactions = (market.transactions || 0) + 1;
-  const reserveAdded = addFoodReserve(person, foodPurchased * FOOD_DAYS_PER_UNIT, 'military-market-meal');
-  const community = world.communities.find(item => item.id === kingdom.communityId);
-  recordTrade(world, {
-    kind: 'market',
-    action: 'comprou refeição militar',
-    participants: [{ personId: person.id, kingdomId: kingdom.id, delta: {
-      ...moneyDelta, foodReserveDays: reserveAdded
-    } }],
-    market: {
-      ownerType: market.ownerType || 'kingdom-market',
-      ownerId: market.ownerId ?? kingdom.id,
-      delta: { food: -foodPurchased, ...Object.fromEntries(
-        Object.entries(moneyDelta).map(([coin, amount]) => [coin, -amount])) }
-    },
-    assetsCreated: []
-  }, [community, kingdom, market]);
-  return reserveAdded;
+
+    market.transactions = (market.transactions || 0) + 1;
+    const reserveAdded = addFoodReserve(person, foodPurchased * FOOD_DAYS_PER_UNIT, 'military-market-meal');
+    const community = world.communities.find(item => item.id === kingdom.communityId);
+    recordTrade(world, {
+      kind: 'market',
+      action: 'comprou refeição militar',
+      participants: [{ personId: person.id, kingdomId: kingdom.id, delta: {
+        ...moneyDelta, foodReserveDays: reserveAdded
+      } }],
+      market: {
+        ownerType: market.ownerType || 'kingdom-market',
+        ownerId: market.ownerId ?? kingdom.id,
+        delta: { food: -foodPurchased, ...Object.fromEntries(
+          Object.entries(moneyDelta).map(([coin, amount]) => [coin, -amount])) }
+      },
+      assetsCreated: []
+    }, [community, kingdom, market]);
+    return reserveAdded;
+  });
 }

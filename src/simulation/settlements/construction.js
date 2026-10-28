@@ -2,9 +2,11 @@ import { rearProjection, safeCorralFootprint } from '../kingdoms/rear-sites.js';
 import { initializeStructureHealth } from '../kingdoms/fortifications.js';
 import { clamp, distance, hash01 } from '../core/math.js';
 import { communityFoodStock, consumeFoodReserve, spendInventory, spendStoreInventory, transferResource, withdrawCommunityFood } from '../economy/inventories.js';
+import { recordFoodAuditBlocked, withFoodAuditOperation } from '../economy/food-audit-ledger.js';
 import { cellAt, cellsWithin } from '../world/spatial.js';
 import { plantBiomass, sowCommunityField } from '../ecology/plants.js';
 import { PLANTS } from '../../config/ecosystem.js';
+import { formatWholeMeasure } from '../../config/whole-measures.js';
 import { localNameFeature } from '../society/communities.js';
 import { log } from '../core/events.js';
 import { moveOne, reachableAreaAround } from '../individuals/movement.js';
@@ -442,8 +444,13 @@ export function workOnReplantingField(w, person, community, fieldId = person?.as
     }
     const seedMass = Math.min(availableSeeds, previousSeedMass || availableSeeds, SEED_COURIER_CAPACITY);
     if (seedMass <= .01) return false;
-    const movedSeeds = transferResource(community.stores, person, 'seeds',
-      seedMass, 'carriedCommunitySeeds', SEED_COURIER_CAPACITY);
+    const movedSeeds = withFoodAuditOperation({
+      kind: 'seed-courier-pickup', category: 'field-replanting-seed-pickup', resource: 'seeds',
+      sourceAccount: community.stores, sourceResource: 'seeds',
+      destinationAccount: person, destinationResource: 'carriedCommunitySeeds',
+      amount: seedMass, actor: person, destinationPosition: { x: person.x, y: person.y }
+    }, () => transferResource(community.stores, person, 'seeds',
+      seedMass, 'carriedCommunitySeeds', SEED_COURIER_CAPACITY, 'field-replanting-seed-pickup'));
     if (Math.abs(movedSeeds - seedMass) > .001) throw new Error('Lote do replantio não conservado ao retirar do depósito');
     person.seedCargoCommunityId = community.id;
     person.seedCargoPurpose = 'replant';
@@ -451,41 +458,62 @@ export function workOnReplantingField(w, person, community, fieldId = person?.as
     person.state = 'retirando sementes retidas do depósito';
     person.lastLesson = 'Carrega as sementes comunitárias retiradas fisicamente do depósito para a roça.';
     person.buildCooldown = 1;
+
     return false;
   }
   const cropTiles = (field.fieldTileIndices || []).map(index => w.tiles[index])
     .filter(tile => tile && tile.cropFieldId === field.id && tile.terrain === 'land')
     .sort((a, b) => distance(person, a) - distance(person, b) || a.i - b.i);
   if (!cropTiles.length) { person.state = 'área da roça indisponível para replantio'; return false; }
+
   const plantingTile = cropTiles.find(tile => distance(person, tile) <= 1.6);
   if (!plantingTile) {
     const moved = cropTiles.some(tile => moveOne(w, person, cellAt(w, tile.x, tile.y), false));
     person.state = moved ? 'transportando sementes retidas para a roça' : 'rota da roça bloqueada para replantio';
+
     person.buildCooldown = moved ? 1 : 3;
     return false;
   }
   const seedMass = Math.min(carried, previousSeedMass || carried);
   if (seedMass <= .01) return false;
-  const movedSeeds = transferResource(person, field, 'carriedCommunitySeeds', seedMass, 'cropSeedStored');
-  if (Math.abs(movedSeeds - seedMass) > .001) throw new Error('Entrega física ao talhão não conservou sementes');
-  const planted = sowCommunityField(w, field);
-  if (planted <= .01) {
-    transferResource(field, person, 'cropSeedStored', movedSeeds, 'carriedCommunitySeeds', SEED_COURIER_CAPACITY);
-    person.state = 'plantio bloqueado; sementes preservadas na carga';
-    return false;
-  }
+  const replantResult = withFoodAuditOperation({
+    kind: 'field-replant', category: 'worker-replanting', resource: 'seeds', amount: seedMass,
+    sourceAccount: person, sourceResource: 'carriedCommunitySeeds',
+    destinationAccount: field, destinationResource: 'cropSeedStored',
+    actor: person, destinationPosition: { x: field.x, y: field.y }
+  }, () => {
+    const movedSeeds = transferResource(person, field, 'carriedCommunitySeeds',
+      seedMass, 'cropSeedStored', Infinity, 'field-replanting-delivery');
+    if (Math.abs(movedSeeds - seedMass) > .001)
+      throw new Error('Entrega física ao talhão não conservou sementes');
+    const planted = sowCommunityField(w, field);
+    if (planted <= .01) {
+      recordFoodAuditBlocked('field-replanting-planting-failed', {
+        resource: 'seeds', requested: seedMass, available: movedSeeds, actorId: person.id
+      });
+      transferResource(field, person, 'cropSeedStored', movedSeeds, 'carriedCommunitySeeds',
+        SEED_COURIER_CAPACITY, 'return-unused-replant-seeds');
+      person.state = 'plantio bloqueado; sementes preservadas na carga';
+      return null;
+    }
+    return { movedSeeds, planted };
+  });
+  if (!replantResult) return false;
+  const { planted } = replantResult;
   if (!(person.carriedCommunitySeeds > .01)) {
     person.seedCargoCommunityId = null;
     person.seedCargoPurpose = null;
     person.seedCargoFieldId = null;
   }
+
   field.cropSeedsRetainedThisCycle = 0;
   field.cropLastSowedDay = w.day;
   if (person.assignment) person.assignment.replantSowedDay = w.day;
   person.state = 'semeando a roça';
   person.lastLesson = 'Levou sementes retidas desde o depósito, entregou o lote ao talhão e reiniciou o cultivo.';
-  community.history.push('Replantou a roça com ' + planted.toFixed(2) + ' unidades de sementes transportadas do depósito.');
-  log(w, community.name + ' replantou uma roça com ' + planted.toFixed(2)
+  community.history.push('Replantou a roça com ' + formatWholeMeasure(planted) + ' unidades de sementes transportadas do depósito.');
+  log(w, community.name + ' replantou uma roça com ' + formatWholeMeasure(planted)
     + ' sementes entregues fisicamente; novo lote iniciado.', w.day + 1);
+
   return true;
 }

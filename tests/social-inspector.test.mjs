@@ -150,7 +150,7 @@ test('social inspector shows the accepted or refused food request result', () =>
   assert.match(sections.memorySection, /pedido de alimento/);
   assert.match(sections.memorySection, /resposta ao pedido de ajuda/);
   assert.match(sections.memorySection, /pedido aceito/);
-  assert.match(sections.memorySection, /2,5 dias de alimento/);
+  assert.match(sections.memorySection, /3 dias de alimento/);
 
   world.socialEvidence.facts[1].outcome = { resource: 'food', result: 'refused', reason: 'no-transferable-surplus' };
   const refused = renderSocialInspectorSections(person, world);

@@ -3,7 +3,7 @@ import { advanceSocialIntention, physicalIntentionBlockers,
   recordSocialBeliefEvidence, rememberSocialFact } from './social-evidence.js';
 
 const SCHEDULING_BLOCKERS = new Set(['military_duty', 'urgent_needs', 'rest_required',
-  'cargo_delivery', 'garrison_resupply', 'participant_busy']);
+  'cargo_delivery', 'garrison_resupply', 'participant_busy', 'community_duty']);
 const OPEN = new Set(['active', 'suspended']);
 
 // Both aid event types identify the recipient in targetId; the other participant is the helper.
@@ -67,6 +67,7 @@ export function selectSocialPlanAction(world, person, context = {}) {
       ? 'military_duty' : context.urgentNeeds ? 'urgent_needs'
         : context.resupply ? 'garrison_resupply' : context.rest ? 'rest_required'
           : context.cargo ? 'cargo_delivery'
+            : context.constructionDuty ? 'community_duty'
             : plan.type === 'seek_food_aid' && (context.busy?.has(person.id)
               || context.busy?.has(Number(plan.targetId))) ? 'participant_busy' : null;
     const physical = physicalIntentionBlockers(person, world.day);

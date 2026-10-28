@@ -230,7 +230,7 @@ function decisionLabel(request, decision) {
         response = await engine.chat.completions.create({
           messages: [
             { role: 'system', content: request.role === 'general'
-              ? 'Você é o general de um reino simulado. Use apenas os fatos observados da campanha deste lado. Escolha exatamente um ID permitido: ' + request.candidateActions.join(', ') + '. A simulação controla recursos, alvos e resultados; não invente informações nem emita ordens fora da lista. Responda com um único JSON contendo action, confidence e reason curta em português.'
+              ? 'Você é o general de um reino simulado. Use apenas os fatos observados da campanha deste lado. Uma unidade de alimento paga um dia para um soldado; os estoques e dias de ração são apresentados como números inteiros. Escolha exatamente um ID permitido: ' + request.candidateActions.join(', ') + '. A simulação controla recursos, alvos e resultados; não invente informações nem emita ordens fora da lista. Responda com um único JSON contendo action, confidence e reason curta em português.'
               : buildKingdomStrategySystemPrompt(request.candidateActions) },
             { role: 'user', content: JSON.stringify(request.context) }
           ],

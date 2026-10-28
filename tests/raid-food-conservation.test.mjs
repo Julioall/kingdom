@@ -23,7 +23,9 @@ test('raid debits only food and meat fitting their separate remaining capacities
   const shelter = { id: 3, type: 'abrigo', complete: true, communityId: 2, x: 1, y: 1, fruitStored: 100, meatStored: 10 };
   const person = { id: 4, name: 'P', alive: true, communityId: 1, x: 1, y: 1, energy: 100, hydration: 100,
     physicalStrength: 10, skills: { diplomacy: 0 }, carriedFruit: 22, carriedMeat: 27 };
-  const world = { day: 1, people: [person], structures: [shelter], communityRelations: { '1:2':
+  const ally = { id: 5, name: 'R', alive: true, communityId: 1, x: 1, y: 1, energy: 100, hydration: 100,
+    physicalStrength: 10, skills: { diplomacy: 0 } };
+  const world = { day: 1, people: [person, ally], structures: [shelter], communityRelations: { '1:2':
     { a: 1, b: 2, tension: 1, trust: 0, conflicts: 0 } }, raidAttempts: 0, successfulRaids: 0,
     conflicts: 0, events: [], chronicle: [] };
   assert.equal(attemptRaid(world, person, attacker, { community: target, shelter }), true);

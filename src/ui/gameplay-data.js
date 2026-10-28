@@ -1,6 +1,8 @@
-import { DOMESTIC_SHEEP_DAILY_FEED, MEAT_NUTRITIONAL_VALUE } from '../config/ecosystem.js';
+import { DOMESTIC_SHEEP_DAILY_FEED, DOMESTIC_SHEEP_DAILY_RATION_PORTIONS, MEAT_NUTRITIONAL_VALUE } from '../config/ecosystem.js';
 import { communityHerdPenAssignments, DOMESTIC_SHEEP_PER_PEN } from '../simulation/ecology/herd.js';
 import { currencyValueCopper } from '../simulation/economy/currency-denominations.js';
+import { wholeRationPortions } from './whole-measures.js';
+
 
 const sum = (items, value) => items.reduce((total, item) => total + (Number(value(item)) || 0), 0);
 const food = stock => (stock?.food || 0) + (stock?.meat || 0) * MEAT_NUTRITIONAL_VALUE;
@@ -52,8 +54,11 @@ export function corralSummary(world, structure) {
   const feed = community?.stores?.feed || 0;
   const dailyFeed = herd.length * DOMESTIC_SHEEP_DAILY_FEED;
   const births = structure.herdBirths || 0;
-  return { sheep: herd.length, capacity: DOMESTIC_SHEEP_PER_PEN, feed, dailyFeed, feedDays: dailyFeed > 0 ? feed / dailyFeed : null,
-    fedToday: sum(herd, a => a.lastFedDay === world.day || a.lastFedDay === world.day - 1 ? a.lastFeedAmount : 0),
+  return { sheep: herd.length, capacity: DOMESTIC_SHEEP_PER_PEN, feed, feedPortions: wholeRationPortions(feed),
+    dailyFeed, dailyRationPortions: herd.length * DOMESTIC_SHEEP_DAILY_RATION_PORTIONS,
+    feedDays: dailyFeed > 0 ? feed / dailyFeed : null,
+    fedToday: sum(herd, a => (a.lastFedDay === world.day || a.lastFedDay === world.day - 1)
+      && a.lastFeedAmount > 0 ? DOMESTIC_SHEEP_DAILY_RATION_PORTIONS : 0),
     births, lastBirthDay: structure.lastHerdBirthDay ?? null,
     breedingReady: herd.filter(a => a.ageDays >= 200 && a.energy >= 74 && a.reproductionCooldown <= 0).length,
     foodProduced: 0 };
