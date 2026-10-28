@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MILITARY_PAY, payMilitarySalaries } from '../src/simulation/kingdoms/service.js';
+import { MILITARY_PAY, buyMilitaryMeal, payMilitarySalaries } from '../src/simulation/kingdoms/service.js';
 
 function fixture({ campaignId = null, treasuryGold = 100, firstDue = 0, arrears = 0 } = {}) {
   const soldier = {
@@ -139,4 +139,38 @@ test('a treasury with value but no payable denomination does not mint change', (
   assert.equal(world.people[0].militaryPayArrearsCopper, 50);
   assert.equal(world.people[0].militaryWallet.stock.gold, 0);
   assert.equal(world.kingdoms[0].treasury.stock.gold, 2);
+});
+
+test('a soldier buys food with copper coins and conserves every account', () => {
+  const world = fixture({ treasuryGold: 0, firstDue: 30 });
+  const soldier = world.people[0];
+  soldier.foodReserve = 0;
+  soldier.militaryWallet.stock = { gold: 0, silver: 0, copper: 5, coinMode: true };
+  world.kingdoms[0].communityId = 4;
+  world.kingdoms[0].market = { ownerType: 'kingdom-market', ownerId: 1,
+    stock: { gold: 0, silver: 0, copper: 0, food: 2 }, prices: { food: .01 }, transactions: 0 };
+  const before = soldier.militaryWallet.stock.copper + world.kingdoms[0].market.stock.copper;
+  assert.equal(buyMilitaryMeal(world, soldier, 1), 1);
+  assert.equal(soldier.foodReserve, 1);
+  assert.equal(soldier.militaryWallet.stock.copper, 4);
+  assert.equal(world.kingdoms[0].market.stock.copper, 1);
+  assert.equal(world.kingdoms[0].market.stock.food, 1);
+  assert.equal(world.kingdoms[0].market.transactions, 1);
+  assert.equal(soldier.militaryWallet.stock.copper + world.kingdoms[0].market.stock.copper, before);
+  assert.equal(world.kingdoms[0].tradeLedger.count, 1);
+});
+
+test('a soldier cannot buy food with a gold coin if the market lacks real change', () => {
+  const world = fixture({ treasuryGold: 0, firstDue: 30 });
+  const soldier = world.people[0];
+  soldier.foodReserve = 0;
+  soldier.militaryWallet.stock = { gold: 1, silver: 0, copper: 0, coinMode: true };
+  world.kingdoms[0].market = { ownerType: 'kingdom-market', ownerId: 1,
+    stock: { gold: 0, silver: 0, copper: 0, food: 2 }, prices: { food: .01 }, transactions: 0 };
+  const before = structuredClone({ wallet: soldier.militaryWallet.stock,
+    market: world.kingdoms[0].market.stock });
+  assert.equal(buyMilitaryMeal(world, soldier, 1), 0);
+  assert.deepEqual({ wallet: soldier.militaryWallet.stock,
+    market: world.kingdoms[0].market.stock }, before);
+  assert.equal(world.kingdoms[0].market.transactions, 0);
 });
