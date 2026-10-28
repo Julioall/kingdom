@@ -171,11 +171,13 @@ function executePersonalMarketTrade(world, person, community, marketOwner) {
   marketOwner.transactions = (marketOwner.transactions || 0) + 1;
   community.tradeCount = (community.tradeCount || 0) + 1;
   countTradeDiagnostic(world, 'marketCompleted');
+  consumePersonEnergy(person, .35);
+  if (person.skills) person.skills.diplomacy = clamp((person.skills.diplomacy || 0) + .008, 0, 1);
   person.state = offer.action === 'buy-food' ? 'comprando alimento para si'
     : 'vendendo carga pessoal';
   person.lastLesson = 'A troca mudou somente os estoques físicos e o ouro efetivamente existentes.';
   recordTrade(world, {
-    kind: 'personal-market', action: offer.action,
+    kind: 'market', scope: 'personal', action: offer.action,
     participants: [{
       personId: person.id, communityId: community.id,
       delta: offer.action === 'buy-food'
@@ -501,7 +503,11 @@ export function performTrade(w, person, community, partner) {
     if (partner.isMarket) {
       const kingdom = (w.kingdoms || []).find(item => item.communityId === community.id);
       const currentMarket = kingdom?.market || w.market;
-      if (!(w.structures || []).includes(partner.station)
+      if (!(w.communities || []).includes(community) || community.dissolved
+          || !(w.people || []).includes(person) || !person?.alive
+          || person.communityId !== community.id
+          || (kingdom && person.kingdomId !== kingdom.id)
+          || !(w.structures || []).includes(partner.station)
           || !operationalTradeStation(partner.station, community, kingdom)
           || !currentMarket || partner.market !== currentMarket) {
         countTradeDiagnostic(w, 'marketBlocked', 'stale-station-or-market');
