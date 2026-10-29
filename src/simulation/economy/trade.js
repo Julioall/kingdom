@@ -122,6 +122,7 @@ function communitiesHaveClosedBorder(w, first, second) {
 // Never convert crop history or a community reserve into personal saleable property.
 const PERSONAL_SALE_FLOOR = 12;
 const PERSONAL_MARKET_LOT = 4;
+const PERSONAL_FOOD_SALE_RESERVE = 42;
 
 // Opt in only when physically owned smaller denominations are present (or when
 // the account explicitly enables coin mode). Historical fractional gold stays
@@ -398,6 +399,21 @@ function personalMarketOffer(world, community, person, marketOwner) {
       Math.max(0, (100 - reserve) / FOOD_DAYS_PER_UNIT), goldHeld / foodPrice);
     if (units > .01 && canReceiveUpTo(market, 'gold', units * foodPrice, Infinity)) {
       return { action: 'buy-food', amount: units, gold: units * foodPrice };
+    }
+  }
+  const carriedFood = accountAmount(person, 'carriedFood');
+  if (reserve !== null && reserve >= PERSONAL_FOOD_SALE_RESERVE
+      && carriedFood !== null && foodAmount !== null && Number.isFinite(foodPrice) && foodPrice > 0) {
+    const amount = Math.min(PERSONAL_MARKET_LOT, carriedFood - PERSONAL_SALE_FLOOR,
+      Math.max(0, 260 - foodAmount));
+    const gold = amount * foodPrice / 2;
+    if (coinMode) {
+      const priceCopper = goldPriceToCopper(gold);
+      if (amount > .01 && priceCopper && quoteCoinPayment(market, wallet, priceCopper))
+        return { action: 'sell-coins-food', resource: 'food', amount, priceCopper };
+    } else if (amount > .01 && canSpend(market, 'gold', gold)
+        && canReceiveUpTo(wallet, 'gold', gold, Infinity)) {
+      return { action: 'sell-food', resource: 'food', amount, gold };
     }
   }
   for (const resource of ['wood', 'stone', 'iron']) {
