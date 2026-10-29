@@ -5,3 +5,10 @@ export function syncHudPanelAccess(leftPanel, rightPanel, { leftOpen = false, ri
     panel.setAttribute('aria-hidden', String(!open));
   }
 }
+
+// Surface survival-critical alerts even while optional environment details stay tucked away.
+export function syncFoodPressureAlert(mapTags, foodPressureTag, peopleAtRisk) {
+  const hasAlert = Number(peopleAtRisk) > 0;
+  foodPressureTag.hidden = !hasAlert;
+  mapTags.classList.toggle('has-alert', hasAlert);
+}
