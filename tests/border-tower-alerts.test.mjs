@@ -175,3 +175,35 @@ test('tower detection flows through alarm and general report into a bounded defe
   }
   assert.equal(world.campaigns.length, 0, 'a single civilian does not mobilize a kingdom-wide campaign');
 });
+
+test('one simulation day runs tower detection through the general response in system order', () => {
+  const { world, owner, archer, intruder, site } = watchFixture();
+  const general = { ...archer, id: world.nextId++, militaryRank: 'general', militaryClass: 'guerreiro',
+    towerMounted: false, towerDutyId: null, x: site.x + 6, y: site.y,
+    lastMilitaryAttackDay: -Infinity, combatAction: null, campaignId: null, militaryRestTargetId: null };
+  world.people.push(general);
+  world.peopleSpatialIndex = createPersonSpatialIndex(world.people);
+  owner.militaryCommand = { generalIds: [general.id], units: [] };
+  const initialDistance = Math.hypot(general.x - intruder.x, general.y - intruder.y);
+
+  engine.stepDay(world, { includeSnapshot: false });
+
+  const report = owner.frontierAlert;
+  const response = owner.militaryCommand.lastFrontierResponse;
+  assert.equal(world.day, 20);
+  assert.equal(report?.kind, 'tower-intrusion');
+  assert.deepEqual(report?.intruderIds, [intruder.id]);
+  assert.deepEqual(report?.notifiedGeneralIds, [general.id]);
+  assert.equal(general.lastBorderAlert?.reportId, report.id);
+  assert.equal(response?.reportId, report.id);
+  assert.equal(response?.generalId, general.id);
+  assert.equal(response?.targetId, intruder.id);
+  assert.equal(response?.action, 'intercept');
+  assert.equal(response?.defenderLimit, 1);
+  assert.equal(general.state, 'interceptando invasor no território');
+  assert.ok(Math.hypot(general.x - intruder.x, general.y - intruder.y) < initialDistance,
+    'the general advances toward the reported intruder during the actual day update');
+  assert.equal(cellAt(world, intruder.x, intruder.y)?.kingdomId, owner.id,
+    'the incursion remains inside the defended territory during the response');
+  assert.equal(world.campaigns.length, 0, 'local defense does not mobilize a kingdom-wide campaign');
+});
