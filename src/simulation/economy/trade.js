@@ -541,11 +541,15 @@ export function findTradePartner(w, community, person) {
     countTradeDiagnostic(w, 'marketOpportunityChecks');
     if (!post) countTradeDiagnostic(w, 'marketOpportunityBlocked', 'no-market-station');
     else if (distance(person, post) > 16) countTradeDiagnostic(w, 'marketOpportunityBlocked', 'station-out-of-range');
-    else if (marketHasTradeOpportunity(w, community)
-        || personalMarketOffer(w, community, person, kingdom ? kingdom.market : w.market)) {
-      countTradeDiagnostic(w, 'marketOpportunities');
-      return { isMarket: true, station: post, market: kingdom ? kingdom.market : w.market, distance: distance(person, post) };
-    } else countTradeDiagnostic(w, 'marketOpportunityBlocked', 'no-exchange-offer');
+    else {
+      const personalOffer = personalMarketOffer(w, community, person, kingdom ? kingdom.market : w.market);
+      if (marketHasTradeOpportunity(w, community) || personalOffer) {
+        countTradeDiagnostic(w, 'marketOpportunities');
+        return { isMarket: true, station: post, market: kingdom ? kingdom.market : w.market,
+          distance: distance(person, post), personalOffer };
+      }
+      countTradeDiagnostic(w, 'marketOpportunityBlocked', 'no-exchange-offer');
+    }
     const visibleMembers = (person.perception && person.perception.people || []).filter(s => s.visible)
       .map(s => w.people.find(p => p.id === s.id && p.alive)).filter(Boolean);
     return w.communities.filter(c => !c.dissolved && c.id !== community.id && visibleMembers.some(p => p.communityId === c.id))

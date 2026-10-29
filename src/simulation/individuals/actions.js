@@ -1231,6 +1231,10 @@ function updatePeopleCore(w) {
         && !assignmentConflict && (p.carriedFood || 0) > .01 && p.carriedFood < collectionLoad
         && carriedResources(p) - p.carriedFood <= .01 && food && canHarvestFoodAt(w, p, food);
       const cargoAction = carryingGoods ? continueCommunalCollection ? 'forage' : delivery ? 'deliver' : 'migrate' : null;
+      const personalMarketableCargo = (p.carriedFood || 0) + (p.carriedWood || 0)
+        + (p.carriedStone || 0) + (p.carriedIron || 0) > .01;
+      const nonMarketableCargo = (p.carriedMeat || 0) + (p.carriedFruit || 0) + (p.carriedFeed || 0)
+        + (p.carriedSeeds || 0) + (p.carriedCommunitySeeds || 0) > .01;
       const foodDuty = assignedFoodField && assignment.action === 'forage' && !assignmentConflict && food ? 'forage' : null;
       const patrolDuty = !survivalAction && !campaignOrder && !carryingGoods && canPatrolToday(w, p, !!assignment);
       const soldierHomeRest = p.role === 'soldier' && (!campaignOrder?.withdrawing || campaignOrder.returning)
@@ -1282,6 +1286,14 @@ function updatePeopleCore(w) {
         && !homeRest && !socialPlan && p.hydration >= 22
         && p.energy >= 9 && p.health >= 18 && p.foodReserve >= 8
         && (!assignment || assignment.goal !== 'repair-damaged-structures');
+      // A free resident with a valid personal market offer should be allowed
+      // to carry ordinary goods to the market before communal delivery takes
+      // them. `performTrade` revalidates the offer and route on execution.
+      // Assignments, campaign cargo, survival, recovery and seed courier work
+      // retain their existing higher priorities.
+      const personalMarketCargoTrade = !!(personalMarketableCargo && !nonMarketableCargo && !assignment && !campaignOrder
+        && !seedCourierDuty && !survivalAction && !carrierMaintenanceAction && !homeRest && !socialPlan
+        && p.role !== 'soldier' && tradePartner?.isMarket && tradePartner.personalOffer);
       // The scheduler can replace an immutable intention record while recording its impediment.
       if (aidPlanIntention) aidPlanIntention = p.socialIntentions.find(item => item.intentionId === aidPlanIntention.intentionId);
       if (socialPlan && assignment) {
@@ -1300,7 +1312,8 @@ function updatePeopleCore(w) {
         : returnToGarrison && peacetimeSoldierAction === 'return_garrison' ? peacetimeSoldierAction
         : survivalAction || carrierMaintenanceAction || (homeRest ? 'rest' : socialPlan ? socialPlan.action : peacetimeSoldier ? peacetimeSoldierAction : (droppedLoot && (!assignment || droppedLoot.mineralKind && assignment.action === 'gather') && !carryingGoods && p.energy >= 9
           && (!campaignOrder || !campaignOrder.withdrawing && distance(p, droppedLoot) <= 1.6) ? 'collect_loot'
-          : campaignOrder ? militaryAction || 'campaign' : seedCourierDuty ? 'build' : cargoAction || foodDuty || (p.leadingSheepId ? 'lead_sheep'
+          : campaignOrder ? militaryAction || 'campaign' : seedCourierDuty ? 'build'
+          : personalMarketCargoTrade ? 'trade' : cargoAction || foodDuty || (p.leadingSheepId ? 'lead_sheep'
           : assignedBuildDuty ? 'build'
           : patrolDuty ? 'patrol' : p.role === 'soldier'
             ? p.hydration < 40 && waterTarget ? 'drink' : p.energy < 30 || p.health < 42 || p.injury >= 5 ? 'rest' : 'guard'
