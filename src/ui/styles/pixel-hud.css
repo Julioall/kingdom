@@ -159,3 +159,59 @@
 @media(prefers-reduced-motion:reduce){
   .left-panel .community-card{transition:none}
 }
+
+/* Visual QA correction: the warning never stretches to the stage bottom.
+ * Anchor it beyond the open/closed realm-scroll shortcuts. */
+.map-tags.has-alert{
+  top:16px;
+  bottom:auto;
+  left:210px;
+  right:auto;
+  width:max-content;
+  height:max-content;
+  max-width:calc(100% - 230px);
+  align-items:flex-start;
+}
+.map-tags.has-alert>.map-tag.pressure:not([hidden]){
+  align-self:flex-start;
+  flex:0 1 auto;
+  width:max-content;
+  max-width:100%;
+}
+
+/* Place brand and controls on row one; the important metrics start at the
+ * visible left edge of row two, never clipped by justify-content:center. */
+@media(max-width:760px){
+  .topbar{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    grid-template-rows:40px 36px;
+    align-content:center;
+    align-items:center;
+    height:90px;
+    min-height:0;
+    gap:4px;
+    padding:4px 8px;
+  }
+  .topbar>.brand{grid-column:1;grid-row:1;justify-self:start;min-width:0}
+  .topbar>.controls{grid-column:2;grid-row:1;justify-self:end;margin:0}
+  .topbar>.world-metrics{
+    grid-column:1/-1;
+    grid-row:2;
+    order:0;
+    justify-content:flex-start;
+    align-self:stretch;
+    min-width:0;
+    overflow-x:auto;
+  }
+  .map-tags.has-alert{
+    top:10px;
+    bottom:auto;
+    left:150px;
+    right:7px;
+    width:auto;
+    height:max-content;
+    max-width:calc(100% - 157px);
+    align-items:flex-start;
+  }
+}
