@@ -40,7 +40,7 @@ const COMBAT_SFX_LEVEL = Object.freeze({
 const PRELOAD_EVENTS = Object.freeze([
   'magic_heal', 'sword_slash', 'sword_swing_miss', 'sword_armor_swing_hit', 'combat_grunt',
   'sword_clash', 'axe_slash', 'wood_impact', 'bow_draw',
-  'shield_impact', 'sword_armor_impact', 'character_hurt', 'character_body_impact', 'war_call', 'retreat_ordered',
+  'shield_impact', 'sword_armor_impact', 'character_hurt', 'character_body_impact', 'war_call', 'war_horn', 'retreat_ordered',
   'building_destroyed', 'building_melee_impact', 'hammer_build', 'mining', 'harvesting',
   'sheep_bleat', 'lamb_call_mother',
   'arrow_release', 'arrow_flight', 'arrow_impact', 'arrow_wood_impact', 'crossbow_fire', 'body_fall_fatal',
@@ -104,6 +104,7 @@ export function createGameAudio({ onStatus = () => {}, getPan = () => 0, getDist
   const priorActivities = new Map(), priorHealing = new Map(), priorOrders = new Map();
   const sheepBleatStates = new Map();
   const seenDestroyedStructures = new Set(), scheduledDestroyedStructures = new Set();
+  const seenTowerAlarms = new Set();
   let lastCombatEvent = 0, lastSheepBleatAt = -Infinity, lastHarvestSoundAt = -Infinity;
   let nextAdultBleatVariant = 0, initialized = false;
   let windVoice = null, windPromise = null, windFailed = false;
@@ -573,6 +574,10 @@ export function createGameAudio({ onStatus = () => {}, getPan = () => 0, getDist
       priorActivities.clear(); priorHealing.clear(); priorOrders.clear();
       sheepBleatStates.clear(); lastSheepBleatAt = -Infinity; lastHarvestSoundAt = -Infinity; nextAdultBleatVariant = 0;
       seenDestroyedStructures.clear(); scheduledDestroyedStructures.clear();
+      seenTowerAlarms.clear();
+      for (const kingdom of world.kingdoms || []) for (const report of kingdom.militaryIntel || []) {
+        if (report.kind === 'tower-intrusion' && report.id) seenTowerAlarms.add(report.id);
+      }
       lastCombatEvent = world.combatSequence || 0;
       for (const person of world.people || []) {
         priorActivities.set(person.id, activityKey(person.visualActivity, world.day));
@@ -588,6 +593,22 @@ export function createGameAudio({ onStatus = () => {}, getPan = () => 0, getDist
 
     observeCombat(world, now);
     observeSheep(world, now);
+    // Audible warnings use the tower's actual sighting event, not a generic war
+    // declaration. Snapshot resets seed the seen set so old alarms do not replay.
+    for (const kingdom of world.kingdoms || []) for (const report of kingdom.militaryIntel || []) {
+      if (report.kind !== 'tower-intrusion' || !report.id || seenTowerAlarms.has(report.id)) continue;
+      seenTowerAlarms.add(report.id);
+      const count = Math.min(3, Math.max(1, Math.trunc(report.alarmCount || 1)));
+      for (let call = 0; call < count; call++) {
+        queue('war_horn', `tower-alarm:${kingdom.id}:${report.id}:${call}`,
+          now + call * 850, report.location, { gain: .82 });
+      }
+    }
+    if (seenTowerAlarms.size > 512) {
+      const recent = [...seenTowerAlarms].slice(-256);
+      seenTowerAlarms.clear();
+      for (const id of recent) seenTowerAlarms.add(id);
+    }
 
     let harvestCue = null;
     for (const person of world.people || []) {

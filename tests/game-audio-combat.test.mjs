@@ -13,6 +13,7 @@ const sourcePaths = {
   shield_impact: 'audio/mp3/combat/shield/effect_shield_impact_01.mp3',
   sword_clash: 'audio/mp3/combat/sword/effect_sword_clash_01.mp3',
   combat_grunt: 'audio/mp3/characters/grunts/effect_combat_grunt_01.mp3',
+  war_horn: 'audio/mp3/combat/effect_war_horn_01.mp3',
 };
 
 function harness() {
@@ -183,4 +184,41 @@ test('combat assets record their source, creator, license and ship every referen
     assert.equal(sound.source_page_reviewed_at, '2026-10-27', sound.id);
     await access(new URL(sound.files.mp3, root));
   }
+});
+
+test('tower alarms play once for a lone trespasser and twice for a group, without replaying old alerts', async () => {
+  const h = harness();
+  await h.audio.unlock();
+  await flush(); await flush();
+  const world = { day: 20, people: [], animals: [], structures: [], campaigns: [],
+    combatEvents: [], combatSequence: 0,
+    kingdoms: [{ id: 1, militaryIntel: [] }] };
+  h.audio.observe(world, 0, true);
+  const single = { id: 'tower:1:1', kind: 'tower-intrusion', day: 20, alarmCount: 1,
+    location: { x: 20, y: 20 } };
+  world.kingdoms[0].militaryIntel.push(single);
+  h.audio.observe(world, 1000);
+  h.audio.update(1000);
+  await flush(); await flush();
+  const horns = () => h.contexts[0].sources.filter(source =>
+    source.buffer?.path?.includes('effect_war_horn_'));
+  assert.equal(horns().length, 1);
+  h.audio.observe(world, 1100);
+  h.audio.update(1200);
+  await flush();
+  assert.equal(horns().length, 1, 'the same report must not sound again');
+
+  world.kingdoms[0].militaryIntel.push({ id: 'tower:1:2', kind: 'tower-intrusion',
+    day: 20, alarmCount: 2, location: { x: 22, y: 20 } });
+  h.audio.observe(world, 2000);
+  h.audio.update(2000);
+  h.audio.update(2900);
+  await flush(); await flush();
+  assert.equal(horns().length, 3, 'two group calls are added, never a continuous loop');
+
+  h.audio.observe(world, 3000, true);
+  h.audio.observe(world, 3100);
+  h.audio.update(3100);
+  await flush();
+  assert.equal(horns().length, 3, 'snapshot reset does not replay historical alarms');
 });

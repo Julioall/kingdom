@@ -14,6 +14,7 @@ import { canTraverseElevation } from '../world/island-terrain.js';
 import { collidesWithWorldPositionAt, worldCollisionIndex } from '../physics/hitboxes.js';
 import { peopleNear } from '../individuals/spatial-index.js';
 import { TERRITORY_AVOIDANCE_DAYS } from './territories.js';
+import { isTerritorialIntruder } from './border-defense.js';
 
 export const MILITARY_CLASSES = Object.freeze({
   guerreiro: { label: 'Infantaria', vitality: 360, range: 1.8, damage: 18, dodge: .12, block: .42 },
@@ -224,22 +225,60 @@ function rememberHostileDamage(world, victim, aggressor, day) {
 
 export function respondToLocalThreats(world, day = world.day + 1) {
   const people = world.people || [];
+  const frontierOrders = new Map();
+  for (const kingdom of world.kingdoms || []) {
+    const report = kingdom.frontierAlert;
+    if (report?.kind !== 'tower-intrusion' || !Number.isFinite(report.day)
+      || day < report.day || day - report.day > 1) continue;
+    const reportedIntruders = new Set(report.intruderIds || []);
+    const activeTargets = new Set(people.filter(person => reportedIntruders.has(person.id)
+      && person.alive && person.restingStructureId == null
+      && isTerritorialIntruder(world, kingdom.id, person)).map(person => person.id));
+    if (!activeTargets.size) continue;
+    const generalIds = new Set([...(kingdom.militaryCommand?.generalIds || []), ...(report.notifiedGeneralIds || [])]);
+    for (const person of people) {
+      if (person.alive && person.kingdomId === kingdom.id && person.role === 'soldier'
+        && (generalIds.has(person.id) || person.militaryRank === 'general')) {
+        frontierOrders.set(person.id, { kingdom, report, targetIds: activeTargets });
+      }
+    }
+  }
   const responders = people.filter(person => person.alive && person.role === 'soldier'
     && person.kingdomId != null && person.health >= 28 && person.restingStructureId == null
-    && person.militaryRestTargetId == null && !isCombatDisarmed(person, day)
+    && person.militaryRestTargetId == null && !person.towerMounted && !isCombatDisarmed(person, day)
     && (person.stamina ?? 100) >= 16)
-    .sort((a, b) => a.id - b.id);
+    .sort((a, b) => Number(frontierOrders.has(b.id)) - Number(frontierOrders.has(a.id)) || a.id - b.id);
   const responses = [];
+  const assigned = new Map();
+  const recordGeneralResponse = (soldier, threat, action) => {
+    const order = frontierOrders.get(soldier.id);
+    if (!order?.targetIds.has(threat.id)) return;
+    const response = {
+      kind: 'proportional-local-defense', reportId: order.report.id, day,
+      generalId: soldier.id, targetId: threat.id, action,
+      defendersAssigned: assigned.get(threat.id) || 0,
+      defenderLimit: threat.role === 'soldier' ? 2 : 1
+    };
+    order.kingdom.militaryCommand ||= { generalIds: [soldier.id], units: [] };
+    order.kingdom.militaryCommand.lastFrontierResponse = response;
+    soldier.lastFrontierResponse = response;
+  };
+  // Intruder response is local: at most one guard for a civilian, two for a soldier.
+  // A tower watcher has already handled its own targets without moving. When a
+  // general receives a fresh tower report, they lead the first available local
+  // interception and the same per-target cap still limits the response.
   for (const soldier of responders) {
     const homeTile = cellAt(world, soldier.x, soldier.y);
     if (homeTile?.kingdomId !== soldier.kingdomId) continue;
+    const order = frontierOrders.get(soldier.id);
     const threats = people.filter(candidate => candidate.alive && candidate.kingdomId !== soldier.kingdomId
       && candidate.restingStructureId == null
       && isCombatTargetEligible(world, soldier, candidate, day)
       && cellAt(world, candidate.x, candidate.y)?.kingdomId === soldier.kingdomId
-      && distance(soldier, candidate) <= 12)
-      .sort((a, b) => Number(isCombatTargetEligible(world, soldier, b, day) && b.role !== 'soldier')
-        - Number(isCombatTargetEligible(world, soldier, a, day) && a.role !== 'soldier')
+      && distance(soldier, candidate) <= 12
+      && (assigned.get(candidate.id) || 0) < (candidate.role === 'soldier' ? 2 : 1))
+      .sort((a, b) => Number(order?.targetIds.has(b.id)) - Number(order?.targetIds.has(a.id))
+        || Number(b.role === 'soldier') - Number(a.role === 'soldier')
         || distance(soldier, a) - distance(soldier, b) || a.id - b.id);
     const threat = threats[0];
     if (!threat) continue;
@@ -250,15 +289,19 @@ export function respondToLocalThreats(world, day = world.day + 1) {
         allowedTile: tile => tile.kingdomId === soldier.kingdomId,
         preferRoads: true
       })) {
+        assigned.set(threat.id, (assigned.get(threat.id) || 0) + 1);
         soldier.state = 'interceptando invasor no território';
         soldier.lastLesson = 'A patrulha observou uma ameaça dentro do reino e avançou sem cruzar a fronteira.';
+        recordGeneralResponse(soldier, threat, 'intercept');
         responses.push({ soldierId: soldier.id, targetId: threat.id, action: 'intercept' });
       }
       continue;
     }
     const healthBefore = threat.health;
+    assigned.set(threat.id, (assigned.get(threat.id) || 0) + 1);
     fightTacticalRound(world, [soldier], [threat], day);
     if (threat.health < healthBefore || !threat.alive) {
+      recordGeneralResponse(soldier, threat, 'engage');
       responses.push({ soldierId: soldier.id, targetId: threat.id, action: 'engage' });
     }
   }

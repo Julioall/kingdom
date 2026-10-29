@@ -42,10 +42,14 @@ try {
     const issues = [];
     const errors = [];
     page.on('pageerror', error => errors.push(String(error)));
-    page.on('console', msg => { if (msg.type() === 'error') issues.push(msg.text()); });
+    page.on('console', msg => {
+      if (msg.type() === 'error') issues.push(msg.text() + (msg.location().url ? ' @ ' + msg.location().url : ''));
+    });
+    page.on('requestfailed', request => {
+      issues.push('Request failed: ' + request.url() + ' (' + (request.failure()?.errorText || 'unknown') + ')');
+    });
     page.on('response', response => {
-      if (response.status() >= 400 && /\/assets\/kingdom-ui\//.test(response.url()))
-        issues.push(response.status() + ' ' + response.url());
+      if (response.status() >= 400) issues.push(response.status() + ' ' + response.url());
     });
     const scenario = { viewport, errors, issues, checks: [] };
     findings.push(scenario);
@@ -61,6 +65,7 @@ try {
         const world = document.querySelector('#world');
         return {
           calendarSkin: getComputedStyle(calendar).borderImageSource,
+          kingdomCardSkin: getComputedStyle(document.querySelector('#kingdomList .community-card')).borderImageSource,
           topbarHeight: Math.round(topbar.getBoundingClientRect().height),
           resourceMetricCount: metricsStrip.querySelectorAll(':scope > .resource-metric').length,
           calendarCount: metricsStrip.querySelectorAll(':scope > .date-metric').length,
@@ -107,6 +112,7 @@ try {
       });
       scenario.sample = sample;
       assert.match(sample.calendarSkin, /paper\.png/, 'Forja parchment calendar');
+      assert.match(sample.kingdomCardSkin, /paper\.png/, 'Kingdom cards use the Forja parchment frame');
       assert.ok(sample.worldWidth > 0 && sample.mapVisibleHeight > 200, 'live map unobstructed');
       assert.equal(sample.resourceMetricCount, 0, 'Top bar no longer shows realm resources or population totals');
       assert.equal(sample.calendarCount, 1, 'Top bar retains only the date and season');
@@ -139,6 +145,10 @@ try {
       await page.locator('#kingdomsToggle').click();
       await page.waitForFunction(() => document.querySelector('#leftPanel')?.inert === false);
       assert.equal(await page.locator('#leftPanel').getAttribute('aria-hidden'), 'false');
+      await page.waitForFunction(() => {
+        const title = document.querySelector('#kingdomsToggle .rail-title');
+        return title && title.getBoundingClientRect().width > 0;
+      });
       assert.equal(await page.locator('#kingdomsToggle .rail-title').isVisible(), true, 'Expanded kingdoms ribbon shows its title');
       const kingdomMetrics = await page.locator('#kingdomList [data-kingdom]').evaluateAll(cards => cards.map(card =>
         [...card.querySelectorAll('[data-kingdom-stat]')].map(stat => [stat.dataset.kingdomStat, stat.querySelector('b')?.textContent.trim()])));

@@ -265,7 +265,10 @@ export function observeKingdomStrategy(world, kingdomId) {
     day: item.day, kind: item.kind, opponentId: item.opponentId, cause: item.cause,
     source: item.source, status: item.status ?? null, warId: item.warId ?? null,
     location: item.location ? { x: item.location.x, y: item.location.y } : null,
-    soldiersObserved: item.soldiersObserved ?? null, postsObserved: item.postsObserved ?? null,
+    soldiersObserved: item.soldiersObserved ?? null, civiliansObserved: item.civiliansObserved ?? null,
+    intruderCount: item.intruderCount ?? null, towerId: item.towerId ?? null,
+    observerId: item.observerId ?? null, alarmCount: item.alarmCount ?? null,
+    postsObserved: item.postsObserved ?? null,
     resourceKind: item.resourceKind ?? null, outcome: item.outcome ?? null
   }));
 
