@@ -1,4 +1,5 @@
 import { resourceSummary } from './gameplay-data.js';
+import { formatWholeMeasure } from './whole-measures.js';
 import { buildingCard, kingdomOverview } from './building-card.js';
 import { towerVitality, campaignTower } from '../simulation/kingdoms/fortifications.js';
 import { activeLeadershipRank } from '../simulation/kingdoms/military-identity.js';
