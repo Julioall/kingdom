@@ -13,7 +13,10 @@
 <link rel="stylesheet" href="/assets/kingdom-ui/hud.css">
 <style>.loading-screen{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;background:#17231b}.loading-screen[hidden]{display:none!important}.loading-card{width:min(100%,900px);padding:24px;text-align:center}.loading-emblem{display:block;width:min(100%,780px);height:auto;margin:0 auto}</style>
 <script>
-  window.FORJA_ASSETS = new Proxy({}, { get: (_, file) => '/assets/kingdom-ui/' + file });
+  const forjaAssetExtension = '%MODE%' === 'production' ? 'webp' : 'png';
+  window.FORJA_ASSETS = new Proxy({}, {
+    get: (_, file) => '/assets/kingdom-ui/' + String(file).replace(/\.png$/i, `.${forjaAssetExtension}`),
+  });
   window.FORJA_ASSET_BASE = '/assets/kingdom-ui/';
 </script>
 <script src="/assets/kingdom-ui/hud.js"></script>
