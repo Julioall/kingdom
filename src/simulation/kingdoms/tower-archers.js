@@ -4,6 +4,7 @@ import { moveOne } from '../individuals/movement.js';
 import { isTreeAnchor } from '../ecology/plants.js';
 import { fightTacticalRound } from './military.js';
 import { towerVitality } from './fortifications.js';
+import { isTerritorialIntruder, observeTowerIntruders, TOWER_WATCH_RADIUS } from './border-defense.js';
 import { hitboxesOverlap, npcHitbox, resourceCollisionIndex, structureInteractionPoint } from '../physics/hitboxes.js';
 
 function hasResourceBlockingEntry(world, tile) {
@@ -159,16 +160,23 @@ export function defendTowers(world, day) {
   for (const archer of world.people) {
     if (!archer.alive || !archer.towerMounted) continue;
     const tower = world.structures.find(t => t.id === archer.towerDutyId && t.destroyedDay == null);
-    if (!tower || distance(archer, tower) > 1.25 || !eligible(archer, tower)) {
+    if (!tower || !tower.complete || tower.archerId !== archer.id
+      || towerVitality(tower).health <= 0 || distance(archer, tower) > 1.25 || !eligible(archer, tower)) {
+      if (tower) tower.borderVisibleIntruderIds = [];
       archer.towerMounted = false; archer.towerEntryReady = false; archer.towerDutyId = null; continue;
     }
-    // A hostile kingdom's people on the active battlefield are valid targets.
+    // Observation generates intelligence and a horn cue once per new intrusion.
+    // The tower never needs a formal campaign to repel trespassers on its land.
+    observeTowerIntruders(world, tower, archer, day);
     const enemies = world.people.filter(p => p.alive && p.kingdomId !== archer.kingdomId
-      && p.restingStructureId == null && (world.campaigns || []).some(c =>
-        ['marching', 'engaged', 'contested'].includes(c.status)
-        && [c.attackerId ?? c.attacker?.kingdomId, c.defenderId ?? c.defender?.kingdomId].includes(archer.kingdomId)
-        && [c.attackerId ?? c.attacker?.kingdomId, c.defenderId ?? c.defender?.kingdomId].includes(p.kingdomId)
-        && (!c.target || distance(p, c.target) <= 16)));
+      && p.restingStructureId == null && (
+        isTerritorialIntruder(world, archer.kingdomId, p)
+          && distance(archer, p) <= TOWER_WATCH_RADIUS
+        || (world.campaigns || []).some(c =>
+          ['marching', 'engaged', 'contested'].includes(c.status)
+          && [c.attackerId ?? c.attacker?.kingdomId, c.defenderId ?? c.defender?.kingdomId].includes(archer.kingdomId)
+          && [c.attackerId ?? c.attacker?.kingdomId, c.defenderId ?? c.defender?.kingdomId].includes(p.kingdomId)
+          && (!c.target || distance(p, c.target) <= 16))));
     fightTacticalRound(world, [archer], enemies, day);
   }
 }
