@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import engine from '../src/simulation/engine.js';
 import { cellAt } from '../src/simulation/world/spatial.js';
+import { createPersonSpatialIndex } from '../src/simulation/individuals/spatial-index.js';
 import { observeTowerIntruders, isTerritorialIntruder } from '../src/simulation/kingdoms/border-defense.js';
 import { defendTowers } from '../src/simulation/kingdoms/tower-archers.js';
 
@@ -30,6 +31,7 @@ function watchFixture() {
     health: 100, alive: true });
   world.structures.push(tower);
   world.people = [archer, intruder];
+  world.peopleSpatialIndex = createPersonSpatialIndex(world.people);
   world.campaigns = [];
   world.day = 19;
   return { world, owner, rival, archer, intruder, tower, site };
