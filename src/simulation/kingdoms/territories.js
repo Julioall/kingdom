@@ -151,8 +151,8 @@ export function markTerritoryStep(world, person, tile) {
   person.territoryAwareness = { ownerId, name: owner?.name || 'reino estrangeiro', warning: true,
     caught: previouslyCaught, day: world.day };
   person.lastLesson = previouslyCaught
-    ? 'Você voltou ao território de ' + (owner?.name || 'outro reino') + ' depois de ser expulso; a guarda pode abordar ou ferir você.'
-    : 'Você entrou no território de ' + (owner?.name || 'outro reino') + '. A guarda pode abordar você; uma morte pode iniciar uma guerra.';
+    ? 'Você voltou ao território de ' + (owner?.name || 'outro reino') + ' após ser expulso; vigias podem detectar e atacar você novamente.'
+    : 'Você atravessou a fronteira de ' + (owner?.name || 'outro reino') + '. Pode coletar recursos, mas patrulhas e arqueiros de vigia poderão atacar você; há risco de morte ou guerra.';
 }
 
 export function canEnterForeignTerritory(world, person, tile) {
