@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { syncHudPanelAccess } from '../src/ui/hud-panel-access.js';
+import { syncHudPanelAccess, syncFoodPressureAlert } from '../src/ui/hud-panel-access.js';
 
 function mockPanel() {
   const attributes = new Map();
@@ -25,4 +25,16 @@ test('reopening one panel restores its accessibility while hiding the other', ()
   assert.equal(left.inert, true);
   assert.equal(right.inert, false);
   assert.equal(right.attributes.get('aria-hidden'), 'false');
+});
+
+test('food risk alert appears without expanding optional environment tags', () => {
+  const classes = new Set();
+  const mapTags = { classList: { toggle(name, enabled) { if (enabled) classes.add(name); else classes.delete(name); } } };
+  const foodPressureTag = { hidden: true };
+  syncFoodPressureAlert(mapTags, foodPressureTag, 3);
+  assert.equal(foodPressureTag.hidden, false);
+  assert.equal(classes.has('has-alert'), true);
+  syncFoodPressureAlert(mapTags, foodPressureTag, 0);
+  assert.equal(foodPressureTag.hidden, true);
+  assert.equal(classes.has('has-alert'), false);
 });
