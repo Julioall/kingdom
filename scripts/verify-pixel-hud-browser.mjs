@@ -53,12 +53,18 @@ try {
         const resource = document.querySelector('.resource-metric');
         const calendar = document.querySelector('.date-metric');
         const topbar = document.querySelector('.topbar');
+        const metricsStrip = document.querySelector('.world-metrics');
+        const foodMetric = document.querySelector('#globalFood').closest('.metric');
         const world = document.querySelector('#world');
         return {
           resourceSkin: getComputedStyle(resource).borderImageSource,
           calendarSkin: getComputedStyle(calendar).borderImageSource,
           resourceImageRendering: getComputedStyle(resource).imageRendering,
           topbarHeight: Math.round(topbar.getBoundingClientRect().height),
+          metricsLeft: Math.round(metricsStrip.getBoundingClientRect().left),
+          metricsRight: Math.round(metricsStrip.getBoundingClientRect().right),
+          foodLeft: Math.round(foodMetric.getBoundingClientRect().left),
+          foodRight: Math.round(foodMetric.getBoundingClientRect().right),
           worldWidth: world.width,
           worldHeight: world.height,
           mapVisibleHeight: Math.round(world.getBoundingClientRect().height),
@@ -69,6 +75,9 @@ try {
       assert.match(sample.calendarSkin, /paper\.png/, 'Forja parchment calendar');
       assert.equal(sample.resourceImageRendering, 'pixelated');
       assert.ok(sample.worldWidth > 0 && sample.mapVisibleHeight > 200, 'live map unobstructed');
+      assert.ok(sample.foodLeft >= sample.metricsLeft - 2 && sample.foodRight <= sample.metricsRight + 2,
+        'Food metric must be visible rather than clipped at the left edge');
+      if (viewport.width <= 760) assert.ok(sample.topbarHeight <= 100, 'Mobile HUD should leave map height available');
       scenario.checks.push('Forja sprites / map stage rendered');
       await page.screenshot({ path: resolve(directory, viewport.label + '-world.png'), timeout: 45_000 });
       await page.locator('#kingdomsToggle').click();
@@ -90,6 +99,11 @@ try {
         document.getElementById('foodRiskCount').textContent = '3';
       });
       assert.equal(await page.locator('#foodPressureTag').isVisible(), true);
+      const warning = await page.locator('#foodPressureTag').boundingBox();
+      const rail = await page.locator('.world-rail').boundingBox();
+      assert.ok(warning.height <= 90, 'Food warning must not cover the vertical playfield');
+      assert.ok(warning.x >= rail.x + rail.width - 2, 'Food warning must not overlap the realm shortcuts');
+      scenario.checks.push('Food warning compact and clear of navigation');
       await page.screenshot({ path: resolve(directory, viewport.label + '-alert-preview.png'), timeout: 45_000 });
       scenario.checks.push('Critical food-warning texture displayed');
       assert.deepEqual(errors, [], 'JavaScript page errors');
