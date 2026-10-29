@@ -1,7 +1,7 @@
 import { resourceSummary } from './gameplay-data.js';
 import { formatWholeMeasure } from './whole-measures.js';
 import { buildingCard, kingdomOverview } from './building-card.js';
-import { towerVitality, campaignTower } from '../simulation/kingdoms/fortifications.js';
+import { towerVitality } from '../simulation/kingdoms/fortifications.js';
 import { activeLeadershipRank } from '../simulation/kingdoms/military-identity.js';
 import { createMovementInterpolator } from './movement-interpolation.js';
 import { createDamageBarTracker } from './health-bars.js';
@@ -10,7 +10,7 @@ import { SimulationClock } from '../app/simulation-loop.ts';
 import Sim from './simulation-view.js';
 import LocalAI from '../ai/local-engine.js';
 import { readLocalAiPreference, writeLocalAiPreference } from '../ai/preference.js';
-import { DAILY_FOOD_NEED, DOMESTIC_SHEEP_DAILY_FEED, FOOD_DAYS_PER_UNIT, SHEEP_ADULT_AGE_DAYS, SHEEP_JUVENILE_MIN_SCALE } from '../config/ecosystem.js';
+import { DOMESTIC_SHEEP_DAILY_FEED, SHEEP_ADULT_AGE_DAYS, SHEEP_JUVENILE_MIN_SCALE } from '../config/ecosystem.js';
 import { isRoadTile, ROAD_RULES } from '../simulation/world/roads.js';
 import { isBushAnchor } from '../simulation/ecology/plants.js';
 import { CHARACTER_SPRITE_SCALE, MILITARY_SPRITES, militarySpritePose } from './military-sprites.js';
@@ -20,7 +20,7 @@ import { createGameAudio, windGainAtZoom } from './game-audio.js';
 import { musicGainAtZoom } from './music-audio.js';
 import { mapDecorationAt, MAP_DECORATION_SPRITES } from './map-decorations.js';
 import { MILITARY_PAY, GARRISON_RECOVERY } from '../simulation/kingdoms/service.js';
-import { isOperationalMilitarySource, MILITARY_SOURCE_LABELS } from '../simulation/kingdoms/military-sources.js';
+import { MILITARY_SOURCE_LABELS } from '../simulation/kingdoms/military-sources.js';
 import { mapCamera, spriteScale, BUILDING_FEET, alignedTileRect, SOURCE_TILE_PIXELS } from './map-camera.js';
 import { structureDepthY } from './world-depth.js';
 import { createCloudSystem, atmosphereZoomProfile } from './cloud-system.js';
@@ -30,6 +30,7 @@ import { createLoadingScreen } from './loading-screen.js';
 import { renderSocialInspectorSections } from './social-inspector.js';
 import { createRenderDiagnostics } from './render-profiler-panel.js';
 import { syncHudPanelAccess } from './hud-panel-access.js';
+import { createKingThoughts } from './king-thoughts.js';
 import { createTerrainChunkCache } from './terrain-chunks.js';
 import { createPixelTileCache } from './pixel-tile-cache.js';
 import { compareDepth, mergeDepthItems } from './depth-order.js';
@@ -41,6 +42,25 @@ import { CORRAL_VISUAL_SCALE, corralFenceRadius } from '../simulation/ecology/he
 
 const IMAGE_ASSET_EXTENSION = import.meta.env?.PROD ? 'webp' : 'png';
 const imageFileName = name => `${name}.${IMAGE_ASSET_EXTENSION}`;
+const RIBBON_PALETTE = Object.freeze({ blue: 'cyan', cyan: 'cyan', red: 'red', purple: 'purple', yellow: 'yellow', black: 'black' });
+
+function setModalRibbon(panel, forjaUI, color) {
+  if (!panel) return;
+  const heading = panel && [...panel.children].find(child => child.classList.contains('panel-heading')
+    || child.classList.contains('utility-heading'));
+  if (!heading || !forjaUI?.ribbon) return;
+  const ribbonColor = RIBBON_PALETTE[color] || 'black';
+  let ribbon = [...heading.children].find(child => child.classList.contains('panel-ribbon'));
+  if (ribbon?.dataset.ribbonColor === ribbonColor) return;
+  const nextRibbon = forjaUI.ribbon(ribbonColor, '', 'panel-ribbon', 50);
+  nextRibbon.dataset.ribbonColor = ribbonColor;
+  nextRibbon.setAttribute('aria-hidden', 'true');
+  nextRibbon.querySelector('.ribbon-text')?.remove();
+  if (ribbon) ribbon.replaceWith(nextRibbon);
+  else heading.prepend(nextRibbon);
+  heading.dataset.ribbonColor = ribbonColor;
+  panel.classList.add('has-ribbon-heading');
+}
 
 function atmosphereProfileForZoom(zoom) {
   const density = atmosphereZoomProfile(zoom).fogDensity;
@@ -89,6 +109,8 @@ export function mountGame() {
         button.prepend(ribbon);
       }
     }
+    setModalRibbon($('rightPanel'), forjaUI, 'black');
+    setModalRibbon($('settingsTray'), forjaUI, 'black');
   }
   const canvas = $('world');
   const selectionFrameSprite = trackedImage();
@@ -109,6 +131,7 @@ export function mountGame() {
   ctx.imageSmoothingEnabled = false;
   groundCacheContext.imageSmoothingEnabled = false;
   const W = Sim.width, H = Sim.height, TILE = LOGICAL_SIZE / W, stage = canvas.parentElement;
+  const kingThoughts = createKingThoughts(stage);
   const terrainChunks = createTerrainChunkCache({ width: W, height: H, tileSize: TILE });
   const pixelTiles = createPixelTileCache();
   let terrainSyncRevision = -1, terrainSyncFallback = null, assetRevision = 0, renderTimestamp = null;
@@ -140,7 +163,6 @@ export function mountGame() {
   let selection = null, showLeft = false, showRight = false, hoveredTerritoryStructureId = null, hoveredMapEntity = false;
   const syncPanelAccess = () => syncHudPanelAccess($('leftPanel'), $('rightPanel'), { leftOpen: showLeft, rightOpen: showRight });
   syncPanelAccess();
-  let kingdomActionNotice = '';
   const isResetCancellation = error => error && error.name === 'AbortError';
   session.onUpdate = (nextWorld, _stats, reset) => {
     world = nextWorld;
@@ -178,7 +200,6 @@ export function mountGame() {
 
       $('rightPanel').classList.remove('is-open');
       syncPanelAccess();
-      kingdomActionNotice = '';
       actorAnimationClock.clear();
       invalidateStaticDepthCache();
       resetMapViewport(MIN_MAP_ZOOM);
@@ -1763,26 +1784,6 @@ export function mountGame() {
     }
   }
 
-  function towerDiplomacyPanel(kingdom) {
-    const relations = Object.values(world.kingdomRelations || {}).filter(r => r.a === kingdom.id || r.b === kingdom.id);
-    const pressure = relations.map(r => '<div class="data-row"><span>Tensão nas fronteiras</span><b>'
-      + Math.round((r.tension || 0) * 100) + '% · ' + (r.towerPressure?.pairs.length || 0)
-      + ' pares de torres próximos · ' + (r.towerPressure?.overlappingPairs || 0) + ' sobreposições</b></div>').join('');
-    const targets = world.structures.filter(t => ['torre', 'centro_militar', 'arquearia', 'monasterio', 'mercado', 'castelo'].includes(t.type)
-      && t.complete && t.destroyedDay == null && t.kingdomId != null && t.kingdomId !== kingdom.id)
-      .sort((a, b) => Math.hypot(a.x - kingdom.x, a.y - kingdom.y) - Math.hypot(b.x - kingdom.x, b.y - kingdom.y))
-      .filter((t, i, all) => all.findIndex(other => other.type === t.type) === i).slice(0, 6);
-    const reports = (kingdom.militaryIntel || []).filter(r => ['enemy-approach', 'territory-lost'].includes(r.kind)).slice(-5).reverse();
-    const alerts = reports.map(r => '<div class="data-row"><span>Dia ' + r.day + ' · aviso ao rei</span><b>'
-      + esc(r.kind === 'territory-lost' ? 'Perdeu ' + r.tiles + ' células em ' + r.location.x + ',' + r.location.y
-        : r.soldiersObserved + ' inimigos avistados em ' + r.location.x + ',' + r.location.y) + '</b></div>').join('');
-    return pressure + alerts + '<div class="kingdom-actions">' + targets.map(t => (t.type === 'torre'
-      ? '<button type="button" data-structure-command="capture-tower" data-kingdom-id="' + kingdom.id + '" data-tower-id="' + t.id + '">Capturar torre ' + t.id + '</button>' : '')
-      + '<button type="button" data-structure-command="attack-installation" data-kingdom-id="' + kingdom.id
-      + '" data-structure-id="' + t.id + '">Atacar ' + esc(structureDisplayName(t.type)) + ' ' + t.id + '</button>').join('')
-      + '</div><p class="quiet">A captura exige enfraquecer a torre e ocupá-la por cinco dias. Ataques às demais instalações organizam um cerco com tropas e suprimentos. A paz inicial e os armistícios são respeitados.</p>';
-  }
-
   function drawWorldHealthBar(x, y, width, height, value, colorOverride = null) {
     const ratio = Math.max(0, Math.min(1, Number(value) || 0));
     const color = colorOverride || (ratio < .3 ? 'red' : ratio < .6 ? 'yellow' : 'green');
@@ -2286,6 +2287,7 @@ export function mountGame() {
     syncAtmosphereWithZoom();
     const displayContext = ctx;
     const camera = currentMapCamera();
+    kingThoughts.update(world, camera, TILE, visualPose, selection);
     mapTransform = camera.transform;
     if (canvas.width !== camera.width || canvas.height !== camera.height) {
       canvas.width = camera.width; canvas.height = camera.height;
@@ -2400,13 +2402,21 @@ export function mountGame() {
   function renderKingdomList() {
     $('kingdomList').innerHTML = world.kingdoms.map(kingdom => {
       const residents = kingdom.memberIds.map(id => getPerson(id)).filter(Boolean);
+      const resources = resourceSummary(world, kingdom.id);
       const ruler = getPerson(kingdom.rulerId);
       const soldiers = residents.filter(person => person.role === 'soldier').length;
       const campaign = (world.campaigns || []).find(item => item.status !== 'complete'
         && (item.attackerId === kingdom.id || item.defenderId === kingdom.id));
       const campaignStatus = campaign ? ' · campanha ' + (campaign.status === 'engaged' ? 'em combate' : campaign.status === 'withdrawing' ? 'retirada' : 'em marcha') : '';
+      const metrics = [
+        ['food', 'Comida', fmt(resources.food), 'Comida disponível nas contas vinculadas ao reino, em dias alimentares equivalentes.'],
+        ['wealth', 'Riqueza', fmt(resources.gold, 0), 'Ouro nas contas vinculadas ao reino e com moradores vivos.'],
+        ['people', 'Pessoas', fmt(resources.people), 'Moradores vivos deste reino.'],
+        ['births', 'Nascimentos', fmt(resources.births), 'Nascimentos registrados para este reino desde o início.'],
+        ['deaths', 'Mortes', fmt(resources.deaths), 'Mortes registradas para este reino desde o início.']
+      ].map(([key, label, value, title]) => '<span class="kingdom-card-stat" data-kingdom-stat="' + key + '" title="' + title + '"><small>' + label + '</small><b>' + value + '</b></span>').join('');
       return '<button class="community-card" data-kingdom="' + kingdom.id + '" title="Inspecionar reino, moradias, tesouro e mercado" style="--community:' + esc(kingdom.color) + '">' +
-        '<i class="color-dot"></i><span><strong>' + esc(kingdom.name) + '</strong><small>' + residents.length + ' moradores · ' + soldiers + ' soldados' + esc(campaignStatus) + ' · ' + (kingdom.homeIds || []).length + ' casas · ' + kingdom.towerIds.map(id => world.structures.find(structure => structure.id === id && structure.complete)).filter(Boolean).length + ' torres · rei ' + esc(ruler ? ruler.name : 'sem governante') + '</small></span><em>' + fmt(kingdom.territoryTileCount) + ' células</em></button>';
+        '<i class="color-dot"></i><span class="kingdom-card-body"><strong>' + esc(kingdom.name) + '</strong><small>' + soldiers + ' soldados' + esc(campaignStatus) + ' · ' + (kingdom.homeIds || []).length + ' casas · ' + kingdom.towerIds.map(id => world.structures.find(structure => structure.id === id && structure.complete)).filter(Boolean).length + ' torres · rei ' + esc(ruler ? ruler.name : 'sem governante') + '</small><span class="kingdom-card-stats" aria-label="Indicadores de ' + esc(kingdom.name) + '">' + metrics + '</span></span><em>' + fmt(kingdom.territoryTileCount) + ' células</em></button>';
     }).join('');
     $('solitaryCount').textContent = world.kingdoms.length + ' domínios';
   }
@@ -2483,23 +2493,11 @@ export function mountGame() {
 
   function updateHeader(stats) {
     const calendar = Sim.modules.Cosmos.calendarDate(world.day);
-    const global = resourceSummary(world);
-    $('globalFood').textContent = fmt(global.food);
-    $('globalFood').title = 'Comida física agregada (dias adultos): ' +
-      'estoques comunitários ' + fmt(global.foodByAccount.community, 1) +
-      ' · tesouros ' + fmt(global.foodByAccount.treasury, 1) +
-      ' · mercados dos reinos ' + fmt(global.foodByAccount.market, 1) +
-      ' · mercado geral sem vínculo ' + fmt(global.foodByAccount.unassignedMarket, 1) +
-      '. A soma não representa acesso imediato em cada reino.';
-    $('globalGold').textContent = fmt(global.gold, 0);
     $('day').textContent = fmt(calendar.dayOfYear);
     $('day').parentElement.title = 'Dia ' + world.day + ' desde a criação · 365 dias por ano';
     $('year').textContent = fmt(stats.year);
     $('animalCount').textContent = fmt(stats.animalCount);
-    $('peopleCount').textContent = fmt(stats.peopleCount);
     $('kingdomCount').textContent = fmt(stats.kingdomCount);
-    $('birthCount').textContent = fmt(global.births);
-    $('deathCount').textContent = fmt(global.deaths);
     $('conflictCount').textContent = fmt(stats.borderIncidents);
     $('harvestCount').textContent = fmt(stats.harvests.hunting);
     $('meatCount').textContent = fmt(stats.meatCarried) + '/' + fmt(stats.meatStored);
@@ -2525,7 +2523,6 @@ export function mountGame() {
       $('leftPanel').classList.remove('is-open');
       $('kingdomsToggle').setAttribute('aria-expanded', 'false');
     }
-    if (item && item.kind === 'kingdom' && (!selection || selection.kind !== 'kingdom' || selection.id !== item.id)) kingdomActionNotice = '';
     selection = item;
     showRight = !!item;
     $('rightPanel').classList.toggle('is-open', showRight);
@@ -2565,6 +2562,31 @@ export function mountGame() {
     const opened = new Set((sameSelection ? [...root.querySelectorAll('details[open]')] : []).map(d => d.querySelector('summary')?.textContent));
     const scroll = sameSelection ? root.scrollTop : 0;
     renderInspectorContent();
+    const ribbonPalette = (() => {
+      if (!selection) return 'black';
+      if (selection.kind === 'kingdom') return getKingdom(selection.id)?.palette || 'black';
+      if (selection.kind === 'structure') {
+        const structure = world.structures.find(item => item.id === selection.id);
+        return getKingdom(structure?.kingdomId)?.palette
+          || (structure?.communityId != null ? communityPalette(structure.communityId) : 'black');
+      }
+      if (selection.kind === 'person') return getKingdom(getPerson(selection.id)?.kingdomId)?.palette || 'black';
+      if (selection.kind === 'community') return communityPalette(selection.id);
+      if (selection.kind === 'animal') {
+        const animal = world.animals.find(item => item.id === selection.id);
+        return animal?.herdCommunityId != null ? communityPalette(animal.herdCommunityId) : 'cyan';
+      }
+      if (selection.kind === 'loot') {
+        const pile = (world.loot || []).find(item => item.id === selection.id);
+        if (pile?.mineralKind || pile?.resources?.stone > 0 || pile?.resources?.iron > 0) return 'black';
+        if (pile?.resources?.gold > 0 || pile?.resources?.silver > 0 || pile?.resources?.copper > 0) return 'yellow';
+        if (pile?.resources?.wood > 0) return 'purple';
+      }
+      if (selection.kind === 'log') return 'purple';
+      if (selection.kind === 'plant') return 'yellow';
+      return 'cyan';
+    })();
+    setModalRibbon($('rightPanel'), forjaUI, ribbonPalette);
     for (const detail of root.querySelectorAll('details')) detail.open = opened.has(detail.querySelector('summary')?.textContent);
     root.scrollTop = scroll;
   }
@@ -2582,231 +2604,9 @@ export function mountGame() {
     if (selection.kind === 'kingdom') {
       const kingdom = getKingdom(selection.id);
       if (!kingdom) { selection = null; renderInspector(); return; }
-      const kingdomId = kingdom.id;
-      const residents = kingdom.memberIds.map(id => getPerson(id)).filter(Boolean);
-      const ruler = getPerson(kingdom.rulerId);
-      const homes = kingdom.homeIds.map(id => world.structures.find(s => s.id === id)).filter(Boolean);
-      const housed = homes.reduce((sum, home) => sum + home.residentIds.filter(id => getPerson(id)).length, 0);
-      const treasury = kingdom.treasury.stock, market = kingdom.market;
-      const structures = kingdom.structureIds.map(id => world.structures.find(s => s.id === id)).filter(Boolean);
-      const maintenanceHistory = (kingdom.fortificationMaintenance && kingdom.fortificationMaintenance.history || []).slice(-3).reverse();
-      const maintenancePanel = maintenanceHistory.length
-        ? '<h3>Manutenção recente</h3>' + maintenanceHistory.map(item =>
-          '<div class="event">Dia ' + fmt(item.day, 0) + ' · ' + fmt(item.paidStructures, 0) + '/' + fmt(item.fortificationCount, 0)
-          + ' pagas · ' + fmt(item.deferredStructures, 0) + ' adiadas · pagos: ' + fmt(item.paidCost.wood, 2) + ' madeira / '
-          + fmt(item.paidCost.stone, 2) + ' pedra · adiados: ' + fmt(item.deferredCost.wood, 2) + ' madeira / '
-          + fmt(item.deferredCost.stone, 2) + ' pedra · perda de integridade ' + fmt(item.integrityLost, 2)
-          + ' · ' + fmt(item.collapsedStructureIds && item.collapsedStructureIds.length, 0) + ' colapsos</div>').join('')
-        : '';
-      const reserveTransfers = (Array.isArray(kingdom.reserveTransfers) ? kingdom.reserveTransfers : []).slice(-3).reverse();
-      const reserveTransferPanel = reserveTransfers.length
-        ? '<h3>Repasses recentes do tesouro</h3>' + reserveTransfers.map(item => {
-          const reason = item.foodReason === 'emergency-community-below-one-day'
-            ? 'estoque abaixo de um dia; piso de seca liberado'
-            : item.foodReason === 'restore-two-day-community-buffer' ? 'buffer comunitário de dois dias'
-              : item.feedReason ? 'buffer de ração do rebanho' : 'reserva comunitária';
-          return '<div class="event">Dia ' + fmt(item.day) + ' · tesouro → comunidade · ' + fmt(item.food) + ' alimento / '
-            + fmtRationPortions(item.feed) + ' porções de ração · tesouro restante ' + fmt(item.treasuryFood) + ' alimento · reserva comum '
-            + fmt(item.communityFood) + ' · piso de seca ' + fmt(item.protectedFoodFloor) + ' · ' + esc(reason) + '</div>';
-        }).join('')
-        : '';
-      const towers = structures.filter(s => s.type === 'torre' && s.complete && !s.frontierOutpost);
-      const frontierTowers = structures.filter(s => s.frontierOutpost && (s.complete
-        || s.integrity > 0 && s.builtDay == null && (s.progress || 0) < (s.required || 1)));
-      const militaryCenters = (kingdom.militaryCenterIds || []).map(id => world.structures.find(s => s.id === id
-        && isOperationalMilitarySource(s, 'centro_militar'))).filter(Boolean);
-      const soldiers = residents.filter(person => person.role === 'soldier');
-      const pendingRecruitments = residents.filter(person => person.alive && person.recruitmentOrder);
-      const activeKingdomProject = structures.find(structure => structure.kingdomProject && !structure.complete && structure.integrity > 0 && structure.builtDay == null);
-      const activeCommunityProject = world.structures.find(structure => structure.communityId === kingdom.communityId
-        && !structure.kingdomProject && !structure.complete && structure.integrity > 0 && structure.builtDay == null);
-      const patrollingSoldiers = soldiers.filter(person => String(person.state || '').startsWith('patrulhando')).length;
-      const soldierCapacity = militaryCenters.reduce((sum, center) => sum + (center.capacity || 8), 0);
-      const soldierSlots = militaryCenters.reduce((total, center) => {
-        const stationed = new Set((center.soldierIds || []).filter(id => soldiers.some(person => person.id === id)));
-        for (const person of soldiers) if (person.militaryCenterId === center.id) stationed.add(person.id);
-        const pending = pendingRecruitments.filter(person => person.recruitmentOrder.militaryCenterId === center.id).length;
-        return total + Math.max(0, (center.capacity || 8) - stationed.size - pending);
-      }, 0);
-      const hasRecruitmentSource = militaryClass => !!Sim.kingdomCommands.militaryClassSource(world, kingdomId, militaryClass);
-      const missingMilitarySources = ['guerreiro', 'arqueiro', 'monge']
-        .filter(militaryClass => !hasRecruitmentSource(militaryClass));
-      const pausedRecruitments = pendingRecruitments.filter(person => person.recruitmentOrder.progressionStatus === 'paused');
-      const constructionStatus = activeKingdomProject
-        ? '<div class="note-card"><b>Obra de defesa em andamento</b><span>'
-          + esc(activeKingdomProject.frontierOutpost ? 'Posto de fronteira' : structureDisplayName(activeKingdomProject.type))
-          + ' · ' + activeKingdomProject.progress + '/' + activeKingdomProject.required
-          + ' dias de trabalho · ' + esc(activeKingdomProject.lastConstructionWorkDay === world.day ? 'peão construindo no local' : 'aguardando peão no local')
-          + ' · ' + (activeKingdomProject.siegeBlocked ? 'obra interrompida por ataque' : 'depende da chegada e proteção dos trabalhadores') + '.</span></div>' : '';
-      const communityWorkStatus = activeCommunityProject && activeCommunityProject.workStatus;
-      const communityWorkStatusLabels = {
-        delegated: 'trabalhador designado', 'not-delegated': 'sem reserva de trabalhador',
-        blocked: 'obra bloqueada', 'worker-out-of-range': 'trabalhador fora do alcance',
-        'worker-approaching': 'trabalhador a caminho', 'worker-paused': 'atribuição pausada',
-        'worker-working': 'trabalhador avançando', 'worker-following-local-policy': 'decisão local em curso'
-      };
-      const communityConstructionStatus = activeCommunityProject
-        ? '<div class="note-card"><b>Obra comunitária em andamento</b><span>'
-          + esc(structureDisplayName(activeCommunityProject.type)) + ' · ' + fmt(activeCommunityProject.progress, 0)
-          + '/' + fmt(activeCommunityProject.required, 0) + ' dias · '
-          + (Number.isFinite(activeCommunityProject.lastProgressDay)
-            ? 'último avanço no dia ' + fmt(activeCommunityProject.lastProgressDay, 0) + '.'
-            : 'sem avanço registrado ainda.')
-          + (communityWorkStatus ? '<br>Diagnóstico do dia ' + fmt(communityWorkStatus.day, 0) + ' · '
-            + esc(communityWorkStatusLabels[communityWorkStatus.status] || communityWorkStatus.status) + ' · '
-            + esc(communityWorkStatus.reason || 'sem motivo informado')
-            + (communityWorkStatus.workerId != null && getPerson(communityWorkStatus.workerId)
-              ? ' · responsável: ' + esc(getPerson(communityWorkStatus.workerId).name) : '')
-            + (Number.isFinite(communityWorkStatus.distance) ? ' · distância ' + fmt(communityWorkStatus.distance, 1) + ' células' : '')
-            + (Number.isFinite(communityWorkStatus.safeNearby) ? ' · ' + fmt(communityWorkStatus.safeNearby, 0) + ' trabalhadores seguros de '
-              + fmt(communityWorkStatus.availableNearby, 0) + ' adultos livres próximos' : '')
-            + '</span></div>' : '<br>O diagnóstico de trabalho será registrado na próxima atualização da governança.</span></div>')
-        : '';
-      const recruitmentStatus = pendingRecruitments.length
-        ? '<div class="note-card"><b>Treinamento em andamento</b><span>' + pendingRecruitments.map(person =>
-          esc(person.name) + ' · ' + Math.max(0, person.recruitmentOrder.readyDay - world.day) + ' dias restantes').join(' · ') + '</span></div>' : '';
-      const calendar = Sim.modules.Cosmos.calendarDate(world.day);
-      const strategy = kingdom.strategy;
-      const strategyGoalLabels = {
-        'secure-shared-food': 'proteger alimento compartilhado',
-        'secure-herd-feed': 'proteger a ração do rebanho',
-        'repair-damaged-structures': 'reparar construções danificadas',
-        'complete-community-structure': 'concluir obra comunitária',
-        'gather-construction-materials': 'reunir materiais de construção',
-        'maintain-autonomy': 'manter a iniciativa local'
-      };
-      const strategyActionLabels = { forage: 'buscar alimento', collect_feed: 'recolher ração', gather: 'reunir materiais', build: 'construir' };
-      const strategyActionLabel = strategy && strategy.goal === 'repair-damaged-structures'
-        ? 'reparar construções' : strategy && strategy.action
-          ? strategyActionLabels[strategy.action] || strategy.action : 'sem delegação';
-      const repairEvidence = strategy && strategy.evidence && strategy.evidence.repairs;
-      const repairEvidenceText = repairEvidence && Array.isArray(repairEvidence.damagedStructures) && repairEvidence.damagedStructures.length
-        ? repairEvidence.damagedStructures.map(item => item.type + ' ' + Math.round(item.integrity * 100) + '%'
-          + (item.healthRatio == null ? '' : ' · vida ' + Math.round(item.healthRatio * 100) + '%')).join(' · ')
-        : '';
-      const strategyOutcomeLabels = { planned: 'aguardando execução', maintained: 'sem nova ordem civil', completed: 'tarefa concluída', blocked: 'delegação sem trabalhador ou recurso observável', refused: 'ordem recusada pelo domínio' };
-      const frontier = kingdom.frontierExpansion;
-      const frontierStatusLabels = {
-        observing: 'observando terreno neutro', constructing: 'construindo posto', established: 'posto estabelecido',
-        cooldown: 'consolidando expansão', 'awaiting-resources': 'aguardando recursos', 'no-neutral-site': 'sem local neutro seguro',
-        'paused-war': 'adiada durante conflito', 'limit-reached': 'limite atual alcançado', blocked: 'obra bloqueada'
-      };
-      const frontierGuards = frontierTowers.filter(item => item.garrisonSoldierId != null
-        && getPerson(item.garrisonSoldierId)?.alive).length;
-      const frontierProject = frontierTowers.find(item => !item.complete && item.builtDay == null);
-      const frontierSite = frontierProject
-        ? ' · local ' + fmt(frontierProject.x, 0) + ', ' + fmt(frontierProject.y, 0) + ' · ' + frontierProject.progress + '/' + frontierProject.required + ' dias'
-        : '';
-      const frontierOutcome = frontier && frontier.lastOutcome;
-      const frontierOutcomeText = frontierOutcome && frontierOutcome.status === 'completed'
-        ? 'Último posto: ' + fmt(frontierOutcome.territoryTilesGained || 0) + ' células incorporadas em '
-          + fmt(frontierOutcome.site.x, 0) + ', ' + fmt(frontierOutcome.site.y, 0) + ' no dia ' + frontierOutcome.day
-          + ' · custo ' + fmt(frontierOutcome.cost.wood, 0) + ' madeira, ' + fmt(frontierOutcome.cost.stone, 0)
-          + ' pedra e ' + fmt(frontierOutcome.cost.gold, 0) + ' ouro.'
-        : frontierOutcome && frontierOutcome.status === 'planned'
-          ? 'Obra iniciada no dia ' + frontierOutcome.day + ' em ' + fmt(frontierOutcome.site.x, 0) + ', ' + fmt(frontierOutcome.site.y, 0) + '.'
-          : '';
-      const frontierPanel = '<h3>Expansão e patrulha de fronteira</h3>'
-        + '<div class="data-row"><span>Plano autônomo</span><b>' + esc(frontierStatusLabels[frontier && frontier.status] || 'observando terreno neutro')
-        + ' · ' + frontierTowers.length + ' postos · ' + frontierGuards + ' guarnições designadas</b></div>'
-        + (frontierProject ? '<div class="data-row"><span>Posto em obra</span><b>' + esc(frontierSite.slice(3)) + '</b></div>' : '')
-        + '<p class="quiet">' + esc(frontier && frontier.reason || 'O reino avalia locais neutros e reserva recursos do próprio tesouro para expandir.') + '</p>'
-        + (frontierOutcomeText ? '<div class="note-card"><span>' + esc(frontierOutcomeText) + '</span></div>' : '');
-      const strategyPanel = strategy
-        ? '<h3>Estratégia observável</h3>'
-          + '<div class="data-row"><span>Objetivo / ordem civil</span><b>' + esc(strategyGoalLabels[strategy.goal] || strategy.goal) + ' · '
-          + esc(strategyActionLabel) + '</b></div>'
-          + '<div class="data-row"><span>Postura da guarnição</span><b>' + (strategy.garrisonMode === 'patrol' ? 'patrulha autorizada' : 'reserva') + '</b></div>'
-          + '<div class="data-row"><span>Evidências agregadas</span><b>' + fmt(strategy.evidence && strategy.evidence.population) + ' moradores · '
-          + fmt(strategy.evidence && strategy.evidence.sharedFood, 1) + ' alimento compartilhado · '
-          + fmt(strategy.evidence && strategy.evidence.foodPerResident, 1) + ' por morador · '
-          + fmt(strategy.evidence && strategy.evidence.feedStock) + '/' + fmt(strategy.evidence && strategy.evidence.feedTarget) + ' porções de ração</b></div>'
-          + (repairEvidence ? '<div class="data-row"><span>Construções danificadas que o rei conhece</span><b>'
-            + repairEvidence.damagedStructureCount + ' encontradas · ' + repairEvidence.criticalStructureCount + ' críticas'
-            + (repairEvidenceText ? ' · ' + esc(repairEvidenceText) : '') + '</b></div>' : '')
-          + '<p class="quiet">' + esc(strategy.reason || '') + '</p>'
-          + (strategy.aiPlan ? '<div class="note-card"><b>' + (strategy.goal === strategy.aiPlan.goal && strategy.action === strategy.aiPlan.action ? 'Ordem experimental do rei via IA' : 'Proposta experimental do rei') + ' · ' + esc(strategy.aiPlan.label || strategy.aiPlan.id) + '</b><span>'
-            + 'Justificativa do modelo, não verificada: ' + esc(strategy.aiPlan.reason || '') + ' · ' + esc(strategy.aiPlan.model || strategy.aiPlan.provider || 'modelo local')
-            + ' · pedido ' + esc(strategy.aiPlan.requestId || 'legado')
-            + ' · confiança ' + Math.round((strategy.aiPlan.confidence || 0) * 100) + '% · válida até o dia ' + strategy.aiPlan.expiresDay + '</span></div>' : '')
-          + (strategy.lastAiCommand ? '<div class="note-card"><b>Última ordem militar da IA local · recrutamento</b><span>'
-            + esc(strategy.lastAiCommand.personName) + ' iniciou treinamento; previsão de conclusão no dia ' + strategy.lastAiCommand.readyDay
-            + '. Dia da ordem: ' + strategy.lastAiCommand.day + '. ' + esc(strategy.lastAiCommand.reason || '') + '</span></div>' : '')
-          + (strategy.lastOutcome ? '<div class="note-card"><b>' + esc(strategyOutcomeLabels[strategy.lastOutcome.status] || strategy.lastOutcome.status) + '</b><span>'
-            + esc(strategy.lastOutcome.reason || ('Dia ' + strategy.lastOutcome.day)) + '</span></div>' : '')
-        : '<p class="quiet">O governante ainda não recebeu um relatório estratégico.</p>';
-      const campaign = (world.campaigns || []).find(item => item.status !== 'complete'
-        && (item.attackerId === kingdom.id || item.defenderId === kingdom.id));
-      let campaignPanel = '<h3>Campanha e logística</h3><p class="quiet">Nenhuma campanha ativa. Uma mobilização exige causa e local de incidente conhecidos pelo reino.</p>';
-      if (campaign) {
-        const side = campaign.attackerId === kingdom.id ? campaign.attacker : campaign.defender;
-        const activeTroops = side.troopIds.map(id => getPerson(id)).filter(Boolean);
-        const dailyRation = activeTroops.length * DAILY_FOOD_NEED / FOOD_DAYS_PER_UNIT;
-        const foodDays = dailyRation > 0 ? side.supply.stock.food / dailyRation : 0;
-        const statusLabels = { mobilizing: 'reunindo suprimentos', marching: 'em marcha', engaged: 'em combate', withdrawing: 'retornando após armistício' };
-        const roleLabel = side.role === 'attacker' ? 'força atacante' : 'defesa local';
-        const evidence = campaign.evidence && campaign.evidence[side.role] || {};
-        const generalOrder = side.aiOrder;
-        const generalLabel = generalOrder?.action === 'advance' ? 'avançar ao objetivo'
-          : generalOrder?.action === 'hold_position' ? 'manter posição'
-            : generalOrder?.action === 'withdraw' ? 'retirada ordenada' : 'ordem por regras';
-        const objectiveTower = campaignTower(world, campaign);
-        const formation = side.formation;
-        const formationStateLabels = { forming: 'formando', marching: 'marchando', maintaining: 'mantendo posição', attacking: 'atacando', retreating: 'retirando' };
-        const formationTypeLabel = formation?.type === 'line' ? 'linha' : 'coluna';
-        const formationLeader = formation?.leaderId ? getPerson(formation.leaderId)?.name || 'reorganizando' : 'sem líder';
-        const recentCampaignEvents = (campaign.history || []).slice(-3).reverse().map(item =>
-          '<li>DIA ' + fmt(item.day) + ' · ' + esc(item.text || item.type) + '</li>').join('');
-        campaignPanel = '<h3>Campanha e logística</h3>'
-          + '<div class="data-row"><span>Missão / estado</span><b>' + esc(roleLabel + ' · ' + (statusLabels[campaign.status] || campaign.status)) + '</b></div>'
-          + '<div class="data-row"><span>Objetivo observado</span><b>' + fmt(campaign.target.x, 1) + ', ' + fmt(campaign.target.y, 1) + ' · ' + activeTroops.length + ' soldados · ' + fmt(foodDays, 1) + ' dias de ração</b></div>'
-          + (objectiveTower ? '<div class="data-row"><span>Objetivo principal</span><b>' + (side.role === 'attacker' ? campaign.evidence?.mission === 'capture-tower' ? 'Capturar' : 'Destruir' : 'Proteger') + ' · vida ' + fmt(towerVitality(objectiveTower).health) + ' / ' + fmt(towerVitality(objectiveTower).maxHealth) + '</b></div>' : '')
-          + '<div class="data-row"><span>Equipamento / lealdade</span><b>' + fmt(side.supply.stock.wood, 1) + ' madeira · ' + fmt(side.supply.stock.gold, 1) + ' ouro · coesão ' + fmt(side.morale, 0) + '%</b></div>'
-          + (formation ? '<div class="data-row"><span>Formação / posições</span><b>' + esc(formationTypeLabel) + ' · ' + esc(formationStateLabels[formation.state] || formation.state)
-            + ' · líder ' + esc(formationLeader) + ' · coesão ' + Math.round((formation.metrics?.cohesion ?? 1) * 100) + '% · fora dos postos ' + fmt(formation.metrics?.outsideSlots || 0) + '</b></div>' : '')
-          + (generalOrder ? '<div class="note-card"><b>Ordem experimental do general · ' + esc(generalLabel) + '</b><span>'
-            + 'Justificativa do modelo, não verificada: ' + esc(generalOrder.reason || '') + ' · ' + esc(generalOrder.model || 'modelo local')
-            + ' · pedido ' + esc(generalOrder.requestId || 'desconhecido') + ' · versão ' + fmt(generalOrder.version) + ' · dia ' + fmt(generalOrder.assignedDay) + '</span></div>'
-            : '<div class="data-row"><span>Plano do general</span><b>Regras determinísticas</b></div>')
-          + '<div class="data-row"><span>Motivo / evidência local</span><b>' + esc(campaign.cause) + ' · ' + esc(evidence.source || 'relato da guarnição') + '</b></div>'
-          + '<ul class="quiet campaign-events">' + recentCampaignEvents + '</ul>';
-      }
       $('inspectEyebrow').textContent = 'REINO · ASSENTAMENTO INICIAL';
       $('inspectTitle').textContent = kingdom.name;
-      root.innerHTML = kingdomOverview(world, kingdom) + '<details class="gameplay-details"><summary>Gestão, construção e defesa</summary><div class="data-row"><span>Governante</span><b>' + esc(ruler ? ruler.name : 'sem governante') + '</b></div>' +
-        '<div class="data-row"><span>Calendário conhecido pelo reino</span><b>' + (world.day ? esc(seasonNames[calendar.season]) + ' · dia ' + calendar.dayOfSeason + '/' + calendar.daysInSeason + ' · ano ' + calendar.year : 'Primavera · início do ano 1') + '</b></div>' +
-        '<div class="data-row"><span>Próxima estação</span><b>' + esc(seasonNames[calendar.nextSeason]) + ' · em ' + calendar.daysUntilNextSeason + ' dias</b></div>' +
-        '<div class="data-row"><span>Moradores / com moradia</span><b>' + residents.length + ' / ' + housed + '</b></div>' +
-        '<div class="data-row"><span>Casas ocupadas</span><b>' + homes.filter(home => home.residentIds.some(id => getPerson(id))).length + ' de ' + homes.length + ' · capacidade ' + homes.reduce((sum, home) => sum + home.capacity, 0) + '</b></div>' +
-        '<div class="data-row"><span>Território controlado</span><b>' + fmt(kingdom.territoryTileCount * .01, 1) + ' hectares · ' + fmt(kingdom.territoryTileCount) + ' células · ' + towers.length + ' torres · ' + frontierTowers.filter(item => item.complete).length + ' postos</b></div>' +
-        '<div class="data-row"><span>Classes / comando</span><b>' + ['guerreiro', 'lanceiro', 'arqueiro', 'monge'].map(c => soldiers.filter(p => p.militaryClass === c).length + ' ' + ({ guerreiro: 'infantes', lanceiro: 'lanceiros', arqueiro: 'arqueiros', monge: 'clérigos' })[c]).join(' · ') + '</b></div>' +
-        '<div class="data-row"><span>Cadeia de comando</span><b>' + (kingdom.militaryCommand?.generalIds.length || 0) + ' general · ' + (kingdom.militaryCommand?.units.length || 0) + ' unidades de até 10</b></div>' +
-        '<div class="data-row"><span>Soldados / vagas</span><b>' + soldiers.length + ' / ' + soldierCapacity + (militaryCenters.length ? ' · ' + militaryCenters.length + ' centros · ' + patrollingSoldiers + ' em patrulha' : ' · sem centro militar') + '</b></div>' +
-        '<div class="data-row"><span>Tesouro · alimento / madeira / pedra / ouro</span><b>' + fmt(treasury.food, 0) + ' / ' + fmt(treasury.wood, 0) + ' / ' + fmt(treasury.stone, 0) + ' / ' + fmt(treasury.gold, 0) + '</b></div>' +
-        '<div class="data-row"><span>Mercado · alimento / ouro</span><b>' + fmt(market.stock.food, 0) + ' / ' + fmt(market.stock.gold, 0) + '</b></div>' +
-        '<div class="data-row"><span>Preços · alimento / madeira / pedra</span><b>' + market.prices.food + ' / ' + market.prices.wood + ' / ' + market.prices.stone + ' ouro</b></div>' +
-        '<div class="data-row"><span>Imposto / reserva para seca</span><b>' + Math.round(kingdom.policy.taxRate * 100) + '% / ' + kingdom.policy.droughtReserveDays + ' dias</b></div>' +
-        reserveTransferPanel +
-        maintenancePanel +
-        frontierPanel +
-        strategyPanel +
-        campaignPanel +
-        towerDiplomacyPanel(kingdom) +
-        '<h3>Construção e defesa</h3>' +
-        constructionStatus + communityConstructionStatus + recruitmentStatus +
-        '<div class="kingdom-actions"><button type="button" data-kingdom-command="torre" data-kingdom-id="' + kingdomId + '"' + (activeKingdomProject ? ' disabled' : '') + '>Construir torre · ' + Sim.kingdomCommands.timing.torre + ' dias · 34 madeira · 24 pedra · 8 ouro</button>' +
-        '<button type="button" data-kingdom-command="centro_militar" data-kingdom-id="' + kingdomId + '"' + (activeKingdomProject ? ' disabled' : '') + '>Construir centro militar · ' + Sim.kingdomCommands.timing.centro_militar + ' dias · 32 madeira · 30 pedra · 12 ouro</button>' +
-        '<button type="button" data-kingdom-command="recruit" data-kingdom-id="' + kingdomId + '"' + (!hasRecruitmentSource('lanceiro') || soldierSlots < 1 ? ' disabled' : '') + '>Recrutar lanceiro · ' + Sim.kingdomCommands.timing.recruit + ' dias · 10 alimento · 8 madeira · 3 ouro</button>' +
-        ['guerreiro', 'arqueiro', 'monge'].map(unitClass => '<button type="button" data-kingdom-command="recruit" data-military-class="' + unitClass + '" data-kingdom-id="' + kingdomId + '"' + (!hasRecruitmentSource(unitClass) || soldierSlots < 1 ? ' disabled' : '') + '>Treinar ' + ({ guerreiro: 'infantaria', arqueiro: 'arqueiro', monge: 'clérigo' })[unitClass] + ' · 6 dias · 10 alimento · 8 madeira · 3 ouro</button>').join('') +
-        ['monasterio', 'arquearia'].map(building => '<button type="button" data-kingdom-command="' + building + '" data-kingdom-id="' + kingdomId + '"' + (activeKingdomProject ? ' disabled' : '') + '>Construir ' + structureDisplayName(building) + '</button>').join('') + '</div>' +
-        (soldierSlots < 1 ? '<p class="quiet">Para recrutar, construa um centro militar com vaga. Cada centro comporta até 60 militares.</p>' : '<p class="quiet">Um centro militar comporta até 60 militares. O recrutamento exige um morador adulto em boas condições. Após a promoção, ele deixa as tarefas civis para cumprir guarda, patrulha e campanha.</p>') +
-        (missingMilitarySources.length ? '<p class="quiet">Sem fonte operacional: ' + missingMilitarySources.map(unitClass => esc(MILITARY_SOURCE_LABELS[unitClass === 'guerreiro' ? 'centro_militar' : unitClass === 'arqueiro' ? 'arquearia' : 'monasterio'])).join(' · ') + '. Novos membros e progressão dessas classes ficam pausados.</p>' : '') +
-        (pausedRecruitments.length ? '<p class="quiet">Treinamentos pausados: ' + pausedRecruitments.map(person => esc(person.name) + ' — ' + esc(person.recruitmentOrder.pauseReason)).join(' · ') + '. O custo e o progresso são preservados.</p>' : '') +
-        '<p class="quiet">Soldo: ' + MILITARY_PAY.copper + ' cobres a cada ' + MILITARY_PAY.days + ' dias, após 30 dias de serviço. Pagamento em moedas reais conforme a disponibilidade do tesouro; obrigações antigas permanecem devidas.</p>' +
-
-        (kingdomActionNotice ? '<div class="note-card kingdom-action-notice" role="status">' + esc(kingdomActionNotice) + '</div>' : '') +
-
-        '<p class="quiet">As casas ficam distribuídas em torno do castelo. As torres estendem o território; os centros militares abrigam os soldados. O mercado e o tesouro mantêm estoques separados.</p></details>';
+      root.innerHTML = kingdomOverview(world, kingdom);
       return;
     }
     if (selection.kind === 'person') {
@@ -2952,7 +2752,6 @@ export function mountGame() {
       if (!c) { selection = null; renderInspector(); return; }
       const members = c.memberIds.map(getPerson).filter(Boolean);
       const names = members.slice(0, 8).map(p => p.name).join(', ');
-      const structures = world.structures.filter(s => s.communityId === c.id);
       const activeUse = Object.values(c.usedCells || {}).filter(day => world.day - day <= 45).length;
       const relations = Object.values(world.communityRelations).filter(r => r.a === c.id || r.b === c.id);
       const disputes = relations.reduce((sum, r) => sum + r.conflicts, 0);
@@ -2963,9 +2762,7 @@ export function mountGame() {
         roles[best] = (roles[best] || 0) + 1;
       }
       const roleText = Object.entries(roles).map(([key, count]) => count + ' ' + roleNames[key]).join(' · ') || 'Sem especializações observadas';
-      const structureText = structures.length ? structures.map(s => s.type + (s.complete ? ' (concluída)' : ' (' + Math.floor(s.progress / s.required * 100) + '%)')).join(', ') : 'Nenhuma construção';
       const groundsText = c.grounds && c.grounds.hunting ? ['caça perto de ' + c.grounds.hunting.feature + ' (' + qualityLabel(c.grounds.hunting.score || 0) + ')'] : [];
-      const boundaryCount = structures.filter(s => s.type === 'divisa' && s.complete).length;
       const stageText = { vínculo: 'Laços ainda pequenos', grupo: 'Grupo local', tribo: 'Tribo emergente', reino: 'Reino emergente' }[c.stage] || c.stage;
       const leader = members.find(person => person.id === c.leaderId) || null;
       const taskCount = (c.assignments || []).filter(task => task.status === 'delegada').length;
@@ -2985,46 +2782,23 @@ export function mountGame() {
         '<div class="data-row"><span>Primeiro vínculo</span><b>dia ' + c.createdDay + '</b></div>' +
         '<h3>Membros observados</h3><p>' + esc(names || 'Nenhum membro vivo') + (members.length > 8 ? '…' : '') + '</p>' +
         '<div class="note-card"><b>Ordens e prestígio</b><span>' + esc(roleText) + '. A liderança prioriza alimento para o reino quando as reservas caem; sede, fome ou energia críticas suspendem a tarefa para a pessoa cuidar da própria sobrevivência. Concluir uma tarefa concede 1 ponto de prestígio ao membro e 0,2 à liderança; um membro mais prestigiado precisa manter apoio por sete dias para assumir.</span></div>' +
-        '<h3>Construção e área de uso</h3><div class="note-card"><b>' + esc(structureText) + '</b><span>' + activeUse + ' locais usados nos últimos 45 dias. Caçadas bem-sucedidas marcam áreas comunitárias; divisas exigem reservas e trabalho, e cruzá-las consome energia.</span></div>' +
-        '<div class="note-card"><b>Áreas, propriedades e divisas</b><span>' + esc(groundsText.join(' · ') || 'Ainda sem áreas de caça marcadas') + (propertyCount ? ' · ' + propertyCount + ' propriedade(s), adquiridas por ouro, madeira e pedra' : '') + (boundaryCount ? ' · ' + boundaryCount + ' divisa(s) concluída(s)' : '') + '</span></div>' +
+        '<h3>Áreas e uso comunitário</h3><div class="note-card"><span>' + activeUse + ' locais usados nos últimos 45 dias. Caçadas bem-sucedidas marcam áreas comunitárias.</span></div>' +
+        '<div class="note-card"><b>Áreas e propriedades</b><span>' + esc(groundsText.join(' · ') || 'Ainda sem áreas de caça marcadas') + (propertyCount ? ' · ' + propertyCount + ' propriedade(s), adquiridas por ouro, madeira e pedra' : '') + '</span></div>' +
         '<div class="note-card"><b>Nome comunitário</b><span>' + esc(c.nameSource || 'Os primeiros membros') + ' propôs o nome usando um marco da paisagem local. Uma união pode gerar uma nova votação.</span></div>' +
         (c.history.length ? '<h3>Histórico</h3>' + c.history.slice(-5).reverse().map(item => '<div class="event">' + esc(item) + '</div>').join('') : '');
       return;
     }
     if (selection.kind === 'structure') {
-      const s = world.structures.find(item => item.id === selection.id);
-      if (!s) { selection = null; renderInspector(); return; }
-      const kingdom = getKingdom(s.kingdomId);
+      const structure = world.structures.find(item => item.id === selection.id);
+      if (!structure) { selection = null; renderInspector(); return; }
+      const kingdom = getKingdom(structure.kingdomId);
       $('inspectEyebrow').textContent = kingdom ? kingdom.name.toUpperCase() : 'CONSTRUÇÃO';
-      $('inspectTitle').textContent = s.frontierOutpost ? 'Posto de fronteira' : structureDisplayName(s.type);
-      root.innerHTML = buildingCard(world, s) +
-        (s.type === 'castelo' && kingdom ? '<button type="button" data-inspect-kingdom="' + kingdom.id + '">Abrir card do reino</button>' : '') +
-        (s.type === 'castelo' && kingdom && s.complete && s.destroyedDay == null
-          ? '<details class="gameplay-details" open><summary>Casa de câmbio do rei · sem emissão monetária</summary>' +
-            '<p>O mercador solicita troco ao castelo. Cada troca exige moedas existentes nos dois cofres. 1 ouro = 10 pratas = 100 cobres.</p>' +
-            '<div class="data-row"><span>Tesouro real · ouro / prata / cobre</span><b>' +
-              fmt(kingdom.treasury.stock.gold, 0) + ' / ' + fmt(kingdom.treasury.stock.silver || 0, 0) +
-              ' / ' + fmt(kingdom.treasury.stock.copper || 0, 0) + '</b></div>' +
-            '<div class="data-row"><span>Mercador · ouro / prata / cobre</span><b>' +
-              fmt(kingdom.market?.stock?.gold || 0, 0) + ' / ' + fmt(kingdom.market?.stock?.silver || 0, 0) +
-              ' / ' + fmt(kingdom.market?.stock?.copper || 0, 0) + '</b></div>' +
-            '<div class="kingdom-actions">' +
-              [['gold','silver',1,'1 ouro por 10 pratas'], ['gold','copper',1,'1 ouro por 100 cobres'],
-                ['silver','copper',1,'1 prata por 10 cobres'], ['silver','gold',10,'10 pratas por 1 ouro'],
-                ['copper','silver',10,'10 cobres por 1 prata'], ['copper','gold',100,'100 cobres por 1 ouro']]
-                .map(([fromCoin,toCoin,quantity,label]) => '<button type="button" data-castle-exchange="1" data-kingdom-id="' +
-                  kingdom.id + '" data-castle-id="' + s.id + '" data-from-coin="' + fromCoin +
-                  '" data-to-coin="' + toCoin + '" data-coin-quantity="' + quantity + '">' + label + '</button>').join('') +
-            '</div>' +
-            (kingdomActionNotice ? '<p class="quiet">' + esc(kingdomActionNotice) + '</p>' : '') + '</details>' : '') +
-        (s.type === 'torre' && s.complete && s.destroyedDay == null ? '<details class="gameplay-details"><summary>Ordens militares</summary><div class="kingdom-actions">' + world.kingdoms.filter(k => k.id !== s.kingdomId).map(k => '<button type="button" data-structure-command="capture-tower" data-kingdom-id="' + k.id + '" data-tower-id="' + s.id + '">Rei de ' + esc(k.name) + ': ordenar captura</button>').join('') +
-          (kingdom && !s.frontierOutpost ? '<button type="button" data-structure-command="destroy-tower" data-kingdom-id="' + kingdom.id + '" data-tower-id="' + s.id + '">Destruir torre</button>' : '') + '</div></details>' : '') +
-        (['centro_militar', 'arquearia', 'monasterio', 'mercado', 'castelo'].includes(s.type) && s.complete && s.destroyedDay == null ? '<details class="gameplay-details"><summary>Ordens militares</summary><div class="kingdom-actions">' + world.kingdoms.filter(k => k.id !== s.kingdomId).map(k => '<button type="button" data-structure-command="attack-installation" data-kingdom-id="' + k.id + '" data-structure-id="' + s.id + '">Rei de ' + esc(k.name) + ': ordenar ataque</button>').join('') + '</div></details>' : '');
+      $('inspectTitle').textContent = structure.frontierOutpost ? 'Posto de fronteira' : structureDisplayName(structure.type);
+      root.innerHTML = buildingCard(world, structure);
       const meter = root.querySelector('.construction-meter');
       if (meter && window.ForjaHUD) meter.append(window.ForjaHUD.create({ size: 'small', color: 'yellow', value: Number(meter.dataset.progress), label: 'Progresso da construção' }));
       return;
-    }
-    if (selection.kind === 'plant') {
+    }    if (selection.kind === 'plant') {
       const d = Sim.inspectTile(world, selection.x, selection.y);
       if (!d) return;
       $('inspectEyebrow').textContent = 'BIOSFERA · VEGETAÇÃO';
@@ -3436,89 +3210,6 @@ export function mountGame() {
     const button = e.target.closest('[data-kingdom]');
     if (button) { setKingdomPanel(false); openSelection({ kind: 'kingdom', id: Number(button.dataset.kingdom) }); }
   });
-  $('inspector').addEventListener('click', event => {
-    const inspectStructure = event.target.closest('[data-inspect-structure]');
-    if (inspectStructure) { openSelection({ kind: 'structure', id: Number(inspectStructure.dataset.inspectStructure) }); return; }
-    const inspectKingdom = event.target.closest('[data-inspect-kingdom]');
-    if (inspectKingdom) { openSelection({ kind: 'kingdom', id: Number(inspectKingdom.dataset.inspectKingdom) }); return; }
-    const castleButton = event.target.closest('[data-castle-exchange]');
-    if (castleButton) {
-      const request = {
-        type: 'castle-exchange',
-        kingdomId: Number(castleButton.dataset.kingdomId),
-        castleId: Number(castleButton.dataset.castleId),
-        fromCoin: castleButton.dataset.fromCoin,
-        toCoin: castleButton.dataset.toCoin,
-        quantity: Number(castleButton.dataset.coinQuantity)
-      };
-      session.dispatch(request).then(result => {
-        kingdomActionNotice = result?.ok
-          ? 'Troca autorizada: ' + result.quantity + ' ' + result.fromCoin +
-            ' por ' + result.received + ' ' + result.toCoin +
-            '. Valor e saldos conservados.'
-          : result?.reason || 'O castelo recusou a troca.';
-        render();
-      }).catch(error => {
-        if (isResetCancellation(error)) return;
-        kingdomActionNotice = error.message; render();
-      });
-      return;
-    }
-    const button = event.target.closest('[data-kingdom-command], [data-structure-command]');
-    if (!button) return;
-    if (button.dataset.structureCommand === 'attack-installation') {
-      session.dispatch({ type: 'attack-installation', kingdomId: Number(button.dataset.kingdomId), structureId: Number(button.dataset.structureId) }).then(result => {
-        if (result?.ok) gameAudio.play('war_call', `war-call:installation:${button.dataset.kingdomId}:${button.dataset.structureId}:${Date.now()}`, world.kingdoms.find(item => item.id === Number(button.dataset.kingdomId)));
-        selection = { kind: 'kingdom', id: Number(button.dataset.kingdomId) };
-        kingdomActionNotice = result?.ok ? 'O rei ordenou o ataque à instalação. A tropa será mobilizada com suprimentos para o cerco.' : result?.reason || 'Não foi possível ordenar o ataque.';
-        render();
-      }).catch(error => { if (!isResetCancellation(error)) { kingdomActionNotice = error.message; render(); } });
-      return;
-    }
-    if (button.dataset.structureCommand === 'capture-tower') {
-      session.dispatch({ type: 'capture-tower', kingdomId: Number(button.dataset.kingdomId), towerId: Number(button.dataset.towerId) }).then(result => {
-        if (result?.ok) gameAudio.play('war_call', `war-call:capture:${button.dataset.kingdomId}:${button.dataset.towerId}:${Date.now()}`, world.kingdoms.find(item => item.id === Number(button.dataset.kingdomId)));
-        selection = { kind: 'kingdom', id: Number(button.dataset.kingdomId) };
-        kingdomActionNotice = result?.ok ? 'O rei ordenou a captura. A tropa será mobilizada com suprimentos para tomar a torre.' : result?.reason || 'Não foi possível ordenar a captura.';
-        render();
-      }).catch(error => { if (!isResetCancellation(error)) { kingdomActionNotice = error.message; render(); } });
-      return;
-    }
-    if (button.dataset.structureCommand === 'destroy-tower') {
-      const kingdomId = Number(button.dataset.kingdomId), towerId = Number(button.dataset.towerId);
-      session.dispatch({ type: 'destroy-tower', kingdomId, towerId }).then(result => {
-        selection = { kind: 'kingdom', id: kingdomId };
-        kingdomActionNotice = result && result.ok
-          ? 'Torre destruída. O domínio encolheu em ' + fmt(result.territoryTilesLost) + ' células.'
-          : result && result.reason || 'A torre não pôde ser destruída.';
-        render();
-      }).catch(error => {
-        if (isResetCancellation(error)) return;
-        kingdomActionNotice = 'A ordem falhou: ' + error.message;
-        render();
-      });
-      return;
-    }
-    const kingdomId = Number(button.dataset.kingdomId);
-    const command = button.dataset.kingdomCommand;
-    const request = command.startsWith('recruit')
-      ? { type: 'recruit-soldier', kingdomId, militaryClass: button.dataset.militaryClass || 'lanceiro' }
-      : { type: 'kingdom-structure', kingdomId, building: command };
-    session.dispatch(request).then(result => {
-      if (!result || !result.ok) kingdomActionNotice = result && result.reason || 'A ordem não foi concluída.';
-      else if (command.startsWith('recruit')) kingdomActionNotice = result.pending
-        ? result.person.name + ' começou treinamento; o tesouro pagou alimento, madeira e ouro. Pronto no dia ' + result.readyDay + '.'
-        : result.person.name + ' foi recrutado como lanceiro. O tesouro pagou alimento, madeira e ouro.';
-      else kingdomActionNotice = ('Construção iniciada: ' + structureDisplayName(command) + '.')
-        + ' Os recursos foram debitados. Trabalho necessário: ' + result.structure.required + ' dias no local.';
-      render();
-    }).catch(error => {
-      if (isResetCancellation(error)) return;
-      kingdomActionNotice = 'A ordem falhou: ' + error.message;
-      render();
-    });
-  });
-
   let lastAnimationFrame = 0;
   function frame(now) {
     const profile = renderDiagnostics.profiler.beginFrame(now);

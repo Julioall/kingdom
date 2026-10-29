@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { nearestPerson } from '../src/simulation/individuals/actions.js';
+import { PERSON_ENERGY_COST_SCALE } from '../src/simulation/individuals/energy.js';
 import { resolveSocialMeeting } from '../src/simulation/society/social-meetings.js';
 
 function person(id, x, y, overrides = {}) {
@@ -28,7 +29,7 @@ test('a visible pair completes one meeting and records the confirmed result once
   assert.equal(meeting.completed, true);
   assert.deepEqual([...participants], [initiator.id, target.id]);
   assert.equal(initiator.socialNeed, 53);
-  assert.equal(initiator.energy, 59.945);
+  assert.equal(initiator.energy, 60 - .1 * PERSON_ENERGY_COST_SCALE);
   assert.equal(world.socialEvidence.facts.length, 1);
   assert.equal(world.socialEvidence.facts[0].type, 'social_meeting');
   assert.deepEqual(world.socialEvidence.facts[0].outcome, { result: 'conversation_completed' });

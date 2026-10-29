@@ -46,6 +46,8 @@ button:focus:not(:focus-visible),input:focus:not(:focus-visible),select:focus:no
 .king-thought--below::after{top:-6px;bottom:auto;transform:rotate(225deg)}
 .king-thought__label{display:block;margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid #98703d55;font:700 12px/1.25 var(--font-title);color:#795027;letter-spacing:.025em}
 .king-thought__message{display:block}
+.king-thought{max-width:min(240px,calc(100% - 16px));padding:7px 9px;font-size:13px;transform-origin:top left}
+.king-thought__label{font-size:11px;margin-bottom:3px;padding-bottom:3px}
 .map-zoom{position:absolute;z-index:6;top:13px;right:350px;display:flex;align-items:center;gap:3px;padding:4px;border:1px solid #a8a68d;border-radius:4px;background:#f4f0dfed;color:#56614f;box-shadow:0 2px 7px #1c281d70}
 .map-zoom button{height:27px;min-width:27px;padding:0 6px;border:1px solid #c3c0a9;border-radius:3px;background:#fbf9ef;color:#40523e;font-size:13px;line-height:1}
 .map-zoom button:hover:not(:disabled){background:#e5e9d7}
@@ -786,6 +788,41 @@ button:disabled{cursor:url('/assets/kingdom-ui/Cursor_03.png') 32 32,not-allowed
 }
 .left-panel .panel-scroll,.journal-panel .event-list,.right-panel .panel-scroll,.utility-drawer .utility-content{
   padding-bottom:50px;padding-top:50px;scroll-padding-block:50px;
+}
+
+/* The selection and settings scrolls use the same colored Forja ribbon as the realm tabs. */
+.right-panel.has-ribbon-heading .panel-heading,
+.utility-drawer.has-ribbon-heading .utility-heading{
+  position:relative;display:flex;flex:0 0 58px;align-items:center;justify-content:center;box-sizing:border-box;
+  min-height:58px;height:58px;margin:10px 16px 0;padding:0;border:0;background:transparent;overflow:visible;
+}
+.right-panel.has-ribbon-heading .panel-ribbon,
+.utility-drawer.has-ribbon-heading .panel-ribbon{
+  position:absolute;inset:0;width:100%;height:50px;--band-h:50px;z-index:1;pointer-events:none;
+}
+.right-panel.has-ribbon-heading .panel-heading>div:not(.panel-ribbon),
+.utility-drawer.has-ribbon-heading .utility-heading>div:not(.panel-ribbon){
+  position:absolute;inset:0 38px;z-index:2;display:grid;place-items:center;min-width:0;pointer-events:none;text-align:center;
+}
+.right-panel.has-ribbon-heading .panel-heading small,
+.utility-drawer.has-ribbon-heading .utility-heading small{display:none}
+.right-panel.has-ribbon-heading .panel-heading h2,
+.utility-drawer.has-ribbon-heading .utility-heading h2{
+  max-width:100%;margin:0;overflow:hidden;color:#f8e9c2;font:700 16px/1.1 var(--font-title);
+  text-overflow:ellipsis;white-space:nowrap;text-shadow:0 2px 3px #080808;
+}
+#rightPanel.has-ribbon-heading .panel-heading #inspectTitle{color:#f8e9c2}
+.right-panel.has-ribbon-heading .panel-heading .icon-button,
+.utility-drawer.has-ribbon-heading .utility-heading .icon-button{
+  position:absolute;top:50%;right:-7px;z-index:3;transform:translateY(-50%);border-radius:50%;
+}
+.right-panel.has-ribbon-heading .panel-scroll,
+.utility-drawer.has-ribbon-heading .utility-content{margin-top:6px}
+@media(max-width:760px){
+  .right-panel.has-ribbon-heading .panel-heading,
+  .utility-drawer.has-ribbon-heading .utility-heading{margin:8px 12px 0}
+  .right-panel.has-ribbon-heading .panel-scroll,
+  .utility-drawer.has-ribbon-heading .utility-content{margin-top:6px}
 }
 
 /* Short realm list stays content-sized; the long journal gets its own bounded scroller. */

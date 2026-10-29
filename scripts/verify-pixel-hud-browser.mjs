@@ -55,27 +55,36 @@ try {
       await page.waitForFunction(() => document.querySelector('.app')?.inert === false,
         null, { timeout: 120_000, polling: 500 });
       const sample = await page.evaluate(() => {
-        const resource = document.querySelector('.resource-metric');
         const calendar = document.querySelector('.date-metric');
         const topbar = document.querySelector('.topbar');
         const metricsStrip = document.querySelector('.world-metrics');
-        const foodMetric = document.querySelector('#globalFood').closest('.metric');
         const world = document.querySelector('#world');
         return {
-          resourceSkin: getComputedStyle(resource).borderImageSource,
           calendarSkin: getComputedStyle(calendar).borderImageSource,
-          resourceImageRendering: getComputedStyle(resource).imageRendering,
           topbarHeight: Math.round(topbar.getBoundingClientRect().height),
-          metricsLeft: Math.round(metricsStrip.getBoundingClientRect().left),
-          metricsRight: Math.round(metricsStrip.getBoundingClientRect().right),
-          foodLeft: Math.round(foodMetric.getBoundingClientRect().left),
-          foodRight: Math.round(foodMetric.getBoundingClientRect().right),
+          resourceMetricCount: metricsStrip.querySelectorAll(':scope > .resource-metric').length,
+          calendarCount: metricsStrip.querySelectorAll(':scope > .date-metric').length,
+          calendarText: calendar.textContent.trim(),
           worldWidth: world.width,
           worldHeight: world.height,
           mapVisibleHeight: Math.round(world.getBoundingClientRect().height),
           modalSkins: ['leftPanel', 'rightPanel', 'journal', 'settingsTray'].map(id => {
             const panel = document.getElementById(id);
             return { id, skin: panel?.dataset.uiSkin, sprite: getComputedStyle(panel?.querySelector(':scope > .skin-layer')).borderImageSource };
+          }),
+          panelRibbons: ['rightPanel', 'settingsTray'].map(id => {
+            const panel = document.getElementById(id);
+            const heading = panel?.querySelector(':scope > .panel-heading, :scope > .utility-heading');
+            const ribbon = heading?.querySelector(':scope > .panel-ribbon');
+            const headingBounds = heading?.getBoundingClientRect();
+            const ribbonBounds = ribbon?.getBoundingClientRect();
+            const title = heading?.querySelector('h2');
+            return { id, color: ribbon?.dataset.ribbonColor, slices: ribbon?.children.length,
+              title: title?.textContent.trim(), titleVisible: !!title && getComputedStyle(title).display !== 'none',
+              titleColor: title && getComputedStyle(title).color,
+              ribbonFillsHeading: !!headingBounds && !!ribbonBounds && Math.abs(headingBounds.left - ribbonBounds.left) < 1
+                && Math.abs(headingBounds.width - ribbonBounds.width) < 1,
+              sliceImage: ribbon && ribbon.children[1] ? getComputedStyle(ribbon.children[1]).backgroundImage : '' };
           }),
           railRibbons: ['kingdomsToggle', 'journalToggle'].map(id => {
             const button = document.getElementById(id);
@@ -97,15 +106,20 @@ try {
         };
       });
       scenario.sample = sample;
-      assert.equal(sample.resourceSkin, 'none', 'Resource counters use the shared toolbar without individual cards');
       assert.match(sample.calendarSkin, /paper\.png/, 'Forja parchment calendar');
-      assert.equal(sample.resourceImageRendering, 'pixelated');
       assert.ok(sample.worldWidth > 0 && sample.mapVisibleHeight > 200, 'live map unobstructed');
-      assert.ok(sample.foodLeft >= sample.metricsLeft - 2 && sample.foodRight <= sample.metricsRight + 2,
-        'Food metric must be visible rather than clipped at the left edge');
+      assert.equal(sample.resourceMetricCount, 0, 'Top bar no longer shows realm resources or population totals');
+      assert.equal(sample.calendarCount, 1, 'Top bar retains only the date and season');
+      assert.match(sample.calendarText, /DIA\s+\d+\s+·\s+ANO\s+\d+\s*[A-ZÁÉÍÓÚ]+/);
       assert.deepEqual(sample.modalSkins.map(panel => panel.skin), ['scroll', 'scroll', 'scroll', 'scroll'],
         'Every modal uses the parchment scroll skin');
       assert.ok(sample.modalSkins.every(panel => /scroll\.png/.test(panel.sprite)), 'Parchment scroll sprite is rendered');
+      assert.deepEqual(sample.panelRibbons.map(ribbon => [ribbon.color, ribbon.slices]), [['black', 3], ['black', 3]],
+        'Selection and settings modals use a three-part slate ribbon');
+      assert.ok(sample.panelRibbons.every(ribbon => ribbon.titleVisible && ribbon.sliceImage.includes(`ribbon-${ribbon.color}-center.png`)),
+        'Modal titles sit on the matching ribbon center');
+      assert.ok(sample.panelRibbons.every(ribbon => ribbon.ribbonFillsHeading && ribbon.titleColor === 'rgb(248, 233, 194)'),
+        'Modal ribbon fills its heading and keeps the title legible');
       assert.deepEqual(sample.railRibbons.map(ribbon => [ribbon.color, ribbon.slices]), [['yellow', 3], ['cyan', 3]],
         'Closed realm shortcuts use the three-part gold and blue ribbon assets');
       assert.ok(sample.railRibbons.every(ribbon => ribbon.buttonBackground === 'none'), 'Ribbon has no second background layer');
@@ -126,6 +140,12 @@ try {
       await page.waitForFunction(() => document.querySelector('#leftPanel')?.inert === false);
       assert.equal(await page.locator('#leftPanel').getAttribute('aria-hidden'), 'false');
       assert.equal(await page.locator('#kingdomsToggle .rail-title').isVisible(), true, 'Expanded kingdoms ribbon shows its title');
+      const kingdomMetrics = await page.locator('#kingdomList [data-kingdom]').evaluateAll(cards => cards.map(card =>
+        [...card.querySelectorAll('[data-kingdom-stat]')].map(stat => [stat.dataset.kingdomStat, stat.querySelector('b')?.textContent.trim()])));
+      assert.ok(kingdomMetrics.length > 0 && kingdomMetrics.every(stats =>
+        JSON.stringify(stats.map(([key]) => key)) === JSON.stringify(['food', 'wealth', 'people', 'births', 'deaths'])
+        && stats.every(([, value]) => value !== undefined && value.length > 0)),
+      'Each realm card has its own food, wealth, population, births and deaths values');
       const kingdomsBounds = await page.evaluate(() => {
         const panel = document.querySelector('#leftPanel').getBoundingClientRect();
         const stage = document.querySelector('.world-stage').getBoundingClientRect();
@@ -145,7 +165,7 @@ try {
       assert.ok(kingdomsCaption.gap >= 8, 'Expanded kingdoms title is spaced from its icon');
       scenario.checks.push('Kingdom parchment panel opens and is accessible');
       await page.screenshot({ path: resolve(directory, viewport.label + '-kingdoms.png'), timeout: 45_000 });
-      await page.locator('#globalFood').click();
+      await page.locator('.date-metric').click();
       await page.waitForFunction(() => document.querySelector('#leftPanel')?.inert === true);
       scenario.checks.push('Kingdom modal closes on outside click');
       await page.locator('#kingdomsToggle').click();
@@ -195,6 +215,18 @@ try {
       await page.locator('#kingdomList [data-kingdom]').first().click();
       await page.waitForFunction(() => document.querySelector('#rightPanel')?.classList.contains('is-open'));
       assert.equal(await page.locator('#rightPanel').getAttribute('data-ui-skin'), 'scroll');
+      assert.equal(await page.locator('#rightPanel .panel-ribbon').getAttribute('data-ribbon-color'), 'cyan',
+        'Blue realm selection uses the blue ribbon palette');
+      assert.equal(await page.locator('#inspector button').count(), 0, 'Realm cards have no action or navigation buttons');
+      assert.equal(await page.locator('#inspector details').count(), 0, 'Realm cards do not list or route to construction cards');
+      assert.doesNotMatch(await page.locator('#inspector').innerText(), /ordens militares|construções do reino|construção e defesa/i,
+        'Realm cards stay focused on realm information');
+      await page.locator('#rightClose').click();
+      await page.waitForFunction(() => document.querySelector('#rightPanel')?.inert === true);
+      await page.locator('#kingdomsToggle').click();
+      await page.locator('#kingdomList [data-kingdom]').nth(1).click();
+      assert.equal(await page.locator('#rightPanel .panel-ribbon').getAttribute('data-ribbon-color'), 'red',
+        'Red realm selection uses the red ribbon palette');
       const inspectorLayout = await page.evaluate(() => {
         const panel = document.querySelector('#rightPanel').getBoundingClientRect();
         const zoom = document.querySelector('.map-zoom').getBoundingClientRect();

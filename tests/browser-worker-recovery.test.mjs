@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
+import { browserDecisionFormat } from '../src/ai/browser-decision-format.js';
+import { medievalVoice, medievalObservations } from '../src/ai/medieval-voice.js';
 
 const source = (await readFile(new URL('../src/ai/browser-inference-worker.js', import.meta.url), 'utf8'))
   .replace(/^import .*;\r?\n/gm, '');
@@ -14,7 +16,10 @@ function harness(options = {}) {
   const messages = [], loads = [], tensors = [];
   let listener;
   const processor = Object.assign(async () => ({ input_ids: { dims: [1, 1], dispose() {} } }), {
-    tokenizer: {}, apply_chat_template: () => 'prompt',
+    tokenizer: {}, apply_chat_template: (messages, settings) => {
+      options.onTemplate?.(messages, settings);
+      return 'prompt';
+    },
     batch_decode: () => ['{"action":"forage","confidence":0.8,"reason":"Comida"}']
   });
   const context = vm.createContext({
@@ -35,8 +40,11 @@ function harness(options = {}) {
       };
     } },
     pipeline() { throw Error('Unexpected pipeline'); },
-    StructuredOutputProcessor: class { static warmup() {} },
-    browserDecisionContextVariants: value => [value.context], browserInputTokenBudget: () => 1900,
+    StructuredOutputProcessor: class { static warmup() {} }, browserDecisionFormat, medievalVoice, medievalObservations,
+    browserDecisionContextVariants: value => [value.context], browserInputTokenBudget: (limit, reserved) => {
+      options.onBudget?.(limit, reserved);
+      return limit - reserved;
+    },
     browserInputFitsTokenBudget: () => true, buildKingdomStrategySystemPrompt: () => 'strategy'
   });
   vm.runInContext(source, context);
@@ -69,6 +77,25 @@ test('worker serializes generations even when two messages arrive together', asy
   release();
   await until(() => worker.messages.filter(m => m.type === 'decision').length === 2);
   assert.equal(maximum, 1);
+});
+
+test('Qwen reserves its output budget and disables thinking for constrained decisions', async () => {
+  let reserved, generation;
+  const worker = harness({
+    onTemplate(messages, settings) {
+      assert.equal(settings.enable_thinking, false);
+      assert.match(messages[0].content, /180 caracteres/);
+      assert.match(messages[0].content, /pensamento seu em primeira pessoa/);
+    },
+    onBudget(limit, tokens) { assert.equal(limit, config.contextTokens); reserved = tokens; },
+    gpuGenerate: async settings => { generation = settings; return output(); }
+  });
+  worker.send({ type: 'initialize', model: config });
+  await until(() => worker.messages.some(m => m.type === 'ready'));
+  worker.send({ type: 'decide', requestId: 1, request });
+  await until(() => worker.messages.some(m => m.type === 'decision'));
+  assert.ok(reserved > 96, 'JSON explanations exhausted the previous 96-token budget');
+  assert.equal(generation.max_new_tokens, reserved);
 });
 
 test('GPU failure awaits release and retries on WASM using its own precision', async () => {

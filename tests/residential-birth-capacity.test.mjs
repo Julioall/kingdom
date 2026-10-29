@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import engine from '../src/simulation/engine.js';
 import { getSocialLink } from '../src/simulation/society/communities.js';
+import { PERSON_ENERGY_COST_SCALE } from '../src/simulation/individuals/energy.js';
 import { killPerson, reproducePeople } from '../src/simulation/individuals/lifecycle.js';
 
 function makeParents(world) {
@@ -67,8 +68,8 @@ test('a birth reserves one operational house vacancy and transfers the existing 
   const secondParent = mother.id < father.id ? father : mother;
   assert.equal(firstParent.foodReserve, (firstParent === mother ? motherFood : fatherFood) - 7);
   assert.equal(secondParent.foodReserve, (secondParent === mother ? motherFood : fatherFood) - 5);
-  assert.equal(firstParent.energy, (firstParent === mother ? motherEnergy : fatherEnergy) - 11 * .55);
-  assert.equal(secondParent.energy, (secondParent === mother ? motherEnergy : fatherEnergy) - 8 * .55);
+  assert.equal(firstParent.energy, (firstParent === mother ? motherEnergy : fatherEnergy) - 11 * PERSON_ENERGY_COST_SCALE);
+  assert.equal(secondParent.energy, (secondParent === mother ? motherEnergy : fatherEnergy) - 8 * PERSON_ENERGY_COST_SCALE);
   assert.equal(mother.hydration, motherHydration - 2);
   assert.equal(father.hydration, fatherHydration - 2);
   assert.equal(mother.birthCooldown, 280);

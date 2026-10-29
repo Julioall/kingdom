@@ -2,8 +2,11 @@ import { AutoProcessor, pipeline, Qwen3_5ForConditionalGeneration, env } from '@
 import { StructuredOutputProcessor } from '@huggingface/transformers-structured-output';
 import { browserDecisionContextVariants, browserInputFitsTokenBudget, browserInputTokenBudget } from './browser-decision-context.js';
 import { buildKingdomStrategySystemPrompt } from './kingdom-strategy-prompt.js';
+import { browserDecisionFormat } from './browser-decision-format.js';
+import { medievalVoice, medievalObservations } from './medieval-voice.js';
 
-const MAX_NEW_TOKENS = 96;
+// Reserve room for the JSON envelope as well as a short Portuguese explanation.
+const MAX_NEW_TOKENS = 512;
 
 const GENERAL_SYSTEM_PROMPT = 'Você é o general de um reino simulado. Use somente os fatos observados da campanha. Uma unidade de alimento paga um dia para um soldado; os estoques e dias de ração são apresentados como números inteiros. Escolha exatamente um ID permitido. A simulação controla recursos, alvos e resultados; não invente informações nem emita ordens fora da lista. Responda com um único JSON contendo action, confidence e reason curta em português.';
 let generator = null;
@@ -115,26 +118,13 @@ async function ensureModel(model) {
   return loading;
 }
 
-function getDecisionSchema(candidateActions) {
-  return {
-    type: 'object',
-    properties: {
-      action: { type: 'string', enum: candidateActions },
-      confidence: { type: 'number', minimum: 0, maximum: 1 },
-      reason: { type: 'string', maxLength: 120 }
-    },
-    required: ['action', 'confidence', 'reason'],
-    additionalProperties: false
-  };
-}
-
 function getMessages(request, context = request.context) {
   const system = request.role === 'general'
     ? GENERAL_SYSTEM_PROMPT + ' Ações permitidas: ' + request.candidateActions.join(', ') + '.'
-    : buildKingdomStrategySystemPrompt(request.candidateActions);
+    : buildKingdomStrategySystemPrompt(request.candidateActions, { compact: true });
   return [
-    { role: 'system', content: system },
-    { role: 'user', content: JSON.stringify(context) }
+    { role: 'system', content: system + ' ' + medievalVoice(request.role) },
+    { role: 'user', content: JSON.stringify(medievalObservations(context)) }
   ];
 }
 
@@ -162,7 +152,8 @@ async function prepareBoundedQwenInputs(request, model) {
   for (const context of browserDecisionContextVariants(request)) {
     const prompt = currentProcessor.apply_chat_template(getMessages(request, context), {
       tokenize: false,
-      add_generation_prompt: true
+      add_generation_prompt: true,
+      enable_thinking: false
     });
     const inputs = await currentProcessor(prompt);
     const inputLength = inputs.input_ids?.dims?.at(-1) || 0;
@@ -179,10 +170,7 @@ async function prepareBoundedQwenInputs(request, model) {
 }
 
 function createSchemaProcessor(modelPipeline, request) {
-  return new StructuredOutputProcessor(getTokenizer(modelPipeline), {
-    type: 'json_schema',
-    json_schema: getDecisionSchema(request.candidateActions)
-  });
+  return new StructuredOutputProcessor(getTokenizer(modelPipeline), browserDecisionFormat(request.candidateActions));
 }
 
 async function loadFallbackModel(model) {

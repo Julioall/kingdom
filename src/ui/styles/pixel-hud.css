@@ -81,12 +81,33 @@
   outline:2px solid #f8dc8a;
   outline-offset:1px;
 }
+.left-panel .community-card .kingdom-card-body{min-width:0;width:100%}
+.left-panel .community-card .kingdom-card-stats{
+  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px;margin-top:6px;
+}
+.left-panel .community-card .kingdom-card-stat{
+  min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  padding:4px 2px;border:1px solid #c4a46b;background:#f4e5c3a8;text-align:center;
+}
+.left-panel .community-card .kingdom-card-stat small{
+  display:block;max-width:100%;overflow:hidden;color:#79572f;font:7px/1.1 var(--font-text);
+  text-overflow:ellipsis;white-space:nowrap;
+}
+.left-panel .community-card .kingdom-card-stat b{
+  display:block;max-width:100%;overflow:hidden;color:#493117;font:700 10px/1 ui-monospace,monospace;
+  font-variant-numeric:tabular-nums;text-overflow:ellipsis;white-space:nowrap;
+}
 .right-panel .note-card,.right-panel .data-row{
   border:6px solid transparent;
   border-image:url('/assets/kingdom-ui/paper.png') 64 fill / 6px / 0 stretch;
   border-radius:0;
   background:transparent;
   box-shadow:none;
+}
+
+/* The calendar stays in the HUD; realm resources now live on their realm cards. */
+@media(min-width:761px){
+  .topbar>.world-metrics{flex:1 1 0;justify-content:flex-end}
 }
 
 /* Forja blue/red pixel buttons already provide press and hover sprites.

@@ -12,7 +12,7 @@ export const AI_MODEL_MANIFEST = Object.freeze({
     modelId: 'onnx-community/Qwen3.5-0.8B-ONNX-OPT',
     revision: '9a4c21d8f724176b0a7edaaed36303044451886e',
     generationApi: 'qwen3_5',
-    contextTokens: 2048,
+    contextTokens: 4096,
     dtype: Object.freeze({
       embed_tokens: 'fp16',
       decoder_model_merged: 'q4f16',
@@ -22,7 +22,7 @@ export const AI_MODEL_MANIFEST = Object.freeze({
     fallbackDtype: Object.freeze({ embed_tokens: 'q4', decoder_model_merged: 'q4', vision_encoder: 'q4' }),
     approximateDownloadBytes: 1170000000,
     devicePreference: 'webgpu',
-    inferenceTimeoutMs: 30000,
+    inferenceTimeoutMs: 90000,
     cpuInferenceTimeoutMs: 90000,
     recoveryTimeoutMs: 120000
   }),

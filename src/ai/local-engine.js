@@ -1,6 +1,7 @@
 import { validateDecisionRequest } from './contracts.js';
 import { AI_MODEL_MANIFEST, getAiModelForRole } from './model-manifest.js';
 import { buildKingdomStrategySystemPrompt } from './kingdom-strategy-prompt.js';
+import { medievalVoice, medievalObservations } from './medieval-voice.js';
 
 const MODEL_ID = getAiModelForRole('king').model;
 const GENERAL_MODEL_ID = getAiModelForRole('general').model;
@@ -229,10 +230,10 @@ function decisionLabel(request, decision) {
       } else {
         response = await engine.chat.completions.create({
           messages: [
-            { role: 'system', content: request.role === 'general'
+            { role: 'system', content: (request.role === 'general'
               ? 'Você é o general de um reino simulado. Use apenas os fatos observados da campanha deste lado. Uma unidade de alimento paga um dia para um soldado; os estoques e dias de ração são apresentados como números inteiros. Escolha exatamente um ID permitido: ' + request.candidateActions.join(', ') + '. A simulação controla recursos, alvos e resultados; não invente informações nem emita ordens fora da lista. Responda com um único JSON contendo action, confidence e reason curta em português.'
-              : buildKingdomStrategySystemPrompt(request.candidateActions) },
-            { role: 'user', content: JSON.stringify(request.context) }
+              : buildKingdomStrategySystemPrompt(request.candidateActions)) + ' ' + medievalVoice(request.role) },
+            { role: 'user', content: JSON.stringify(medievalObservations(request.context)) }
           ],
           temperature: .1,
           max_tokens: requestModel?.selectedOutputTokens || 192,
