@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { buildKingdomStrategySystemPrompt } from '../src/ai/kingdom-strategy-prompt.js';
+import { AI_MODEL_MANIFEST } from '../src/ai/model-manifest.js';
 import {
   browserDecisionContextVariants,
   browserInputFitsTokenBudget,
@@ -87,4 +89,19 @@ test('browser model reserves output capacity before accepting the prompt length'
   assert.equal(browserInputFitsTokenBudget(0, inputBudget), false);
   assert.equal(browserInputTokenBudget(undefined, 96), null);
   assert.equal(browserInputTokenBudget(2048, 2048), null);
+});
+
+test('browser guidance leaves room for observations and 512 output tokens', () => {
+  const actions = kingRequest().candidateActions;
+  const full = buildKingdomStrategySystemPrompt(actions);
+  const compact = buildKingdomStrategySystemPrompt(actions, { compact: true });
+  assert.ok(compact.length < full.length / 2);
+  for (const action of actions) assert.ok(compact.includes(action));
+  for (const rule of ['pessoa-dias', '180 dias', '2 dias', '35', 'spent', 'lastRoyalOutcome', 'bloqueio', 'sementes']) {
+    assert.ok(compact.includes(rule), 'Missing decision rule: ' + rule);
+  }
+  const budget = browserInputTokenBudget(AI_MODEL_MANIFEST.browser.contextTokens, 512);
+  assert.equal(budget, 3584);
+  assert.equal(browserInputFitsTokenBudget(3584, budget), true);
+  assert.equal(browserInputFitsTokenBudget(3585, budget), false);
 });

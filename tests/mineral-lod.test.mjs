@@ -17,16 +17,17 @@ test('LOD never hides rare gold/silver or stone-only resources', () => {
   }
 });
 
-test('LOD is deterministic, independent of world seed or rendering order, and only affects visibility', () => {
+test('changing camera height preserves every common ore sprite without modifying reserves', () => {
   const deposits = Array.from({ length: 64 * 64 }, (_, i) => ({
     x: i % 64, y: Math.floor(i / 64), copper: 2, iron: 1
   }));
   const count = zoom => deposits.filter(item => shouldDrawMineralAtZoom(item, zoom)).length;
-  const atHalf = count(.5), atTwo = count(2), atFour = count(4);
-  assert.ok(atHalf > 0 && atHalf < atTwo && atTwo < atFour);
-  assert.equal(atHalf, deposits.length / 32, '50% overview samples 1 in 32 common ore sprites');
-  assert.equal(atTwo, deposits.length / 8, '200% inspection overview samples 1 in 8 common ore sprites');
-  assert.equal(atFour, deposits.length);
-  assert.equal(count(2), atTwo);
+  for (const zoom of [.5, .99, 1, 1.99, 2, 2.99, 3, 3.99, 4, 8, 16])
+    assert.equal(count(zoom), deposits.length, 'every vein stays visible at zoom ' + zoom);
   assert.deepEqual(deposits[0], { x: 0, y: 0, copper: 2, iron: 1 });
+});
+
+test('only exhausted deposits lose their mineral sprite', () => {
+  assert.equal(shouldDrawMineralAtZoom({ x: 5, y: 9, copper: 0, iron: 0 }, .5), false);
+  assert.equal(shouldDrawMineralAtZoom({ x: 5, y: 9, stone: 0 }, 8), false);
 });

@@ -6,19 +6,22 @@ import { updateKingdomMarkets } from '../src/simulation/kingdoms/initialization.
 import { mineralHitbox, resourceCollisionIndex } from '../src/simulation/physics/hitboxes.js';
 import { findTradePartner, marketHasTradeOpportunity, performTrade } from '../src/simulation/economy/trade.js';
 
-test('gold, silver and copper use exact 1:10:100 mineral-site spawn counts on seeded maps', () => {
+test('seeded maps create fewer, richer silver, copper and iron mineral sites', () => {
   for (const seed of [42, 2026]) {
     const world = createWorld(seed);
     const land = world.tiles.filter(tile => tile.terrain === 'land');
     const count = field => land.filter(tile => tile[field] > .05).length;
     const gold = count('goldOre');
     assert.ok(gold > 0, 'legacy gold sites remain present for seed ' + seed);
-    assert.equal(count('silverOre'), gold * 10, 'one silver deposit for each ten copper sites');
-    assert.equal(count('copperOre'), gold * 100, 'one gold deposit for each hundred copper sites');
+    assert.equal(count('silverOre'), gold * 2, 'two silver sites per rare gold site');
+    assert.equal(count('copperOre'), gold * 5, 'five copper sites per rare gold site');
+    assert.ok(land.filter(tile => tile.silverOre > .05).every(tile => tile.silverOre >= 6 && tile.silverOre < 20));
+    assert.ok(land.filter(tile => tile.copperOre > .05).every(tile => tile.copperOre >= 20 && tile.copperOre < 60));
     const trees = PLANTS.map((plant, i) => ['broadleaf', 'conifer'].includes(plant.id) ? i : -1).filter(i => i >= 0);
     const treeSites = land.filter(tile => trees.some(i => (tile.plants[i] || 0) > .01)).length;
     assert.ok(treeSites > 0);
-    assert.equal(count('ironOre'), treeSites, 'iron deposit frequency is comparable to tree sites');
+    assert.equal(count('ironOre'), Math.floor(Math.ceil(treeSites / 8) / 4), 'iron keeps a quarter of the original site count');
+    assert.ok(land.filter(tile => tile.ironOre > .05).every(tile => tile.ironOre >= 12 && tile.ironOre < 36));
     assert.ok(land.every(tile => tile.copperOre >= 0 && tile.silverOre >= 0 && tile.ironOre >= 0));
     const ironPatch = land.find(tile => tile.ironOre > .05
       && tile.goldOre <= .05 && tile.silverOre <= .05 && tile.copperOre <= .05

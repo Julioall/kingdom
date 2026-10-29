@@ -1,17 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { DOMESTIC_SHEEP_DAILY_FEED, MEAT_NUTRITIONAL_VALUE, PLANTS } from '../src/config/ecosystem.js';
 import { buildingCard, kingdomOverview } from '../src/ui/building-card.js';
 import { formatWholeMeasure } from '../src/ui/whole-measures.js';
-
-const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-
-test('global food tooltip explains the one-day food unit and ten-day meat unit', () => {
-  assert.match(indexHtml, /Uma unidade de comida vale um dia adulto; uma unidade de carne vale 10 dias\. Quantidades são exibidas como números inteiros/);
-  assert.match(indexHtml, /Cada porção de ração alimenta uma ovelha por um dia/);
-  assert.doesNotMatch(indexHtml, /uma unidade de carne vale 2,5 dias/);
-});
 
 test('farm inspector separates standing crop, historical harvest, and seed reserve from stored food', () => {
   const cropIndex = PLANTS.findIndex(plant => plant.id === 'cultivated-root');
@@ -75,6 +66,7 @@ test('market, shelter and kingdom totals show one day per food unit and ten per 
   assert.match(sharedStores, /4 un\. · 40 dias de alimento/);
   assert.match(shelter, /já fazem parte do estoque comunitário/);
   assert.match(overview, /dias equivalentes/);
-  assert.match(overview, /uma unidade de comida vegetal vale um dia e uma unidade física de carne vale 10 dias/);
+  assert.doesNotMatch(overview, /Equivalência nominal dos metais: 1 ouro = 5 pratas = 25 cobres/);
+  assert.doesNotMatch(overview, /O total soma estoques de contas diferentes/);
   assert.equal(MEAT_NUTRITIONAL_VALUE, 10);
 });

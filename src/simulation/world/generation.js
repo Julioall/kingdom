@@ -11,7 +11,8 @@ import { initializeKingdoms, INITIAL_MILITARY_ROSTER, INITIAL_POPULATION_PER_KIN
 import { recruitKingdomSoldier } from '../kingdoms/commands.js';
 import { updateMilitaryCommand } from '../kingdoms/military.js';
 import { generateIslandTerrain } from './island-terrain.js';
-import { seedAdditionalMinerals } from './mineral-distribution.js';
+import { seedAdditionalMinerals, relocateSettlementMinerals, reduceInitialMineralSites } from './mineral-distribution.js';
+import { clearWildVegetationNearCorrals } from '../ecology/corral-clearance.js';
 
 const MIN_INITIAL_ADULT_WORKERS_PER_KINGDOM = 9;
 
@@ -83,8 +84,8 @@ export function createWorld(seed) {
         goldOre: !water && hash01(cleanSeed + 53, x, y)
           < (spatialNoise(cleanSeed + 67, x, y, 12) > .66 ? .025 : .0005)
           ? 1 + hash01(cleanSeed + 59, x, y) * 2.5 : 0,
-        // Allocated after trees are seeded so iron can follow their abundance;
-        // precious-metal counts follow the 100 copper : 10 silver : 1 gold rule.
+        // Allocated after trees are seeded; the distribution pass creates sparse,
+        // richer veins relative to gold sites and tree-site abundance.
         copperOre: 0, silverOre: 0, ironOre: 0,
         surfaceWaterMm: water ? 24 : 0, plants, shade: 0, temperatureC: 18,
         rainfallMm: 0, waterDist, lakeId: waterKind === 'lake' ? lakes.reduce((best, lake, lakeId) =>
@@ -99,9 +100,12 @@ export function createWorld(seed) {
       id, temperatureC: 18, rainfallMm: 0, humidity: .55, weather: 'stable', dryDays: 0, meanMoisture: .4
     }));
     seedPlants(w);
-    seedAdditionalMinerals(w);
+    reduceInitialMineralSites(w);
     seedAnimals(w, { sheep: 24 });
     initializeKingdoms(w);
+    clearWildVegetationNearCorrals(w);
+    seedAdditionalMinerals(w);
+    relocateSettlementMinerals(w);
     addIndividuals(w, INITIAL_POPULATION_PER_KINGDOM * w.kingdoms.length, true);
     ensureInitialMilitaryRecruitmentPool(w);
     for (const kingdom of w.kingdoms) {

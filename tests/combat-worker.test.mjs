@@ -38,8 +38,15 @@ test('production Worker: determinism, real campaign contacts, pause, batching, r
   const attacker = base.kingdoms[0], defender = base.kingdoms[1];
   const target = base.structures.find(s => s.kingdomId === defender.id && s.type === 'torre' && s.complete && s.destroyedDay == null);
   assert.ok(target, 'scenario needs an intact enemy tower');
-  const ordered = await request('dispatch', { command: { type: 'attack-installation', kingdomId: attacker.id, structureId: target.id } });
-  assert.equal(ordered.type, 'snapshot'); assert.equal(ordered.result.ok, true, ordered.result.reason);
+  // Terrain and settlement changes can cause rulers to mobilize before day 48.
+  // Keep that real campaign when present instead of issuing an incompatible order.
+  const mobilized = base.campaigns.some(campaign =>
+    [campaign.attackerId, campaign.defenderId].includes(attacker.id)
+    && ['mobilizing', 'marching', 'engaged', 'withdrawing'].includes(campaign.status));
+  if (!mobilized) {
+    const ordered = await request('dispatch', { command: { type: 'attack-installation', kingdomId: attacker.id, structureId: target.id } });
+    assert.equal(ordered.type, 'snapshot'); assert.equal(ordered.result.ok, true, ordered.result.reason);
+  }
   let contacts = 0, seenCampaign = false;
   for (let i = 0; i < 12; i++) {
     result = await request('advance', { days: 12 }); assert.equal(result.type, 'snapshot');

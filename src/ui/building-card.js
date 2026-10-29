@@ -25,9 +25,7 @@ export function kingdomOverview(world, kingdom) {
     row('Com pouca água / energia', data.thirsty + ' / ' + data.tired) + row('Sem moradia', data.homeless) +
     row('Satisfação do reino', Math.round(data.satisfaction * 100) + '%') +
     row('Nascimentos / mortes', data.births + ' / ' + data.deaths + ' · desde o início') +
-    row('Incidentes de fronteira', incidents) + note('Equivalência nominal dos metais: 1 ouro = 5 pratas = 25 cobres. Isso não representa necessariamente moedas cunhadas ou saldo gastável; ferro é material físico e ainda não é custo de construção.') + note('O total soma estoques de contas diferentes, não a comida imediatamente acessível a um morador. O mercado geral sem vínculo não entra no total deste reino; uma unidade de comida vegetal vale um dia e uma unidade física de carne vale 10 dias. Reservas pessoais e biomassa ainda no campo não entram nesta soma.') +
-
-    '<details class="gameplay-details"><summary>Construções do reino</summary><div class="building-picker">' + world.structures.filter(s => s.kingdomId === kingdom.id && s.destroyedDay == null).map(s => '<button type="button" data-inspect-structure="' + s.id + '">' + esc(({ centro_militar: 'Centro militar', monasterio: 'Convento', arquearia: 'Arquearia', roça: 'Roça' })[s.type] || s.type.charAt(0).toUpperCase() + s.type.slice(1)) + '</button>').join('') + '</div></details>';
+    row('Incidentes de fronteira', incidents);
 }
 
 export function buildingCard(world, s) {
@@ -51,7 +49,10 @@ export function buildingCard(world, s) {
       row('Nascimentos neste curral', data.births) + row('Último nascimento', data.lastBirthDay == null ? 'Nenhum registrado' : 'Dia ' + data.lastBirthDay) +
       row('Ovelhas aptas à reprodução', data.breedingReady) + note('Nascimentos dependem de alimentação, energia e parceiro próximo; não há data de parto agendada.');
   } else if (s.type === 'castelo' && kingdom) {
-    html = kingdomOverview(world, kingdom);
+    html = row('Reino', kingdom.name) +
+      row('Moradores vinculados', living.filter(person => person.kingdomId === kingdom.id).length) +
+      row('Madeira / pedra no tesouro', fmt(kingdom.treasury.stock.wood) + ' / ' + fmt(kingdom.treasury.stock.stone)) +
+      row('Integridade', Math.round((s.integrity ?? 1) * 100) + '%');
   } else if (s.type === 'casa' || s.type === 'abrigo') {
     const residents = living.filter(p => (s.residentIds || []).includes(p.id));
     const capacity = Number.isFinite(s.capacity) ? s.capacity : s.type === 'abrigo' ? 13 : 0;

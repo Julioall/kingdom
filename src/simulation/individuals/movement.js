@@ -9,7 +9,7 @@ import { congestionRouteStep, rememberedRouteStep, rememberRouteArrival } from '
 import { peopleNear } from './spatial-index.js';
 import { consumePersonEnergy } from './energy.js';
 import { collidesWithWorldAt, hitboxesOverlap, mineralHitbox, npcHitbox, worldCollisionIndex } from '../physics/hitboxes.js';
-import { assignedHerdPen } from '../ecology/herd.js';
+import { assignedHerdPen, corralFenceRadius, herdPenRadius } from '../ecology/herd.js';
 
 const PASSAGE_BUSY_ACTIONS = new Set(['forage', 'hunt', 'deliver', 'drink', 'rest', 'build', 'gather',
   'collect_log', 'collect_feed', 'trade', 'capture_sheep', 'lead_sheep', 'raid', 'campaign']);
@@ -25,7 +25,7 @@ function resourceBlocksTile(w, tile) {
 }
 
 export function corralGate(w, structure, radiusOverride) {
-  const radius = Math.max(2, Math.round(radiusOverride || structure.radius || 3.5));
+  const radius = Math.max(2, Math.round(radiusOverride || corralFenceRadius(structure)));
   const centerX = Math.round(structure.x), centerY = Math.round(structure.y);
   const candidates = [];
   for (let offset = -radius; offset <= radius; offset++) {
@@ -60,7 +60,7 @@ export function corralGate(w, structure, radiusOverride) {
 
 function activeCorrals(w) {
   return w.structures.filter(structure => structure.complete && structure.type === 'curral').map(structure => {
-    const radius = Math.max(2, Math.round(structure.radius || 3.5));
+    const radius = corralFenceRadius(structure);
     return { structure, radius, gate: corralGate(w, structure, radius) };
   });
 }
@@ -73,6 +73,15 @@ function isCorralFenceCell(corrals, x, y) {
     if (onPerimeter && !(gate.x === x && gate.y === y)) return true;
   }
   return false;
+}
+
+function corralGateExitCell(corral) {
+  const centerX = Math.round(corral.structure.x), centerY = Math.round(corral.structure.y);
+  const outwardX = Math.abs(corral.gate.x - centerX) === corral.radius
+    ? Math.sign(corral.gate.x - centerX) : 0;
+  const outwardY = Math.abs(corral.gate.y - centerY) === corral.radius
+    ? Math.sign(corral.gate.y - centerY) : 0;
+  return { x: corral.gate.x + outwardX, y: corral.gate.y + outwardY };
 }
 
 function corralWaypoint(agent, target, corrals) {
@@ -97,9 +106,17 @@ function canEnter(w, agent, tile, aquatic, pen, corrals, movementOptions) {
   if (!aquatic && !canEnterForeignTerritory(w, agent, tile)) return false;
   if (movementOptions?.allowedTile && !movementOptions.allowedTile(tile)) return false;
   if (!aquatic && isCorralFenceCell(corrals, tile.x, tile.y)) return false;
+  if (pen && distance(tile, pen) > herdPenRadius(pen) && !movementOptions?.allowPenReturn) {
+    const penCorral = corrals.find(corral => corral.structure.id === pen.id);
+    const isGate = penCorral && tile.x === penCorral.gate.x && tile.y === penCorral.gate.y;
+    const exit = penCorral && corralGateExitCell(penCorral);
+    const isGateExit = penCorral && Math.round(agent.x) === penCorral.gate.x
+      && Math.round(agent.y) === penCorral.gate.y && tile.x === exit.x && tile.y === exit.y;
+    if (!isGate && !isGateExit) return false;
+  }
   if (!aquatic && movementOptions?.collisionIndex
       && collidesWithWorldAt(w, agent, tile.x, tile.y, movementOptions.collisionIndex)) return false;
-  return !pen || distance(tile, pen) <= (pen.radius || 3.5);
+  return true;
 }
 
 function canStep(w, agent, from, to, aquatic, pen, corrals, movementOptions) {
@@ -349,6 +366,10 @@ export function moveOne(w, agent, target, aquatic, movementOptions = null) {
     const current = { x: Math.round(agent.x), y: Math.round(agent.y) };
     const pen = agent.speciesId === 'sheep' && agent.herdCommunityId !== null
       ? assignedHerdPen(w, agent) : null;
+    const returningToPen = pen
+      && !insideCorral(agent.x, agent.y, pen, corralFenceRadius(pen))
+      && insideCorral(target.x, target.y, pen, corralFenceRadius(pen));
+    if (returningToPen) movementOptions.allowPenReturn = true;
     function stepToward(from, avoidPeople = true) {
       const canEnterAgent = tile => canEnter(w, agent, tile, aquatic, pen, corrals, movementOptions)
         && (!avoidPeople || aquatic || agent.speciesId != null || !personOnTile(w, tile, agent));

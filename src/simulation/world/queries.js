@@ -72,7 +72,6 @@ export function snapshot(w) {
     const people = w.people.filter(p => p.alive);
     const soldiers = people.filter(person => person.role === 'soldier');
     const meanFoodReserve = people.length ? people.reduce((sum, p) => sum + p.foodReserve, 0) / people.length : 0;
-    const foodRiskPeople = people.filter(p => p.foodReserve < 30).length;
     const criticalFoodPeople = people.filter(p => p.foodReserve < 12).length;
     const propertyCount = groups.reduce((sum, community) => sum + (community.properties || []).length, 0);
     const activeCampaigns = (w.campaigns || []).filter(campaign => ['mobilizing', 'marching', 'engaged', 'withdrawing'].includes(campaign.status));
@@ -125,9 +124,8 @@ export function snapshot(w) {
       harvests: Object.assign({}, w.harvests), goodHuntingCells, goodFishingCells,
       ecologyFlows: Object.assign({}, w.ecologyFlows),
       plantBiomass, edibleBiomass, humanFoodBiomass, plantCover: plantCover / w.tiles.length, plantCounts,
-      meanFoodReserve, foodRiskPeople, criticalFoodPeople,
+      meanFoodReserve, criticalFoodPeople,
       soilMoisture: cells ? soilWater / cells : 0,
-      rainfallMm: w.regions.reduce((s, r) => s + r.rainfallMm, 0) / w.regions.length,
       dryRegions: w.regions.filter(r => r.dryDays > 16).length,
       speciesPlants: Object.values(plantCounts).filter(n => n > 0).length,
       speciesAnimals: Object.values(animalCounts).filter(n => n > 0).length

@@ -21,6 +21,7 @@ import {
   AI_DECISION_CONTRACT_VERSION, validateDecisionAction, validateDecisionResult
 } from '../../ai/contracts.js';
 import { stripAbsoluteCalendarFields } from '../../ai/observations.js';
+import { observedKingdomDirection } from '../../ai/medieval-voice.js';
 import {
   createFormation, formationSlot, measureFormation, recordFormationBlockedMove,
   setFormationDestination, setFormationState, setFormationType
@@ -879,7 +880,7 @@ function generalObservedFacts(world, campaign, side, day) {
     kingdom: { id: side.kingdomId, name: kingdom?.name || 'reino' },
     campaign: {
       id: campaign.id, status: campaign.status, startedDay: campaign.startedDay,
-      target: { ...campaign.target }, cause: campaign.cause, battleCount: campaign.battleCount,
+      target: { ...campaign.target, directionFromKingdom: observedKingdomDirection(campaign.target, kingdom) }, cause: campaign.cause, battleCount: campaign.battleCount,
       lastBattleDay: campaign.lastBattleDay
     },
     side: {

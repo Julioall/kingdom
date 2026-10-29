@@ -1,13 +1,6 @@
-// Rendering-only level of detail. Deposits remain in the simulation, are
-// always inspectable/minable, and reappear when zooming in. Never sample
-// rare gold/silver or a deposit currently being mined.
+// Camera height must not hide live resources. Spatial viewport culling still
+// removes off-screen objects, but zoom never samples or removes visible veins.
 export function shouldDrawMineralAtZoom(item, zoom, highlighted = false) {
-  if (highlighted || (item.gold || 0) > .05 || (item.silver || 0) > .05) return true;
-  // Stone-only tiles do not contribute to the dense yellow ore overlay.
-  if (Math.max(item.copper || 0, item.iron || 0) <= .05) return true;
-  if (!Number.isFinite(zoom) || zoom >= 4) return true;
-  const sampleRate = zoom < 1 ? 32 : zoom < 2 ? 16 : zoom < 3 ? 8 : 4;
-  const hash = (Math.imul(Math.floor(item.x), 73856093)
-    ^ Math.imul(Math.floor(item.y), 19349663)) >>> 0;
-  return hash % sampleRate === 0;
+  return (item.stone || 0) > .7
+    || Math.max(item.gold || 0, item.silver || 0, item.copper || 0, item.iron || 0) > .05;
 }

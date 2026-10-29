@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createWorld } from '../src/simulation/world/generation.js';
 import { gatherMaterials } from '../src/simulation/individuals/actions.js';
-import { carriedResources, moveCarriedResource } from '../src/simulation/economy/inventories.js';
+import { collectLoot } from '../src/simulation/economy/loot.js';
+import { moveCarriedResource } from '../src/simulation/economy/inventories.js';
 import { mineralHitbox } from '../src/simulation/physics/hitboxes.js';
 import { resourceSummary } from '../src/ui/gameplay-data.js';
 import {
@@ -49,7 +50,7 @@ test('seeded terrain creates finite separate copper, silver and iron deposits wi
   'new mineral stocks begin empty rather than being issued for free');
 });
 
-test('each ore moves exactly once from finite deposit to carried cargo to community stock', () => {
+test('each ore moves exactly once from finite deposit through ground fragments and cargo to stock', () => {
   const world = createWorld(42);
   const community = world.communities[0];
   for (const metal of ['copper', 'silver', 'iron']) {
@@ -59,7 +60,7 @@ test('each ore moves exactly once from finite deposit to carried cargo to commun
     assert.ok(tile, metal + ' should have a mineable tile');
     const oreBefore = tile[field], stockBefore = community.stores[metal] || 0;
     const person = {
-      x: tile.x, y: tile.y, name: 'Mineiro',
+      x: tile.x, y: tile.y, name: 'Mineiro', alive: true,
       skills: { gather: .5 }, energy: 90, hydration: 90,
       carriedFood: 0, carriedFruit: 0, carriedMeat: 0, carriedMaterial: 0,
       carriedWood: 0, carriedStone: 0, carriedFeed: 0, carriedGold: 0,
@@ -73,14 +74,18 @@ test('each ore moves exactly once from finite deposit to carried cargo to commun
     };
     const hitbox = mineralHitbox(tile);
     assert.ok(hitbox, metal + ' must create a mining collision hitbox');
-    const gathered = gatherMaterials(world, person, null);
-    assert.ok(gathered > .01 && gathered <= oreBefore, metal + ' is physically mined');
-    assert.ok(Math.abs(tile[field] + person[carried] - oreBefore) < 1e-7,
-      metal + ' deposit-to-cargo conservation');
-    assert.ok(carriedResources(person) >= gathered - 1e-7);
-    const delivered = moveCarriedResource(person, carried, community, metal, gathered);
-    assert.ok(Math.abs(delivered - gathered) < 1e-7);
+    for (let step = 0; tile[field] > 0 && step < 100; step++) gatherMaterials(world, person, null);
+    assert.equal(tile[field], 0);
+    assert.equal(person[carried], 0, 'breaking a deposit never puts ore directly in cargo');
+    const fragments = world.loot.filter(pile => pile.sourceTileIndex === tile.i && pile.mineralKind === metal);
+    assert.equal(fragments.length, Math.ceil(oreBefore));
+    assert.ok(Math.abs(fragments.reduce((sum, pile) => sum + pile.resources[metal], 0) - oreBefore) < 1e-7);
+    for (const pile of fragments) {
+      if (pile.available) collectLoot(world, person, pile);
+      moveCarriedResource(person, carried, community, metal, person[carried]);
+    }
     assert.equal(person[carried], 0);
+    assert.ok(fragments.every(pile => !pile.available));
     assert.ok(Math.abs(tile[field] + community.stores[metal] - oreBefore - stockBefore) < 1e-7,
       metal + ' deposit-to-stock conservation');
   }
