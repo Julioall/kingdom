@@ -689,3 +689,18 @@ button:disabled{cursor:url('/assets/kingdom-ui/Cursor_03.png') 32 32,not-allowed
   .brand-art{width:42px;height:42px}
   .brand-emblem{object-position:center;filter:drop-shadow(0 2px 3px #050806a8)}
 }
+
+/* game-ui-frontend: reserve the map for play; reveal only a critical food warning. */
+.map-tags.has-alert{display:flex}
+.map-tags.has-alert:not(.is-open)>.map-tag:not(.pressure){display:none}
+
+/* Compact mobile HUD: one horizontal metrics strip instead of a three-row header. */
+@media(max-width:760px){
+  .topbar{height:auto;min-height:0;grid-template-rows:40px 36px;align-content:center}
+  .world-metrics{grid-column:1/-1;display:flex;align-items:center;gap:4px;min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;overscroll-behavior-x:contain}
+  .world-metrics .metric{flex:0 0 auto;min-height:32px;padding:3px 6px}
+  .world-metrics .date-metric{grid-column:auto;flex:0 0 auto;max-width:none;padding-inline:7px;border:1px solid #795a33;background:#2a2118;color:#f0dcac}
+  .world-metrics .date-metric .season-label{margin-left:3px}
+  .map-tags.has-alert{top:10px;left:150px;right:7px;max-width:calc(100% - 157px)}
+  .map-tags.has-alert>.pressure{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+}
