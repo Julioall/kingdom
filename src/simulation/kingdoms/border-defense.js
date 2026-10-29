@@ -56,8 +56,20 @@ export function observeTowerIntruders(world, tower, archer, day) {
       severity: group.length > 1 ? 'group-incursion' : 'intruder',
       confidence: 'observação direta'
     };
+    const generalIds = new Set(kingdom.militaryCommand?.generalIds || []);
+    const generals = (world.people || []).filter(person => person.alive
+      && person.kingdomId === kingdom.id && person.role === 'soldier'
+      && (generalIds.has(person.id) || person.militaryRank === 'general'));
+    report.notifiedGeneralIds = generals.map(person => person.id).sort((a, b) => a - b);
     kingdom.militaryIntel = [...(kingdom.militaryIntel || []), report].slice(-48);
-    kingdom.frontierAlert = report; // The general receives intelligence, never an automatic mobilization order.
+    kingdom.frontierAlert = report; // Intelligence, not an automatic army-wide campaign.
+    for (const general of generals) {
+      general.lastBorderAlert = {
+        reportId: report.id, day, towerId: tower.id, location: { ...report.location },
+        intruderCount: report.intruderCount, soldiersObserved: report.soldiersObserved,
+        civiliansObserved: report.civiliansObserved, opponentId
+      };
+    }
     reports.push(report);
     log(world, kingdom.name + ': alarme da torre! '
       + group.length + (group.length === 1 ? ' intruso' : ' intrusos')
