@@ -222,3 +222,31 @@ test('a single foreign civilian draws at most one local patrol without mobilizin
     'one trespasser may not activate an entire garrison');
   assert.equal(world.campaigns.length, before);
 });
+
+test('a notified general leads one local response to a reported civilian and records the proportional decision', () => {
+  const { world, home, enemyKingdom, guard, intruder, day } = defenseFixture({
+    enemyRole: 'resident', guardClass: 'guerreiro', distance: 5
+  });
+  guard.militaryRank = 'general';
+  home.militaryCommand = { generalIds: [guard.id], units: [] };
+  const report = {
+    id: 'tower:77:1', kind: 'tower-intrusion', day, opponentId: enemyKingdom.id,
+    intruderIds: [intruder.id], notifiedGeneralIds: [guard.id], intruderCount: 1,
+    civiliansObserved: 1, soldiersObserved: 0
+  };
+  home.frontierAlert = report;
+
+  const responses = respondToLocalThreats(world, day);
+
+  assert.deepEqual(responses.map(item => [item.soldierId, item.targetId, item.action]),
+    [[guard.id, intruder.id, 'intercept']]);
+  assert.deepEqual(home.militaryCommand.lastFrontierResponse, {
+    kind: 'proportional-local-defense', reportId: report.id, day,
+    generalId: guard.id, targetId: intruder.id, action: 'intercept',
+    defendersAssigned: 1, defenderLimit: 1
+  });
+  assert.equal(world.campaigns.length, 0, 'a local general response does not start a campaign');
+
+  cellAt(world, intruder.x, intruder.y).kingdomId = enemyKingdom.id;
+  assert.deepEqual(respondToLocalThreats(world, day + 1), [], 'the general stops responding after the intruder leaves');
+});
