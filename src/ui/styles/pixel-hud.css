@@ -12,6 +12,7 @@
 /* The existing tiny-swords/Forja imagery is nearest-neighbour everywhere. */
 .brand-art img,
 .world-rail button,
+.world-metrics .resource-metric,
 .world-metrics .resource-metric img,
 .world-metrics .stat-symbol,
 .map-tags .map-tag,
