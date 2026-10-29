@@ -869,7 +869,7 @@ button:disabled{cursor:url('/assets/kingdom-ui/Cursor_03.png') 32 32,not-allowed
   .world-rail:has(#journalToggle[aria-expanded="true"]) #kingdomsToggle{min-height:48px;height:48px}
   .left-panel{top:42px;left:7px;right:auto;bottom:auto;width:min(330px,calc(100vw - 14px));max-height:min(58dvh,470px)}
 .left-panel .panel-scroll{max-height:calc(min(58dvh,440px) - 22px);margin:8px 10px 14px;padding:50px 11px;overflow-x:hidden;overflow-y:auto;scrollbar-gutter:stable}
-  .journal-panel{top:42px;left:7px;right:7px;bottom:8px;width:auto;max-height:none}
+  .journal-panel{top:42px;left:7px;right:7px;bottom:72px;width:auto;max-height:none}
   .journal-panel .event-list{margin:8px 10px 14px;padding:50px 11px;max-height:none;scroll-padding-block:50px}
   .right-panel{width:calc((100vw - 65px)*.8)}
 }
