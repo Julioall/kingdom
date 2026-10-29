@@ -226,10 +226,13 @@ export function respondToLocalThreats(world, day = world.day + 1) {
   const people = world.people || [];
   const responders = people.filter(person => person.alive && person.role === 'soldier'
     && person.kingdomId != null && person.health >= 28 && person.restingStructureId == null
-    && person.militaryRestTargetId == null && !isCombatDisarmed(person, day)
+    && person.militaryRestTargetId == null && !person.towerMounted && !isCombatDisarmed(person, day)
     && (person.stamina ?? 100) >= 16)
     .sort((a, b) => a.id - b.id);
   const responses = [];
+  const assigned = new Map();
+  // Intruder response is local: at most one guard for a civilian, two for a soldier.
+  // A tower watcher has already handled its own targets without moving.
   for (const soldier of responders) {
     const homeTile = cellAt(world, soldier.x, soldier.y);
     if (homeTile?.kingdomId !== soldier.kingdomId) continue;
@@ -237,9 +240,9 @@ export function respondToLocalThreats(world, day = world.day + 1) {
       && candidate.restingStructureId == null
       && isCombatTargetEligible(world, soldier, candidate, day)
       && cellAt(world, candidate.x, candidate.y)?.kingdomId === soldier.kingdomId
-      && distance(soldier, candidate) <= 12)
-      .sort((a, b) => Number(isCombatTargetEligible(world, soldier, b, day) && b.role !== 'soldier')
-        - Number(isCombatTargetEligible(world, soldier, a, day) && a.role !== 'soldier')
+      && distance(soldier, candidate) <= 12
+      && (assigned.get(candidate.id) || 0) < (candidate.role === 'soldier' ? 2 : 1))
+      .sort((a, b) => Number(b.role === 'soldier') - Number(a.role === 'soldier')
         || distance(soldier, a) - distance(soldier, b) || a.id - b.id);
     const threat = threats[0];
     if (!threat) continue;
@@ -250,6 +253,7 @@ export function respondToLocalThreats(world, day = world.day + 1) {
         allowedTile: tile => tile.kingdomId === soldier.kingdomId,
         preferRoads: true
       })) {
+        assigned.set(threat.id, (assigned.get(threat.id) || 0) + 1);
         soldier.state = 'interceptando invasor no território';
         soldier.lastLesson = 'A patrulha observou uma ameaça dentro do reino e avançou sem cruzar a fronteira.';
         responses.push({ soldierId: soldier.id, targetId: threat.id, action: 'intercept' });
@@ -257,6 +261,7 @@ export function respondToLocalThreats(world, day = world.day + 1) {
       continue;
     }
     const healthBefore = threat.health;
+    assigned.set(threat.id, (assigned.get(threat.id) || 0) + 1);
     fightTacticalRound(world, [soldier], [threat], day);
     if (threat.health < healthBefore || !threat.alive) {
       responses.push({ soldierId: soldier.id, targetId: threat.id, action: 'engage' });
