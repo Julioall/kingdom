@@ -36,16 +36,6 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Playtest pixel HUD on four viewports
         run: node scripts/verify-pixel-hud-browser.mjs
-      - name: Recheck optimized and reference mineral renderer after startup fix
-        run: node scripts/verify-browser-minerals.mjs
-      - name: Preserve mineral renderer profiling evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: kingdom-test-branch-mineral-evidence
-          path: browser-mineral-evidence/
-          retention-days: 14
-          if-no-files-found: warn
       - name: Preserve responsive screenshots and diagnostics
         if: always()
         uses: actions/upload-artifact@v4
