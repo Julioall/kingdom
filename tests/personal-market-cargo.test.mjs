@@ -83,6 +83,75 @@ test('resident sells only loaded wood to finite local market and buys actual foo
   assert.deepEqual(person.tradeLedger.history[1].market.delta, { food: -4, gold: 4 });
 });
 
+test('resident sells only surplus carried food while preserving personal and cargo reserves', () => {
+  const { world, community, person, market } = fixture();
+  person.carriedWood = 12;
+  person.carriedFood = 20;
+  person.foodReserve = 70;
+  market.stock.food = 20;
+  const communityBefore = structuredClone(community.stores);
+  const physicalFoodBefore = market.stock.food + community.stores.food + person.carriedFood;
+  const physicalGoldBefore = market.stock.gold + person.personalWallet.stock.gold;
+
+  const offer = findTradePartner(world, community, person);
+  assert.equal(offer?.isMarket, true);
+  assert.equal(performTrade(world, person, community, offer), true);
+
+  assert.equal(person.carriedFood, 16, 'twelve units remain reserved in the worker’s cargo');
+  assert.equal(person.foodReserve, 70, 'selling cargo does not debit the worker’s personal reserve');
+  assert.equal(person.personalWallet.stock.gold, 2);
+  assert.equal(market.stock.food, 24);
+  assert.equal(market.stock.gold, 18);
+  assert.equal(market.stock.food + community.stores.food + person.carriedFood, physicalFoodBefore);
+  assert.equal(market.stock.gold + person.personalWallet.stock.gold, physicalGoldBefore);
+  assert.deepEqual(community.stores, communityBefore, 'personal sale does not take food from shared stores');
+  assert.equal(person.tradeLedger.history[0].action, 'sell-food');
+  assert.deepEqual(person.tradeLedger.history[0].participants[0].delta,
+    { carriedFood: -4, walletGold: 2 });
+  assert.deepEqual(person.tradeLedger.history[0].market.delta, { food: 4, gold: -2 });
+});
+
+test('personal food sales stop when survival reserves or market payment are insufficient', () => {
+  for (const setupCase of [
+    { foodReserve: 41, carriedFood: 24, gold: 20 },
+    { foodReserve: 70, carriedFood: 12, gold: 20 },
+    { foodReserve: 70, carriedFood: 24, gold: 0 }
+  ]) {
+    const { world, community, person, market } = fixture();
+    person.carriedWood = 12;
+    person.carriedFood = setupCase.carriedFood;
+    person.foodReserve = setupCase.foodReserve;
+    market.stock.food = 20;
+    market.stock.gold = setupCase.gold;
+    const before = structuredClone({ person, market: market.stock, community: community.stores });
+    assert.equal(findTradePartner(world, community, person), null);
+    assert.deepEqual({ person, market: market.stock, community: community.stores }, before);
+  }
+});
+
+test('coin-mode personal food sale transfers whole coins from the funded local market', () => {
+  const { world, community, person, market } = fixture();
+  person.carriedWood = 12;
+  person.carriedFood = 20;
+  person.foodReserve = 70;
+  person.personalWallet.stock = { gold: 0, silver: 0, copper: 0, coinMode: true };
+  market.stock.food = 20;
+  const valueBefore = market.stock.gold * 100 + person.personalWallet.stock.gold * 100
+    + person.personalWallet.stock.silver * 10 + person.personalWallet.stock.copper;
+
+  const offer = findTradePartner(world, community, person);
+  assert.equal(offer?.isMarket, true);
+  assert.equal(performTrade(world, person, community, offer), true);
+
+  assert.equal(person.carriedFood, 16);
+  assert.equal(person.personalWallet.stock.gold, 2);
+  assert.equal(market.stock.gold, 18);
+  assert.deepEqual(person.tradeLedger.history[0].pricing.tender,
+    { copper: 0, silver: 0, gold: 2 });
+  assert.equal(market.stock.gold * 100 + person.personalWallet.stock.gold * 100
+    + person.personalWallet.stock.silver * 10 + person.personalWallet.stock.copper, valueBefore);
+});
+
 test('no gold, product, valid price or available carry reserve means no personal creation', () => {
   const { world, community, person, market } = fixture();
   person.carriedWood = 12;
