@@ -3160,9 +3160,6 @@ export function mountGame() {
       $('settingsTray').hidden = true; $('settingsToggle').setAttribute('aria-expanded', 'false');
       showRight = false;
       $('rightPanel').classList.remove('is-open');
-    } else if (selection) {
-      showRight = true;
-      $('rightPanel').classList.add('is-open');
     }
     syncPanelAccess();
   };
@@ -3178,7 +3175,6 @@ export function mountGame() {
   };
   $('kingdomsToggle').addEventListener('click', () => setKingdomPanel(!showLeft));
   $('settingsToggle').addEventListener('click', () => setSettingsPanel($('settingsTray').hidden));
-  $('settingsClose').addEventListener('click', () => setSettingsPanel(false));
   const setJournalPanel = open => {
     const panel = $('journal');
     if (open) { setKingdomPanel(false); setSettingsPanel(false); showRight = false; $('rightPanel').classList.remove('is-open'); }
@@ -3187,14 +3183,18 @@ export function mountGame() {
   };
   $('journalToggle').addEventListener('click', () => setJournalPanel($('journal').hidden));
   document.addEventListener('pointerdown', event => {
-    if (!$('journal').hidden && !$('journal').contains(event.target)
-      && !$('journalToggle').contains(event.target)) setJournalPanel(false);
-    if (showLeft && !$('leftPanel').contains(event.target)
-      && !$('kingdomsToggle').contains(event.target)) setKingdomPanel(false);
-  });
-  $('rightClose').addEventListener('click', () => {
-    showRight = false; $('rightPanel').classList.remove('is-open');
-    syncPanelAccess();
+    const target = event.target;
+    if (!$('journal').hidden && !$('journal').contains(target)
+      && !$('journalToggle').contains(target)) setJournalPanel(false);
+    if (showLeft && !$('leftPanel').contains(target)
+      && !$('kingdomsToggle').contains(target)) setKingdomPanel(false);
+    if (!$('settingsTray').hidden && !$('settingsTray').contains(target)
+      && !$('settingsToggle').contains(target)) setSettingsPanel(false);
+    if (showRight && !$('rightPanel').contains(target)) {
+      showRight = false;
+      $('rightPanel').classList.remove('is-open');
+      syncPanelAccess();
+    }
   });
   window.addEventListener('keydown', event => {
 

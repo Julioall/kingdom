@@ -81,10 +81,13 @@ try {
             const panel = document.getElementById(id);
             const heading = panel?.querySelector(':scope > .panel-heading, :scope > .utility-heading');
             const ribbon = heading?.querySelector(':scope > .panel-ribbon');
+            const panelBounds = panel?.getBoundingClientRect();
             const headingBounds = heading?.getBoundingClientRect();
             const ribbonBounds = ribbon?.getBoundingClientRect();
             const title = heading?.querySelector('h2');
             return { id, color: ribbon?.dataset.ribbonColor, slices: ribbon?.children.length,
+              centerHeight: ribbon?.children[1] ? Math.round(ribbon.children[1].getBoundingClientRect().height) : 0,
+              headingOffset: panelBounds && headingBounds ? Math.round(headingBounds.top - panelBounds.top) : null,
               title: title?.textContent.trim(), titleVisible: !!title && getComputedStyle(title).display !== 'none',
               titleColor: title && getComputedStyle(title).color,
               ribbonFillsHeading: !!headingBounds && !!ribbonBounds && Math.abs(headingBounds.left - ribbonBounds.left) < 1
@@ -104,6 +107,11 @@ try {
               closedTitleWidth: getComputedStyle(button?.querySelector('.rail-title')).maxWidth };
           }),
           inspectorWidth: Math.round(document.querySelector('#rightPanel').getBoundingClientRect().width),
+          kingdomScrollInset: (() => {
+            const panel = document.querySelector('#leftPanel').getBoundingClientRect();
+            const scroll = document.querySelector('#leftPanel .panel-scroll').getBoundingClientRect();
+            return { left: scroll.left - panel.left, right: panel.right - scroll.right };
+          })(),
           modalPadding: ['.left-panel .panel-scroll', '#events', '#inspector', '.utility-content'].map(selector => {
             const style = getComputedStyle(document.querySelector(selector));
             return { top: parseFloat(style.paddingTop), bottom: parseFloat(style.paddingBottom) };
@@ -136,15 +144,20 @@ try {
         && Math.abs(ribbon.sliceHeights[1] - (ribbon.sliceHeights[0] * .79 - 2)) <= 1), 'Ribbon center is 2px shorter than the previous 79% height');
       assert.ok(sample.railRibbons.every(ribbon => Number.parseFloat(ribbon.sliceGap) === 0), 'Ribbon pieces connect without gaps');
       assert.deepEqual(sample.railRibbons.map(ribbon => ribbon.label), ['Reinos', 'Crônicas'], 'Icon-only ribbons keep accessible names');
-      assert.ok(sample.modalPadding.every(padding => padding.top >= 50 && padding.bottom >= 50), 'Every parchment body has 50px top and bottom breathing room');
+      assert.ok(sample.modalPadding.every(padding => padding.top >= 8 && padding.bottom >= 50), 'Parchment bodies keep a compact top gap and 50px bottom clearance');
       const maxInspectorWidth = viewport.width <= 760 ? (viewport.width - 65) * .8 + 1 : 307;
       assert.ok(sample.inspectorWidth <= maxInspectorWidth, 'Inspector is 20% narrower and leaves zoom controls clear');
+      assert.ok(sample.kingdomScrollInset.left >= 8 && sample.kingdomScrollInset.right >= 8,
+        'Kingdom scroll viewport stays inside the parchment frame');
+      assert.ok(sample.panelRibbons[0].centerHeight === Math.round(50 * .79 - 2)
+        && sample.panelRibbons[0].headingOffset <= 6, 'Selection ribbon uses the short center and sits higher on the parchment');
       if (viewport.width <= 760) assert.ok(sample.topbarHeight <= 100, 'Mobile HUD should leave map height available');
       scenario.checks.push('Forja sprites / map stage rendered');
       await page.screenshot({ path: resolve(directory, viewport.label + '-world.png'), timeout: 45_000 });
       await page.locator('#kingdomsToggle').click();
       await page.waitForFunction(() => document.querySelector('#leftPanel')?.inert === false);
       assert.equal(await page.locator('#leftPanel').getAttribute('aria-hidden'), 'false');
+      assert.equal(await page.locator('#leftPanel .panel-heading button').count(), 0, 'Kingdom panel has no close button');
       await page.waitForFunction(() => {
         const title = document.querySelector('#kingdomsToggle .rail-title');
         return title && title.getBoundingClientRect().width > 0;
@@ -186,6 +199,7 @@ try {
       await page.locator('#journalToggle').click();
       assert.equal(await page.locator('#journal').isVisible(), true);
       assert.equal(await page.locator('#journal').getAttribute('data-ui-skin'), 'scroll');
+      assert.equal(await page.locator('#journal .panel-heading button').count(), 0, 'Chronicles panel has no close button');
       assert.ok(Number.parseFloat(await page.locator('#journalToggle .rail-title').evaluate(el => getComputedStyle(el).maxWidth)) > 0,
         'Expanded chronicles ribbon shows its title');
       await page.waitForTimeout(500);
@@ -212,15 +226,30 @@ try {
       assert.ok(journalBounds.contentScrollWidth <= journalBounds.contentWidth, 'Chronicles text wraps inside its scroll');
       assert.ok(journalBounds.paddingTop >= 50 && journalBounds.paddingBottom >= 50, 'Chronicles has at least 50px clearance at both ends');
       await page.screenshot({ path: resolve(directory, viewport.label + '-chronicles.png'), timeout: 45_000 });
+      await page.locator('.date-metric').click();
+      assert.equal(await page.locator('#journal').isVisible(), false);
+      scenario.checks.push('Chronicles modal closes on outside click');
+      await page.locator('#journalToggle').click();
+      assert.equal(await page.locator('#journal').isVisible(), true);
       await page.locator('#journalToggle').click();
       assert.equal(await page.locator('#journal').isVisible(), false);
-      scenario.checks.push('Chronicles modal opens and closes by toggling its ribbon');
+      scenario.checks.push('Chronicles modal also closes by toggling its ribbon');
       await page.locator('#settingsToggle').click();
       assert.equal(await page.locator('#settingsTray').isVisible(), true);
       assert.equal(await page.locator('#settingsTray').getAttribute('data-ui-skin'), 'scroll');
-      await page.locator('#settingsClose').click();
+      assert.equal(await page.locator('#settingsTray .utility-heading button').count(), 0, 'Settings has no close button');
+      const settingsRibbonLayout = await page.evaluate(() => {
+        const panel = document.querySelector('#settingsTray');
+        const ribbon = panel.querySelector('.panel-ribbon');
+        return { centerHeight: Math.round(ribbon.children[1].getBoundingClientRect().height),
+          headingOffset: Math.round(panel.querySelector('.utility-heading').getBoundingClientRect().top - panel.getBoundingClientRect().top) };
+      });
+      assert.equal(settingsRibbonLayout.centerHeight, Math.round(50 * .79 - 2), 'Settings ribbon uses the short center slice');
+      assert.ok(settingsRibbonLayout.headingOffset <= 6, 'Settings ribbon sits higher on the parchment');
+      await page.screenshot({ path: resolve(directory, viewport.label + '-settings.png'), timeout: 45_000 });
+      await page.locator('.date-metric').click();
       assert.equal(await page.locator('#settingsTray').isVisible(), false);
-      scenario.checks.push('Settings modal opens and closes from its close button');
+      scenario.checks.push('Settings modal closes on outside click');
       await page.locator('#kingdomsToggle').click();
       await page.locator('#kingdomList [data-kingdom]').first().click();
       await page.waitForFunction(() => document.querySelector('#rightPanel')?.classList.contains('is-open'));
@@ -231,8 +260,20 @@ try {
       assert.equal(await page.locator('#inspector details').count(), 0, 'Realm cards do not list or route to construction cards');
       assert.doesNotMatch(await page.locator('#inspector').innerText(), /ordens militares|construções do reino|construção e defesa/i,
         'Realm cards stay focused on realm information');
-      await page.locator('#rightClose').click();
+      assert.equal(await page.locator('#rightPanel .panel-heading button').count(), 0, 'Inspector has no close button');
+      await page.screenshot({ path: resolve(directory, viewport.label + '-inspector.png'), timeout: 45_000 });
+      await page.locator('.date-metric').click();
       await page.waitForFunction(() => document.querySelector('#rightPanel')?.inert === true);
+      await page.locator('#kingdomsToggle').click();
+      await page.locator('#kingdomsToggle').click();
+      await page.waitForFunction(() => document.querySelector('#leftPanel')?.inert === true);
+      assert.equal(await page.locator('#rightPanel').getAttribute('aria-hidden'), 'true',
+        'Closing Kingdoms does not reopen the prior inspector selection');
+      await page.locator('#kingdomsToggle').click();
+      await page.locator('.date-metric').click();
+      await page.waitForFunction(() => document.querySelector('#leftPanel')?.inert === true);
+      await page.waitForFunction(() => document.querySelector('#rightPanel')?.inert === true);
+      scenario.checks.push('Kingdoms closes outside without reopening a stale inspector selection');
       await page.locator('#kingdomsToggle').click();
       await page.locator('#kingdomList [data-kingdom]').nth(1).click();
       assert.equal(await page.locator('#rightPanel .panel-ribbon').getAttribute('data-ribbon-color'), 'red',
@@ -247,9 +288,9 @@ try {
         && inspectorLayout.panel.top < inspectorLayout.zoom.bottom
         && inspectorLayout.panel.bottom > inspectorLayout.zoom.top;
       assert.equal(overlapsZoom, false, 'Inspector must leave the zoom controls unobstructed');
-      await page.locator('#rightClose').click();
+      await page.locator('.date-metric').click();
       await page.waitForFunction(() => document.querySelector('#rightPanel')?.inert === true);
-      scenario.checks.push('Selection inspector uses parchment and its close button');
+      scenario.checks.push('Selection inspector uses parchment and closes on outside click');
       assert.deepEqual(errors, [], 'JavaScript page errors');
       assert.ok(!issues.some(x => /\/assets\/kingdom-ui\//.test(x)), 'Missing Forja UI assets');
       await page.close(); page = undefined;
