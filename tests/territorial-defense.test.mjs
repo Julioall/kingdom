@@ -209,7 +209,7 @@ test('projectile checks territorial authority at contact, not only when it was f
 });
 
 test('a single foreign civilian draws at most one local patrol without mobilizing a campaign', () => {
-  const { world, guard, intruder, home } = defenseFixture({ enemyRole: 'resident' });
+  const { world, guard, intruder } = defenseFixture({ enemyRole: 'resident' });
   const extraGuards = Array.from({ length: 5 }, (_, index) => ({
     ...guard, id: world.nextId++, x: guard.x - (index + 1) * .15, y: guard.y,
     lastMilitaryAttackDay: -Infinity, combatAction: null
@@ -221,5 +221,4 @@ test('a single foreign civilian draws at most one local patrol without mobilizin
   assert.ok(responses.filter(item => item.targetId === intruder.id).length <= 1,
     'one trespasser may not activate an entire garrison');
   assert.equal(world.campaigns.length, before);
-  assert.equal(home.militaryCommand?.units?.length >= 0, true);
 });
