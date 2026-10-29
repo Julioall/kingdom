@@ -114,5 +114,25 @@ test('tower defense recognizes an unauthorized civilian without launching a form
     && item.intruderIds.includes(intruder.id)));
   assert.equal(world.campaigns.length, 0);
   assert.equal(archer.towerDutyId, tower.id);
+  assert.equal(archer.combatAction?.targetId, intruder.id,
+    'the defending archer initiates a real combat action against an observed intruder');
   assert.ok(intruder.health <= beforeHealth, 'a visible trespasser may be targeted, not healed by combat');
+});
+
+test('general receives a counted local warning but no automatic campaign order', () => {
+  const { world, owner, archer, tower, rival } = watchFixture();
+  const general = { ...archer, id: world.nextId++, militaryRank: 'general',
+    towerMounted: false, towerDutyId: null, x: archer.x - 1, y: archer.y };
+  world.people.push(general);
+  owner.militaryCommand = { generalIds: [general.id], units: [] };
+  const second = { ...world.people[1], id: world.nextId++, role: 'soldier',
+    kingdomId: rival.id, x: archer.x + 1 };
+  world.people.push(second);
+  const result = observeTowerIntruders(world, tower, archer, 20)[0];
+  assert.deepEqual(result.notifiedGeneralIds, [general.id]);
+  assert.equal(general.lastBorderAlert.intruderCount, 2);
+  assert.equal(general.lastBorderAlert.soldiersObserved, 1);
+  assert.equal(general.lastBorderAlert.civiliansObserved, 1);
+  assert.equal(general.lastBorderAlert.towerId, tower.id);
+  assert.equal(world.campaigns.length, 0);
 });
