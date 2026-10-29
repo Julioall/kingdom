@@ -1,0 +1,160 @@
+/* Kingdom pixel UI — layer on top of main.css, using the existing Forja sprites.
+ * Keep the live map clear: textures here only decorate existing HUD surfaces.
+ * Forja source art is 9-slice (64px cuts); its corners stay intact.
+ */
+:root{
+  --kingdom-pixel-ink:#3d2a19;
+  --kingdom-pixel-gold:#e8cb86;
+  --kingdom-pixel-parchment:#f2dfb5;
+  --kingdom-pixel-shadow:#110d0a;
+}
+
+/* The existing tiny-swords/Forja imagery is nearest-neighbour everywhere. */
+.brand-art img,
+.world-rail button,
+.world-metrics .resource-metric img,
+.world-metrics .stat-symbol,
+.map-tags .map-tag,
+.community-card,
+.right-panel .data-row,
+.right-panel .note-card{
+  image-rendering:pixelated;
+}
+
+/* Reuse the provided Forja wood slots instead of generic dashboard chips. */
+.world-metrics>.resource-metric{
+  min-height:52px;
+  flex:0 1 136px;
+  padding:6px 10px;
+  gap:7px;
+  border:7px solid transparent;
+  border-image:url('/assets/kingdom-ui/wood-slot.png') 64 fill / 7px / 0 stretch;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+}
+.world-metrics>.resource-metric>span:not(.stat-symbol){
+  color:#f0d9ab;
+  font-size:12px;
+  line-height:1.15;
+  text-shadow:1px 1px var(--kingdom-pixel-shadow);
+}
+.world-metrics>.resource-metric b{
+  color:#fff4da;
+  font-size:18px;
+  text-shadow:1px 1px var(--kingdom-pixel-shadow);
+}
+.world-metrics>.resource-metric img{width:24px;height:24px;flex:none}
+
+/* Calendar is a small parchment tile, not a rounded app badge. */
+.world-metrics>.date-metric{
+  min-height:52px;
+  padding:6px 10px;
+  border:8px solid transparent;
+  border-image:url('/assets/kingdom-ui/paper.png') 64 fill / 8px / 0 stretch;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  color:var(--kingdom-pixel-ink);
+  font-size:11px;
+  font-weight:700;
+}
+.world-metrics>.date-metric b,
+.world-metrics>.date-metric .season-label{color:var(--kingdom-pixel-ink)}
+
+/* The survival warning keeps a recognizable danger color and hard pixel edges. */
+.map-tags>.map-tag.pressure:not([hidden]){
+  display:flex;
+  align-items:center;
+  gap:5px;
+  padding:7px 10px;
+  border:7px solid transparent;
+  border-image:url('/assets/kingdom-ui/slot.png') 64 fill / 7px / 0 stretch;
+  border-radius:0;
+  background:#352016;
+  color:#ffd1a3;
+  font-size:12px;
+  font-weight:700;
+  box-shadow:2px 3px 0 #15120f90;
+}
+.map-tags>.map-tag.pressure::before{
+  content:"!";
+  display:grid;
+  place-items:center;
+  width:16px;height:16px;
+  flex:none;
+  background:#a83b2d;
+  color:#fff0d8;
+  font:700 13px/1 var(--font-title);
+  box-shadow:inset -2px -2px #662519,inset 2px 2px #cf7350;
+}
+.map-tags>.map-tag.pressure b{color:#fff4dc;font-size:14px}
+
+/* Existing parchment sprite reused on kingdom choices and detailed data cards. */
+.left-panel .community-card{
+  border:8px solid transparent;
+  border-image:url('/assets/kingdom-ui/paper.png') 64 fill / 8px / 0 stretch;
+  border-radius:0;
+  background:transparent;
+  color:var(--kingdom-pixel-ink);
+  box-shadow:none;
+  transition:filter .12s steps(2,end);
+}
+.left-panel .community-card:hover{background:transparent;filter:brightness(1.06)}
+.left-panel .community-card:focus-visible{
+  outline:2px solid #f8dc8a;
+  outline-offset:1px;
+}
+.right-panel .note-card,.right-panel .data-row{
+  border:6px solid transparent;
+  border-image:url('/assets/kingdom-ui/paper.png') 64 fill / 6px / 0 stretch;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+}
+
+/* Forja blue/red pixel buttons already provide press and hover sprites.
+ * Their text needs contrast over the dark sprite fill. */
+.right-panel .kingdom-actions button,
+.right-panel .building-picker button{
+  background:transparent;
+  color:#fff4d5;
+  text-shadow:1px 1px #102238;
+}
+
+/* Limit overlays and preserve legibility at the smallest supported viewport. */
+@media(max-width:760px){
+  .world-metrics>.resource-metric{
+    flex:0 0 auto;
+    min-height:34px;
+    padding:2px 5px;
+    gap:4px;
+    border-width:5px;
+    border-image-width:5px;
+  }
+  .world-metrics>.resource-metric img{width:18px;height:18px}
+  .world-metrics>.resource-metric>span:not(.stat-symbol){font-size:11px;line-height:1.05}
+  .world-metrics>.resource-metric b{font-size:15px}
+  .world-metrics>.date-metric{
+    min-height:34px;
+    flex:0 0 auto;
+    padding:3px 7px;
+    border-width:5px;
+    border-image-width:5px;
+    font-size:10px;
+    gap:3px;
+  }
+  .world-metrics>.date-metric .season-label{font-size:10px}
+  .map-tags>.map-tag.pressure:not([hidden]){
+    min-height:32px;
+    padding:4px 6px;
+    border-width:5px;
+    border-image-width:5px;
+    font-size:10px;
+    white-space:normal;
+  }
+  .map-tags>.map-tag.pressure b{font-size:12px}
+}
+@media(prefers-reduced-motion:reduce){
+  .left-panel .community-card{transition:none}
+}
