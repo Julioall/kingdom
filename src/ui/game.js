@@ -28,6 +28,7 @@ import DirtBrush from './dirt-brush.js';
 import { createLoadingScreen } from './loading-screen.js';
 import { renderSocialInspectorSections } from './social-inspector.js';
 import { createRenderDiagnostics } from './render-profiler-panel.js';
+import { syncHudPanelAccess } from './hud-panel-access.js';
 import { createTerrainChunkCache } from './terrain-chunks.js';
 import { createPixelTileCache } from './pixel-tile-cache.js';
 import { compareDepth, mergeDepthItems } from './depth-order.js';
@@ -124,6 +125,8 @@ export function mountGame() {
   let world = null, rendered = false, localAI = null;
   let peopleById = new Map(), animalsById = new Map(), communitiesById = new Map(), kingdomsById = new Map(), structuresById = new Map();
   let selection = null, showLeft = false, showRight = false, hoveredTerritoryStructureId = null, hoveredMapEntity = false;
+  const syncPanelAccess = () => syncHudPanelAccess($('leftPanel'), $('rightPanel'), { leftOpen: showLeft, rightOpen: showRight });
+  syncPanelAccess();
   let kingdomActionNotice = '';
   const isResetCancellation = error => error && error.name === 'AbortError';
   session.onUpdate = (nextWorld, _stats, reset) => {
@@ -161,6 +164,7 @@ export function mountGame() {
       showRight = false;
 
       $('rightPanel').classList.remove('is-open');
+      syncPanelAccess();
       kingdomActionNotice = '';
       actorAnimationClock.clear();
       invalidateStaticDepthCache();
@@ -2471,6 +2475,7 @@ export function mountGame() {
     $('temperature').textContent = Math.round(avgTemp) + ' °C';
     $('rainfall').textContent = fmt(stats.rainfallMm, 1) + ' mm';
     $('foodPressureTag').hidden = stats.foodRiskPeople === 0;
+    $('mapTags').classList.toggle('has-alert', stats.foodRiskPeople > 0);
     $('foodRiskCount').textContent = fmt(stats.foodRiskPeople);
     $('runState').textContent = session.paused ? 'PAUSADA' : 'ATIVA';
     $('toggle').innerHTML = session.paused ? '▶' : 'Ⅱ';
@@ -2497,6 +2502,7 @@ export function mountGame() {
     selection = item;
     showRight = !!item;
     $('rightPanel').classList.toggle('is-open', showRight);
+    syncPanelAccess();
     renderInspector();
     drawMap();
   }
@@ -3355,6 +3361,7 @@ export function mountGame() {
       showRight = true;
       $('rightPanel').classList.add('is-open');
     }
+    syncPanelAccess();
   };
   const setSettingsPanel = open => {
     if (open) {
@@ -3364,6 +3371,7 @@ export function mountGame() {
     }
     $('settingsTray').hidden = !open;
     $('settingsToggle').setAttribute('aria-expanded', String(open));
+    syncPanelAccess();
   };
   $('kingdomsToggle').addEventListener('click', () => setKingdomPanel(!showLeft));
   $('settingsToggle').addEventListener('click', () => setSettingsPanel($('settingsTray').hidden));
@@ -3377,11 +3385,13 @@ export function mountGame() {
     const panel = $('journal'), open = panel.hidden;
     if (open) { setKingdomPanel(false); setSettingsPanel(false); showRight = false; $('rightPanel').classList.remove('is-open'); }
     panel.hidden = !open; $('journalToggle').setAttribute('aria-expanded', String(open));
+    syncPanelAccess();
   });
   $('journalClose').addEventListener('click', () => { $('journal').hidden = true; $('journalToggle').setAttribute('aria-expanded', 'false'); });
   $('leftClose').addEventListener('click', () => setKingdomPanel(false));
   $('rightClose').addEventListener('click', () => {
     showRight = false; $('rightPanel').classList.remove('is-open');
+    syncPanelAccess();
   });
   window.addEventListener('keydown', event => {
 
@@ -3390,6 +3400,7 @@ export function mountGame() {
     $('journal').hidden = true; $('journalToggle').setAttribute('aria-expanded', 'false');
     $('mapTags').classList.remove('is-open'); $('environmentToggle').setAttribute('aria-expanded', 'false');
     showRight = false; $('rightPanel').classList.remove('is-open');
+    syncPanelAccess();
   });
 
 
