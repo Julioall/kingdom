@@ -5,6 +5,7 @@ import { cellAt } from '../src/simulation/world/spatial.js';
 import { createPersonSpatialIndex } from '../src/simulation/individuals/spatial-index.js';
 import { observeTowerIntruders, isTerritorialIntruder } from '../src/simulation/kingdoms/border-defense.js';
 import { defendTowers } from '../src/simulation/kingdoms/tower-archers.js';
+import { respondToLocalThreats } from '../src/simulation/kingdoms/military.js';
 
 function watchFixture() {
   const world = engine.createWorld(42);
@@ -135,4 +136,42 @@ test('general receives a counted local warning but no automatic campaign order',
   assert.equal(general.lastBorderAlert.civiliansObserved, 1);
   assert.equal(general.lastBorderAlert.towerId, tower.id);
   assert.equal(world.campaigns.length, 0);
+});
+
+test('tower detection flows through alarm and general report into a bounded defensive action', () => {
+  const { world, owner, archer, intruder, tower, site } = watchFixture();
+  const general = { ...archer, id: world.nextId++, militaryRank: 'general', militaryClass: 'guerreiro',
+    towerMounted: false, towerDutyId: null, x: site.x + 6, y: site.y,
+    lastMilitaryAttackDay: -Infinity, combatAction: null, campaignId: null,
+    militaryRestTargetId: null };
+  world.people.push(general);
+  world.peopleSpatialIndex = createPersonSpatialIndex(world.people);
+  owner.militaryCommand = { generalIds: [general.id], units: [] };
+
+  defendTowers(world, 20);
+  const report = owner.frontierAlert;
+  assert.equal(report?.kind, 'tower-intrusion');
+  assert.deepEqual(report?.intruderIds, [intruder.id]);
+  assert.deepEqual(report?.notifiedGeneralIds, [general.id]);
+  assert.equal(report?.alarmCount, 1);
+  assert.ok(world.events.some(event => /alarme da torre/.test(event.text)));
+  assert.equal(general.lastBorderAlert.reportId, report.id);
+
+  const distanceBeforeResponse = Math.hypot(general.x - intruder.x, general.y - intruder.y);
+  const healthBeforeResponse = intruder.health;
+  const responses = respondToLocalThreats(world, 20);
+  assert.equal(responses.length, 1, 'one civilian receives at most one local responder');
+  assert.equal(responses[0].soldierId, general.id);
+  assert.equal(responses[0].targetId, intruder.id);
+  assert.equal(owner.militaryCommand.lastFrontierResponse.reportId, report.id);
+  assert.equal(owner.militaryCommand.lastFrontierResponse.defenderLimit, 1);
+  if (responses[0].action === 'intercept') {
+    assert.ok(Math.hypot(general.x - intruder.x, general.y - intruder.y) < distanceBeforeResponse,
+      'an interception order must move the general closer to the reported intruder');
+  } else {
+    assert.equal(responses[0].action, 'engage');
+    assert.ok(intruder.health < healthBeforeResponse,
+      'an engagement order must cause a real combat consequence');
+  }
+  assert.equal(world.campaigns.length, 0, 'a single civilian does not mobilize a kingdom-wide campaign');
 });
