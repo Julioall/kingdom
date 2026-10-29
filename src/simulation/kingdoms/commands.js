@@ -1,4 +1,5 @@
 import { initializeTowerHealth } from './fortifications.js';
+import { hasBuildingResourceClearance } from '../world/building-clearance.js';
 import { spendInventory } from '../economy/inventories.js';
 import { recomputeKingdomTerritories, TERRITORY_RULES } from './territories.js';
 import { log } from '../core/events.js';
@@ -42,6 +43,7 @@ export function findMilitaryCenterWithVacancy(world, kingdomId, exceptPersonId =
 function canPlace(world, tile, kingdom, type) {
   if (!tile || tile.terrain !== 'land' || (tile.kingdomId != null && tile.kingdomId !== kingdom.id)) return false;
   if (tile.waterDist < 2.1) return false;
+  if (!hasBuildingResourceClearance(world, tile, type === 'torre' ? 2.1 : 2.7)) return false;
   if (tile.x < 2 || tile.y < 2 || tile.x >= world.width - 2 || tile.y >= world.height - 2) return false;
   if (isTreeAnchor(world, tile)) return false;
   if (type === 'torre' && ((tile.stoneDeposit || 0) > .7 || (tile.goldOre || 0) > .05)) return false;

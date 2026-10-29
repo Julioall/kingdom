@@ -1,0 +1,46 @@
+name: Kingdom pixel-art HUD browser validation
+
+on:
+  push:
+    branches:
+      - codex/test-game-ui-pixel-art-20261028
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kingdom-pixel-hud-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hud-browser:
+    name: Pixel UI / keyboard / responsive / screenshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Validate all source and simulation tests
+        run: |
+          npm run typecheck
+          npm test
+          npm run build
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Playtest pixel HUD on four viewports
+        run: node scripts/verify-pixel-hud-browser.mjs
+      - name: Preserve responsive screenshots and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kingdom-pixel-hud-visual-evidence
+          path: browser-ui-evidence/
+          retention-days: 14
+          if-no-files-found: warn

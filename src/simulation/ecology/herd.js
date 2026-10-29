@@ -1,4 +1,13 @@
 export const DOMESTIC_SHEEP_PER_PEN = 35;
+export const CORRAL_VISUAL_SCALE = .45;
+
+export function herdPenRadius(pen) {
+  return Math.max(1, (pen?.radius || 3.5) * CORRAL_VISUAL_SCALE);
+}
+
+export function corralFenceRadius(pen) {
+  return Math.max(2, Math.round(herdPenRadius(pen)));
+}
 
 export function activeCommunityPens(world, communityId) {
   return (world.structures || []).filter(structure => structure.complete && structure.destroyedDay == null

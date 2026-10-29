@@ -7,6 +7,7 @@ import { markTerritoryStep } from '../src/simulation/kingdoms/territories.js';
 import { createPersonSpatialIndex } from '../src/simulation/individuals/spatial-index.js';
 import { cellAt } from '../src/simulation/world/spatial.js';
 import { distance } from '../src/simulation/core/math.js';
+import { invalidateNavigation } from '../src/simulation/individuals/navigation-cache.js';
 
 function defenseFixture({ enemyRole = 'soldier', guardClass = 'lanceiro', distance: separation = 1.2,
   evidenceOfAggression = false } = {}) {
@@ -25,8 +26,10 @@ function defenseFixture({ enemyRole = 'soldier', guardClass = 'lanceiro', distan
     const tile = cellAt(world, x, y);
     if (!tile) continue;
     tile.terrain = 'land'; tile.kingdomId = home.id; tile.slope = 0;
+    tile.elevationLevel = 0; tile.stoneDeposit = 0; tile.goldOre = 0;
     tile.plants?.fill(0);
   }
+  invalidateNavigation(world);
   const day = 115;
   Object.assign(guard, { x: site.x + 1, y: site.y, health: 100, stamina: 100,
     energy: 100, hydration: 100, foodReserve: 100, injury: 0, restingStructureId: null,
@@ -46,6 +49,8 @@ function defenseFixture({ enemyRole = 'soldier', guardClass = 'lanceiro', distan
   world.peopleSpatialIndex = createPersonSpatialIndex(people);
   world.campaigns = [];
   world.day = day;
+  // Combat randomness must not depend on how much terrain generation consumed.
+  world.rngState = 42;
   return { world, home, enemyKingdom, guard, intruder, site, day };
 }
 
@@ -83,6 +88,7 @@ test('nearby soldiers intercept an invader on home territory without an active c
   const before = intruder.health;
 
   const responses = respondToLocalThreats(world, world.day);
+
 
   assert.deepEqual(responses.map(item => [item.soldierId, item.targetId, item.action]),
     [[guard.id, intruder.id, 'engage']]);

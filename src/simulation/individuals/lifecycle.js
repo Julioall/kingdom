@@ -13,6 +13,7 @@ import { moveOne } from './movement.js';
 import { consumePersonEnergy } from './energy.js';
 import { abandonSocialIntentionsForPerson } from '../society/social-evidence.js';
 import { releaseSeedCargo } from '../economy/seed-cargo.js';
+import { collidesWithWorldAt } from '../physics/hitboxes.js';
 
 const DEPENDENT_STARVATION_HEALTH_LOSS_PER_POINT = .035;
 const SHELTER_RESIDENT_CAPACITY = 13;
@@ -126,6 +127,15 @@ export function addIndividuals(w, count, initial) {
       if (ruler) {
         kingdom.rulerId = ruler.id;
         ruler.role = 'ruler';
+        // The ruler starts in the central square, outside the castle footprint.
+        const plaza = [];
+        for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
+          const x = kingdom.x + dx, y = kingdom.y + dy;
+          if (cellAt(w, x, y)?.terrain === 'land' && !collidesWithWorldAt(w, ruler, x, y))
+            plaza.push({ x, y, distance: dx * dx + dy * dy });
+        }
+        plaza.sort((a, b) => a.distance - b.distance || b.y - a.y || a.x - b.x);
+        if (plaza.length) { ruler.x = plaza[0].x; ruler.y = plaza[0].y; }
         ensureBrainSize(w, ruler, RULER_HIDDEN_NEURONS);
       }
       const group = w.communities.find(item => item.id === kingdom.communityId);

@@ -46,8 +46,8 @@ test('food summary reconciles distinct owners without treating the unassigned ma
   assert.match(overview, /No estoque comunitário/);
   assert.match(overview, /No tesouro/);
   assert.match(overview, /No mercado local/);
-  assert.match(overview, /não a comida imediatamente acessível/);
-  assert.match(overview, /mercado geral sem vínculo não entra no total deste reino/);
+  assert.doesNotMatch(overview, /não a comida imediatamente acessível/);
+  assert.doesNotMatch(overview, /mercado geral sem vínculo não entra no total deste reino/);
   assert.doesNotMatch(overview, /139,5|100 dias equivalentes/,
     'the local report must not present global or unassigned food as local stock');
 });

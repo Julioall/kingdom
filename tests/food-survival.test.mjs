@@ -6,6 +6,7 @@ import { distance } from '../src/simulation/core/math.js';
 import { PLANTS } from '../src/config/ecosystem.js';
 import { cellAt } from '../src/simulation/world/spatial.js';
 import Senses from '../src/simulation/individuals/perception.js';
+import { invalidateNavigation } from '../src/simulation/individuals/navigation-cache.js';
 
 function starvingPeacetimeSoldierFixture(garrisonFood = 0) {
   const world = engine.createWorld(42);
@@ -215,13 +216,24 @@ test('critical thirst takes priority over food that is close by but separated by
   soldier.health = 50;
   soldier.energy = 100;
 
+  // Isolate the water-barrier scenario from the seeded coastline and buildings.
+  soldier.x = Math.round(world.width / 2);
+  soldier.y = Math.round(world.height / 2);
+  world.structures = [];
+  for (const tile of world.tiles.filter(t => distance(t, soldier) < 9)) {
+    Object.assign(tile, { terrain: 'land', waterKind: null, surfaceWaterMm: 0,
+      elevationLevel: 0, slope: 0, stoneDeposit: 0, goldOre: 0 });
+    tile.plants.fill(0);
+  }
+  invalidateNavigation(world);
+
   const x = Math.round(soldier.x), y = Math.round(soldier.y);
   const crop = cellAt(world, x + 2, y);
   const cropIndex = PLANTS.findIndex(plant => plant.id === 'cultivated-root');
   crop.terrain = 'land';
   crop.cropFieldId = 99002;
   crop.plants[cropIndex] = 100;
-  for (const tile of world.tiles) if (tile.x === x + 1) tile.terrain = 'water';
+  for (const tile of world.tiles) if (tile.x === x + 1) tile.terrain = 'rock';
 
   const water = cellAt(world, x, y + 3);
   water.terrain = 'water';

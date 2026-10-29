@@ -1,0 +1,200 @@
+/* Kingdom pixel UI — layer on top of main.css, using the existing Forja sprites.
+ * Keep the live map clear: textures here only decorate existing HUD surfaces.
+ * Forja source art is 9-slice (64px cuts); its corners stay intact.
+ */
+:root{
+  --kingdom-pixel-ink:#3d2a19;
+  --kingdom-pixel-gold:#e8cb86;
+  --kingdom-pixel-parchment:#f2dfb5;
+  --kingdom-pixel-shadow:#110d0a;
+}
+
+/* The existing tiny-swords/Forja imagery is nearest-neighbour everywhere. */
+.brand-art img,
+.world-rail button,
+.world-metrics .resource-metric,
+.world-metrics .resource-metric img,
+.world-metrics .stat-symbol,
+.community-card,
+.right-panel .data-row,
+.right-panel .note-card{
+  image-rendering:pixelated;
+}
+
+/* Resource counters sit directly on the shared wooden toolbar. */
+.world-metrics>.resource-metric{
+  min-height:40px;
+  flex:0 1 auto;
+  padding:0 8px;
+  gap:7px;
+  border:0;
+  border-image:none;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+}
+.world-metrics>.resource-metric>span:not(.stat-symbol){
+  color:#f0d9ab;
+  font-size:12px;
+  line-height:1.15;
+  text-shadow:1px 1px var(--kingdom-pixel-shadow);
+}
+.world-metrics>.resource-metric b{
+  color:#fff4da;
+  font-size:18px;
+  text-shadow:1px 1px var(--kingdom-pixel-shadow);
+}
+.world-metrics>.resource-metric img{width:24px;height:24px;flex:none}
+.metric-label{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+
+/* Calendar is a small parchment tile, not a rounded app badge. */
+.world-metrics>.date-metric{
+  height:40px;min-height:40px;align-self:center;
+  display:flex;flex-direction:column;flex-wrap:nowrap;align-items:center;justify-content:center;
+  padding:2px 6px;gap:1px;
+  border:4px solid transparent;
+  border-image:url('/assets/kingdom-ui/paper.png') 64 fill / 4px / 0 stretch;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  color:var(--kingdom-pixel-ink);
+  font-size:10px;line-height:1;
+  font-weight:700;
+}
+.world-metrics>.date-metric b,
+.world-metrics>.date-metric .season-label{color:var(--kingdom-pixel-ink)}
+.world-metrics>.date-metric .season-label{flex-basis:auto;font-size:10px;margin:0}
+.calendar-date{white-space:nowrap}
+
+/* Existing parchment sprite reused on kingdom choices and detailed data cards. */
+.left-panel .community-card{
+  border:8px solid transparent;
+  border-image:url('/assets/kingdom-ui/paper.png') 64 fill / 8px / 0 stretch;
+  border-radius:0;
+  background:transparent;
+  color:var(--kingdom-pixel-ink);
+  box-shadow:none;
+  transition:filter .12s steps(2,end);
+}
+.left-panel .community-card:hover{background:transparent;filter:brightness(1.06)}
+.left-panel .community-card:focus-visible{
+  outline:2px solid #f8dc8a;
+  outline-offset:1px;
+}
+.left-panel .community-card .kingdom-card-body{min-width:0;width:100%}
+.left-panel .community-card .kingdom-card-stats{
+  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px;margin-top:6px;
+}
+.left-panel .community-card .kingdom-card-stat{
+  min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  padding:4px 2px;border:1px solid #c4a46b;background:#f4e5c3a8;text-align:center;
+}
+.left-panel .community-card .kingdom-card-stat small{
+  display:block;max-width:100%;overflow:hidden;color:#79572f;font:7px/1.1 var(--font-text);
+  text-overflow:ellipsis;white-space:nowrap;
+}
+.left-panel .community-card .kingdom-card-stat b{
+  display:block;max-width:100%;overflow:hidden;color:#493117;font:700 10px/1 ui-monospace,monospace;
+  font-variant-numeric:tabular-nums;text-overflow:ellipsis;white-space:nowrap;
+}
+.right-panel .note-card,.right-panel .data-row{
+  border:6px solid transparent;
+  border-image:url('/assets/kingdom-ui/paper.png') 64 fill / 6px / 0 stretch;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+}
+
+/* The calendar stays in the HUD; realm resources now live on their realm cards. */
+@media(min-width:761px){
+  .topbar>.world-metrics{flex:1 1 0;justify-content:flex-end}
+}
+
+/* Forja blue/red pixel buttons already provide press and hover sprites.
+ * Their text needs contrast over the dark sprite fill. */
+.right-panel .kingdom-actions button,
+.right-panel .building-picker button{
+  background:transparent;
+  color:#fff4d5;
+  text-shadow:1px 1px #102238;
+}
+
+/* Limit overlays and preserve legibility at the smallest supported viewport. */
+@media(max-width:760px){
+  .world-metrics>.resource-metric{
+    flex:0 0 auto;
+    min-height:30px;
+    align-self:flex-start;
+    padding:0 5px;
+    gap:4px;
+    border:0;border-image:none;
+  }
+  .world-metrics>.resource-metric img{width:18px;height:18px}
+  .world-metrics>.resource-metric>span:not(.stat-symbol){font-size:11px;line-height:1.05;gap:0}
+  .world-metrics>.resource-metric b{font-size:15px}
+  .world-metrics>.date-metric{
+    height:36px;min-height:36px;
+    flex:0 0 auto;
+    padding:3px 7px;
+    border-width:4px;
+    border-image-width:4px;
+    font-size:10px;
+    gap:3px;
+  }
+  .world-metrics>.date-metric .season-label{font-size:10px}
+}
+
+/* Keep the caption in one positioning model while the scroll unfolds.
+ * Changing flex direction/font family mid-transition caused its final jump. */
+.world-rail{transition:width .42s cubic-bezier(.2,.78,.24,1),gap .42s cubic-bezier(.2,.78,.24,1)}
+.world-rail button{transition:flex-basis .42s cubic-bezier(.2,.78,.24,1),width .42s cubic-bezier(.2,.78,.24,1),opacity .2s ease}
+.world-rail button[aria-expanded="true"]{flex:0 0 min(380px,calc(100vw - 24px));width:min(380px,calc(100vw - 24px))}
+.world-rail button>span[aria-hidden="true"],.world-rail button>small{
+  position:absolute;left:50%;transform:translate(-50%,-50%);white-space:nowrap;
+  transition:left .42s cubic-bezier(.2,.78,.24,1),top .42s cubic-bezier(.2,.78,.24,1),transform .42s cubic-bezier(.2,.78,.24,1),font-size .42s cubic-bezier(.2,.78,.24,1);
+}
+.world-rail button>span[aria-hidden="true"]{top:28px;font-size:20px;line-height:1}
+.world-rail button>small{top:51px;font:700 10px/1 var(--font-title);letter-spacing:.02em}
+.world-rail button[aria-expanded="true"]>span[aria-hidden="true"]{left:28px;top:52px;transform:translate(0,-50%);font-size:23px}
+.world-rail button[aria-expanded="true"]>small{left:60px;top:52px;transform:translate(0,-50%);font-size:21px}
+@media(max-width:760px){
+  .world-rail button[aria-expanded="true"]{flex-basis:calc(100vw - 14px);width:calc(100vw - 14px)}
+  .world-rail button>span[aria-hidden="true"]{top:23px;font-size:18px}
+  .world-rail button>small{top:42px;font-size:9px}
+  .world-rail button[aria-expanded="true"]>span[aria-hidden="true"]{left:20px;top:43px;font-size:21px}
+  .world-rail button[aria-expanded="true"]>small{left:49px;top:43px;font-size:18px}
+  .world-metrics>.resource-metric img{display:block}
+  .world-metrics>.resource-metric .stat-symbol{display:block}
+}
+@media(prefers-reduced-motion:reduce){
+  .left-panel .community-card{transition:none}
+}
+
+/* Place brand and controls on row one; the important metrics start at the
+ * visible left edge of row two, never clipped by justify-content:center. */
+@media(max-width:760px){
+  .topbar{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    grid-template-rows:40px 36px;
+    align-content:center;
+    align-items:center;
+    height:90px;
+    min-height:0;
+    gap:4px;
+    padding:4px 8px;
+  }
+  .topbar>.brand{grid-column:1;grid-row:1;justify-self:start;min-width:0}
+  .topbar>.controls{grid-column:2;grid-row:1;justify-self:end;margin:0}
+  .topbar>.world-metrics{
+    grid-column:1/-1;
+    grid-row:2;
+    order:0;
+    justify-content:flex-start;
+    align-self:stretch;
+    min-width:0;
+    overflow-x:auto;
+    scrollbar-width:none;
+  }
+  .topbar>.world-metrics::-webkit-scrollbar{display:none}
+}

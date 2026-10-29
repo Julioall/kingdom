@@ -1,4 +1,5 @@
-export const PERSON_ENERGY_COST_SCALE = 0.55;
+// Keep energy normalized to 0–100 while providing 50% more activity per reserve.
+export const PERSON_ENERGY_COST_SCALE = 0.55 / 1.5;
 
 export function consumePersonEnergy(person, amount) {
   if (!person || !Number.isFinite(person.energy)) return 0;

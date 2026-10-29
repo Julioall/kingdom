@@ -1,4 +1,5 @@
 import { nearestLoot, collectLoot } from '../economy/loot.js';
+import { workMineralDeposit } from '../economy/mining.js';
 import { ANIMALS, COMMUNITY_FOOD_CARRY_CAPACITY, DAILY_FOOD_NEED, FOOD_DAYS_PER_UNIT, HUMAN_FOOD, MEAT_NUTRITIONAL_VALUE, PEOPLE_ACTIONS, PLANTS, SHEEP_ADULT_AGE_DAYS } from '../../config/ecosystem.js';
 import { formatWholeMeasure } from '../../config/whole-measures.js';
 import { clamp, distance, species } from '../core/math.js';
@@ -788,26 +789,23 @@ export function gatherMaterials(w, person, community) {
       log(w, person.name + ' derrubou uma árvore; um tronco ficou no chão para qualquer pessoa próxima recolher.');
     } else if (best.kind === 'stone') {
       const intended = Math.min(4.5, tile.stoneDeposit, 2.2 + person.skills.gather * 1.8);
-      if (tile.stoneDeposit >= 8) {
-        gathered = Math.min(intended, tile.stoneDeposit);
-        tile.stoneDeposit -= gathered;
-        (w.loot ||= []).push({ id: w.nextId++, x: tile.x, y: tile.y,
-          resources: { stone: gathered }, available: true, droppedDay: w.day });
-        person.state = 'minerando rocha'; person.lastLesson = 'A rocha grande se quebrou em pedras menores; qualquer pessoa pode recolhê-las do chão.';
-      } else {
-        gathered = transferResource(tile, person, 'stoneDeposit', intended, 'carriedStone');
-        person.state = 'extraindo pedra'; person.lastLesson = 'A jazida diminuiu e a pedra extraída agora precisa ser transportada ao abrigo.';
-      }
+      const result = workMineralDeposit(w, tile, 'stone', intended);
+      gathered = result.worked;
+      person.state = 'minerando rocha';
+      person.lastLesson = result.dropped > 0
+        ? 'A rocha quebrou em fragmentos no chão, que ainda precisam ser recolhidos.'
+        : 'A rocha continua sendo quebrada; pedras maiores exigem mais trabalho.';
     } else {
       const kind = best.kind;
       const field = kind + 'Ore';
-      const carried = 'carried' + kind[0].toUpperCase() + kind.slice(1);
-      const intended = Math.min(1.8, tile[field] || 0, .5 + person.skills.gather * .7);
-      gathered = transferResource(tile, person, field, intended, carried);
+      const gatherSkill = clamp(person.skills?.gather || 0, 0, 1);
+      const intended = Math.min(4.5, tile[field] || 0, 1.5 + gatherSkill * 3);
+      const result = workMineralDeposit(w, tile, kind, intended);
+      gathered = result.worked;
       person.state = 'extraindo ' + ({ gold: 'ouro', copper: 'cobre', silver: 'prata', iron: 'ferro' }[kind]);
-      person.lastLesson = kind === 'iron'
-        ? 'O ferro foi extraído e pode ser transportado, mas ainda não entra nos custos de construção.'
-        : 'O metal monetário foi extraído da jazida finita e precisa ser transportado e contabilizado antes de circular na economia.';
+      person.lastLesson = result.dropped > 0
+        ? 'A jazida quebrou em fragmentos de minério no chão; é preciso recolhê-los antes de transportar.'
+        : 'O trabalho de mineração avança sem criar recursos; a reserva será liberada quando a pedra quebrar.';
     }
     if (gathered <= .01) return 0;
     if (previousMineralCollision !== null && previousMineralCollision !== mineralCollisionClass(tile)) invalidateNavigation(w);
@@ -1300,7 +1298,7 @@ function updatePeopleCore(w) {
       const action = campaignOrder && campaignOrder.withdrawing && !homeRest && survivalAction !== 'drink'
         ? 'campaign'
         : returnToGarrison && peacetimeSoldierAction === 'return_garrison' ? peacetimeSoldierAction
-        : survivalAction || carrierMaintenanceAction || (homeRest ? 'rest' : socialPlan ? socialPlan.action : peacetimeSoldier ? peacetimeSoldierAction : (droppedLoot && !assignment && !carryingGoods && p.energy >= 9
+        : survivalAction || carrierMaintenanceAction || (homeRest ? 'rest' : socialPlan ? socialPlan.action : peacetimeSoldier ? peacetimeSoldierAction : (droppedLoot && (!assignment || droppedLoot.mineralKind && assignment.action === 'gather') && !carryingGoods && p.energy >= 9
           && (!campaignOrder || !campaignOrder.withdrawing && distance(p, droppedLoot) <= 1.6) ? 'collect_loot'
           : campaignOrder ? militaryAction || 'campaign' : seedCourierDuty ? 'build' : cargoAction || foodDuty || (p.leadingSheepId ? 'lead_sheep'
           : assignedBuildDuty ? 'build'

@@ -1,4 +1,5 @@
 import { rearProjection, safeCorralFootprint } from '../kingdoms/rear-sites.js';
+import { hasBuildingResourceClearance } from '../world/building-clearance.js';
 import { initializeStructureHealth } from '../kingdoms/fortifications.js';
 import { clamp, distance, hash01 } from '../core/math.js';
 import { communityFoodStock, consumeFoodReserve, spendInventory, spendStoreInventory, transferResource, withdrawCommunityFood } from '../economy/inventories.js';
@@ -14,6 +15,7 @@ import { hitboxesOverlap, structureHitbox, worldCollisionIndex } from '../physic
 import { consumePersonEnergy } from '../individuals/energy.js';
 import { claimConstructionWorkstation, clearConstructionWorkpointResources, constructionContactPoint, constructionWorkpointReachable, constructionWorkPositions } from './construction-workstations.js';
 import { communityNeedsAdditionalPen } from '../ecology/herd.js';
+import { clearWildVegetationNearCorrals } from '../ecology/corral-clearance.js';
 import { purchaseFieldSeedsForConstruction } from '../economy/trade.js';
 import { recoverSeedCargo, SEED_COURIER_CAPACITY } from '../economy/seed-cargo.js';
 
@@ -219,8 +221,8 @@ export function chooseBuildSite(w, community, structures, builder = null) {
       if (!completed.length && centerDistance > 5) continue;
       if (completed.length) {
         const nearest = Math.min(...completed.map(s => distance(t, s)));
-        if (nearest < 6 || (nearest > (isFarm ? 12 : 17) && !ownedProperty)
-            || (centerDistance > (isFarm ? 12 : 22) && !ownedProperty)) continue;
+        if (nearest < 6 || (nearest > (isFarm ? 16 : 17) && !ownedProperty)
+            || (centerDistance > (isFarm ? 16 : 22) && !ownedProperty)) continue;
       }
       const localBiomass = cellsWithin(w, t.x, t.y, 2, q => q.terrain === 'land').reduce((sum, q) => sum + plantBiomass(q, ['grass', 'berry', 'broadleaf', 'conifer']), 0);
       if (localBiomass < 160) continue;
@@ -228,9 +230,17 @@ export function chooseBuildSite(w, community, structures, builder = null) {
       const spacingTarget = isFarm ? 7 : 9;
       const spacing = completed.length ? Math.min(...completed.map(s => Math.abs(distance(t, s) - spacingTarget))) : centerDistance;
       const noise = hash01(w.seed + community.id * 31, t.x, t.y) * .08;
+      // Prefer the same block rhythm as the initial residential district.
+      // This is a preference: terrain, resources and reachable workpoints still
+      // decide whether a plot is usable, including for fledgling communities.
+      const dx = t.x - community.x, dy = t.y - community.y;
+      const blockOffset = Math.abs(Math.abs(dx) - (13 + Math.round((Math.abs(dx) - 13) / 8) * 8))
+        + Math.abs(dy - (4 + Math.round((dy - 4) / 8) * 8));
+      const circulationPenalty = centerDistance > 6 && (Math.abs(dx) < 3 || Math.abs(dy) < 2) ? .5 : 0;
       const fieldTiles = nextType === 'roça' ? cellsWithin(w, t.x, t.y, 3.35, q => q.terrain === 'land'
         && q.slope <= .65 && q.soilType !== 'sandy' && q.waterDist <= 20 && q.cropFieldId == null) : null;
       if (fieldTiles && fieldTiles.length < 16) continue;
+      if (!hasBuildingResourceClearance(w, t, candidateRadius)) continue;
       const nearbyBrowse = cellsWithin(w, t.x, t.y, 3.5, q => q.terrain === 'land')
         .reduce((sum, q) => sum + plantBiomass(q, ['browse']), 0);
       const flockDistance = Math.min(...w.animals.filter(a => a.alive && a.speciesId === 'sheep').map(a => distance(a, t)), 22);
@@ -243,7 +253,8 @@ export function chooseBuildSite(w, community, structures, builder = null) {
         !constructionWorkpointReachable(w, builder, point, reachableWorkTiles)))) continue;
       const score = Math.log1p(localBiomass) * .24 + waterAccess * .12 - t.slope * 1.4 - spacing * .045 - centerDistance * .012
         + (ownedProperty ? .42 : 0) + (nextType === 'curral' ? Math.log1p(nearbyBrowse) * .19 - flockDistance * .045 : 0)
-        + (fieldTiles ? Math.min(1, fieldTiles.length / 25) * .61 : 0) + noise;
+        + (fieldTiles ? Math.min(1, fieldTiles.length / 25) * .61 : 0) + noise
+        - blockOffset * .16 - circulationPenalty;
       if (score > bestScore) { best = { tile: t, fieldTileIndices: fieldTiles && fieldTiles.map(q => q.i), workPositions }; bestScore = score; }
     }
     if (!best) return null;
@@ -311,6 +322,7 @@ export function workOnCommunityStructure(w, person, community, size) {
       withdrawCommunityFood(w, community, structure.foodCost, 'construction-food-cost');
       initializeStructureHealth(structure);
       w.structures.push(structure);
+      if (structure.type === 'curral') clearWildVegetationNearCorrals(w);
       const kingdom = w.kingdoms.find(item => item.id === community.kingdomId);
       if (kingdom) {
         kingdom.structureIds ||= [];
