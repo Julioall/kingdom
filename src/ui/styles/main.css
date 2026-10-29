@@ -34,7 +34,7 @@ button:focus:not(:focus-visible),input:focus:not(:focus-visible),select:focus:no
 .controls #toggle:hover{background:#4e6948}
 .speed-label{gap:5px;padding-right:4px;color:#7b806e;font-size:9px}
 .speed-label select{height:27px;padding:0 4px;border:0;background:transparent;font-size:10px}
-.world-stage{position:relative;isolation:isolate;overflow:hidden;min-width:0;min-height:0;background-color:#344b37;background-image:radial-gradient(ellipse at 50% 45%,#98a67644 0%,transparent 60%),repeating-linear-gradient(37deg,#263d30 0 4px,#2b4233 4px 8px,#304733 8px 12px)}
+.world-stage{position:relative;isolation:isolate;overflow:hidden;overflow:clip;min-width:0;min-height:0;background-color:#344b37;background-image:radial-gradient(ellipse at 50% 45%,#98a67644 0%,transparent 60%),repeating-linear-gradient(37deg,#263d30 0 4px,#2b4233 4px 8px,#304733 8px 12px)}
 .world-stage::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(ellipse at center,transparent 30%,#13251db8 100%);pointer-events:none}
 #world{position:absolute;inset:0;display:block;width:100%;height:100%;image-rendering:pixelated;cursor:crosshair;touch-action:none;user-select:none}
 .cloud-atmosphere{position:absolute;inset:0;z-index:2;display:block;width:100%;height:100%;pointer-events:none}
