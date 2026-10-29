@@ -28,7 +28,7 @@ import DirtBrush from './dirt-brush.js';
 import { createLoadingScreen } from './loading-screen.js';
 import { renderSocialInspectorSections } from './social-inspector.js';
 import { createRenderDiagnostics } from './render-profiler-panel.js';
-import { syncHudPanelAccess } from './hud-panel-access.js';
+import { syncHudPanelAccess, syncFoodPressureAlert } from './hud-panel-access.js';
 import { createTerrainChunkCache } from './terrain-chunks.js';
 import { createPixelTileCache } from './pixel-tile-cache.js';
 import { compareDepth, mergeDepthItems } from './depth-order.js';
@@ -2474,8 +2474,7 @@ export function mountGame() {
     $('season').textContent = seasonNames[stats.season].toUpperCase();
     $('temperature').textContent = Math.round(avgTemp) + ' °C';
     $('rainfall').textContent = fmt(stats.rainfallMm, 1) + ' mm';
-    $('foodPressureTag').hidden = stats.foodRiskPeople === 0;
-    $('mapTags').classList.toggle('has-alert', stats.foodRiskPeople > 0);
+    syncFoodPressureAlert($('mapTags'), $('foodPressureTag'), stats.foodRiskPeople);
     $('foodRiskCount').textContent = fmt(stats.foodRiskPeople);
     $('runState').textContent = session.paused ? 'PAUSADA' : 'ATIVA';
     $('toggle').innerHTML = session.paused ? '▶' : 'Ⅱ';
