@@ -43,6 +43,18 @@ Origem conferida: `SKILL.md` blob `f2681fb955143f96cb04bfa4f1cb09d6839b162a`.
 4. Ajuste responsivo no HUD mobile preserva controles principais e libera altura do mapa.
 5. Testes unitários para a sincronização de visibilidade assistiva e para a presença/ausência do alerta.
 
+## Adaptação pixel art após revisão dos assets disponíveis
+
+A primeira rodada preservava a identidade visual, mas não reaproveitava molduras do kit em novas superfícies. Esta revisão introduz `src/ui/styles/pixel-hud.css`, carregado após `main.css`, para aplicar uma estética pixel art concreta **sem alterar o canvas**.
+
+- **Slot de madeira** (`wood-slot.png`, Forja 9-slice): contadores de comida, riqueza, pessoas e estatísticas da barra superior.
+- **Papel** (`paper.png`, Forja 9-slice): calendário, seletores de reinos e cartões de dados do inspetor.
+- **Slot escuro** (`slot.png`, Forja 9-slice): aviso de risco alimentar com marca vermelha e mensagem legível.
+- **Controles, pergaminhos e ícones**: preservados os botões pressionados/regulares, fitas, scrolls, imagens e cursores existentes. Texturas exibidas com `image-rendering:pixelated`.
+- **Responsividade e legibilidade**: espessuras da moldura e tipografia adaptadas ao HUD horizontal móvel; painéis e centro do mapa continuam sob demanda.
+
+Não foram adicionados kits de terceiros nem fontes pixeladas que prejudiquem a leitura. A tipografia medieval continua intencional. Testes estáticos em `tests/pixel-hud-assets.test.mjs` verificam que as referências aos sprites existem e que a camada de estilo é importada. **O visual ainda precisa ser comparado no navegador em tamanhos desktop/mobile antes do merge.**
+
 ## Próximas melhorias sugeridas, fora do escopo desta PR
 
 - **P1 — auditoria visual real:** validar em desktop 1440×900 e 1024×768, mobile 390×844 e 320×640, com foco, touch, zoom/pan, seleção, crônicas, ajustes e sobreposição de alertas; capturar screenshots.
