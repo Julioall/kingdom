@@ -25,7 +25,7 @@ function watchFixture() {
   Object.assign(archer, {
     x: site.x, y: site.y, towerMounted: true, towerDutyId: tower.id,
     restingStructureId: null, militaryRestTargetId: null,
-    health: 100, stamina: 100, energy: 100, hydration: 100, foodReserve: 80
+    militaryRank: 'soldado', health: 100, stamina: 100, energy: 100, hydration: 100, foodReserve: 80
   });
   Object.assign(intruder, { x: site.x + 2, y: site.y, role: 'resident', restingStructureId: null,
     health: 100, alive: true });
