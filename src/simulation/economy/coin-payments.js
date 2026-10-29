@@ -8,10 +8,27 @@ function coinBalances(account) {
   const balances = {};
   for (const coin of COIN_TYPES) {
     const amount = account[coin] ?? 0;
-    if (!Number.isSafeInteger(amount) || amount < 0) return null;
-    balances[coin] = amount;
+    if (!Number.isFinite(amount) || amount < 0) return null;
+    if (coin === 'gold') {
+      // Old accounts can still hold fractional gold. Only whole gold pieces
+      // are physical coins; the fractional legacy remainder stays untouched.
+      balances[coin] = Math.floor(amount);
+      if (!Number.isSafeInteger(balances[coin])) return null;
+    } else {
+      if (!Number.isSafeInteger(amount)) return null;
+      balances[coin] = amount;
+    }
   }
   return balances;
+}
+
+function canApplyTransfer(account, coin, delta) {
+  const current = account?.[coin] ?? 0;
+  if (!Number.isFinite(current) || current < 0) return false;
+  const next = current + delta;
+  if (coin === 'gold')
+    return Number.isFinite(next) && next >= 0 && Number.isSafeInteger(Math.floor(next));
+  return Number.isSafeInteger(next) && next >= 0;
 }
 
 export function goldPriceToCopper(priceGold, quantity = 1) {
@@ -78,10 +95,8 @@ export function settleCoinPayment(payer, payee, priceCopper) {
   if (!quote) return null;
   for (const coin of COIN_TYPES) {
     const transfer = quote.transfers[coin];
-    const payerNext = (payer[coin] ?? 0) - transfer;
-    const payeeNext = (payee[coin] ?? 0) + transfer;
-    if (!Number.isSafeInteger(payerNext) || payerNext < 0
-        || !Number.isSafeInteger(payeeNext) || payeeNext < 0) return null;
+    if (!canApplyTransfer(payer, coin, -transfer)
+        || !canApplyTransfer(payee, coin, transfer)) return null;
   }
   for (const coin of COIN_TYPES) {
     payer[coin] = (payer[coin] ?? 0) - quote.transfers[coin];
@@ -107,10 +122,8 @@ export function settleCoinTrade(payer, seller, priceCopper,
   // Whole settlement is preflighted before writing even one inventory.
   for (const coin of COIN_TYPES) {
     const delta = quote.transfers[coin];
-    const nextPayer = (payer[coin] ?? 0) - delta;
-    const nextSeller = (seller[coin] ?? 0) + delta;
-    if (!Number.isSafeInteger(nextPayer) || nextPayer < 0
-        || !Number.isSafeInteger(nextSeller) || nextSeller < 0) return null;
+    if (!canApplyTransfer(payer, coin, -delta)
+        || !canApplyTransfer(seller, coin, delta)) return null;
   }
   for (const coin of COIN_TYPES) {
     payer[coin] = (payer[coin] ?? 0) - quote.transfers[coin];
