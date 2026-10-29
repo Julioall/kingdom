@@ -646,10 +646,10 @@ html,body{background:#17231b;color:#e9dfc9}
   .right-panel .panel-scroll,.utility-drawer .utility-content{margin:0 13px 22px;padding:10px 13px 18px}
 }
 
-/* Keep settings beside the gear that opens them. */
-.utility-drawer{top:16px;right:14px;bottom:auto;left:auto;width:min(395px,calc(100vw - 28px));max-height:calc(100% - 30px)}
+/* Keep settings beside the gear while leaving the lower-right zoom controls clear. */
+.utility-drawer{top:16px;right:14px;bottom:auto;left:auto;width:min(395px,calc(100vw - 28px));max-height:calc(100% - 110px)}
 @media(max-width:760px){
-  .utility-drawer{top:8px;right:7px;left:auto;bottom:auto;width:min(395px,calc(100vw - 14px));max-height:calc(100% - 72px)}
+  .utility-drawer{top:8px;right:7px;left:auto;bottom:auto;width:min(395px,calc(100vw - 14px));max-height:calc(100% - 110px)}
 }
 
 /* Tiny Swords pointer set: arrow, hand, blocked, and the selection frame. */
