@@ -59,7 +59,7 @@
       <button id="step" hidden aria-label="Avançar um dia">＋</button>
       <button id="speedCycle" class="speed-cycle" type="button" aria-label="Velocidade da simulação: 1×" title="Acelerar para 2×">1×</button>
       <button id="audioToggle" type="button" aria-pressed="false" aria-label="Silenciar todos os sons" title="Silenciar todos os sons">🔊</button>
-      <button id="settingsToggle" type="button" aria-controls="settingsTray" aria-expanded="false" title="Configurações do jogo">⚙</button>
+      <button id="settingsToggle" type="button" aria-label="Abrir configurações do jogo" aria-controls="settingsTray" aria-expanded="false" title="Configurações do jogo">⚙</button>
     </nav>
   </header>
 
@@ -135,7 +135,7 @@
       </div>
     </aside>
 
-    <aside class="side-panel left-panel" id="leftPanel" aria-label="Reinos e moradores">
+    <aside class="side-panel left-panel" id="leftPanel" aria-label="Reinos e moradores" aria-hidden="true" inert>
       <div class="panel-heading">
         <div><small>SEUS POVOS</small><h2>Reinos</h2></div>
         <button class="icon-button" id="leftClose" aria-label="Recolher painel">−</button>
@@ -161,7 +161,7 @@
       </div>
     </aside>
 
-    <aside class="side-panel right-panel" id="rightPanel" aria-label="Informações da seleção" aria-live="polite">
+    <aside class="side-panel right-panel" id="rightPanel" aria-label="Informações da seleção" aria-live="polite" aria-hidden="true" inert>
       <div class="panel-heading">
         <div><small id="inspectEyebrow">CAMPO DE OBSERVAÇÃO</small><h2 id="inspectTitle">Dois reinos em formação</h2></div>
         <button class="icon-button" id="rightClose" aria-label="Fechar inspetor">×</button>
