@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import {
   goldPriceToCopper, quoteCoinPayment, settleCoinPayment, settleCoinTrade
 } from '../src/simulation/economy/coin-payments.js';
+import { currencyValueCopper } from '../src/simulation/economy/currency-denominations.js';
 
-const value = account => account.gold * 100 + account.silver * 10 + account.copper;
+const value = account => currencyValueCopper(account);
 
 test('physical copper, silver and gold settle exact prices with real change', () => {
   const buyer = { gold: 1, silver: 0, copper: 0, food: 0 };
@@ -18,6 +19,40 @@ test('physical copper, silver and gold settle exact prices with real change', ()
   assert.deepEqual(buyer, { gold: 0, silver: 6, copper: 3, food: 1, coinMode: true });
   assert.deepEqual(seller, { gold: 1, silver: 0, copper: 0, food: 2, coinMode: true });
   assert.equal(value(buyer) + value(seller), before, 'no denomination is minted or destroyed');
+});
+
+test('whole gold coins remain spendable while fractional legacy gold stays exact and unspendable', () => {
+  const buyer = { gold: 1.325, silver: 0, copper: 0 };
+  const seller = { gold: 0, silver: 0, copper: 0 };
+  const before = value(buyer) + value(seller);
+  const quote = quoteCoinPayment(buyer, seller, 100);
+  assert.deepEqual(quote.tender, { copper: 0, silver: 0, gold: 1 });
+
+  assert.deepEqual(settleCoinPayment(buyer, seller, 100), quote);
+  assert.equal(buyer.gold, 1.325 - 1,
+    'subtracting a whole coin preserves the original floating-point remainder');
+  assert.equal(seller.gold, 1);
+  assert.ok(Math.abs(value(buyer) + value(seller) - before) < 1e-9);
+  assert.equal(quoteCoinPayment(buyer, seller, 1), null,
+    'a sub-copper legacy remainder cannot be tendered or rounded up');
+
+  const subCopper = { gold: .005, silver: 0, copper: 0 };
+  assert.equal(quoteCoinPayment(subCopper, seller, 1), null);
+});
+
+test('coin trade preserves fractional legacy gold while transferring physical coins and goods', () => {
+  const buyer = { gold: .325, silver: 0, copper: 50, food: 0 };
+  const seller = { gold: 0, silver: 0, copper: 0, food: 1 };
+  const before = value(buyer) + value(seller);
+
+  const receipt = settleCoinTrade(buyer, seller, 37, seller, buyer, 'food', 1);
+  assert.equal(receipt.priceCopper, 37);
+  assert.equal(buyer.gold, .325);
+  assert.equal(buyer.copper, 13);
+  assert.equal(seller.copper, 37);
+  assert.equal(buyer.food, 1);
+  assert.equal(seller.food, 0);
+  assert.ok(Math.abs(value(buyer) + value(seller) - before) < 1e-9);
 });
 
 test('an exact mix of smaller coins avoids unnecessary change', () => {
