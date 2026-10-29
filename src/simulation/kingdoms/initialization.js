@@ -10,15 +10,18 @@ import { KINGDOM_BUILD_COSTS } from './commands.js';
 import { kingdomFoodDemand } from '../economy/food-policy.js';
 import { isTreeAnchor } from '../ecology/plants.js';
 import { seedRoyalChangeReserve } from '../economy/royal-coin-exchange.js';
+import { initialSettlementCenters, hasBuildingResourceClearance } from '../world/building-clearance.js';
+import { settlementPlan, plannedBuildingSites } from './settlement-plan.js';
+
+const [northStart, southStart] = initialSettlementCenters(WIDTH, HEIGHT);
 
 const KINGDOM_STARTS = [
-  { name: 'Valedouro', short: 'Valedouro', color: '#507db2', palette: 'blue', x: Math.round(18 * WIDTH / 36), y: Math.round(7 * HEIGHT / 26), innerX: 1, innerY: 1 },
-  { name: 'Corvânia', short: 'Corvânia', color: '#bd625c', palette: 'red', x: Math.round(18 * WIDTH / 36), y: Math.round(19 * HEIGHT / 26), innerX: -1, innerY: -1 },
+  { name: 'Valedouro', short: 'Valedouro', color: '#507db2', palette: 'blue', ...northStart, innerX: 1, innerY: 1 },
+  { name: 'Corvânia', short: 'Corvânia', color: '#bd625c', palette: 'red', ...southStart, innerX: -1, innerY: -1 },
   { name: 'Albruma', short: 'Albruma', color: '#a27db8', palette: 'purple', x: 74, y: 22, innerX: -1, innerY: 1 },
   { name: 'Eryndor', short: 'Eryndor', color: '#c8a54a', palette: 'yellow', x: 22, y: 74, innerX: 1, innerY: -1 }
 ];
 const INITIAL_KINGDOM_COUNT = 2;
-const INITIAL_TOWER_OFFSETS = [[16, 7], [7, 16], [-16, -7], [-7, -16]];
 export const INITIAL_POPULATION_PER_KINGDOM = 48;
 export const INITIAL_MILITARY_ROSTER = Object.freeze([
   { school: 'centro_militar', militaryClass: 'guerreiro', count: 13 },
@@ -31,6 +34,8 @@ export const INITIAL_SOLDIERS_PER_KINGDOM = INITIAL_MILITARY_ROSTER.reduce((sum,
 const BASE_PRICES = { food: .35, wood: .65, stone: .8, gold: 2, feed: .28, iron: .85, seeds: .5 };
 
 function placeStructure(world, kingdom, type, x, y, cost, extra = {}) {
+  if (!hasBuildingResourceClearance(world, { x, y }, extra.radius || 2.5, false))
+    throw new Error('Construção inicial próxima demais de um lago: ' + type);
   if (!spendInventory(kingdom.treasury, cost)) throw new Error('Estoque insuficiente para a estrutura inicial: ' + type);
   const structure = {
     id: world.nextId++, type, kingdomId: kingdom.id, communityId: kingdom.communityId || null, x, y,
@@ -44,33 +49,32 @@ function placeStructure(world, kingdom, type, x, y, cost, extra = {}) {
   return structure;
 }
 
-function initialTowerSite(world, castle, offset) {
-  const desiredX = castle.x + offset[0], desiredY = castle.y + offset[1];
+function chooseInitialSettlementCenter(world, kingdom, placed) {
   const candidates = [];
-  for (let radius = 0; radius <= 24; radius++) {
-    for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
-      if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius && radius > 0) continue;
-      const tile = cellAt(world, desiredX + dx, desiredY + dy);
-      if (!tile || tile.terrain !== 'land' || Math.hypot(tile.x - castle.x, tile.y - castle.y) > TERRITORY_RULES.castleRadius) continue;
-      const entrance = cellAt(world, tile.x, tile.y + 1);
-      if (!entrance || entrance.terrain !== 'land' || isTreeAnchor(world, entrance)) continue;
-      const overlaps = world.structures.some(structure => {
-        if (!structure.complete) return false;
-        const existingRadius = structure.type === 'curral' ? (structure.radius || 3.5) : 2.5;
-        return Math.hypot(tile.x - structure.x, tile.y - structure.y) < 2.1 + existingRadius + 1;
-      });
-      if (!overlaps) candidates.push(tile);
-    }
+  for (let dy = -16; dy <= 16; dy++) for (let dx = -16; dx <= 16; dx++) {
+    candidates.push({ x: kingdom.x + dx, y: kingdom.y + dy, score: dx * dx + dy * dy });
   }
-  candidates.sort((a, b) => Math.hypot(a.x - desiredX, a.y - desiredY) + a.slope * .12
-    - (Math.hypot(b.x - desiredX, b.y - desiredY) + b.slope * .12));
-  return candidates[0] || null;
+  candidates.sort((a, b) => a.score - b.score || a.y - b.y || a.x - b.x);
+  return candidates.find(center => {
+    if (placed.some(other => Math.hypot(center.x - other.x, center.y - other.y) < 40)) return false;
+    const plan = settlementPlan(center, kingdom.innerY);
+    for (const site of plannedBuildingSites(plan)) {
+      if (!hasBuildingResourceClearance(world, site, 2.5, false)) return false;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+        if (cellAt(world, site.x + dx, site.y + dy)?.terrain !== 'land') return false;
+      }
+    }
+    const clearEntries = plan.towers.every(site => {
+      const entry = cellAt(world, site.x, site.y + 1);
+      return entry && !isTreeAnchor(world, entry);
+    });
+    return clearEntries && !!chooseRearCorralSite(world, { ...kingdom, x: center.x, y: center.y },
+      plannedBuildingSites(plan));
+  });
 }
 
-function placeInitialTowers(world, kingdom, castle) {
-  for (const offset of INITIAL_TOWER_OFFSETS) {
-    const site = initialTowerSite(world, castle, offset);
-    if (!site) throw new Error('Não há espaço seguro para uma das torres iniciais de ' + kingdom.name + '.');
+function placeInitialTowers(world, kingdom, sites) {
+  for (const site of sites) {
     const tower = placeStructure(world, kingdom, 'torre', site.x, site.y, KINGDOM_BUILD_COSTS.torre,
       { spriteKey: 'tower', territoryRadius: TERRITORY_RULES.towerRadius });
     kingdom.towerIds.push(tower.id);
@@ -98,6 +102,14 @@ export function initializeKingdoms(world) {
     return kingdom;
   });
 
+  const placed = [];
+  for (const kingdom of world.kingdoms) {
+    const center = chooseInitialSettlementCenter(world, kingdom, placed);
+    if (!center) throw new Error('Não há espaço seguro para o plano simétrico de ' + kingdom.name + '.');
+    kingdom.x = center.x; kingdom.y = center.y;
+    placed.push(center);
+  }
+
   for (const kingdom of world.kingdoms) {
     const communityId = world.nextId++;
     kingdom.communityId = communityId;
@@ -111,30 +123,31 @@ export function initializeKingdoms(world) {
     });
   }
 
-  const homeOffsets = [[-9, -9], [-3, -9], [3, -9], [9, -9], [-9, 9], [-3, 9], [3, 9], [9, 9]];
   for (const kingdom of world.kingdoms) {
+    const plan = settlementPlan(kingdom, kingdom.innerY);
     const castle = placeStructure(world, kingdom, 'castelo', kingdom.x, kingdom.y,
       { wood: 52, stone: 78, gold: 24 }, { spriteKey: 'castle', territoryRadius: TERRITORY_RULES.castleRadius });
-    const village = placeStructure(world, kingdom, 'vila', kingdom.x - kingdom.innerX * 14, kingdom.y,
+    const village = placeStructure(world, kingdom, 'vila', plan.village.x, plan.village.y,
       { wood: 24, stone: 14 }, { spriteKey: 'house3' });
-    const marketStructure = placeStructure(world, kingdom, 'mercado', kingdom.x, kingdom.y - kingdom.innerY * 14,
+    const marketStructure = placeStructure(world, kingdom, 'mercado', plan.market.x, plan.market.y,
       { wood: 20, stone: 10 }, { spriteKey: 'house2' });
-    const militaryCenter = placeStructure(world, kingdom, 'centro_militar', kingdom.x, kingdom.y + kingdom.innerY * 14,
+    const militaryCenter = placeStructure(world, kingdom, 'centro_militar', plan.barracks.x, plan.barracks.y,
       { wood: 32, stone: 30, gold: 12 }, { spriteKey: 'barracks', capacity: 60, soldierIds: [] });
     kingdom.militaryCenterIds.push(militaryCenter.id);
-    const rearSite = chooseRearCorralSite(world, kingdom, homeOffsets.map(([dx, dy]) => ({ x: kingdom.x + dx, y: kingdom.y + dy })));
+    const rearSite = chooseRearCorralSite(world, kingdom,
+      plannedBuildingSites(plan));
     if (!rearSite) throw new Error('Não há retaguarda segura para o curral de ' + kingdom.name);
     const pen = placeStructure(world, kingdom, 'curral', rearSite.x, rearSite.y,
       { wood: 14, stone: 8 }, { radius: 3.5, spriteKey: null });
-    for (const [dx, dy] of homeOffsets) {
-      const home = placeStructure(world, kingdom, 'casa', kingdom.x + dx, kingdom.y + dy, { wood: 8, stone: 2 }, { capacity: 13, spriteKey: 'house1' });
+    for (const site of plan.homes) {
+      const home = placeStructure(world, kingdom, 'casa', site.x, site.y, { wood: 8, stone: 2 }, { capacity: 13, spriteKey: 'house1' });
       kingdom.homeIds.push(home.id);
     }
-    placeStructure(world, kingdom, 'monasterio', kingdom.x + kingdom.innerX * 7, kingdom.y + 15,
+    placeStructure(world, kingdom, 'monasterio', plan.monastery.x, plan.monastery.y,
       KINGDOM_BUILD_COSTS.monasterio, { spriteKey: 'monastery', trainingClass: 'monge' });
-    placeStructure(world, kingdom, 'arquearia', kingdom.x + kingdom.innerX * 7, kingdom.y - 15,
+    placeStructure(world, kingdom, 'arquearia', plan.archery.x, plan.archery.y,
       KINGDOM_BUILD_COSTS.arquearia, { spriteKey: 'archery', trainingClass: 'arqueiro' });
-    placeInitialTowers(world, kingdom, castle);
+    placeInitialTowers(world, kingdom, plan.towers);
 
     const settlement = {
       id: world.nextId++, kingdomId: kingdom.id, name: 'Vila de ' + kingdom.name,

@@ -1,12 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { syncHudPanelAccess, syncFoodPressureAlert } from '../src/ui/hud-panel-access.js';
+import { syncHudPanelAccess } from '../src/ui/hud-panel-access.js';
 
 function mockPanel() {
   const attributes = new Map();
   return { inert: false, attributes, setAttribute(name, value) { attributes.set(name, value); } };
 }
-
 test('closed side panels cannot receive keyboard focus', () => {
   const left = mockPanel(), right = mockPanel();
   syncHudPanelAccess(left, right);
@@ -27,14 +26,18 @@ test('reopening one panel restores its accessibility while hiding the other', ()
   assert.equal(right.attributes.get('aria-hidden'), 'false');
 });
 
-test('food risk alert appears without expanding optional environment tags', () => {
-  const classes = new Set();
-  const mapTags = { classList: { toggle(name, enabled) { if (enabled) classes.add(name); else classes.delete(name); } } };
-  const foodPressureTag = { hidden: true };
-  syncFoodPressureAlert(mapTags, foodPressureTag, 3);
-  assert.equal(foodPressureTag.hidden, false);
-  assert.equal(classes.has('has-alert'), true);
-  syncFoodPressureAlert(mapTags, foodPressureTag, 0);
-  assert.equal(foodPressureTag.hidden, true);
-  assert.equal(classes.has('has-alert'), false);
+test('closing a panel releases descendant focus before hiding it from accessibility', () => {
+  const left = mockPanel(), right = mockPanel();
+  let focused = true;
+  const button = { blur() { focused = false; } };
+  left.ownerDocument = { activeElement: button };
+  left.contains = element => element === button;
+  const setAttribute = left.setAttribute;
+  left.setAttribute = (name, value) => {
+    assert.equal(focused, false, 'aria-hidden must not conceal the focused button');
+    setAttribute(name, value);
+  };
+  syncHudPanelAccess(left, right);
+  assert.equal(focused, false);
+  assert.equal(left.inert, true);
 });

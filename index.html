@@ -47,12 +47,12 @@
       </picture>
     </a>
     <div class="world-metrics" aria-label="Recursos e população globais">
-      <span class="metric resource-metric" title="Dias alimentares equivalentes nos tesouros, mercados e reservas comunitárias. Uma unidade de comida vale um dia adulto; uma unidade de carne vale 10 dias. Quantidades são exibidas como números inteiros. Cada porção de ração alimenta uma ovelha por um dia. Não inclui reservas pessoais."><img src="/assets/kingdom-ui/icon-04.png" alt=""><span>Comida (dias)<b id="globalFood">0</b></span></span>
-      <span class="metric resource-metric" title="Ouro nos tesouros, mercados, comunidades e com moradores vivos"><img src="/assets/kingdom-ui/icon-03.png" alt=""><span>Riqueza<b id="globalGold">0</b></span></span>
+      <span class="metric resource-metric" title="Comida: dias alimentares equivalentes nos tesouros, mercados e reservas comunitárias. Uma unidade de comida vale um dia adulto; uma unidade de carne vale 10 dias. Quantidades são exibidas como números inteiros. Cada porção de ração alimenta uma ovelha por um dia. Não inclui reservas pessoais."><img src="/assets/kingdom-ui/icon-04.png" alt=""><span><span class="metric-label">Comida</span><b id="globalFood">0</b></span></span>
+      <span class="metric resource-metric" title="Riqueza: ouro nos tesouros, mercados, comunidades e com moradores vivos"><img src="/assets/kingdom-ui/icon-03.png" alt=""><span><span class="metric-label">Riqueza</span><b id="globalGold">0</b></span></span>
       <span class="metric resource-metric" title="Pessoas vivas"><img src="/assets/kingdom-ui/icon-11.png" alt=""><span>Pessoas<b id="peopleCount">0</b></span></span>
       <span class="metric resource-metric" title="Nascimentos humanos desde o início"><span class="stat-symbol" aria-hidden="true">✦</span><span>Nascimentos<b id="birthCount">0</b></span></span>
       <span class="metric resource-metric" title="Mortes humanas desde o início"><span class="stat-symbol" aria-hidden="true">†</span><span>Mortes<b id="deathCount">0</b></span></span>
-      <span class="metric date-metric" title="Dia dentro do ano; cada ano tem 365 dias">DIA <b id="day">0</b> · ANO <b id="year">1</b><span id="season" class="season-label">PRIMAVERA</span></span>
+      <span class="metric date-metric" title="Dia dentro do ano; cada ano tem 365 dias"><span class="calendar-date">DIA <b id="day">0</b> · ANO <b id="year">1</b></span><span id="season" class="season-label">PRIMAVERA</span></span>
     </div>
     <nav class="controls" aria-label="Controles do mundo">
       <button id="toggle" aria-label="Pausar ou retomar">Ⅱ <span>Pausar</span></button>
@@ -74,16 +74,9 @@
     </aside>
 
     <nav class="world-rail" aria-label="Painéis do reino">
-      <button id="kingdomsToggle" type="button" aria-controls="leftPanel" aria-expanded="false" title="Reinos e ecologia"><span aria-hidden="true">♜</span><small>Reinos</small></button>
-      <button hidden id="environmentToggle" type="button" aria-controls="mapTags" aria-expanded="false" title="Condições do mundo"><span aria-hidden="true">☼</span><small>Mundo</small></button>
-      <button id="journalToggle" type="button" aria-controls="journal" aria-expanded="false" title="Crônicas"><span aria-hidden="true">☷</span><small>Crônicas</small></button>
+      <button id="kingdomsToggle" type="button" aria-label="Reinos" aria-controls="leftPanel" aria-expanded="false" title="Reinos e ecologia"><span class="rail-caption" aria-hidden="true"><span>♜</span><small class="rail-title">Reinos</small></span></button>
+      <button id="journalToggle" type="button" aria-label="Crônicas" aria-controls="journal" aria-expanded="false" title="Crônicas"><span class="rail-caption" aria-hidden="true"><span>☷</span><small class="rail-title">Crônicas</small></span></button>
     </nav>
-
-    <div class="map-tags" id="mapTags" aria-live="polite">
-      <span class="map-tag">AR <b id="temperature">18 °C</b></span>
-      <span class="map-tag">CHUVA <b id="rainfall">0 mm</b></span>
-      <span class="map-tag pressure" id="foodPressureTag" title="Pessoas com reserva alimentar abaixo de 30 dias" hidden>RESERVAS BAIXAS <b id="foodRiskCount">0</b></span>
-    </div>
 
         <div class="map-zoom" role="group" aria-label="Controles de zoom do mapa">
           <button id="mapZoomOut" type="button" aria-label="Afastar mapa" title="Afastar mapa">−</button>
@@ -138,7 +131,6 @@
     <aside class="side-panel left-panel" id="leftPanel" aria-label="Reinos e moradores" aria-hidden="true" inert>
       <div class="panel-heading">
         <div><small>SEUS POVOS</small><h2>Reinos</h2></div>
-        <button class="icon-button" id="leftClose" aria-label="Recolher painel">−</button>
       </div>
       <div class="panel-scroll">
         <section class="block">
@@ -177,7 +169,6 @@
     <aside class="journal-panel" id="journal" hidden>
       <div class="panel-heading">
         <div><small>ACONTECIMENTOS IMPORTANTES</small><h2>Crônicas</h2></div>
-        <button class="icon-button" id="journalClose" aria-label="Fechar crônica">×</button>
       </div>
       <div id="events" class="event-list"></div>
     </aside>

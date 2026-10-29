@@ -6,6 +6,7 @@ import { invalidateNavigation } from '../individuals/navigation-cache.js';
 import { isRoadTile, resourceUsePressure } from '../world/roads.js';
 import { CULTIVATED_FOOD_PER_SEED_UNIT } from '../economy/food-policy.js';
 import { recordFoodAuditBlocked, withFoodAuditOperation } from '../economy/food-audit-ledger.js';
+import { clearWildVegetationNearCorrals } from './corral-clearance.js';
 
 const RESOURCE_REGEN_INTERVAL_DAYS = 7;
 const RESOURCE_REGEN_FACTOR = .3;
@@ -134,10 +135,10 @@ export function isBushAnchor(w, tile, plantId) {
     return true;
   }
 
-function spreadWildPlants(w, day) {
+function spreadWildPlants(w, day, corralClearance) {
     const seedlings = [];
     for (const tile of w.tiles) {
-      if (tile.cropFieldId != null || tile.terrain !== 'land') continue;
+      if (corralClearance.has(tile.i) || tile.cropFieldId != null || tile.terrain !== 'land') continue;
       const pressure = resourceUsePressure(tile);
       if (pressure > .28 || isRoadTile(tile)) continue;
       const moisture = clamp(tile.soilWaterMm / Math.max(1, tile.soilCapacityMm), 0, 1);
@@ -173,6 +174,7 @@ function spreadWildPlants(w, day) {
   }
 
 export function updatePlants(w, day) {
+    const { clearance: corralClearance } = clearWildVegetationNearCorrals(w);
     if (day % RESOURCE_REGEN_INTERVAL_DAYS !== 0) return;
     invalidateNavigation(w);
     w.ecologyFlows ||= {};
@@ -260,7 +262,7 @@ export function updatePlants(w, day) {
         field.cropCycleState = 'ready';
       }
     }
-    spreadWildPlants(w, day);
+    spreadWildPlants(w, day, corralClearance);
   }
 
 export function eatPlants(w, tile, diet, amount) {

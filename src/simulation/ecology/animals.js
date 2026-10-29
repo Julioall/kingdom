@@ -13,7 +13,7 @@ import { drinkWater } from './hydrology.js';
 import { moveOne } from '../individuals/movement.js';
 import { log } from '../core/events.js';
 import { consumeStoreInventory } from '../economy/inventories.js';
-import { activeCommunityPens, assignedHerdPen, reconcileCommunityHerdPens } from './herd.js';
+import { activeCommunityPens, assignedHerdPen, herdPenRadius, reconcileCommunityHerdPens } from './herd.js';
 
 export function seedAnimals(w, counts) {
     for (const p of ANIMALS) for (let i = 0; i < counts[p.id]; i++) {
@@ -111,7 +111,7 @@ export function moveAwayFrom(w, animal, threat, aquatic) {
       if (!dx && !dy) continue;
       const t = cellAt(w, animal.x + dx, animal.y + dy);
       if (t && (aquatic ? t.terrain === 'water' : t.terrain !== 'water' && t.terrain !== 'rock')
-          && (!pen || distance(t, pen) <= (pen.radius || 3.5))) choices.push(t);
+          && (!pen || distance(t, pen) <= herdPenRadius(pen))) choices.push(t);
     }
     choices.sort((a, b) => distance(b, threat) - distance(a, threat) + (a.slope - b.slope) * .08);
     if (!choices.length) return false;
@@ -162,6 +162,21 @@ function wildSheepForageTargets(w, animals) {
     return targets;
   }
 
+function communalSheepWalkTarget(w, animal, pen, penTiles, occupied) {
+  const options = penTiles.filter(tile => distance(tile, animal) > .5).map(tile => {
+    const crowding = occupied.get(tile.x + ',' + tile.y) || 0;
+    const browse = plantBiomass(tile, SHEEP_FORAGE);
+    const dailyPreference = hash01(w.seed + animal.id * 101 + w.day * 7919, tile.x + pen.id, tile.y);
+    const backtrackPenalty = tile.i === animal.herdPreviousPenTileIndex ? 1.2 : 0;
+    return { tile, score: browse * .004 - crowding * 1.25 - distance(tile, animal) * .2
+      + dailyPreference * 1.5 - backtrackPenalty };
+  }).sort((left, right) => right.score - left.score || left.tile.i - right.tile.i);
+  const top = options.slice(0, Math.min(4, options.length));
+  if (!top.length) return null;
+  const choice = Math.floor(hash01(w.seed + animal.id * 97 + w.day * 3571, pen.id, top.length) * top.length);
+  return top[choice].tile;
+}
+
 export function updateAnimals(w) {
     const communityIds = new Set(w.animals.filter(animal => animal.alive && animal.speciesId === 'sheep'
       && animal.herdCommunityId != null).map(animal => animal.herdCommunityId));
@@ -201,7 +216,7 @@ export function updateAnimals(w) {
         const pen = assignedHerdPen(w, a);
         let candidates = [];
         if (pen) {
-          const penRadius = pen.radius || 3.5;
+          const penRadius = herdPenRadius(pen);
           const penTiles = cellsWithin(w, pen.x, pen.y, penRadius, tile => tile.terrain === 'land');
           const occupied = new Map();
           for (const sheep of w.animals) {
@@ -215,15 +230,16 @@ export function updateAnimals(w) {
                 - (occupied.get(tile.x + ',' + tile.y) || 0) * 5 + hash01(w.seed + a.id * 101, tile.x, tile.y) * 3;
               return score(right) - score(left);
             });
-          const destination = candidates[0] || penTiles.slice().sort((left, right) =>
-            distance(left, a) - distance(right, a)
-              + hash01(w.seed + a.id * 101, right.x, right.y) * 3
-              - hash01(w.seed + a.id * 101, left.x, left.y) * 3)[0];
-          if (destination) moveOne(w, a, destination, false);
+          const destination = communalSheepWalkTarget(w, a, pen, penTiles, occupied);
+          const previousTile = cellAt(w, Math.round(a.x), Math.round(a.y));
+          if (destination && moveOne(w, a, destination, false) && previousTile
+              && (a.x !== previousTile.x || a.y !== previousTile.y)) {
+            a.herdPreviousPenTileIndex = previousTile.i;
+          }
         }
         if (energyNeed > .001) {
           if (pen) {
-            const penRadius = pen.radius || 3.5;
+            const penRadius = herdPenRadius(pen);
             if (!candidates.length) {
               candidates = cellsWithin(w, pen.x, pen.y, penRadius + 2,
                 tile => tile.terrain === 'land' && distance(tile, pen) > penRadius
@@ -393,7 +409,7 @@ export function communityHerd(w, community) {
     return w.animals.filter(animal => animal.alive && animal.speciesId === 'sheep'
       && (animal.herdCommunityId === community.id
         || (pens.length
-          ? pens.some(pen => distance(animal, pen) <= (pen.radius || 5))
+          ? pens.some(pen => distance(animal, pen) <= herdPenRadius(pen))
           : distance(animal, community) <= 5)));
   }
 

@@ -29,12 +29,14 @@ import DirtBrush from './dirt-brush.js';
 import { createLoadingScreen } from './loading-screen.js';
 import { renderSocialInspectorSections } from './social-inspector.js';
 import { createRenderDiagnostics } from './render-profiler-panel.js';
-import { syncHudPanelAccess, syncFoodPressureAlert } from './hud-panel-access.js';
+import { syncHudPanelAccess } from './hud-panel-access.js';
 import { createTerrainChunkCache } from './terrain-chunks.js';
 import { createPixelTileCache } from './pixel-tile-cache.js';
 import { compareDepth, mergeDepthItems } from './depth-order.js';
 import { createStaticDepthSpatialIndex } from './depth-spatial-index.js';
 import { shouldDrawMineralAtZoom } from './mineral-lod.js';
+import { MINERAL_SPRITE_KINDS, mineralDepositVariant } from './mineral-sprites.js';
+import { CORRAL_VISUAL_SCALE, corralFenceRadius } from '../simulation/ecology/herd.js';
 
 
 const IMAGE_ASSET_EXTENSION = import.meta.env?.PROD ? 'webp' : 'png';
@@ -69,12 +71,22 @@ export function mountGame() {
   const $ = id => document.getElementById(id);
   const forjaUI = window.FantasyUI;
   if (forjaUI) {
-    for (const [selector, skin] of [['.topbar', 'wood'], ['.mini-map-panel', 'wood'], ['.left-panel', 'scroll'], ['.right-panel', 'paper'], ['.journal-panel', 'scroll'], ['.utility-drawer', 'wood']]) {
+    for (const [selector, skin] of [['.topbar', 'wood'], ['.mini-map-panel', 'wood'], ['.left-panel', 'scroll'], ['.right-panel', 'scroll'], ['.journal-panel', 'scroll'], ['.utility-drawer', 'scroll']]) {
       const panel = document.querySelector(selector);
       if (panel && !panel.querySelector(':scope > .skin-layer')) {
         panel.classList.add('ui-skinned-panel');
         panel.dataset.uiSkin = skin;
         panel.prepend(forjaUI.skinLayer(skin));
+      }
+    }
+    for (const [id, color] of [['kingdomsToggle', 'yellow'], ['journalToggle', 'cyan']]) {
+      const button = $(id);
+      if (button && !button.querySelector(':scope > .rail-ribbon')) {
+        const ribbon = forjaUI.ribbon(color, '', 'rail-ribbon', 50);
+        ribbon.dataset.ribbonColor = color;
+        ribbon.setAttribute('aria-hidden', 'true');
+        ribbon.querySelector('.ribbon-text')?.remove();
+        button.prepend(ribbon);
       }
     }
   }
@@ -314,7 +326,7 @@ export function mountGame() {
     image.src = 'assets/construction-variants/' + imageFileName(file);
     constructionFoundationSprites[key] = image;
   }
-  const tinyGoldSprites = Object.create(null);
+  const tinyMineralSprites = Object.fromEntries(MINERAL_SPRITE_KINDS.map(kind => [kind, Object.create(null)]));
   const tinyRockSprites = Object.create(null);
   const mapDecorationSprites = Object.create(null);
   for (const sprite of MAP_DECORATION_SPRITES) {
@@ -366,9 +378,12 @@ export function mountGame() {
       atmosphericProfile = next;
     }
   }
-  const tinyFenceTilemap = trackedImage();
-  tinyFenceTilemap.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-  tinyFenceTilemap.src = 'assets/tiny-swords/fences/tileset-fences-1.png';
+  const tinyCorralSprite = trackedImage();
+  tinyCorralSprite.onload = () => {
+    invalidateStaticDepthCache();
+    if (visualPack === 'tiny-swords') queueAssetRender();
+  };
+  tinyCorralSprite.src = 'assets/construction-variants/' + imageFileName('kingdom-curral');
   const tinyMeatSprite = trackedImage();
   tinyMeatSprite.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
   tinyMeatSprite.src = 'assets/tiny-swords/meat-resource.png';
@@ -429,11 +444,11 @@ export function mountGame() {
     image.src = 'assets/tiny-swords/rocks/' + imageFileName('rock-' + variant);
     tinyRockSprites[variant] = image;
   }
-  for (let variant = 1; variant <= 6; variant++) {
+  for (const kind of MINERAL_SPRITE_KINDS) for (let variant = 1; variant <= 6; variant++) {
     const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-    image.src = 'assets/tiny-swords/minerals/' + imageFileName('gold-stone-' + variant);
-    tinyGoldSprites[variant] = image;
+    image.src = 'assets/tiny-swords/minerals/' + imageFileName(kind + '-stone-' + variant);
+    tinyMineralSprites[kind][variant] = image;
   }
   function queueAssetRender() {
     if (assetRenderQueued) return;
@@ -1445,20 +1460,32 @@ export function mountGame() {
       if (s.complete && s.type === 'curral') {
         const radius = Math.max(2, Math.round(s.radius || 3.5));
         const centerX = Math.round(s.x), centerY = Math.round(s.y);
-        const gate = corralGates.find(item => item.structureId === s.id);
-        function addFence(x, y, sourceColumn, sourceRow, key) {
-          if (gate && gate.x === x && gate.y === y) return;
-          const fenceTile = cell(x, y);
-          if (fenceTile) add('fence', x, y, fenceTile, 2.6, s.id * 100 + key, { sourceX: sourceColumn * 32, sourceY: sourceRow * 32 });
-        }
-        for (let offset = -radius; offset <= radius; offset++) {
-          const topColumn = offset === -radius ? 0 : offset === radius ? 4 : 2;
-          addFence(centerX + offset, centerY - radius, topColumn, 0, offset + radius);
-          addFence(centerX + offset, centerY + radius, topColumn, 3, offset + radius + 2 * radius + 1);
-          if (offset > -radius && offset < radius) {
-            const sideRow = 1 + ((offset + radius - 1) % 2);
-            addFence(centerX - radius, centerY + offset, 0, sideRow, offset + radius + 4 * radius + 2);
-            addFence(centerX + radius, centerY + offset, 4, sideRow, offset + radius + 6 * radius + 3);
+        const imageWidth = tinyCorralSprite.naturalWidth;
+        const imageHeight = tinyCorralSprite.naturalHeight;
+        if (imageWidth > 0 && imageHeight > 0) {
+          const columns = radius * 2 + 1;
+          const spriteWidth = columns * TILE * CORRAL_VISUAL_SCALE;
+          const spriteHeight = spriteWidth * imageHeight / imageWidth;
+          const rows = Math.max(1, Math.round(spriteHeight / TILE));
+          const spriteX = (centerX + .5) * TILE - spriteWidth / 2;
+          const spriteY = (centerY + .5) * TILE - spriteHeight / 2;
+          const sourceColumnWidth = imageWidth / columns;
+          const sourceRowHeight = imageHeight / rows;
+          const destinationCellWidth = spriteWidth / columns;
+          const destinationCellHeight = spriteHeight / rows;
+          // Tile-sized slices let people and sheep pass in front of the near fence and behind the far fence.
+          for (let row = 0; row < rows; row++) for (let column = 0; column < columns; column++) {
+            const destX = spriteX + column * destinationCellWidth;
+            const destY = spriteY + row * destinationCellHeight;
+            const x = (destX + destinationCellWidth / 2) / TILE;
+            const y = (destY + destinationCellHeight) / TILE - 1;
+            const sourceX = column * sourceColumnWidth;
+            const sourceY = row * sourceRowHeight;
+            const corralTile = cell(Math.floor(x), Math.floor(y));
+            add('corral', x, y, corralTile, 2.6, s.id * 1000 + row * columns + column, {
+              depthY: y, sourceX, sourceY, sourceWidth: sourceColumnWidth, sourceHeight: sourceRowHeight,
+              destX, destY, destWidth: destinationCellWidth, destHeight: destinationCellHeight
+            });
           }
         }
       }
@@ -1471,9 +1498,7 @@ export function mountGame() {
   }
 
   function collectDepthItems(bounds) {
-    // LOD affects only the rendered list: the world's finite ore inventory,
-    // mining navigation, inspection and rare deposits remain untouched.
-    // The reference renderer intentionally keeps every deposit for comparison.
+    // Only off-screen resources are culled. Camera zoom never thins deposits.
     const allStatic = collectStaticDepthItems();
     const staticCandidates = referenceRendering ? allStatic : staticDepthSpatialIndex.query(bounds);
     const staticItems = staticCandidates.filter(item => item.x >= bounds.minX && item.x <= bounds.maxX
@@ -1532,7 +1557,7 @@ export function mountGame() {
       else if (item.kind === 'stump') drawTreeStump(item);
       else if (item.kind === 'log') drawLooseTreeLog(item);
       else if (item.kind === 'loot') drawLootPile(item.pile);
-      else if (item.kind === 'fence') drawFenceSegment(item);
+      else if (item.kind === 'corral') drawCorralSlice(item);
       else if (item.kind === 'structure') drawStructure(item.structure);
       else if (item.kind === 'animal') drawAnimal(item.animal, item.pose);
       else if (item.kind === 'person') drawPerson(item.person, item.pose);
@@ -1589,13 +1614,13 @@ export function mountGame() {
     ctx.restore();
   }
 
-  function drawFenceSegment(item) {
-    const image = tinyFenceTilemap;
-    if (!image.complete || image.naturalWidth < 352 || image.naturalHeight < 768) return;
-    const x = item.x * TILE + TILE / 2, y = item.y * TILE + TILE / 2;
-    if (referenceRendering) { ctx.save(); ctx.imageSmoothingEnabled = false; }
-    ctx.drawImage(image, item.sourceX, item.sourceY, 32, 32, x - TILE / 2, y - TILE / 2, TILE, TILE);
-    if (referenceRendering) ctx.restore();
+  function drawCorralSlice(item) {
+    const image = tinyCorralSprite;
+    if (!image.complete || !image.naturalWidth) return;
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(image, item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight,
+      item.destX, item.destY, item.destWidth, item.destHeight);
+    ctx.restore();
   }
 
   function drawTreeStump(item) {
@@ -1629,15 +1654,14 @@ export function mountGame() {
 
   function drawMineralDeposit(item) {
     const x = item.x * TILE, y = item.y * TILE;
-    // Until dedicated assets arrive, each metal deposit uses the existing gold
-    // resource sprite. The mineral identity stays in the tile/snapshot data.
-    const ore = Math.max(item.gold || 0, item.copper || 0, item.silver || 0, item.iron || 0);
+    const kind = MINERAL_SPRITE_KINDS.slice().sort((a, b) => (item[b] || 0) - (item[a] || 0))[0];
+    const ore = item[kind] || 0;
     if (ore > .05) {
-      const variant = Math.max(1, Math.min(6, Math.ceil(ore / 3.5 * 6)));
+      const variant = mineralDepositVariant(kind, ore);
       const highlighted = activeMiningSites.has(item.x + ':' + item.y);
-      if (highlighted && animationRenderer.draw(ctx, 'resource.gold-stone-' + variant + '-highlight',
+      if (kind === 'gold' && highlighted && animationRenderer.draw(ctx, 'resource.gold-stone-' + variant + '-highlight',
         x + TILE / 2, y + TILE / 2, { elapsedMs: animationTime, scale: spriteScale(TILE), phase: item.id || 0 })) return;
-      const image = tinyGoldSprites[variant];
+      const image = tinyMineralSprites[kind][variant];
       if (image && image.complete && image.naturalWidth) {
         const scale = spriteScale(TILE), width = image.naturalWidth * scale, height = image.naturalHeight * scale;
         if (referenceRendering) { ctx.save(); ctx.imageSmoothingEnabled = false; }
@@ -1661,6 +1685,16 @@ export function mountGame() {
 
   function drawLootPile(pile) {
     const x = pile.x * TILE, y = pile.y * TILE;
+    if (MINERAL_SPRITE_KINDS.includes(pile.mineralKind) && (pile.resources[pile.mineralKind] || 0) > 0) {
+      const image = tinyMineralSprites[pile.mineralKind][1];
+      if (image?.complete && image.naturalWidth) {
+        const scale = spriteScale(TILE);
+        ctx.drawImage(image, x + TILE / 2 - image.naturalWidth * scale / 2,
+          y + TILE / 2 - image.naturalHeight * scale / 2,
+          image.naturalWidth * scale, image.naturalHeight * scale);
+      }
+      return;
+    }
     const stoneOnly = (pile.resources.stone || 0) > 0
       && !['food', 'meat', 'wood', 'gold', 'feed'].some(resource => (pile.resources[resource] || 0) > 0);
     if (stoneOnly) {
@@ -1872,7 +1906,7 @@ export function mountGame() {
     if (!structureDamageBars.visible(s.id, performance.now())) return;
     const life = towerVitality(s), ratio = life.health / life.maxHealth;
     const spriteKey = structureSpriteKey(s);
-    const top = s.type === 'curral' ? y - Math.round(s.radius || 3.5) * TILE
+    const top = s.type === 'curral' ? y - corralFenceRadius(s) * TILE
       : y + TILE - (BUILDING_FEET[spriteKey] || 150) * spriteScale(TILE);
     const barHeight = 7, barY = (s.complete ? top - barHeight - 2 : y - barHeight - 2) + constructionBarOffset;
     drawWorldHealthBar(x - 12, barY, 40, barHeight, ratio);
@@ -2121,7 +2155,7 @@ export function mountGame() {
       return { x: x + 8 - radius, y: y + 8 - radius, width: radius * 2, height: radius * 2 };
     }
     if (structure.type === 'curral' && structure.complete && structure.destroyedDay == null) {
-      const radius = Math.max(2, Math.round(structure.radius || 3.5));
+      const radius = corralFenceRadius(structure);
       return { x: (Math.round(structure.x) - radius) * TILE, y: (Math.round(structure.y) - radius) * TILE,
         width: (radius * 2 + 1) * TILE, height: (radius * 2 + 1) * TILE };
     }
@@ -2368,12 +2402,11 @@ export function mountGame() {
       const residents = kingdom.memberIds.map(id => getPerson(id)).filter(Boolean);
       const ruler = getPerson(kingdom.rulerId);
       const soldiers = residents.filter(person => person.role === 'soldier').length;
-      const patrolling = residents.filter(person => person.role === 'soldier' && String(person.state || '').startsWith('patrulhando')).length;
       const campaign = (world.campaigns || []).find(item => item.status !== 'complete'
         && (item.attackerId === kingdom.id || item.defenderId === kingdom.id));
       const campaignStatus = campaign ? ' · campanha ' + (campaign.status === 'engaged' ? 'em combate' : campaign.status === 'withdrawing' ? 'retirada' : 'em marcha') : '';
       return '<button class="community-card" data-kingdom="' + kingdom.id + '" title="Inspecionar reino, moradias, tesouro e mercado" style="--community:' + esc(kingdom.color) + '">' +
-        '<i class="color-dot"></i><span><strong>' + esc(kingdom.name) + '</strong><small>' + residents.length + ' moradores · ' + soldiers + ' soldados (' + patrolling + ' em patrulha)' + esc(campaignStatus) + ' · ' + (kingdom.homeIds || []).length + ' casas · ' + kingdom.towerIds.map(id => world.structures.find(structure => structure.id === id && structure.complete)).filter(Boolean).length + ' torres · rei ' + esc(ruler ? ruler.name : 'sem governante') + '</small></span><em>' + fmt(kingdom.territoryTileCount) + ' células</em></button>';
+        '<i class="color-dot"></i><span><strong>' + esc(kingdom.name) + '</strong><small>' + residents.length + ' moradores · ' + soldiers + ' soldados' + esc(campaignStatus) + ' · ' + (kingdom.homeIds || []).length + ' casas · ' + kingdom.towerIds.map(id => world.structures.find(structure => structure.id === id && structure.complete)).filter(Boolean).length + ' torres · rei ' + esc(ruler ? ruler.name : 'sem governante') + '</small></span><em>' + fmt(kingdom.territoryTileCount) + ' células</em></button>';
     }).join('');
     $('solitaryCount').textContent = world.kingdoms.length + ' domínios';
   }
@@ -2449,8 +2482,6 @@ export function mountGame() {
   }
 
   function updateHeader(stats) {
-    const region = world.regions[0] || { temperatureC: 18, rainfallMm: 0 };
-    const avgTemp = world.regions.reduce((s, r) => s + r.temperatureC, 0) / world.regions.length;
     const calendar = Sim.modules.Cosmos.calendarDate(world.day);
     const global = resourceSummary(world);
     $('globalFood').textContent = fmt(global.food);
@@ -2473,10 +2504,6 @@ export function mountGame() {
     $('harvestCount').textContent = fmt(stats.harvests.hunting);
     $('meatCount').textContent = fmt(stats.meatCarried) + '/' + fmt(stats.meatStored);
     $('season').textContent = seasonNames[stats.season].toUpperCase();
-    $('temperature').textContent = Math.round(avgTemp) + ' °C';
-    $('rainfall').textContent = fmt(stats.rainfallMm, 1) + ' mm';
-    syncFoodPressureAlert($('mapTags'), $('foodPressureTag'), stats.foodRiskPeople);
-    $('foodRiskCount').textContent = fmt(stats.foodRiskPeople);
     $('runState').textContent = session.paused ? 'PAUSADA' : 'ATIVA';
     $('toggle').innerHTML = session.paused ? '▶' : 'Ⅱ';
     $('toggle').title = session.paused ? 'Retomar' : 'Pausar';
@@ -2901,10 +2928,12 @@ export function mountGame() {
       if (!pile) { selection = null; renderInspector(); return; }
       $('inspectEyebrow').textContent = 'RECURSOS · LIVRES NO CHÃO';
       $('inspectTitle').textContent = 'Recursos derrubados';
-      const labels = { food: 'Alimento', meat: 'Carne', wood: 'Madeira', stone: 'Pedra', gold: 'Ouro', feed: 'Ração' };
-      root.innerHTML = Object.entries(pile.resources).filter(([, n]) => n > .001).map(([resource, amount]) =>
+      const labels = { food: 'Alimento', meat: 'Carne', wood: 'Madeira', stone: 'Pedra', gold: 'Ouro',
+        silver: 'Prata', copper: 'Cobre', iron: 'Ferro', feed: 'Ração' };
+      root.innerHTML = Object.entries(pile.resources).filter(([, n]) => n > (pile.mineralKind ? 0 : .001)).map(([resource, amount]) =>
         '<div class="data-row"><span>' + esc(labels[resource] || resource) + '</span><b>' + fmt(amount, 1) + '</b></div>').join('')
-        + '<p class="quiet">Qualquer pessoa pode recolher os recursos. O limite de carga é de 24 unidades por viagem.</p>';
+        + '<p class="quiet">' + (pile.mineralKind ? 'Moradores podem recolher os fragmentos de minério.'
+          : 'Qualquer pessoa pode recolher os recursos.') + ' O limite de carga é de 24 unidades por viagem.</p>';
       return;
     }
     if (selection.kind === 'log') {
@@ -3038,7 +3067,7 @@ export function mountGame() {
     if (looseLog) return { kind: 'log', id: looseLog.id };
     const structure = world.structures.filter(s => s.type === 'divisa'
       ? Math.abs(Math.hypot(s.x - x, s.y - y) - (s.radius || 4)) < .85
-      : s.type === 'curral' ? Math.abs(Math.max(Math.abs(s.x - x), Math.abs(s.y - y)) - Math.round(s.radius || 3.5)) < .85
+      : s.type === 'curral' ? Math.abs(Math.max(Math.abs(s.x - x), Math.abs(s.y - y)) - corralFenceRadius(s)) < .85
       : (() => {
         const kingdom = getKingdom(s.kingdomId), community = getCommunity(s.communityId);
         const spriteKey = structureSpriteKey(s);
@@ -3376,19 +3405,19 @@ export function mountGame() {
   $('kingdomsToggle').addEventListener('click', () => setKingdomPanel(!showLeft));
   $('settingsToggle').addEventListener('click', () => setSettingsPanel($('settingsTray').hidden));
   $('settingsClose').addEventListener('click', () => setSettingsPanel(false));
-  $('environmentToggle').addEventListener('click', () => {
-    const open = !$('mapTags').classList.contains('is-open');
-    $('mapTags').classList.toggle('is-open', open);
-    $('environmentToggle').setAttribute('aria-expanded', String(open));
-  });
-  $('journalToggle').addEventListener('click', () => {
-    const panel = $('journal'), open = panel.hidden;
+  const setJournalPanel = open => {
+    const panel = $('journal');
     if (open) { setKingdomPanel(false); setSettingsPanel(false); showRight = false; $('rightPanel').classList.remove('is-open'); }
     panel.hidden = !open; $('journalToggle').setAttribute('aria-expanded', String(open));
     syncPanelAccess();
+  };
+  $('journalToggle').addEventListener('click', () => setJournalPanel($('journal').hidden));
+  document.addEventListener('pointerdown', event => {
+    if (!$('journal').hidden && !$('journal').contains(event.target)
+      && !$('journalToggle').contains(event.target)) setJournalPanel(false);
+    if (showLeft && !$('leftPanel').contains(event.target)
+      && !$('kingdomsToggle').contains(event.target)) setKingdomPanel(false);
   });
-  $('journalClose').addEventListener('click', () => { $('journal').hidden = true; $('journalToggle').setAttribute('aria-expanded', 'false'); });
-  $('leftClose').addEventListener('click', () => setKingdomPanel(false));
   $('rightClose').addEventListener('click', () => {
     showRight = false; $('rightPanel').classList.remove('is-open');
     syncPanelAccess();
@@ -3398,7 +3427,6 @@ export function mountGame() {
     if (event.key !== 'Escape') return;
     setKingdomPanel(false); setSettingsPanel(false);
     $('journal').hidden = true; $('journalToggle').setAttribute('aria-expanded', 'false');
-    $('mapTags').classList.remove('is-open'); $('environmentToggle').setAttribute('aria-expanded', 'false');
     showRight = false; $('rightPanel').classList.remove('is-open');
     syncPanelAccess();
   });

@@ -1,6 +1,7 @@
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
@@ -31,7 +32,11 @@ try {
     await new Promise(r => setTimeout(r, 200));
   }
   assert.ok(started, 'Vite did not become reachable: ' + serverLog);
-  browser = await chromium.launch({ headless: true, args: ['--disable-gpu-sandbox'] });
+  const systemChrome = process.env.CHROME_PATH
+    || (process.platform === 'win32' ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : '');
+  const launchOptions = { headless: true, args: ['--disable-gpu-sandbox'] };
+  if (systemChrome && existsSync(systemChrome)) launchOptions.executablePath = systemChrome;
+  browser = await chromium.launch(launchOptions);
   for (const viewport of viewports) {
     page = await browser.newPage({ viewport, deviceScaleFactor: 1 });
     const issues = [];
@@ -68,44 +73,141 @@ try {
           worldWidth: world.width,
           worldHeight: world.height,
           mapVisibleHeight: Math.round(world.getBoundingClientRect().height),
+          modalSkins: ['leftPanel', 'rightPanel', 'journal', 'settingsTray'].map(id => {
+            const panel = document.getElementById(id);
+            return { id, skin: panel?.dataset.uiSkin, sprite: getComputedStyle(panel?.querySelector(':scope > .skin-layer')).borderImageSource };
+          }),
+          railRibbons: ['kingdomsToggle', 'journalToggle'].map(id => {
+            const button = document.getElementById(id);
+            const ribbon = button?.querySelector(':scope > .rail-ribbon');
+            return { id, color: ribbon?.dataset.ribbonColor, slices: ribbon?.children.length,
+              sliceImages: ribbon ? [...ribbon.children].map(part => getComputedStyle(part).backgroundImage) : [],
+              sliceHeights: ribbon ? [...ribbon.children].map(part => Math.round(part.getBoundingClientRect().height)) : [],
+              sliceGap: ribbon ? getComputedStyle(ribbon).columnGap : '',
+              bandWidth: ribbon ? Math.round(ribbon.getBoundingClientRect().width) : 0,
+              buttonBackground: getComputedStyle(button).backgroundImage, label: button?.getAttribute('aria-label'),
+              text: button?.querySelector('.rail-caption > span')?.textContent.trim(),
+              closedTitleWidth: getComputedStyle(button?.querySelector('.rail-title')).maxWidth };
+          }),
+          inspectorWidth: Math.round(document.querySelector('#rightPanel').getBoundingClientRect().width),
+          modalPadding: ['.left-panel .panel-scroll', '#events', '#inspector', '.utility-content'].map(selector => {
+            const style = getComputedStyle(document.querySelector(selector));
+            return { top: parseFloat(style.paddingTop), bottom: parseFloat(style.paddingBottom) };
+          }),
         };
       });
       scenario.sample = sample;
-      assert.match(sample.resourceSkin, /wood-slot\.png/, 'Forja pixel resource frame');
+      assert.equal(sample.resourceSkin, 'none', 'Resource counters use the shared toolbar without individual cards');
       assert.match(sample.calendarSkin, /paper\.png/, 'Forja parchment calendar');
       assert.equal(sample.resourceImageRendering, 'pixelated');
       assert.ok(sample.worldWidth > 0 && sample.mapVisibleHeight > 200, 'live map unobstructed');
       assert.ok(sample.foodLeft >= sample.metricsLeft - 2 && sample.foodRight <= sample.metricsRight + 2,
         'Food metric must be visible rather than clipped at the left edge');
+      assert.deepEqual(sample.modalSkins.map(panel => panel.skin), ['scroll', 'scroll', 'scroll', 'scroll'],
+        'Every modal uses the parchment scroll skin');
+      assert.ok(sample.modalSkins.every(panel => /scroll\.png/.test(panel.sprite)), 'Parchment scroll sprite is rendered');
+      assert.deepEqual(sample.railRibbons.map(ribbon => [ribbon.color, ribbon.slices]), [['yellow', 3], ['cyan', 3]],
+        'Closed realm shortcuts use the three-part gold and blue ribbon assets');
+      assert.ok(sample.railRibbons.every(ribbon => ribbon.buttonBackground === 'none'), 'Ribbon has no second background layer');
+      assert.deepEqual(sample.railRibbons.map(ribbon => ribbon.text), ['♜', '☷'], 'Closed realm ribbons show only their icon');
+      assert.ok(sample.railRibbons.every(ribbon => ribbon.closedTitleWidth === '0px'), 'Closed ribbon titles stay collapsed');
+      assert.ok(sample.railRibbons.every(ribbon => ribbon.sliceImages[1].includes(`ribbon-${ribbon.color}-center.png`)), 'Every ribbon uses its color-matched center slice');
+      assert.ok(sample.railRibbons.every(ribbon => ribbon.sliceHeights[0] === ribbon.sliceHeights[2]
+        && Math.abs(ribbon.sliceHeights[1] - (ribbon.sliceHeights[0] * .79 - 2)) <= 1), 'Ribbon center is 2px shorter than the previous 79% height');
+      assert.ok(sample.railRibbons.every(ribbon => Number.parseFloat(ribbon.sliceGap) === 0), 'Ribbon pieces connect without gaps');
+      assert.deepEqual(sample.railRibbons.map(ribbon => ribbon.label), ['Reinos', 'Crônicas'], 'Icon-only ribbons keep accessible names');
+      assert.ok(sample.modalPadding.every(padding => padding.top >= 50 && padding.bottom >= 50), 'Every parchment body has 50px top and bottom breathing room');
+      const maxInspectorWidth = viewport.width <= 760 ? (viewport.width - 65) * .8 + 1 : 307;
+      assert.ok(sample.inspectorWidth <= maxInspectorWidth, 'Inspector is 20% narrower and leaves zoom controls clear');
       if (viewport.width <= 760) assert.ok(sample.topbarHeight <= 100, 'Mobile HUD should leave map height available');
       scenario.checks.push('Forja sprites / map stage rendered');
       await page.screenshot({ path: resolve(directory, viewport.label + '-world.png'), timeout: 45_000 });
       await page.locator('#kingdomsToggle').click();
       await page.waitForFunction(() => document.querySelector('#leftPanel')?.inert === false);
       assert.equal(await page.locator('#leftPanel').getAttribute('aria-hidden'), 'false');
+      assert.equal(await page.locator('#kingdomsToggle .rail-title').isVisible(), true, 'Expanded kingdoms ribbon shows its title');
+      const kingdomsBounds = await page.evaluate(() => {
+        const panel = document.querySelector('#leftPanel').getBoundingClientRect();
+        const stage = document.querySelector('.world-stage').getBoundingClientRect();
+        return { panelHeight: panel.height, stageHeight: stage.height, scrollHeight: document.querySelector('#leftPanel .panel-scroll').scrollHeight, clientHeight: document.querySelector('#leftPanel .panel-scroll').clientHeight };
+      });
+      assert.ok(kingdomsBounds.panelHeight < kingdomsBounds.stageHeight * .7, 'Two kingdoms fit in a compact parchment panel');
+      assert.ok(kingdomsBounds.clientHeight > 0, 'Compact kingdoms panel keeps its content area available');
+      await page.waitForTimeout(500);
+      const kingdomsCaption = await page.evaluate(() => {
+        const icon = document.querySelector('#kingdomsToggle .rail-caption > span').getBoundingClientRect();
+        const title = document.querySelector('#kingdomsToggle .rail-title').getBoundingClientRect();
+        return { ribbonWidth: document.querySelector('#kingdomsToggle .rail-ribbon').getBoundingClientRect().width,
+          panelWidth: document.querySelector('#leftPanel').getBoundingClientRect().width, gap: title.left - icon.right };
+      });
+      assert.ok(kingdomsCaption.ribbonWidth > sample.railRibbons[0].bandWidth + 60, 'Kingdoms ribbon expands when opened');
+      assert.ok(Math.abs(kingdomsCaption.ribbonWidth - kingdomsCaption.panelWidth) <= 1, 'Expanded kingdoms ribbon matches parchment width');
+      assert.ok(kingdomsCaption.gap >= 8, 'Expanded kingdoms title is spaced from its icon');
       scenario.checks.push('Kingdom parchment panel opens and is accessible');
       await page.screenshot({ path: resolve(directory, viewport.label + '-kingdoms.png'), timeout: 45_000 });
+      await page.locator('#globalFood').click();
+      await page.waitForFunction(() => document.querySelector('#leftPanel')?.inert === true);
+      scenario.checks.push('Kingdom modal closes on outside click');
+      await page.locator('#kingdomsToggle').click();
+      await page.waitForFunction(() => document.querySelector('#leftPanel')?.inert === false);
       await page.locator('#kingdomsToggle').click();
       await page.waitForFunction(() => document.querySelector('#leftPanel')?.inert === true);
-      scenario.checks.push('Closed panel is inert');
+      scenario.checks.push('Kingdom modal closes by toggling its ribbon');
+      await page.locator('#journalToggle').click();
+      assert.equal(await page.locator('#journal').isVisible(), true);
+      assert.equal(await page.locator('#journal').getAttribute('data-ui-skin'), 'scroll');
+      assert.ok(Number.parseFloat(await page.locator('#journalToggle .rail-title').evaluate(el => getComputedStyle(el).maxWidth)) > 0,
+        'Expanded chronicles ribbon shows its title');
+      await page.waitForTimeout(500);
+      const journalCaption = await page.evaluate(() => {
+        const icon = document.querySelector('#journalToggle .rail-caption > span').getBoundingClientRect();
+        const title = document.querySelector('#journalToggle .rail-title').getBoundingClientRect();
+        return { ribbonWidth: document.querySelector('#journalToggle .rail-ribbon').getBoundingClientRect().width,
+          panelWidth: document.querySelector('#journal').getBoundingClientRect().width, gap: title.left - icon.right };
+      });
+      assert.ok(journalCaption.ribbonWidth > sample.railRibbons[1].bandWidth + 60, 'Chronicles ribbon expands when opened');
+      assert.ok(Math.abs(journalCaption.ribbonWidth - journalCaption.panelWidth) <= 1, 'Expanded chronicles ribbon matches parchment width');
+      assert.ok(journalCaption.gap >= 8, 'Expanded chronicles title is spaced from its icon');
+      const journalBounds = await page.evaluate(() => {
+        const panel = document.querySelector('#journal').getBoundingClientRect();
+        const stage = document.querySelector('.world-stage').getBoundingClientRect();
+        const events = document.querySelector('#events');
+        const style = getComputedStyle(events);
+        return { panelTop: panel.top, panelBottom: panel.bottom, stageTop: stage.top, stageBottom: stage.bottom,
+          contentWidth: events.clientWidth, contentScrollWidth: events.scrollWidth,
+          paddingTop: parseFloat(style.paddingTop), paddingBottom: parseFloat(style.paddingBottom) };
+      });
+      assert.ok(journalBounds.panelTop >= journalBounds.stageTop && journalBounds.panelBottom <= journalBounds.stageBottom,
+        'Chronicles parchment remains inside the visible playfield');
+      assert.ok(journalBounds.contentScrollWidth <= journalBounds.contentWidth, 'Chronicles text wraps inside its scroll');
+      assert.ok(journalBounds.paddingTop >= 50 && journalBounds.paddingBottom >= 50, 'Chronicles has at least 50px clearance at both ends');
+      await page.screenshot({ path: resolve(directory, viewport.label + '-chronicles.png'), timeout: 45_000 });
+      await page.locator('#journalToggle').click();
+      assert.equal(await page.locator('#journal').isVisible(), false);
+      scenario.checks.push('Chronicles modal opens and closes by toggling its ribbon');
       await page.locator('#settingsToggle').click();
       assert.equal(await page.locator('#settingsTray').isVisible(), true);
-      scenario.checks.push('Settings panel opens');
-      await page.locator('#settingsToggle').click();
-      // The red parchment survival alert is only temporarily exposed for a visual state snapshot.
-      await page.evaluate(() => {
-        document.getElementById('mapTags').classList.add('has-alert');
-        document.getElementById('foodPressureTag').hidden = false;
-        document.getElementById('foodRiskCount').textContent = '3';
+      assert.equal(await page.locator('#settingsTray').getAttribute('data-ui-skin'), 'scroll');
+      await page.locator('#settingsClose').click();
+      assert.equal(await page.locator('#settingsTray').isVisible(), false);
+      scenario.checks.push('Settings modal opens and closes from its close button');
+      await page.locator('#kingdomsToggle').click();
+      await page.locator('#kingdomList [data-kingdom]').first().click();
+      await page.waitForFunction(() => document.querySelector('#rightPanel')?.classList.contains('is-open'));
+      assert.equal(await page.locator('#rightPanel').getAttribute('data-ui-skin'), 'scroll');
+      const inspectorLayout = await page.evaluate(() => {
+        const panel = document.querySelector('#rightPanel').getBoundingClientRect();
+        const zoom = document.querySelector('.map-zoom').getBoundingClientRect();
+        return { panel: { left: panel.left, right: panel.right, top: panel.top, bottom: panel.bottom }, zoom: { left: zoom.left, right: zoom.right, top: zoom.top, bottom: zoom.bottom } };
       });
-      assert.equal(await page.locator('#foodPressureTag').isVisible(), true);
-      const warning = await page.locator('#foodPressureTag').boundingBox();
-      const rail = await page.locator('.world-rail').boundingBox();
-      assert.ok(warning.height <= 90, 'Food warning must not cover the vertical playfield');
-      assert.ok(warning.x >= rail.x + rail.width - 2, 'Food warning must not overlap the realm shortcuts');
-      scenario.checks.push('Food warning compact and clear of navigation');
-      await page.screenshot({ path: resolve(directory, viewport.label + '-alert-preview.png'), timeout: 45_000 });
-      scenario.checks.push('Critical food-warning texture displayed');
+      const overlapsZoom = inspectorLayout.panel.left < inspectorLayout.zoom.right
+        && inspectorLayout.panel.right > inspectorLayout.zoom.left
+        && inspectorLayout.panel.top < inspectorLayout.zoom.bottom
+        && inspectorLayout.panel.bottom > inspectorLayout.zoom.top;
+      assert.equal(overlapsZoom, false, 'Inspector must leave the zoom controls unobstructed');
+      await page.locator('#rightClose').click();
+      await page.waitForFunction(() => document.querySelector('#rightPanel')?.inert === true);
+      scenario.checks.push('Selection inspector uses parchment and its close button');
       assert.deepEqual(errors, [], 'JavaScript page errors');
       assert.ok(!issues.some(x => /\/assets\/kingdom-ui\//.test(x)), 'Missing Forja UI assets');
       await page.close(); page = undefined;
