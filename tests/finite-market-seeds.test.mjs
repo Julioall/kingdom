@@ -4,7 +4,9 @@ import engine from '../src/simulation/engine.js';
 import { findTradePartner, marketHasTradeOpportunity, performTrade, purchaseFieldSeedsForConstruction } from '../src/simulation/economy/trade.js';
 import { transferResource } from '../src/simulation/economy/inventories.js';
 import { PLANTS } from '../src/config/ecosystem.js';
-import { chooseBuildSite, workOnCommunityStructure } from '../src/simulation/settlements/construction.js';
+import { collectFoodForCommunity } from '../src/simulation/individuals/actions.js';
+import { cultivatedFieldStandingBiomass, updatePlants } from '../src/simulation/ecology/plants.js';
+import { chooseBuildSite, workOnCommunityStructure, workOnReplantingField } from '../src/simulation/settlements/construction.js';
 import { constructionWorkPositions } from '../src/simulation/settlements/construction-workstations.js';
 
 function setup() {
@@ -197,4 +199,59 @@ test('seed seller receives real market coins; worker then buys for kingdom and p
   assert.ok(world.seedProvenance.history.some(item => item.kind === 'field-sowing'
     && item.fieldId === site.id && item.quantity === 8));
   assert.equal(naturalStock(world), totalNatural - 8);
+
+  const cropIndex = PLANTS.findIndex(item => item.id === 'cultivated-root');
+  const firstGrowthDay = Math.ceil((world.day + 1) / 7) * 7;
+  const lastGrowthDay = firstGrowthDay + 140;
+  for (let day = firstGrowthDay; day <= lastGrowthDay && site.cropCycleState === 'growing'; day += 7) {
+    world.day = day;
+    updatePlants(world, day);
+  }
+  assert.equal(site.cropCycleState, 'ready', 'the purchased lot grows into a finite harvestable crop');
+  assert.ok(Math.abs(cultivatedFieldStandingBiomass(world, site) - site.cropYieldTarget) < .05);
+
+  const harvesters = world.people.filter(person => person.alive && person.communityId === community.id
+    && person.role !== 'soldier').slice(0, 4);
+  assert.equal(harvesters.length, 4);
+  const fieldTile = world.tiles[site.fieldTileIndices[0]];
+  const storedFoodBeforeHarvest = community.stores.food;
+  const tradeRecordsBeforeHarvest = community.tradeLedger.history.length;
+  for (const person of harvesters) {
+    person.x = fieldTile.x;
+    person.y = fieldTile.y;
+    person.carriedFood = 0;
+  }
+  for (const person of harvesters) collectFoodForCommunity(world, person, fieldTile);
+
+  assert.equal(site.cropCycleState, 'spent');
+  assert.equal(site.cropSeedsRetainedThisCycle, 8, 'the harvest explicitly retains the next seed lot');
+  assert.equal(community.stores.seeds, 8);
+  assert.ok(Math.abs(site.foodDelivered - (site.cropYieldTarget - 8)) < .05);
+  assert.ok(Math.abs(community.stores.food - storedFoodBeforeHarvest - site.foodDelivered) < .05,
+    'harvest reaches the community stock only after the field biomass is removed');
+  assert.equal(community.tradeLedger.history.length, tradeRecordsBeforeHarvest,
+    'harvesting produces no market transaction');
+  assert.ok(site.fieldTileIndices.every(index => world.tiles[index].plants[cropIndex] <= .01));
+
+  const seedStorage = world.structures.find(structure => structure.complete
+    && structure.communityId === community.id && ['vila', 'abrigo', 'posto de coleta'].includes(structure.type)
+    && structure.destroyedDay == null);
+  assert.ok(seedStorage, 'retained seeds require a real storage source for the next field cycle');
+  const farmer = harvesters[0];
+  farmer.x = seedStorage.x;
+  farmer.y = seedStorage.y;
+  assert.equal(workOnReplantingField(world, farmer, community, site.id), false,
+    'the retained seed lot is physically picked up before replanting');
+  assert.equal(community.stores.seeds, 0);
+  assert.equal(farmer.carriedCommunitySeeds, 8);
+  farmer.x = fieldTile.x;
+  farmer.y = fieldTile.y;
+  assert.equal(workOnReplantingField(world, farmer, community, site.id), true,
+    'the courier delivers the next seed lot to the spent field');
+  assert.equal(site.cropCycleState, 'growing');
+  assert.equal(site.cropSeededBiomass, 8);
+  assert.equal(world.seedProvenance.sown, 16);
+  assert.equal(farmer.carriedCommunitySeeds, 0);
+  assert.equal(naturalStock(world), totalNatural - 8,
+    'replanting the accounted harvest reserve does not debit the natural source a second time');
 });
