@@ -1,6 +1,7 @@
 import { cellAt } from '../world/spatial.js';
 import { distance } from '../core/math.js';
 import { magicModifiers } from '../magic/effects.js';
+import { isCombatStunned } from '../kingdoms/combat-status.js';
 import { carriedResources } from '../economy/inventories.js';
 import { isTreeAnchor } from '../ecology/plants.js';
 import { canEnterForeignTerritory, markTerritoryStep } from '../kingdoms/territories.js';
@@ -354,6 +355,7 @@ function persistentCongestionStep(w, agent, start, destination, canEnterFree, ca
 }
 
 export function moveOne(w, agent, target, aquatic, movementOptions = null) {
+    if (isCombatStunned(agent, w.day, w.magicTimeMs || 0)) return false;
     if (agent.playerControlled) return false;
     if (agent.magicCast) return false;
     if (!target) return false;

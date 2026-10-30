@@ -35,7 +35,7 @@ export function configureMagicLoadout(person, ids, role = null) {
 export function beginSpell(world, caster, spellId, { targetId = null, x, y } = {}) {
   const spell = SPELLS[spellId], now = world.magicTimeMs || 0;
   if (!spell || caster?.role !== 'soldier' || caster.militaryClass !== 'monge'
-      || magicIncapacitated(caster, world.day) || caster.magicCast || !equippedSpells(caster).includes(spellId))
+      || magicIncapacitated(caster, world.day, world.magicTimeMs || 0) || caster.magicCast || !equippedSpells(caster).includes(spellId))
     return { ok: false, reason: 'spell-unavailable' };
   if ((caster.magicReadyAt || 0) > now || (caster.magicCooldowns?.[spellId] || 0) > now) return { ok: false, reason: 'spell-cooldown' };
   initializeCombatResources(caster);
@@ -152,7 +152,7 @@ function targetScore(world, caster, spell, target, allies, enemies) {
 }
 
 export function chooseMagicAction(world, caster) {
-  if (magicIncapacitated(caster, world.day) || caster.magicCast || caster.playerControlled
+  if (magicIncapacitated(caster, world.day, world.magicTimeMs || 0) || caster.magicCast || caster.playerControlled
       || (caster.magicReadyAt || 0) > (world.magicTimeMs || 0)) return null;
   const general = world.people.find(person => person.id === caster.generalId);
   const campaign = (world.campaigns || []).find(item => item.id === caster.campaignId);
@@ -192,6 +192,7 @@ export function updatePriestDecisions(world) {
 
 export function magicHasActivity(world) {
   return !!world.magicZones?.length || world.people.some(person => person.magicCast
+    || person.combatStunnedUntilMs != null
     || person.playerHealing || person.magicEffects?.length || person.alive && person.militaryClass === 'monge');
 }
 
@@ -200,9 +201,16 @@ function advanceMagicStep(world, elapsedMs, changed) {
   const now = world.magicTimeMs;
   world.magicZones = (world.magicZones || []).filter(zone => zone.expiresAt > now);
   for (const person of world.people) {
+    if (person.combatStunnedUntilMs != null && person.combatStunnedUntilMs <= now) {
+      delete person.combatStunnedUntilMs;
+      delete person.combatDisarmedUntilDay; delete person.combatDisarmedById;
+      person.combatLaunch = null;
+      if (person.alive) { person.militaryAnimation = 'idle'; person.state = 'retomando combate'; }
+      changed.add(person);
+    }
     if (person.magicCast) {
       const cast = person.magicCast;
-      if (magicIncapacitated(person, world.day) || person.militaryClass !== 'monge'
+      if (magicIncapacitated(person, world.day, world.magicTimeMs || 0) || person.militaryClass !== 'monge'
           || !equippedSpells(person).includes(cast.spellId)
           || distance(person, { x: cast.originX, y: cast.originY }) > .75)
         cancelSpell(world, person);
@@ -243,7 +251,7 @@ function advanceMagicStep(world, elapsedMs, changed) {
       const candidates = world.people.filter(ally => usable(ally) && sameSide(person, ally) && ally.health < 99.999
         && distance(person, ally) <= 6).sort((a, b) => a.health - b.health || a.id - b.id);
       const target = candidates.find(ally => ally.id === person.playerHealingTargetId) || candidates[0];
-      if (!target || magicIncapacitated(person, world.day)) person.playerHealing = false;
+      if (!target || magicIncapacitated(person, world.day, world.magicTimeMs || 0)) person.playerHealing = false;
       else beginSpell(world, person, equippedSpells(person)[0], { targetId: target.id });
       if (!person.playerHealing || person.magicCast) changed.add(person);
     }

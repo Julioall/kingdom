@@ -20,14 +20,14 @@ function fixture() {
   return { world, actor, victim };
 }
 
-test('warrior shield dash damages and parry-stuns each unguarded enemy it hits', () => {
+test('warrior shield dash pushes and parry-stuns without damage', () => {
   const { world, actor, victim } = fixture();
   dispatchCommand(world, { type: 'player-action', personId: actor.id, actionKey: '3', aimX: 32, aimY: 30 });
 
   assert.equal(actor.combatAction.attackVariant, 'shield-bash');
   assert.equal(actor.combatAction.hitEvents[0].targetId, victim.id);
   assert.equal(actor.combatAction.hitEvents[0].kind, 'body');
-  assert.ok(victim.health < 100);
+  assert.equal(victim.health, 100);
   assert.equal(victim.combatDisarmedUntilDay, world.day + 2);
   assert.equal(victim.combatDisarmedById, actor.id);
   assert.equal(victim.state, 'atordoado por pancada de escudo');
@@ -38,7 +38,7 @@ test('warrior shield dash damages and parry-stuns each unguarded enemy it hits',
 
   const effects = createActivityEffects();
   effects.observe(world, 500);
-  const stars = effects.active(500 + actor.combatAction.hitEvents[0].atMs)
+  const stars = effects.active(500 + actor.combatAction.hitEvents[0].atMs + 600)
     .find(effect => effect.animation === 'parry-stars' && effect.personId === victim.id);
   assert.equal(stars?.duration, 3000);
 });

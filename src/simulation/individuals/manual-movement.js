@@ -1,15 +1,20 @@
 import { moveCombatPersonTo } from '../kingdoms/military.js';
 import { magicModifiers } from '../magic/effects.js';
+import { isCombatStunned } from '../kingdoms/combat-status.js';
 
 // Shared by authoritative simulation and client prediction: identical speed,
 // collision sampling and wall sliding on both sides of the Worker boundary.
 export function applyManualMovement(world, person, input) {
+  if (isCombatStunned(person, world.day, world.magicTimeMs || 0)) {
+    person.playerMovementBlockedReason = input.moveX || input.moveY ? 'stunned' : null;
+    return;
+  }
   if (person.magicCast) {
     person.playerMovementBlockedReason = input.moveX || input.moveY ? 'casting' : null;
     return;
   }
   if (Date.now() < (person.playerMovementLockedUntil || 0)) {
-    person.playerMovementBlockedReason = 'action';
+    person.playerMovementBlockedReason = input.moveX || input.moveY ? 'action' : null;
     return;
   }
   const dt = Math.max(0, Math.min(.12, input.dt || 0));

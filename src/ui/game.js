@@ -1,5 +1,8 @@
 import { dominantMetalKind } from '../config/mineral-deposits.js';
 import { dashPosition, dashGhosts, DASH_TRAIL_FADE_MS } from './dash-presentation.js';
+import { knockbackPose } from './knockback-presentation.js';
+import { drawBloodBurst, drawBloodStains } from './blood-presentation.js';
+import { isCombatStunned } from '../simulation/kingdoms/combat-status.js';
 import { manualAttackProfile } from '../simulation/kingdoms/military.js';
 import { createCombatAction } from '../simulation/kingdoms/combat-contact.js';
 import { createManualMovementPrediction } from './manual-movement-prediction.js';
@@ -269,7 +272,7 @@ export function mountGame() {
     if (locksTarget) { aimX = hoveredTarget.x; aimY = hoveredTarget.y; }
     const profile = manualAttackProfile(person, actionKey);
     const preview = profile && (target?.kind === 'training-dummy' || (person.stamina ?? 100) >= (profile.minStamina || 8))
-      && !(person.combatDisarmedUntilDay > world.day) ? {
+      && !isCombatStunned(person, world.day, world.magicTimeMs || 0) ? {
         personId: person.id, previousId: person.combatAction?.id, startedAt: animationTime,
         action: createCombatAction({ combatSequence: 0, rngState: 42 }, { ...person },
           { id: -1, x: aimX, y: aimY }, world.day,
@@ -344,7 +347,7 @@ export function mountGame() {
     }
     activeMiningSites = new Set(world.people.filter(person => person.alive && person.visualActivity?.day === world.day
       && person.visualActivity.kind === 'mine').map(person => person.visualActivity.x + ':' + person.visualActivity.y));
-    actorAnimationClock.retain(new Set(world.people.filter(person => person.alive).flatMap(person => [person.id, 'shot:' + person.id, 'combat:' + person.id, 'defense:' + person.id])));
+    actorAnimationClock.retain(new Set(world.people.filter(person => person.alive).flatMap(person => [person.id, 'shot:' + person.id, 'combat:' + person.id, 'defense:' + person.id, 'launch:' + person.id])));
     for (const kingdom of world.kingdoms) ensureTinyPalette(kingdom.palette);
     if (reset) {
       magicGeneration++; magicAccumulator = 0; magicTickPending = false; lastMagicFrame = 0;
@@ -1054,7 +1057,8 @@ export function mountGame() {
       ? priestCastAnimationPose(world, person, getUnitAnimation('monge', 'heal', palette)) : null;
     const presentingCast = !!castPose && (channelingHeal || !pose.moving);
     const preview = manualAttackPreview?.personId === person.id ? manualAttackPreview : null;
-    const action = preview?.action || presentedCombatAction(person);
+    const action = isCombatStunned(person, world.day, world.magicTimeMs || 0)
+      ? null : preview?.action || presentedCombatAction(person);
     const contactElapsed = preview ? Math.min(animationTime - preview.startedAt, action.windupMs * .85)
       : action ? presentedCombatElapsed(person, action) : Infinity;
     const extendedMeleeAction = ['shield-bash', 'lance-charge', 'lance-flurry'].includes(action?.attackVariant);
@@ -1107,7 +1111,8 @@ export function mountGame() {
     const centerX = x + TILE / 2, baseY = y + TILE;
     const scale = spriteScale(TILE, CHARACTER_SPRITE_SCALE);
     const preview = manualAttackPreview?.personId === person.id ? manualAttackPreview : null;
-    const action = preview?.action || presentedCombatAction(person);
+    const action = isCombatStunned(person, world.day, world.magicTimeMs || 0)
+      ? null : preview?.action || presentedCombatAction(person);
     const actionElapsed = preview ? Math.min(animationTime - preview.startedAt, action.windupMs * .85)
       : action ? presentedCombatElapsed(person, action) : Infinity;
     let shieldLean = 0;
@@ -1123,7 +1128,7 @@ export function mountGame() {
     const facingAngle = action?.angle ?? Math.atan2(person.militaryFacingY || 0, person.militaryFacingX || 1);
     const leanDistance = TILE * .07 * shieldLean;
     const drawCenterX = centerX + Math.cos(facingAngle) * leanDistance;
-    const drawBaseY = baseY + Math.sin(facingAngle) * leanDistance;
+    const drawBaseY = baseY + Math.sin(facingAngle) * leanDistance - (pose.lift || 0) * TILE;
     const leanRotation = Math.cos(facingAngle) * .085 * shieldLean;
     if (action?.attackVariant === 'lance-flurry'
         && actionElapsed >= action.windupMs && actionElapsed < action.windupMs + action.activeMs) {
@@ -1845,6 +1850,13 @@ export function mountGame() {
       : actorAnimationClock.elapsed('combat:' + person.id, String(action.id), animationTime);
   }
   function combatDisplayPose(person, pose) {
+    if (isCombatStunned(person, world.day, world.magicTimeMs || 0)) {
+      if (person.combatLaunch) {
+        const elapsed = actorAnimationClock.elapsed('launch:' + person.id, String(person.combatLaunch.id), animationTime);
+        return { ...pose, ...knockbackPose(person.combatLaunch, elapsed) };
+      }
+      return { ...pose, moving: false };
+    }
     const action = presentedCombatAction(person);
     if (!['shield-bash', 'lance-charge'].includes(action?.attackVariant)) return pose;
     const elapsed = presentedCombatElapsed(person, action);
@@ -1909,6 +1921,7 @@ export function mountGame() {
       const recipient = effect.personId != null ? getPerson(effect.personId) : null;
       if (effect.personId != null && !recipient) continue;
       const elapsed = animationTime - effect.startedAt;
+      if (effect.blood && elapsed >= 600) continue;
       const flightDuration = effect.flightDuration || effect.duration;
       const flight = effect.projectile ? Math.min(1, Math.max(0, elapsed / flightDuration)) : 0;
       const fallProgress = effect.projectile && effect.fallDuration
@@ -2071,6 +2084,11 @@ export function mountGame() {
   }
 
   function drawDepthSortedWorld(bounds, profile = null) {
+    for (const effect of activityEffects.active(animationTime)) {
+      if (effect.blood && effect.x >= bounds.minX - 2 && effect.x <= bounds.maxX + 2
+          && effect.y >= bounds.minY - 2 && effect.y <= bounds.maxY + 2)
+        drawBloodStains(ctx, effect, animationTime - effect.startedAt, TILE);
+    }
     magicVfx.prepare(world, animationTime, bounds, id => {
       const person = peopleById.get(id);
       return person?.alive ? combatDisplayPose(person, visualPose('person', person)) : null;
@@ -2092,7 +2110,9 @@ export function mountGame() {
       else if (item.kind === 'animal') drawAnimal(item.animal, item.pose);
       else if (item.kind === 'person') drawPerson(item.person, item.pose);
       else if (item.kind === 'effect') {
-        if (item.effect.damageNumber) {
+        if (item.effect.blood) {
+          drawBloodBurst(ctx, item.effect, animationTime - item.effect.startedAt, TILE);
+        } else if (item.effect.damageNumber) {
           drawCombatDamageNumber(item.effect);
         } else if (item.effect.trainingDummyDamage) {
           drawTrainingDummyDamage(item.effect);
@@ -2168,7 +2188,8 @@ export function mountGame() {
 
   function drawMovementBlockLabels(bounds) {
     const reasonLabels = { 'map-edge': 'limite do mapa', water: 'água', rock: 'rocha',
-      elevation: 'desnível', object: 'objeto/cenário', person: 'personagem', action: 'ação em andamento' };
+      elevation: 'desnível', object: 'objeto/cenário', person: 'personagem', action: 'ação em andamento',
+      stunned: 'atordoamento', casting: 'conjuração' };
     ctx.save();
     for (const person of world.people || []) {
       if (!person.alive || !person.playerControlled || !person.playerMovementBlockedReason
@@ -3351,8 +3372,10 @@ export function mountGame() {
         '<div class="data-row"><span>Reserva alimentar (dias) / água</span><b>' + Math.round(p.foodReserve) + ' / ' + Math.round(p.hydration) + '%</b></div>' +
         (p.role === 'soldier' ? '<div class="data-row"><span>Vitalidade de combate</span><b>' + Math.round(p.health / 100 * (p.maxCombatHealth || 100)) + ' / ' + (p.maxCombatHealth || 100) + '</b></div>' : '') +
         (p.role === 'soldier' ? '<div class="data-row"><span>Estamina</span><b>' + Math.round(p.stamina ?? p.maxStamina ?? 200) + ' / ' + (p.maxStamina || 200) + '</b></div>' : '') +
-        (p.role === 'soldier' && p.combatDisarmedUntilDay > world.day
-          ? '<div class="data-row"><span>Estado de combate</span><b>Desarmado · volta a lutar no dia ' + p.combatDisarmedUntilDay + '</b></div>' : '') +
+        (p.role === 'soldier' && isCombatStunned(p, world.day, world.magicTimeMs || 0)
+          ? '<div class="data-row"><span>Estado de combate</span><b>Atordoado · '
+            + (p.combatStunnedUntilMs != null ? Math.max(0, (p.combatStunnedUntilMs - (world.magicTimeMs || 0)) / 1000).toFixed(1) + ' s'
+              : 'até o dia ' + p.combatDisarmedUntilDay) + '</b></div>' : '') +
         (p.role === 'soldier' && p.combatOpening?.expiresDay > world.day
           ? '<div class="data-row"><span>Abertura de parry</span><b>Contra ' + esc(getPerson(p.combatOpening.targetId)?.name || 'oponente') + '</b></div>' : '') +
         (p.role === 'soldier' && p.combatCombo?.lastDay === world.day

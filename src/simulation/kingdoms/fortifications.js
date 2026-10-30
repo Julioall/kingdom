@@ -85,7 +85,7 @@ export function attackStructure(world, person, tower, day) {
     || day - (person.lastMilitaryAttackDay ?? -Infinity) < 2 || distance(person, tower) > attack.range) return 0;
   const capture = tower.type === 'torre' && captureMissionFor(world, person, tower);
   const damageLimit = capture ? Math.max(0, structureVitality(tower).health - structureVitality(tower).maxHealth * TOWER_CAPTURE_RULES.healthFraction) : Infinity;
-  if (damageLimit <= 0 || !spendAttackStamina(person, day)) return 0;
+  if (damageLimit <= 0 || !spendAttackStamina(person, day, { nowMs: world.magicTimeMs || 0 })) return 0;
   const action = createCombatAction(world, person, tower, day, { structure: true, reach: attack.range });
   recordArrow(person, tower, day, action);
   const contact = resolveCombatAction(world, person, action, [tower],

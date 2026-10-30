@@ -5,6 +5,7 @@ import { orderTowerCapture, orderInstallationAttack } from './kingdoms/frontier-
 import { exchangeAtRoyalCastle } from './economy/royal-coin-exchange.js';
 import { SPELLS, equippedSpells, MAGIC_TACTICS } from './magic/catalog.js';
 import { beginSpell, cancelSpell, advanceMagic, configureMagicLoadout } from './magic/system.js';
+import { isCombatStunned } from './kingdoms/combat-status.js';
 
 function manualSpell(world, person, index, command) {
   const spell = SPELLS[equippedSpells(person)[index]];
@@ -99,6 +100,11 @@ export function dispatchCommand(world, command) {
       const person = world.people.find(item => item.id === command.personId && item.alive
         && item.playerControlled && world.playerControlledPersonId === item.id);
       if (!person) return { ok: false, reason: 'person-not-controlled' };
+      if (isCombatStunned(person, world.day, world.magicTimeMs || 0)) {
+        if (Number.isSafeInteger(command.inputSequence)) person.playerInputSequence = command.inputSequence;
+        person.playerMovementBlockedReason = command.moveX || command.moveY ? 'stunned' : null;
+        return { ok: false, reason: 'stunned' };
+      }
       person.playerInput = { moveX: Math.sign(command.moveX), moveY: Math.sign(command.moveY),
         defending: command.defending, aimX: command.aimX, aimY: command.aimY };
       person.playerDefending = command.defending;
@@ -155,6 +161,7 @@ export function dispatchCommand(world, command) {
       const person = world.people.find(item => item.id === command.personId && item.alive
         && item.playerControlled && world.playerControlledPersonId === item.id);
       if (!person || person.role !== 'soldier') return { ok: false, reason: 'soldier-not-controlled' };
+      if (isCombatStunned(person, world.day, world.magicTimeMs || 0)) return { ok: false, reason: 'stunned' };
       if (person.militaryClass === 'monge') {
         return manualSpell(world, person, Number(command.actionKey) - 1, command);
       }

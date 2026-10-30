@@ -67,8 +67,10 @@ export function magicModifiers(person, world = null) {
     healing: clamp(healing, .1, 1.5) };
 }
 
-export function magicIncapacitated(person, day) {
+export function magicIncapacitated(person, day, nowMs) {
   return !person?.alive || person.restingStructureId != null
-    || Number.isFinite(person.combatDisarmedUntilDay) && day < person.combatDisarmedUntilDay
+    || (Number.isFinite(nowMs) && Number.isFinite(person.combatStunnedUntilMs)
+      ? nowMs < person.combatStunnedUntilMs
+      : Number.isFinite(person.combatDisarmedUntilDay) && day < person.combatDisarmedUntilDay)
     || person.magicSilenced === true;
 }

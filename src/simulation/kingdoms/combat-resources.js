@@ -1,4 +1,5 @@
 import { magicModifiers } from '../magic/effects.js';
+import { isCombatStunned } from './combat-status.js';
 export const COMBAT_RESOURCES = Object.freeze({ stamina: 400, mana: 200, healingCost: 30,
   attackCost: { guerreiro: 14, lanceiro: 12, arqueiro: 8 },
   guardCost: { guerreiro: 6, lanceiro: 5 },
@@ -17,18 +18,18 @@ export function initializeCombatResources(person) {
   }
 }
 
-export function spendAttackStamina(person, day, { combo = false, cost: requestedCost } = {}) {
+export function spendAttackStamina(person, day, { combo = false, cost: requestedCost, nowMs } = {}) {
   initializeCombatResources(person);
   const cost = (requestedCost ?? COMBAT_RESOURCES.attackCost[person.militaryClass]) * magicModifiers(person).stamina;
-  if (!Number.isFinite(cost) || cost <= 0 || person.stamina < cost || isCombatDisarmed(person, day)
+  if (!Number.isFinite(cost) || cost <= 0 || person.stamina < cost || isCombatDisarmed(person, day, nowMs)
       || !person.playerControlled && day - (person.lastMilitaryAttackDay ?? -Infinity) < (combo ? 1 : 2)) return false;
   person.stamina -= cost;
   person.combatStaminaSpent = (person.combatStaminaSpent || 0) + cost;
   return true;
 }
 
-export function isCombatDisarmed(person, day) {
-  return Number.isFinite(person?.combatDisarmedUntilDay) && day < person.combatDisarmedUntilDay;
+export function isCombatDisarmed(person, day, nowMs) {
+  return isCombatStunned(person, day, nowMs);
 }
 
 export function canSpendDefenseStamina(person, parry = false) {

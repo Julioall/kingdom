@@ -8,7 +8,9 @@ const MAX_ADVANCE_DAYS = 12;
 const MAGIC_PERSON_FIELDS = ['id', 'health', 'alive', 'mana', 'magicEffects', 'magicCast', 'magicCooldowns',
   'magicTimeMs', 'playerHealing', 'lastHealingSequence', 'lastHealing', 'lastHealingCast',
   'state', 'militaryAnimation', 'militaryAnimationDay', 'militaryFacingX', 'militaryFacingY',
-  'lastAttackSequence', 'lastAttackedDay', 'deathDay', 'deathCause', 'deathDetails'];
+  'lastAttackSequence', 'lastAttackedDay', 'deathDay', 'deathCause', 'deathDetails',
+  'combatStunnedUntilMs', 'combatDisarmedUntilDay', 'combatDisarmedById', 'combatLaunch',
+  'playerFlurryUntil', 'playerDefending'];
 const magicPersonUpdate = person => Object.fromEntries(MAGIC_PERSON_FIELDS.map(key => [key, person[key]]));
 
 export function createSimulationWorkerRuntime({ includeDailySnapshots = false, createWorldImpl = engine.createWorld } = {}) {

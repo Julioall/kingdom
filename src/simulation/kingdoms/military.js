@@ -17,6 +17,7 @@ import { TERRITORY_AVOIDANCE_DAYS } from './territories.js';
 import { damageTrainingDummy, trainingDummiesForWorld } from '../world/training-dummies.js';
 import { magicModifiers } from '../magic/effects.js';
 import { updatePriestDecisions, chooseMagicAction, beginSpell } from '../magic/system.js';
+import { stunCombatPerson } from './combat-status.js';
 
 export const MILITARY_CLASSES = Object.freeze({
   guerreiro: { label: 'Infantaria', vitality: 360, range: 1.8, damage: 18, dodge: .12, block: .42 },
@@ -31,12 +32,12 @@ const COMBO_MAX = 3;
 const WARRIOR_COMBO_MAX = 4;
 const COMBO_DAMAGE_STEP = .1;
 const WARRIOR_SHIELD_BASH = Object.freeze({ minStamina: 28, staminaCost: 28, range: 2.1,
-  advanceDistance: 5, shieldOffset: .4, radius: .34, damageMultiplier: .65, pushDistance: 1.05 });
+  advanceDistance: 5, shieldOffset: .4, radius: .34, damageMultiplier: 0, pushDistance: 1.05 });
 const LANCER_FLURRY = Object.freeze({ minStamina: 24, staminaCost: 24, range: 3.2,
   durationMs: 3000, speedMultiplier: 1.5, strikeIntervalMs: 233, thrustDurationMs: 93,
   noContactTimeoutMs: 1000, damageMultiplier: .14, pushDistance: .06 });
 const LANCER_CHARGE = Object.freeze({ minStamina: 28, staminaCost: 28, range: 4.9,
-  advanceDistance: 3.5, weaponOffset: .9, radius: .2, damageMultiplier: .82, pushDistance: .58 });
+  advanceDistance: 3.5, weaponOffset: .9, radius: .2, damageMultiplier: 0, pushDistance: .58 });
 const ARCHER_ATTACKS = Object.freeze({
   standard: { minStamina: 8, staminaCost: 8, damageMultiplier: .5, range: 8, weight: .38 },
   rain: { minStamina: 80, damageMultiplier: 1, range: 7, areaRadius: 1.8,
@@ -160,8 +161,43 @@ function nudgePersonFrom(world, person, threat, amount, direction = null) {
   return false;
 }
 
+export function launchCombatPerson(world, person, attacker, action, guarded = false) {
+  if (!person?.alive || person.towerMounted) return false;
+  const from = { x: person.x, y: person.y };
+  const side = Math.sign((person.y - action.origin.y) * Math.cos(action.angle)
+    - (person.x - action.origin.x) * Math.sin(action.angle)) || (person.id % 2 ? 1 : -1);
+  const angle = action.angle + side * .28;
+  const distance = guarded ? 1.2 : action.attackVariant === 'shield-bash' ? 3.2 : 2.8;
+  const collision = worldCollisionIndex(world);
+  let previous = from, previousTile = cellAt(world, from.x, from.y), destination = from;
+  // Airborne bodies can pass through the formation, but never through walls,
+  // water or cliffs. Landing samples must also be clear of another body.
+  for (let i = 1, steps = Math.ceil(distance / .12); i <= steps; i++) {
+    const progress = i / steps;
+    const point = { x: from.x + Math.cos(angle) * distance * progress,
+      y: from.y + Math.sin(angle) * distance * progress };
+    const tile = cellAt(world, point.x, point.y);
+    if (!tile || tile.terrain !== 'land' || !canTraverseElevation(previousTile, tile)
+        || worldMovementBlocked(world, person, previous, point, collision)) break;
+    const occupied = peopleNear(world, point.x, point.y, .6).some(other => other !== person && other.alive
+      && other.restingStructureId == null && Math.hypot(other.x - point.x, other.y - point.y) < .45);
+    if (!occupied) destination = point;
+    previous = point; previousTile = tile;
+  }
+  person.x = destination.x; person.y = destination.y;
+  person.navigationRoute = null; person.navigationCongestion = null;
+  world.peopleSpatialIndex?.move(person);
+  world.combatLaunchSequence = (world.combatLaunchSequence || 0) + 1;
+  person.combatLaunch = { id: world.combatLaunchSequence, actionId: action.id, sourceId: attacker.id,
+    from, to: { x: person.x, y: person.y }, durationMs: 600, atMs: 0,
+    height: guarded ? .35 : .8 };
+  stunCombatPerson(world, person, attacker.id, 3600);
+  return true;
+}
+
 export function moveCombatPersonTo(world, person, target) {
   if (!person || !target || person.towerMounted) return false;
+  if (isCombatDisarmed(person, world.day, world.magicTimeMs || 0)) return false;
   const dx = target.x - person.x, dy = target.y - person.y;
   if (Math.hypot(dx, dy) < 1e-5) return false;
   const fromTile = cellAt(world, person.x, person.y);
@@ -391,7 +427,7 @@ export function respondToLocalThreats(world, day = world.day + 1) {
   const responders = people.filter(person => person.alive && person.role === 'soldier'
     && (person.playerControlled ? person.health > 0 : person.kingdomId != null && person.health >= 28)
     && person.restingStructureId == null
-    && person.militaryRestTargetId == null && !isCombatDisarmed(person, day)
+    && person.militaryRestTargetId == null && !isCombatDisarmed(person, day, world.magicTimeMs || 0)
     && (person.playerControlled
       ? person.playerCommandUsedDay !== day && !!pendingPlayerAttack(person, day) && (person.stamina ?? 100) > 0
       : (person.stamina ?? 100) >= 16))
@@ -473,11 +509,11 @@ export function fightTacticalRound(world, allies, enemies, day, objective = null
     const manualProfile = manualCommand
       ? manualAttackProfile(person, manualCommand.actionKey, manualCommand.comboIndex) : null;
     if (manualCommand && !manualProfile) { consumePlayerAttack(person, manualCommand, day); continue; }
-    if (person.combatDisarmedUntilDay != null && !isCombatDisarmed(person, day)) {
+    if (person.combatDisarmedUntilDay != null && !isCombatDisarmed(person, day, world.magicTimeMs || 0)) {
       delete person.combatDisarmedUntilDay;
       delete person.combatDisarmedById;
     }
-    if (isCombatDisarmed(person, day)) {
+    if (isCombatDisarmed(person, day, world.magicTimeMs || 0)) {
       person.state = 'desarmado após parry';
       person.militaryAnimation = 'defend'; person.militaryAnimationDay = day;
       continue;
@@ -597,7 +633,7 @@ export function fightTacticalRound(world, allies, enemies, day, objective = null
           : attackVariant === 'lance-flurry' ? LANCER_FLURRY.staminaCost : archerAttack?.staminaCost;
     const specialLanceAttack = attackVariant === 'lance-charge' || attackVariant === 'lance-flurry';
     if (!enemy.trainingDummy && !manualCommand?.flurryContinuation && !spendAttackStamina(person, day, { combo: comboIndex > 1 || specialLanceAttack
-      || attackVariant === 'shield-bash' || justShieldDashed, cost: staminaCost })) {
+      || attackVariant === 'shield-bash' || justShieldDashed, cost: staminaCost, nowMs: world.magicTimeMs || 0 })) {
       person.state = 'recuperando estamina'; continue;
     }
     const action = createCombatAction(world, person, enemy, day, {
@@ -635,7 +671,7 @@ export function fightTacticalRound(world, allies, enemies, day, objective = null
         : attackVariant === 'lance-flurry' ? 'rajada de lanças'
       : person.militaryClass === 'arqueiro' ? 'disparando à distância'
         : person.militaryClass === 'lanceiro' ? 'apoiando a linha de infantaria' : 'combatendo na linha de frente';
-    const defenderDisarmed = isCombatDisarmed(enemy, day);
+    const defenderDisarmed = isCombatDisarmed(enemy, day, world.magicTimeMs || 0);
     const defenseSpec = enemy.role === 'soldier' ? MILITARY_CLASSES[enemy.militaryClass] || MILITARY_CLASSES.lanceiro
       : { vitality: 100, dodge: .05, block: 0 };
     const defense = defenderDisarmed ? { ...defenseSpec, block: 0 } : defenseSpec;
@@ -680,7 +716,9 @@ export function fightTacticalRound(world, allies, enemies, day, objective = null
         return damageTrainingDummy(world, victim, strength * multiplier * comboMultiplier, action.id, day);
       }
       if (blocked) spendDefenseStamina(victim);
-      else nudgePersonFrom(world, victim, person, action.attackVariant === 'shield-bash'
+      if (['shield-bash', 'lance-charge'].includes(action.attackVariant)) {
+        launchCombatPerson(world, victim, person, action, blocked);
+      } else if (!blocked) nudgePersonFrom(world, victim, person, action.attackVariant === 'shield-bash'
         ? WARRIOR_SHIELD_BASH.pushDistance
         : action.attackVariant === 'lance-charge' ? LANCER_CHARGE.pushDistance
           : action.attackVariant === 'lance-flurry' ? LANCER_FLURRY.pushDistance
@@ -721,17 +759,22 @@ export function fightTacticalRound(world, allies, enemies, day, objective = null
         enemy.x = dodge.from.x + (dodge.to.x - dodge.from.x) * progress;
         enemy.y = dodge.from.y + (dodge.to.y - dodge.from.y) * progress;
       } : undefined });
-    if (action.attackVariant === 'shield-bash') {
+    if (['shield-bash', 'lance-charge'].includes(action.attackVariant)) {
       for (const hit of action.hitEvents) {
-        if (hit.kind !== 'body') continue;
+        if (hit.parried || !['body', 'shield', 'weapon-guard'].includes(hit.kind)) continue;
         const victim = world.people.find(candidate => candidate.id === hit.targetId);
         if (!victim?.alive) continue;
+        if (victim.combatLaunch?.actionId === action.id) {
+          victim.combatLaunch.atMs = hit.atMs;
+          victim.combatStunnedUntilMs = (world.magicTimeMs || 0) + hit.atMs + 3600;
+        }
         victim.combatDisarmedUntilDay = Math.max(victim.combatDisarmedUntilDay || 0, day + 2);
         victim.combatDisarmedById = person.id;
         victim.combatCombo = null;
         victim.combatOpening = null;
         victim.militaryAnimation = 'defend'; victim.militaryAnimationDay = day;
-        victim.state = 'atordoado por pancada de escudo';
+        victim.state = action.attackVariant === 'shield-bash'
+          ? 'atordoado por pancada de escudo' : 'atordoado pela investida de lança';
       }
     }
     const areaTargets = [];
@@ -799,6 +842,7 @@ export function fightTacticalRound(world, allies, enemies, day, objective = null
     if (isOpeningAttack) person.combatOpening = null;
     if (result.kind === 'parry') {
       spendDefenseStamina(enemy, true);
+      stunCombatPerson(world, person, enemy.id, 3000 + Math.max(0, result.atMs || 0));
       person.combatDisarmedUntilDay = Math.max(person.combatDisarmedUntilDay || 0, day + 2);
       person.combatDisarmedById = enemy.id;
       person.combatCombo = null;

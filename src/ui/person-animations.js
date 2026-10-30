@@ -2,6 +2,7 @@ import { DASH_TRAIL_FADE_MS } from './dash-presentation.js';
 import { ARROW_RAIN_TIMING } from '../simulation/kingdoms/combat-contact.js';
 import { getAnimationFrame } from './animations.js';
 import { trainingDummiesForWorld } from '../simulation/world/training-dummies.js';
+import { createBloodParticles, BLOOD_EFFECT_DURATION_MS } from './blood-presentation.js';
 
 const DEATH_SPRITE_FRAME_SIZE = 128;
 const DEATH_SPRITE_FRAME_COUNT = 7;
@@ -121,12 +122,16 @@ export function createActivityEffects() {
           add('parry-stars', actor.x, actor.y, now + Math.max(0, event.result.atMs || 0), 64,
             { personId: actor.id, duration: 3000 });
         }
-        if (event.attackVariant === 'shield-bash') {
+        if (['shield-bash', 'lance-charge'].includes(event.attackVariant)) {
           for (const hit of event.hitEvents || []) {
-            if (hit.kind !== 'body') continue;
+            if (hit.parried || !['body', 'shield', 'weapon-guard'].includes(hit.kind)) continue;
             const victim = world.people.find(person => person.id === hit.targetId && person.alive);
-            if (victim) add('parry-stars', victim.x, victim.y, now + Math.max(0, hit.atMs || 0), 64,
-              { personId: victim.id, duration: 3000 });
+            if (victim) {
+              add('parry-stars', victim.x, victim.y, now + Math.max(0, hit.atMs || 0) + 600, 64,
+                { personId: victim.id, duration: 3000 });
+              add('effect.dust-01', victim.x, victim.y, now + Math.max(0, hit.atMs || 0) + 600, 96,
+                { duration: 500 });
+            }
           }
         }
         if (['lance-charge', 'shield-bash'].includes(event.attackVariant) && actor) {
@@ -214,6 +219,15 @@ export function createActivityEffects() {
           for (const hit of event.hitEvents) {
             if (hit.kind === 'parry') continue;
             add('effect.dust-02', hit.point.x, hit.point.y - contactElevation, now + hit.atMs, 64);
+            if (hit.damageApplied > 0 && !['shield-bash', 'lance-charge'].includes(event.attackVariant)
+                && world.people.some(person => person.id === hit.targetId)) {
+              const angle = event.attackVariant === 'rain' ? Math.PI / 2
+                : Number.isFinite(event.angle) ? event.angle
+                  : Math.atan2(hit.point.y - event.origin.y, hit.point.x - event.origin.x);
+              add('combat-blood', hit.point.x, hit.point.y - (contactElevation || 0), now + hit.atMs, 0,
+                { blood: true, duration: BLOOD_EFFECT_DURATION_MS,
+                  particles: createBloodParticles(event.id * 73856093 + hit.targetId, angle, hit.damageApplied) });
+            }
             if (event.attackVariant === 'shield-bash')
               add('effect.explosion-01', hit.point.x, hit.point.y - contactElevation, now + hit.atMs, 128,
                 { duration: 360 });

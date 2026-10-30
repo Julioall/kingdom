@@ -209,6 +209,10 @@ test('history is bounded and bodies already dead cannot receive another contact'
 
 test('tactical attack counts one impact and pays stamina once despite repeated rounds', () => {
   const f = fixture(); f.actor.towerMounted = true; f.target.towerMounted = true;
+  // Test a damaging basic attack explicitly; shield charge is now push-only.
+  f.actor.playerControlled = true; f.target.playerControlled = true;
+  f.actor.playerCommand = { actionKey: '1', aimX: f.target.x, aimY: f.target.y,
+    targetId: f.target.id, expiresDay: 1 };
   f.world.day = 0; f.world.combatSequence = 0;
   fightTacticalRound(f.world, [f.actor], [f.target], 1);
   assert.ok(f.target.health < 100); assert.equal(f.target.lastAttackSequence, 1);
@@ -235,7 +239,8 @@ test('effects wait for release/contact, expire, and do not replay on redraw or r
   assert.equal(effects.active(releaseAt).filter(e => e.projectile).length, 1);
   effects.observe(f.world, releaseAt + 100);
   assert.equal(effects.active(releaseAt + 100).filter(e => e.projectile).length, 1);
-  assert.equal(effects.active(1000 + f.action.result.atMs).filter(e => !e.projectile).length, 1);
+  assert.equal(effects.active(1000 + f.action.result.atMs).filter(e => !e.projectile && !e.blood).length, 1);
+  assert.equal(effects.active(1000 + f.action.result.atMs).filter(e => e.blood).length, 1);
   effects.observe(f.world, 2000, true); assert.equal(effects.active(2000).length, 0);
 });
 
