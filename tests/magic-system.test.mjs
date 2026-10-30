@@ -27,10 +27,12 @@ for (const spell of Object.values(SPELLS)) {
     if (spell.kind === 'dispel') effect(enemy, 'fortitude', .2);
     const before = target.health;
     assert.equal(beginSpell(world, caster, spell.id, { targetId: target.id }).ok, true);
+    assert.equal(caster.militaryAnimation, 'heal', 'the priest animates during preparation');
     assert.equal(caster.mana, 200 - spell.mana);
     assert.equal(target.health, before, 'a pending cast must not heal or damage');
     advanceMagic(world, spell.castMs);
     assert.equal(caster.magicCast, null);
+    assert.equal(caster.militaryAnimation, 'idle', 'the cast animation ends with activation');
     assert.equal(caster.mana, 200 - spell.mana);
     assert.equal(world.magicEvents.at(-1).kind, 'activated');
     if (spell.heal) assert.ok(target.health > before && target.health <= 100);
@@ -72,7 +74,7 @@ test('great heal caps recipients, regenerates for six seconds, and never overhea
     kingdomId: 1, alive: true, x: 12, y: 10, health: 50, maxCombatHealth: 300 }))];
   caster.magicSpells = ['greater-heal'];
   beginSpell(world, caster, 'greater-heal', { x: 12, y: 10 });
-  advanceMagic(world, 2200);
+  advanceMagic(world, SPELLS['greater-heal'].castMs);
   assert.equal(world.people.filter(person => person.health === 58).length, 10);
   advanceMagic(world, 6000);
   assert.equal(world.people.filter(person => person.health === 70).length, 10);
@@ -124,7 +126,7 @@ test('sanctuary protection depends on current position and expires', () => {
   const { world, caster, ally } = fixture();
   caster.magicSpells = ['sanctuary'];
   beginSpell(world, caster, 'sanctuary', { x: 12, y: 10 });
-  advanceMagic(world, 1500);
+  advanceMagic(world, SPELLS.sanctuary.castMs);
   assert.equal(magicModifiers(ally, world).incoming, .9);
   ally.x = 17;
   assert.equal(magicModifiers(ally, world).incoming, 1);
@@ -132,6 +134,38 @@ test('sanctuary protection depends on current position and expires', () => {
   advanceMagic(world, 8000);
   assert.equal(magicModifiers(ally, world).incoming, 1);
   assert.equal(world.magicZones.length, 0);
+});
+
+test('area casts lock the ground location and affect occupants there rather than following the original target', () => {
+  const { world, caster, ally } = fixture();
+  caster.magicSpells = ['area-heal'];
+  const occupant = { ...ally, id: 4, health: 40 };
+  world.people.push(occupant);
+  assert.equal(beginSpell(world, caster, 'area-heal', { targetId: ally.id }).ok, true);
+  assert.equal(caster.magicCast.targetId, null);
+  const x = caster.magicCast.x, y = caster.magicCast.y;
+  ally.x = 25; ally.alive = false;
+  advanceMagic(world, SPELLS['area-heal'].castMs);
+  assert.equal(occupant.health, 46);
+  assert.equal(ally.health, 45);
+  const activation = world.magicEvents.at(-1);
+  assert.equal(activation.kind, 'activated');
+  assert.equal(activation.x, x);
+  assert.equal(activation.y, y);
+});
+
+test('spell preparation and shared recovery prevent alternating spell spam', () => {
+  const { world, caster, ally } = fixture();
+  caster.magicSpells = ['heal', 'protection'];
+  assert.ok(SPELLS.heal.castMs >= 1200);
+  beginSpell(world, caster, 'heal', { targetId: ally.id });
+  advanceMagic(world, SPELLS.heal.castMs - 100);
+  assert.equal(ally.health, 45);
+  advanceMagic(world, 100);
+  assert.ok(ally.health > 45);
+  assert.equal(beginSpell(world, caster, 'protection', { targetId: ally.id }).reason, 'spell-cooldown');
+  advanceMagic(world, 1500);
+  assert.equal(beginSpell(world, caster, 'protection', { targetId: ally.id }).ok, true);
 });
 
 test('hostile magic preserves civilian eligibility and loadout changes cancel pending effects', () => {

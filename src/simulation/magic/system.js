@@ -37,7 +37,7 @@ export function beginSpell(world, caster, spellId, { targetId = null, x, y } = {
   if (!spell || caster?.role !== 'soldier' || caster.militaryClass !== 'monge'
       || magicIncapacitated(caster, world.day) || caster.magicCast || !equippedSpells(caster).includes(spellId))
     return { ok: false, reason: 'spell-unavailable' };
-  if ((caster.magicCooldowns?.[spellId] || 0) > now) return { ok: false, reason: 'spell-cooldown' };
+  if ((caster.magicReadyAt || 0) > now || (caster.magicCooldowns?.[spellId] || 0) > now) return { ok: false, reason: 'spell-cooldown' };
   initializeCombatResources(caster);
   if (caster.mana < spell.mana) return { ok: false, reason: 'not-enough-mana' };
   const target = targetId == null ? null : world.people.find(person => person.id === targetId);
@@ -48,15 +48,17 @@ export function beginSpell(world, caster, spellId, { targetId = null, x, y } = {
       || distance(caster, position) > spell.range + 1e-6) return { ok: false, reason: 'out-of-range' };
   if (!spell.radius && !target) return { ok: false, reason: 'target-required' };
   caster.mana -= spell.mana;
-  (caster.magicCooldowns ||= {})[spellId] = now + spell.cooldownMs;
+  (caster.magicCooldowns ||= {})[spellId] = now + spell.castMs + spell.cooldownMs;
+  caster.magicReadyAt = now + spell.castMs + 1500;
   caster.magicCast = { spellId, startedAt: now, completesAt: now + spell.castMs,
-    targetId: target?.id ?? null, x: position.x, y: position.y,
+    targetId: spell.radius ? null : target?.id ?? null, x: position.x, y: position.y,
     originX: caster.x, originY: caster.y };
   caster.militaryAnimation = 'heal'; caster.militaryAnimationDay = world.day;
   caster.militaryFacingX = position.x - caster.x; caster.militaryFacingY = position.y - caster.y;
   caster.state = 'conjurando ' + spell.name;
   metrics(world).casts++; metrics(world).manaSpent += spell.mana;
-  record(world, { kind: 'cast', spellId, casterId: caster.id, targetId: target?.id, x: position.x, y: position.y });
+  record(world, { kind: 'cast', spellId, casterId: caster.id,
+    targetId: caster.magicCast.targetId, x: position.x, y: position.y });
   return { ok: true, cast: caster.magicCast };
 }
 
@@ -108,6 +110,7 @@ function completeSpell(world, caster, cast, changed) {
   caster.lastHealingCast = spell.kind === 'heal' ? { day: world.day, primaryTargetId: target?.id,
     recipientIds: targets.map(person => person.id) } : caster.lastHealingCast;
   caster.state = 'conjurou ' + spell.name;
+  caster.militaryAnimation = 'idle';
   caster.militaryMerit = (caster.militaryMerit || 0) + targets.length * .1;
   record(world, { kind: 'activated', spellId: spell.id, casterId: caster.id, x: center.x, y: center.y,
     targetIds: targets.map(person => person.id) });
@@ -149,7 +152,8 @@ function targetScore(world, caster, spell, target, allies, enemies) {
 }
 
 export function chooseMagicAction(world, caster) {
-  if (magicIncapacitated(caster, world.day) || caster.magicCast || caster.playerControlled) return null;
+  if (magicIncapacitated(caster, world.day) || caster.magicCast || caster.playerControlled
+      || (caster.magicReadyAt || 0) > (world.magicTimeMs || 0)) return null;
   const general = world.people.find(person => person.id === caster.generalId);
   const campaign = (world.campaigns || []).find(item => item.id === caster.campaignId);
   const side = campaign && [campaign.attacker, campaign.defender].find(item => item.kingdomId === caster.kingdomId);

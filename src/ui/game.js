@@ -937,7 +937,6 @@ export function mountGame() {
     for (const action of ['idle', 'run', 'attack', 'arrow'])
       animationRenderer.load(getUnitAnimation('arqueiro', action, palette)).catch(error => console.warn(error));
     animationRenderer.load(getUnitAnimation('guerreiro', 'attack-2', palette)).catch(error => console.warn(error));
-    animationRenderer.load(getUnitAnimation('monge', 'heal-effect', palette)).catch(error => console.warn(error));
     tinyBuildingSprites[palette] = Object.create(null);
     for (const key of ['house1', 'house2', 'house3', 'castle', 'tower', 'barracks', 'archery', 'monastery', 'farmhouse']) {
       const image = trackedImage();
@@ -1050,7 +1049,7 @@ export function mountGame() {
 
   function militaryAnimationState(person, pose) {
     const palette = getKingdom(person.kingdomId)?.palette || 'blue';
-    const channelingHeal = (person.playerHealing === true || !!person.magicCast) && person.militaryClass === 'monge';
+    const channelingHeal = !!person.magicCast && person.militaryClass === 'monge';
     const preview = manualAttackPreview?.personId === person.id ? manualAttackPreview : null;
     const action = preview?.action || presentedCombatAction(person);
     const contactElapsed = preview ? Math.min(animationTime - preview.startedAt, action.windupMs * .85)
@@ -2606,7 +2605,7 @@ export function mountGame() {
   const structureDamageBars = createDamageBarTracker();
   function drawHoverEnergyCircle(centerX, centerY) {
     magicVfx.drawIndicator(ctx, centerX, centerY, animationTime,
-      { color: '#c7776c', radius: TILE * .55, rotationSpeed: .23 });
+      { color: manualControlId != null ? '#ff674e' : '#51e6ff', radius: TILE * .55, rotationSpeed: .23 });
   }
   function drawPerson(p, pose) {
       const c = p.communityId ? getCommunity(p.communityId) : null;
@@ -2616,8 +2615,9 @@ export function mountGame() {
           * spriteScale(TILE, CHARACTER_SPRITE_SCALE) : 0;
       const x = pose.x * TILE, y = pose.y * TILE + towerDrop, child = p.ageDays < 12 * 365;
       const scale = child ? .72 : 1, color = c ? c.color : ['#d9c28b', '#cfb585', '#e0c99b', '#c9b27f'][p.id % 4];
-      if (hoveredPersonId === p.id) drawHoverEnergyCircle(x + TILE / 2, y + TILE - .5);
-      if (p.conflictRisk > .5) { ctx.strokeStyle = 'rgba(196,109,72,.52)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x + 8, y + 8, 7.5, 0, Math.PI * 2); ctx.stroke(); }
+      if (selection?.kind === 'person' && selection.id === p.id) {
+        magicVfx.drawIndicator(ctx, x + TILE / 2, y + TILE - .5, animationTime);
+      } else if (hoveredPersonId === p.id) drawHoverEnergyCircle(x + TILE / 2, y + TILE - .5);
       if (!drawTinySwordsPerson(p, x, y, child, pose)) {
         ctx.save();
         ctx.translate(x + TILE / 2, y + TILE);
@@ -2657,12 +2657,8 @@ export function mountGame() {
   function drawSelection() {
     if (!selection) return;
     if (selection.kind === 'person') {
-      const person = getPerson(selection.id);
-      if (person?.alive) {
-        const pose = combatDisplayPose(person, visualPose('person', person));
-        magicVfx.drawIndicator(ctx, (pose.x + .5) * TILE, (pose.y + 1) * TILE, animationTime);
-        return;
-      }
+      // Unit indicators are drawn with the hover, before their sprite.
+      if (getPerson(selection.id)?.alive) return;
     }
     const bounds = selectionBounds(selection);
     if (bounds) drawSelectionFrame(bounds);

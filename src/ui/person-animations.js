@@ -229,10 +229,7 @@ export function createActivityEffects() {
               { x: arrow.targetX, y: arrow.targetY }, arrow.targetElevation, now,
               flightDuration, arcHeight);
           }
-          if (person.lastHealingSequence && person.lastHealingSequence !== old.healingSequence) {
-            const palette = world.kingdoms?.find(k => k.id === person.kingdomId)?.palette || 'blue';
-            add('unit.' + palette + '.monk.heal-effect', person.x, person.y, now, 48, { personId: person.id });
-          }
+          // Healing visuals are supplied by the native ground magic seals.
           if (activity?.day === world.day && activityKey !== old.activityKey) {
             if (['chop', 'mine', 'build'].includes(activity.kind)) add('effect.dust-02', activity.x, activity.y, now, 64);
             if (['drink', 'fish'].includes(activity.kind)) add('effect.water-splash', activity.x, activity.y, now, 128);

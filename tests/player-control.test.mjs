@@ -115,7 +115,7 @@ test('controlled monk can use E or 1 to heal the selected nearby ally', () => {
     aimX: ally.x, aimY: ally.y, targetId: ally.id });
   assert.equal(result.ok, true);
   assert.equal(ally.health, 40, 'healing waits for the cast to finish');
-  dispatchCommand(world, { type: 'magic-tick', elapsedMs: 350 });
+  dispatchCommand(world, { type: 'magic-tick', elapsedMs: 1200 });
   assert.ok(ally.health > 40);
   assert.equal(monk.mana, 48);
   assert.equal(monk.lastHealingCast.primaryTargetId, ally.id);

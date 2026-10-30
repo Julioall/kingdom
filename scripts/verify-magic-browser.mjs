@@ -96,6 +96,17 @@ try {
   assert.equal(state.soldiers, 100);
   assert.ok(state.magicTimeMs > 1000 && state.updates > 5);
   assert.ok(state.stats.healing > 0 && state.affected > 0);
+  if (process.argv.includes('--visual-only')) {
+    await page.mouse.wheel(0, -500);
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: output + '/vfx-detail.png' });
+    assert.equal(errors.length, 0, errors.join('\n'));
+    const report = { state, fps: performance.frames?.fps, mapP95Ms: performance.map?.p95Ms, errors };
+    await writeFile(output + '/visual-report.json', JSON.stringify(report, null, 2));
+    console.log(JSON.stringify(report, null, 2));
+    await browser.close();
+    process.exit(0);
+  }
   await page.locator('#toggle').click();
   const candidates = await page.evaluate(() => {
     const world = window.magicProbe.world;
@@ -126,6 +137,12 @@ try {
   await page.locator('#toggle').click();
   await page.waitForFunction(id => !window.magicProbe.world.people.find(person => person.id === id)?.magicCast,
     selected.id, { timeout: 10000 });
+  // The autonomous priest may already have used Greater Heal before takeover.
+  // Respect its real cooldown/mana instead of making this visual QA timing-dependent.
+  await page.waitForFunction(id => {
+    const world = window.magicProbe.world, priest = world.people.find(person => person.id === id);
+    return priest?.mana >= 75 && (priest.magicCooldowns?.['greater-heal'] || 0) <= world.magicTimeMs;
+  }, selected.id, { timeout: 30000 });
   await page.locator('#world').focus();
   await page.keyboard.press('3');
   await page.waitForFunction(id => window.magicProbe.world.people.find(person => person.id === id)?.magicCast?.spellId === 'greater-heal', selected.id);

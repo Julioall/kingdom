@@ -1,5 +1,7 @@
 # Magias táticas dos sacerdotes — 30/10/2026
 
+Este relatório registra a entrega inicial. Para os tempos, perfis e comportamento visual posteriores solicitados durante o uso do jogo, consulte [o refinamento de VFX](priest-vfx-refinement-20261030.md).
+
 Implementação na branch `codex/priest-tactical-magic`, derivada de `codex/test-game-ui-pixel-art-20261028` (`55b974c`). Rastreamento: [GitHub #53](https://github.com/Julioall/kingdom/issues/53), [Linear JUL-235](https://linear.app/julio-alves/issue/JUL-235/kingdom-magias-taticas-dos-sacerdotes-e-integracao-do-kit-vfx).
 
 ## Uso no jogo

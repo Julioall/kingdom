@@ -1,0 +1,165 @@
+{
+  "profiles": [
+    {
+      "id": "heal",
+      "ringCount": 2,
+      "ringSegments": 8,
+      "glyphCount": 8,
+      "rotationSpeed": 0.18,
+      "centerSymbol": "cross",
+      "circleStyle": "arcane",
+      "particles": 32
+    },
+    {
+      "id": "area-heal",
+      "ringCount": 4,
+      "ringSegments": 12,
+      "glyphCount": 16,
+      "rotationSpeed": 0.2,
+      "centerSymbol": "cross",
+      "circleStyle": "rune",
+      "particles": 32
+    },
+    {
+      "id": "greater-heal",
+      "ringCount": 5,
+      "ringSegments": 6,
+      "glyphCount": 12,
+      "rotationSpeed": 0.22,
+      "centerSymbol": "triangles",
+      "circleStyle": "summon",
+      "particles": 32
+    },
+    {
+      "id": "regeneration",
+      "ringCount": 3,
+      "ringSegments": 12,
+      "glyphCount": 12,
+      "rotationSpeed": 0.15,
+      "centerSymbol": "sun",
+      "circleStyle": "arcane",
+      "particles": 32
+    },
+    {
+      "id": "fortitude",
+      "ringCount": 4,
+      "ringSegments": 12,
+      "glyphCount": 8,
+      "rotationSpeed": 0.16,
+      "centerSymbol": "shield",
+      "circleStyle": "rune",
+      "particles": 32
+    },
+    {
+      "id": "haste",
+      "ringCount": 2,
+      "ringSegments": 8,
+      "glyphCount": 12,
+      "rotationSpeed": 0.4,
+      "centerSymbol": "hourglass",
+      "circleStyle": "arcane",
+      "particles": 32
+    },
+    {
+      "id": "blessed-weapons",
+      "ringCount": 3,
+      "ringSegments": 6,
+      "glyphCount": 8,
+      "rotationSpeed": 0.28,
+      "centerSymbol": "blade",
+      "circleStyle": "summon",
+      "particles": 32
+    },
+    {
+      "id": "protection",
+      "ringCount": 5,
+      "ringSegments": 12,
+      "glyphCount": 16,
+      "rotationSpeed": -0.18,
+      "centerSymbol": "shield",
+      "circleStyle": "rune",
+      "particles": 32
+    },
+    {
+      "id": "weakness",
+      "ringCount": 3,
+      "ringSegments": 10,
+      "glyphCount": 6,
+      "rotationSpeed": -0.35,
+      "centerSymbol": "rune",
+      "circleStyle": "debuff",
+      "particles": 32
+    },
+    {
+      "id": "slow",
+      "ringCount": 4,
+      "ringSegments": 6,
+      "glyphCount": 16,
+      "rotationSpeed": -0.12,
+      "centerSymbol": "hourglass",
+      "circleStyle": "rune",
+      "particles": 32
+    },
+    {
+      "id": "exhaustion",
+      "ringCount": 2,
+      "ringSegments": 10,
+      "glyphCount": 10,
+      "rotationSpeed": -0.2,
+      "centerSymbol": "hourglass",
+      "circleStyle": "debuff",
+      "particles": 32
+    },
+    {
+      "id": "curse",
+      "ringCount": 4,
+      "ringSegments": 10,
+      "glyphCount": 12,
+      "rotationSpeed": -0.35,
+      "centerSymbol": "triangles",
+      "circleStyle": "debuff",
+      "particles": 32
+    },
+    {
+      "id": "poison",
+      "ringCount": 3,
+      "ringSegments": 6,
+      "glyphCount": 6,
+      "rotationSpeed": -0.25,
+      "centerSymbol": "venom",
+      "circleStyle": "debuff",
+      "particles": 32
+    },
+    {
+      "id": "purify",
+      "ringCount": 4,
+      "ringSegments": 8,
+      "glyphCount": 16,
+      "rotationSpeed": -0.24,
+      "centerSymbol": "sun",
+      "circleStyle": "arcane",
+      "particles": 32
+    },
+    {
+      "id": "dispel",
+      "ringCount": 4,
+      "ringSegments": 8,
+      "glyphCount": 16,
+      "rotationSpeed": -0.4,
+      "centerSymbol": "diamond",
+      "circleStyle": "rune",
+      "particles": 32
+    },
+    {
+      "id": "sanctuary",
+      "ringCount": 5,
+      "ringSegments": 6,
+      "glyphCount": 16,
+      "rotationSpeed": 0.12,
+      "centerSymbol": "sun",
+      "circleStyle": "summon",
+      "particles": 32
+    }
+  ],
+  "errors": []
+}

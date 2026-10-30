@@ -21,7 +21,7 @@
  const frac=x=>x-Math.floor(x);
  const rand=(seed,i,j)=>frac(Math.sin(seed*0.001+i*127.1+j*311.7)*43758.5453);
  const alphaColors=new Map();
- const rgba=(hex,a)=>{a=Math.round(clamp(a,0,1)*32)/32;const key=hex+':'+a;if(alphaColors.has(key))return alphaColors.get(key);let s=hex.replace('#','');if(s.length===3)s=s.split('').map(v=>v+v).join('');
+ const rgba=(hex,a)=>{a=Math.round(clamp(a,0,1)*48)/48;const key=hex+':'+a;if(alphaColors.has(key))return alphaColors.get(key);let s=hex.replace('#','');if(s.length===3)s=s.split('').map(v=>v+v).join('');
   const n=parseInt(s,16);const value=`rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;if(alphaColors.size>4096)alphaColors.clear();alphaColors.set(key,value);return value};
  function validateColor(x,fallback){return typeof x==='string' && /^#[0-9a-f]{6}$/i.test(x)?x:fallback}
  function normalize(input){
@@ -34,7 +34,7 @@
   c.auraHeight=clamp(Number(c.auraHeight),1,400);c.particleOpacity=clamp(Number(c.particleOpacity),0,1);
   c.ringOpacity=clamp(Number(c.ringOpacity),0,1);
   c.seed=Number.isFinite(+c.seed)?+c.seed:37;
-  c.ringThickness=clamp(Math.round(c.ringThickness),1,10);
+  c.ringThickness=clamp(Number(c.ringThickness)||1,.25,10);
   c.rotationSpeed=Number(c.rotationSpeed)||0;
   c.ringPulse=clamp(Number(c.ringPulse)||0,0,1);
   c.particleMotion=['rise','orbit'].includes(c.particleMotion)?c.particleMotion:'rise';
@@ -47,37 +47,144 @@
   c.colors={main:validateColor(c.colors?.main,palette.main),highlight:validateColor(c.colors?.highlight,palette.highlight),shadow:validateColor(c.colors?.shadow,palette.shadow)};
   return c;
  }
- function drawBlock(ctx,x,y,w,h,color){ctx.fillStyle=color;ctx.fillRect(Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)))}
+ // A map unit is much larger than a sprite pixel. Keep a twenty-four-times finer
+ // raster for VFX instead of rounding every detail to an entire map pixel.
+ const raster=x=>Math.round(x*24)/24;
+ function drawBlock(ctx,x,y,w,h,color){ctx.fillStyle=color;ctx.fillRect(raster(x),raster(y),Math.max(1/24,raster(w)),Math.max(1/24,raster(h)))}
  function drawParticle(ctx,x,y,s,kind,pal,alpha){
-  if(alpha<.012)return; s=Math.max(1,Math.round(s));
+  if(alpha<.012)return;
+  // Eighth-size particles, including outlines and highlights. Reducing only the
+  // central size left the old one-map-pixel padding dominating the whole shape.
+  s=Math.max(1/24,Math.round(s*3)/24);
+  const pixel=.125,detail=1/24;
   const dark=rgba(pal.shadow,alpha),main=rgba(pal.main,alpha),light=rgba(pal.highlight,alpha);
   if(kind==='spark'){
-   drawBlock(ctx,x-s,y,3*s,s,dark);drawBlock(ctx,x,y-s,s,3*s,dark);drawBlock(ctx,x-s+1,y,Math.max(1,3*s-2),s,main);
-   drawBlock(ctx,x,y-s+1,s,Math.max(1,3*s-2),main);drawBlock(ctx,x,y,1,1,light);
+   drawBlock(ctx,x-s,y,3*s,s,dark);drawBlock(ctx,x,y-s,s,3*s,dark);drawBlock(ctx,x-s+pixel,y,Math.max(detail,3*s-2*pixel),s,main);
+   drawBlock(ctx,x,y-s+pixel,s,Math.max(detail,3*s-2*pixel),main);drawBlock(ctx,x,y,detail,detail,light);
   }else if(kind==='rune'){
-   drawBlock(ctx,x-s,y-s,2*s+1,2*s+1,dark);drawBlock(ctx,x,y-s,s,s*2+1,main);drawBlock(ctx,x-s,y,s*2+1,s,light);
+   drawBlock(ctx,x-s,y-s,2*s+pixel,2*s+pixel,dark);drawBlock(ctx,x,y-s,s,s*2+pixel,main);drawBlock(ctx,x-s,y,s*2+pixel,s,light);
   }else if(kind==='shard'){
-   drawBlock(ctx,x,y-s,Math.max(1,s),3*s,dark);drawBlock(ctx,x,y-s,Math.max(1,s-1),2*s,main);drawBlock(ctx,x,y-s,1,s,light);
+   drawBlock(ctx,x,y-s,Math.max(detail,s),3*s,dark);drawBlock(ctx,x,y-s,Math.max(detail,s-pixel),2*s,main);drawBlock(ctx,x,y-s,detail,s,light);
   }else{
-   drawBlock(ctx,x-1,y-1,s+2,s+2,dark);drawBlock(ctx,x,y,s,s,main);
-   if(s>1)drawBlock(ctx,x,y,1,1,light);
+   drawBlock(ctx,x-pixel,y-pixel,s+2*pixel,s+2*pixel,dark);drawBlock(ctx,x,y,s,s,main);
+   drawBlock(ctx,x,y,detail,detail,light);
   }
  }
+ const ringImages=new Map();
+ let ringImagePixels=0;
  function drawEllipseRing(ctx,c,cx,cy,r,turn,t,idx){
+  // Rasterize detailed rings once at 8x resolution. Rotate the cached top-down
+  // image before flattening it, so the animation stays on the ground plane.
+  if(typeof document!=='undefined'&&ctx.drawImage&&ctx.save&&ctx.scale){
+   const rad=r*c.scale;
+   const key=[rad,c.ringThickness,c.ringSegments,c.rotateSelection,c.magicPattern,c.circleStyle,c.glyphCount,c.centerSymbol,idx,
+    c.colors.main,c.colors.highlight,c.colors.shadow].join(':');
+   let cached=ringImages.get(key);
+   if(!cached){
+    const pad=Math.ceil(c.ringThickness+3),size=Math.ceil((rad+pad)*2),resolution=8;
+    const canvas=document.createElement('canvas');canvas.width=canvas.height=size*resolution;
+    const pixels=canvas.width*canvas.height;
+    while(ringImages.size&&(ringImages.size>=64||ringImagePixels+pixels>16000000)){
+     const oldest=ringImages.keys().next().value;const image=ringImages.get(oldest);
+     ringImagePixels-=image.canvas.width*image.canvas.height;ringImages.delete(oldest);
+    }
+    const context=canvas.getContext('2d');context.scale(resolution,resolution);
+    drawEllipseRingPixels(context,{...c,scale:1,flatten:1,ringOpacity:1,ringPulse:0},size/2,size/2,rad,0,0,idx);
+    cached={canvas,size};ringImages.set(key,cached);ringImagePixels+=pixels;
+   }
+   ctx.save();ctx.translate(cx,cy);
+   const visualScale=c.ringVisualScale||1;ctx.scale(visualScale,c.flatten*visualScale);
+   if(c.rotateSelection)ctx.rotate(-turn);
+   ctx.globalAlpha*=Math.min(1,c.ringOpacity*(1+c.ringPulse*Math.sin(t*TAU*1.2)));
+   // Downsample the high-resolution seal with coverage filtering; nearest
+   // sampling otherwise drops the thin rune strokes entirely at normal zoom.
+   ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+   ctx.drawImage(cached.canvas,-cached.size/2,-cached.size/2,cached.size,cached.size);
+   if(c.lightIntensity>0){
+    ctx.globalCompositeOperation='screen';ctx.globalAlpha*=Math.min(1,c.lightIntensity);
+    ctx.drawImage(cached.canvas,-cached.size/2,-cached.size/2,cached.size,cached.size);
+    if(c.lightIntensity>1){ctx.globalAlpha*=Math.min(1,c.lightIntensity-1);
+     ctx.drawImage(cached.canvas,-cached.size/2,-cached.size/2,cached.size,cached.size);}
+   }
+   ctx.restore();return;
+  }
+  drawEllipseRingPixels(ctx,c,cx,cy,r,turn,t,idx);
+ }
+ function drawEllipseRingPixels(ctx,c,cx,cy,r,turn,t,idx){
   const rad=r*c.scale,ry=rad*c.flatten;
-  const n=Math.max(1,c.ringSegments),points=Math.max(96,Math.round(rad*TAU*1.4));
-  const full=n===1 && !c.rotateSelection;
+  const n=Math.max(1,c.ringSegments),points=Math.max(128,Math.round(rad*TAU*8));
+  const full=c.magicPattern&&idx===0 || n===1&&!c.rotateSelection;
   const pulse=1+c.ringPulse*Math.sin(t*TAU*1.2);
   const alpha=c.ringOpacity*pulse;
   const color=c.colors;
-  const dark=rgba(color.shadow,alpha*.82),main=rgba(idx%2?color.highlight:color.main,alpha);
-  for(let j=0;j<points;j++){
+  const dark=rgba(color.shadow,alpha),main=rgba(color.main,alpha),light=rgba(color.highlight,alpha);
+  // Complete each color layer before the next; otherwise neighboring outline
+  // samples paint over the colored core and make the entire ring look brown.
+  for(let layer=0;layer<3;layer++)for(let j=0;j<points;j++){
    const a=j/points*TAU;
    let u=frac((a+(c.rotateSelection?turn:0))*n/TAU);
-   if(!full && (u<.07||u>.93))continue;
+   const gap=c.circleStyle==='debuff'?.18:c.circleStyle==='rune'?.035:.07;
+   if(!full && (u<gap||u>1-gap))continue;
    const x=cx+Math.cos(a)*rad, y=cy+Math.sin(a)*ry;
-   drawBlock(ctx,x-c.ringThickness/2,y-c.ringThickness/2,c.ringThickness,c.ringThickness,dark);
-   drawBlock(ctx,x,y,Math.max(1,c.ringThickness-1),Math.max(1,c.ringThickness-1),main);
+   const thickness=c.ringThickness;
+   if(layer===0)drawBlock(ctx,x-thickness*.5,y-thickness*.5,thickness,thickness,dark);
+   else if(layer===1)drawBlock(ctx,x-thickness*.25,y-thickness*.25,thickness*.75,thickness*.75,main);
+   else if(idx%2===1||j%12<4)drawBlock(ctx,x,y,.25,.25,light);
+  }
+  // Rotating diamonds distinguish the energy circle from the old plain oval.
+  for(let k=0;k<n;k++){
+   const a=k/n*TAU-turn, x=cx+Math.cos(a)*rad,y=cy+Math.sin(a)*ry;
+   const s=Math.min(1.1,Math.max(.5,rad*.045));
+   drawBlock(ctx,x-s,y-.25,s*2,.5,dark);drawBlock(ctx,x-.25,y-s*.7,.5,s*1.4,dark);
+   drawBlock(ctx,x-s*.6,y-.125,s*1.2,.25,main);drawBlock(ctx,x-.125,y-s*.45,.25,s*.9,light);
+  }
+  if(c.magicPattern&&idx===0){
+   // Adapt the laboratory's named arcane/rune/summon/debuff seal families.
+   // Their geometry is baked into the image cache, never rebuilt per frame.
+   const point=(a,radius)=>[cx+Math.cos(a)*radius,cy+Math.sin(a)*radius*c.flatten];
+   const line=(a,b,color)=>{const steps=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])*8));
+    for(let i=0;i<=steps;i++){const f=i/steps;drawBlock(ctx,a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f,.25,.25,color);}};
+   const poly=(vertices,color=main)=>{for(let i=1;i<vertices.length;i++)line(vertices[i-1],vertices[i],color);};
+   const local=(x,y,angle=0)=>[cx+(x*Math.cos(angle)-y*Math.sin(angle)),cy+(x*Math.sin(angle)+y*Math.cos(angle))*c.flatten];
+   const q=rad*.28,angle=-turn;
+   switch(c.centerSymbol){
+    case 'triangles':
+     for(let z=0;z<2;z++)poly(Array.from({length:4},(_,i)=>point(i*TAU/3-PI/2+z*PI+angle,rad*.52)));break;
+    case 'cross':
+     poly([local(0,-q,angle),local(0,q,angle)],light);poly([local(-q,0,angle),local(q,0,angle)],light);
+     poly([local(0,-q*1.4,angle),local(q*1.4,0,angle),local(0,q*1.4,angle),local(-q*1.4,0,angle),local(0,-q*1.4,angle)]);break;
+    case 'shield':
+     poly([local(-q,-q,angle),local(q,-q,angle),local(q*.8,q*.4,angle),local(0,q*1.3,angle),local(-q*.8,q*.4,angle),local(-q,-q,angle)]);
+     line(local(0,-q*.6,angle),local(0,q*.8,angle),light);break;
+    case 'hourglass':
+     poly([local(-q,-q,angle),local(q,-q,angle),local(-q,q,angle),local(q,q,angle),local(-q,-q,angle)]);break;
+    case 'blade':
+     poly([local(0,-q*1.5,angle),local(q*.35,0,angle),local(0,q*.65,angle),local(-q*.35,0,angle),local(0,-q*1.5,angle)],light);
+     line(local(-q*.8,q*.55,angle),local(q*.8,q*.55,angle),main);line(local(0,q*.55,angle),local(0,q*1.3,angle),light);break;
+    case 'sun':
+     for(let k=0;k<8;k++)line(point(k*TAU/8+angle,q*.6),point(k*TAU/8+angle,q*1.5),light);break;
+    case 'venom':
+     poly([local(0,-q*1.4,angle),local(q,q*.25,angle),local(q*.6,q,angle),local(-q*.6,q,angle),local(-q,q*.25,angle),local(0,-q*1.4,angle)]);
+     line(local(-q*.5,q*.25,angle),local(q*.5,q*.25,angle),light);break;
+    case 'rune':
+     poly([local(-q,-q*.5,angle),local(0,-q,angle),local(q,-q*.5,angle),local(0,q,angle),local(-q,-q*.5,angle)],light);
+     line(local(-q,0,angle),local(q,0,angle),main);break;
+    default:
+     poly([local(0,-q,angle),local(q,0,angle),local(0,q,angle),local(-q,0,angle),local(0,-q,angle)]);
+     line(local(-q*.6,0,angle),local(q*.6,0,angle),light);
+   }
+   const glyphs=c.glyphCount||12;
+   const glyphShapes=[ [[-1,-1],[0,1],[1,-1]], [[0,-1],[1,0],[0,1],[-1,0],[0,-1]],
+    [[-1,-1],[1,1],[1,-1],[-1,1]], [[0,-1],[0,1],[-1,0],[1,0]],
+    [[-1,-.5],[0,-1],[1,-.5],[0,1],[-1,-.5]], [[-1,-1],[-1,1],[1,-1],[1,1]] ];
+   for(let k=0;k<glyphs;k++){
+    const a=k*TAU/glyphs-turn,center=point(a,rad*.85),size=Math.max(.3,rad*.04);
+    const shape=glyphShapes[k%glyphShapes.length].map(([x,y])=>[
+     center[0]+(x*Math.cos(a)-y*Math.sin(a))*size,
+     center[1]+(x*Math.sin(a)+y*Math.cos(a))*size*c.flatten]);
+    poly(shape,k%3===0?light:main);
+    line(point(a,rad*.96),point(a,rad*.91),light);
+   }
   }
  }
  const particleScratch={x:0,y:0,phase:0};

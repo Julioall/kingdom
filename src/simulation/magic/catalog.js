@@ -1,7 +1,8 @@
 // Times are simulated combat milliseconds; health values are fractions of max HP.
 const spell = (id, name, kind, values) => Object.freeze({ id, name, kind, range: 6,
   radius: 0, maxTargets: 1, castMs: 650, cooldownMs: 5000, durationMs: 0,
-  mana: 24, color: '#a5c99c', rotationSpeed: .18, ...values });
+  mana: 24, color: '#a5c99c', rotationSpeed: .18, ...values,
+  castMs: Math.max(1200, Math.round((values.castMs ?? 650) * 1.8)) });
 
 export const SPELLS = Object.freeze(Object.fromEntries([
   spell('heal', 'Cura Simples', 'heal', { mana: 12, castMs: 350, cooldownMs: 900, heal: .07 }),
