@@ -9,6 +9,26 @@ const DEATH_TRANSFORM_DURATION_MS = 700;
 const DEATH_SKULL_HOLD_DURATION_MS = 10_000;
 const DEATH_DISAPPEAR_DURATION_MS = 700;
 
+export function priestCastAnimationPose(world, person, animation) {
+  if (!person.alive || person.militaryClass !== 'monge') return null;
+  const now = world.magicTimeMs || 0;
+  const stepAt = elapsed => Math.floor(Math.max(0, elapsed) * animation.fps / 1000);
+  let frame;
+  if (person.magicCast) {
+    const step = stepAt(now - person.magicCast.startedAt);
+    // User-facing frames 4–7 are zero-based indices 3–6. Play the opening
+    // once, then hold this four-frame window until authoritative activation.
+    frame = step < 3 ? step : 3 + (step - 3) % 4;
+  } else {
+    const activation = (world.magicEvents || []).findLast(event => event.kind === 'activated'
+      && event.casterId === person.id);
+    if (!activation || now < activation.at) return null;
+    frame = 7 + stepAt(now - activation.at);
+    if (frame >= animation.frames) return null;
+  }
+  return { elapsedMs: (frame + .001) * 1000 / animation.fps, loop: false };
+}
+
 function carriedSprite(person) {
   if ((person.carriedMeat || 0) > .01) return 'meat';
   if ((person.carriedGold || 0) > .01) return 'gold';

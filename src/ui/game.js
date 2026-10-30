@@ -25,7 +25,7 @@ import { renderMagicInspector, magicInspectorCommand } from './magic/inspector.j
 import { isBushAnchor } from '../simulation/ecology/plants.js';
 import { CHARACTER_SPRITE_SCALE, MILITARY_SPRITES, militarySpritePose } from './military-sprites.js';
 import { createAnimationRenderer, getUnitAnimation, getAnimationFrame } from './animations.js';
-import { residentSpritePose, createActorAnimationClock, createActivityEffects } from './person-animations.js';
+import { residentSpritePose, createActorAnimationClock, createActivityEffects, priestCastAnimationPose } from './person-animations.js';
 import { createGameAudio, windGainAtZoom } from './game-audio.js';
 import { musicGainAtZoom } from './music-audio.js';
 import { mapDecorationAt, MAP_DECORATION_SPRITES } from './map-decorations.js';
@@ -1050,6 +1050,9 @@ export function mountGame() {
   function militaryAnimationState(person, pose) {
     const palette = getKingdom(person.kingdomId)?.palette || 'blue';
     const channelingHeal = !!person.magicCast && person.militaryClass === 'monge';
+    const castPose = person.militaryClass === 'monge'
+      ? priestCastAnimationPose(world, person, getUnitAnimation('monge', 'heal', palette)) : null;
+    const presentingCast = !!castPose && (channelingHeal || !pose.moving);
     const preview = manualAttackPreview?.personId === person.id ? manualAttackPreview : null;
     const action = preview?.action || presentedCombatAction(person);
     const contactElapsed = preview ? Math.min(animationTime - preview.startedAt, action.windupMs * .85)
@@ -1076,7 +1079,7 @@ export function mountGame() {
     const shooting = !action && person.militaryClass === 'arqueiro' && person.lastArrowSequence > 0 && shotElapsed < 800;
     const restingPerson = (action || defense) && ['attack', 'defend'].includes(person.militaryAnimation)
       ? { ...person, militaryAnimationDay: -1 } : person;
-    const animatedPerson = channelingHeal ? { ...person, militaryAnimation: 'heal', militaryAnimationDay: world.day }
+    const animatedPerson = presentingCast ? { ...person, militaryAnimation: 'heal', militaryAnimationDay: world.day }
       : attacking || shooting ? { ...person,
       militaryAnimation: preparingSpear || shieldBashing ? 'defend' : 'attack', militaryAnimationDay: world.day,
       militaryFacingX: action ? Math.cos(action.angle) : person.militaryFacingX,
@@ -1086,17 +1089,17 @@ export function mountGame() {
     let sprite = militarySpritePose(animatedPerson, attacking || shooting ? { ...pose, moving: false, dirX: 0, dirY: 0 } : pose, world.day);
     let animation = getUnitAnimation(sprite.unit.folder.toLowerCase(), sprite.action, palette);
     const battle = attacking || defending || comboHoldingGuard || shooting || animatedPerson.militaryAnimationDay === world.day;
-    const elapsedMs = attacking ? action.weapon === 'lanceiro' && !preparingSpear
+    const elapsedMs = presentingCast ? castPose.elapsedMs : attacking ? action.weapon === 'lanceiro' && !preparingSpear
       ? (contactElapsed - action.windupMs) * (action.animationSpeedMultiplier || 1)
       : action.weapon === 'arqueiro' ? bowPoseElapsed : contactElapsed : defending ? Math.max(0, defenseElapsed - defense.atMs + 100)
       : shooting ? shotElapsed : actorAnimationClock.elapsed(person.id, animation.id + (battle ? ':' + world.day : ''), animationTime);
-    if (battle && !channelingHeal && !repeatingLanceAttack && !comboHoldingGuard
+    if (battle && !presentingCast && !repeatingLanceAttack && !comboHoldingGuard
         && getAnimationFrame(animation, elapsedMs, { loop: false }).done) {
       sprite = militarySpritePose(restingPerson, pose, -1);
       animation = getUnitAnimation(sprite.unit.folder.toLowerCase(), sprite.action, palette);
     }
     return { sprite, animation, elapsedMs, battle,
-      loop: channelingHeal || shieldBashing || repeatingLanceAttack || comboHoldingGuard || animation.loop };
+      loop: presentingCast ? false : shieldBashing || repeatingLanceAttack || comboHoldingGuard || animation.loop };
   }
 
   function drawMilitaryPerson(person, x, y, pose) {
