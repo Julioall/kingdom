@@ -1,6 +1,7 @@
 import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
+import { SPELLS } from '../src/simulation/magic/catalog.js';
 
 const output = 'browser-ui-evidence/magic';
 await mkdir(output, { recursive: true });
@@ -108,16 +109,16 @@ try {
     process.exit(0);
   }
   await page.locator('#toggle').click();
-  const candidates = await page.evaluate(() => {
+  const candidates = await page.evaluate(cost => {
     const world = window.magicProbe.world;
     const rect = document.querySelector('#world').getBoundingClientRect();
     const transform = window.kingdomProfiler.snapshot().context.cameraTransform;
     const size = 1024 / world.width;
-    return world.people.filter(person => person.alive && person.militaryClass === 'monge' && person.mana >= 75)
+    return world.people.filter(person => person.alive && person.militaryClass === 'monge' && person.mana >= cost)
       .sort((a, b) => b.mana - a.mana).map(person => ({ id: person.id, name: person.name,
         x: rect.x + (person.x + .5) * size * transform[0] + transform[4],
         y: rect.y + (person.y + .5) * size * transform[3] + transform[5] }));
-  });
+  }, SPELLS['greater-heal'].mana);
   let selected;
   for (const candidate of candidates) {
     await page.mouse.click(candidate.x, candidate.y);
@@ -139,10 +140,10 @@ try {
     selected.id, { timeout: 10000 });
   // The autonomous priest may already have used Greater Heal before takeover.
   // Respect its real cooldown/mana instead of making this visual QA timing-dependent.
-  await page.waitForFunction(id => {
+  await page.waitForFunction(({ id, cost }) => {
     const world = window.magicProbe.world, priest = world.people.find(person => person.id === id);
-    return priest?.mana >= 75 && (priest.magicCooldowns?.['greater-heal'] || 0) <= world.magicTimeMs;
-  }, selected.id, { timeout: 30000 });
+    return priest?.mana >= cost && (priest.magicCooldowns?.['greater-heal'] || 0) <= world.magicTimeMs;
+  }, { id: selected.id, cost: SPELLS['greater-heal'].mana }, { timeout: 30000 });
   await page.locator('#world').focus();
   await page.keyboard.press('3');
   await page.waitForFunction(id => window.magicProbe.world.people.find(person => person.id === id)?.magicCast?.spellId === 'greater-heal', selected.id);

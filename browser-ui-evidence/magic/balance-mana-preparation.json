@@ -1,0 +1,321 @@
+{
+  "description": "100 soldiers; alternating initiative; 100 ms magic clock; 1 s tactical rounds",
+  "seconds": 30,
+  "rows": [
+    {
+      "seed": 42,
+      "composition": "none",
+      "seconds": 30,
+      "runtimeMs": 3144.3316,
+      "p95TickMs": 100.95029999999997,
+      "maxTickMs": 280.2424000000001,
+      "maxEffects": 0,
+      "p95MagicMs": 0.08389999999997144,
+      "magic": {},
+      "sides": [
+        {
+          "name": "Valedouro",
+          "survivors": 46,
+          "remainingCombatHP": 6298.3791213176755,
+          "damageDealt": 6192.52867812012,
+          "staminaSpent": 8665,
+          "remainingStamina": 13797
+        },
+        {
+          "name": "Corvânia",
+          "survivors": 31,
+          "remainingCombatHP": 4125.471321879879,
+          "damageDealt": 4019.6208786823245,
+          "staminaSpent": 7856,
+          "remainingStamina": 14546
+        }
+      ]
+    },
+    {
+      "seed": 42,
+      "composition": "healers",
+      "seconds": 30,
+      "runtimeMs": 1729.0045,
+      "p95TickMs": 47.56910000000062,
+      "maxTickMs": 183.60509999999977,
+      "maxEffects": 28,
+      "p95MagicMs": 0.24330000000009022,
+      "magic": {
+        "casts": 36,
+        "cancelled": 8,
+        "manaSpent": 2128,
+        "healing": 4392.799999999992,
+        "poisonDamage": 0,
+        "effectsApplied": 40,
+        "cleansed": 0,
+        "dispelled": 0
+      },
+      "sides": [
+        {
+          "name": "Valedouro",
+          "survivors": 49,
+          "remainingCombatHP": 9002.886788666394,
+          "damageDealt": 6962.478890900237,
+          "staminaSpent": 9285,
+          "remainingStamina": 13029
+        },
+        {
+          "name": "Corvânia",
+          "survivors": 38,
+          "remainingCombatHP": 5201.921109099764,
+          "damageDealt": 3553.513211333606,
+          "staminaSpent": 6451,
+          "remainingStamina": 15550
+        }
+      ]
+    },
+    {
+      "seed": 42,
+      "composition": "mixed",
+      "seconds": 30,
+      "runtimeMs": 2031.3247000000001,
+      "p95TickMs": 56.348400000000765,
+      "maxTickMs": 177.72329999999965,
+      "maxEffects": 40,
+      "p95MagicMs": 0.16530000000057044,
+      "magic": {
+        "casts": 36,
+        "cancelled": 5,
+        "manaSpent": 1768,
+        "healing": 3473.5999999999963,
+        "poisonDamage": 0,
+        "effectsApplied": 65,
+        "cleansed": 0,
+        "dispelled": 0
+      },
+      "sides": [
+        {
+          "name": "Valedouro",
+          "survivors": 49,
+          "remainingCombatHP": 9125.476715195604,
+          "damageDealt": 6822.977216282833,
+          "staminaSpent": 8361,
+          "remainingStamina": 13993
+        },
+        {
+          "name": "Corvânia",
+          "survivors": 35,
+          "remainingCombatHP": 4933.222783717167,
+          "damageDealt": 2919.9232848043966,
+          "staminaSpent": 7463,
+          "remainingStamina": 14616
+        }
+      ]
+    },
+    {
+      "seed": 7,
+      "composition": "none",
+      "seconds": 30,
+      "runtimeMs": 1893.2065000000002,
+      "p95TickMs": 40.19350000000122,
+      "maxTickMs": 230.04470000000038,
+      "maxEffects": 0,
+      "p95MagicMs": 0.033400000000256114,
+      "magic": {},
+      "sides": [
+        {
+          "name": "Valedouro",
+          "survivors": 46,
+          "remainingCombatHP": 6423.542940674994,
+          "damageDealt": 6787.009170795562,
+          "staminaSpent": 8215,
+          "remainingStamina": 13996
+        },
+        {
+          "name": "Corvânia",
+          "survivors": 34,
+          "remainingCombatHP": 3530.990829204438,
+          "damageDealt": 3894.457059325008,
+          "staminaSpent": 7533,
+          "remainingStamina": 14708
+        }
+      ]
+    },
+    {
+      "seed": 7,
+      "composition": "healers",
+      "seconds": 30,
+      "runtimeMs": 2709.2351,
+      "p95TickMs": 71.03160000000025,
+      "maxTickMs": 304.2476000000006,
+      "maxEffects": 32,
+      "p95MagicMs": 0.1433999999990192,
+      "magic": {
+        "casts": 40,
+        "cancelled": 8,
+        "manaSpent": 2248,
+        "healing": 4803.599999999993,
+        "poisonDamage": 0,
+        "effectsApplied": 70,
+        "cleansed": 0,
+        "dispelled": 0
+      },
+      "sides": [
+        {
+          "name": "Valedouro",
+          "survivors": 46,
+          "remainingCombatHP": 7444.718436713619,
+          "damageDealt": 6914.187065905213,
+          "staminaSpent": 8576,
+          "remainingStamina": 13699
+        },
+        {
+          "name": "Corvânia",
+          "survivors": 40,
+          "remainingCombatHP": 6093.412934094784,
+          "damageDealt": 4679.281563286381,
+          "staminaSpent": 8416,
+          "remainingStamina": 13948
+        }
+      ]
+    },
+    {
+      "seed": 7,
+      "composition": "mixed",
+      "seconds": 30,
+      "runtimeMs": 3149.4395000000004,
+      "p95TickMs": 67.42610000000059,
+      "maxTickMs": 650.7975999999999,
+      "maxEffects": 40,
+      "p95MagicMs": 0.185299999999188,
+      "magic": {
+        "casts": 41,
+        "cancelled": 4,
+        "manaSpent": 2010,
+        "healing": 3682.5999999999976,
+        "poisonDamage": 0,
+        "effectsApplied": 93,
+        "cleansed": 0,
+        "dispelled": 0
+      },
+      "sides": [
+        {
+          "name": "Valedouro",
+          "survivors": 49,
+          "remainingCombatHP": 8505.887723237482,
+          "damageDealt": 7179.344651991594,
+          "staminaSpent": 8642,
+          "remainingStamina": 13748
+        },
+        {
+          "name": "Corvânia",
+          "survivors": 36,
+          "remainingCombatHP": 4743.255348008403,
+          "damageDealt": 3582.112276762516,
+          "staminaSpent": 6620,
+          "remainingStamina": 15409
+        }
+      ]
+    },
+    {
+      "seed": 99,
+      "composition": "none",
+      "seconds": 30,
+      "runtimeMs": 5956.258399999999,
+      "p95TickMs": 147.99599999999919,
+      "maxTickMs": 809.6971999999987,
+      "maxEffects": 0,
+      "p95MagicMs": 0.04430000000138534,
+      "magic": {},
+      "sides": [
+        {
+          "name": "Valedouro",
+          "survivors": 46,
+          "remainingCombatHP": 5558.953061740296,
+          "damageDealt": 4340.303850986526,
+          "staminaSpent": 8691,
+          "remainingStamina": 13794
+        },
+        {
+          "name": "Corvânia",
+          "survivors": 43,
+          "remainingCombatHP": 5977.696149013473,
+          "damageDealt": 4759.046938259703,
+          "staminaSpent": 8944,
+          "remainingStamina": 13795
+        }
+      ]
+    },
+    {
+      "seed": 99,
+      "composition": "healers",
+      "seconds": 30,
+      "runtimeMs": 3613.363300000001,
+      "p95TickMs": 100.07560000000012,
+      "maxTickMs": 376.4424999999974,
+      "maxEffects": 31,
+      "p95MagicMs": 0.12700000000040745,
+      "magic": {
+        "casts": 36,
+        "cancelled": 6,
+        "manaSpent": 1924,
+        "healing": 4946.999999999988,
+        "poisonDamage": 0,
+        "effectsApplied": 70,
+        "cleansed": 0,
+        "dispelled": 0
+      },
+      "sides": [
+        {
+          "name": "Valedouro",
+          "survivors": 42,
+          "remainingCombatHP": 6425.512264215066,
+          "damageDealt": 4417.811114044809,
+          "staminaSpent": 6966,
+          "remainingStamina": 15183
+        },
+        {
+          "name": "Corvânia",
+          "survivors": 42,
+          "remainingCombatHP": 7780.7888859551895,
+          "damageDealt": 6650.887735784932,
+          "staminaSpent": 8755,
+          "remainingStamina": 13667
+        }
+      ]
+    },
+    {
+      "seed": 99,
+      "composition": "mixed",
+      "seconds": 30,
+      "runtimeMs": 4120.144899999996,
+      "p95TickMs": 95.99169999999867,
+      "maxTickMs": 823.5882999999994,
+      "maxEffects": 43,
+      "p95MagicMs": 0.14249999999810825,
+      "magic": {
+        "casts": 37,
+        "cancelled": 4,
+        "manaSpent": 1864,
+        "healing": 3804.399999999994,
+        "poisonDamage": 0,
+        "effectsApplied": 80,
+        "cleansed": 0,
+        "dispelled": 0
+      },
+      "sides": [
+        {
+          "name": "Valedouro",
+          "survivors": 42,
+          "remainingCombatHP": 5607.788430298974,
+          "damageDealt": 3250.0139243815406,
+          "staminaSpent": 6314,
+          "remainingStamina": 15719
+        },
+        {
+          "name": "Corvânia",
+          "survivors": 43,
+          "remainingCombatHP": 8786.786075618458,
+          "damageDealt": 6487.811569701026,
+          "staminaSpent": 8718,
+          "remainingStamina": 13459
+        }
+      ]
+    }
+  ]
+}

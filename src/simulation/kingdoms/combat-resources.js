@@ -63,6 +63,7 @@ export function updateCombatResources(world, day) {
     const resting = person.brain?.lastAction === 'rest' || person.towerRecovering;
     const fighting = day - (person.lastMilitaryAttackDay ?? -Infinity) <= 3;
     person.stamina = Math.min(person.maxStamina, person.stamina + (resting ? 12 : fighting ? 2 : 6));
-    if (person.militaryClass === 'monge') person.mana = Math.min(person.maxMana, person.mana + (resting ? 30 : 10));
+    if (person.militaryClass === 'monge' && !person.magicCast)
+      person.mana = Math.min(person.maxMana, person.mana + (resting ? 30 : 10));
   }
 }

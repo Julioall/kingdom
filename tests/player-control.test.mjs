@@ -6,6 +6,7 @@ import { manualAttackProfile } from '../src/simulation/kingdoms/military.js';
 import { moveOne } from '../src/simulation/individuals/movement.js';
 import { createSimulationWorkerRuntime } from '../src/simulation/worker-runtime.js';
 import { SIMULATION_PROTOCOL_VERSION } from '../src/simulation/protocol-version.js';
+import { SPELLS } from '../src/simulation/magic/catalog.js';
 
 function fixture(militaryClass) {
   const world = Sim.createWorld(42);
@@ -115,9 +116,9 @@ test('controlled monk can use E or 1 to heal the selected nearby ally', () => {
     aimX: ally.x, aimY: ally.y, targetId: ally.id });
   assert.equal(result.ok, true);
   assert.equal(ally.health, 40, 'healing waits for the cast to finish');
-  dispatchCommand(world, { type: 'magic-tick', elapsedMs: 1200 });
+  dispatchCommand(world, { type: 'magic-tick', elapsedMs: SPELLS.heal.castMs });
   assert.ok(ally.health > 40);
-  assert.equal(monk.mana, 48);
+  assert.equal(monk.mana, 60 - SPELLS.heal.mana);
   assert.equal(monk.lastHealingCast.primaryTargetId, ally.id);
 });
 

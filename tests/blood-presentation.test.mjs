@@ -35,10 +35,10 @@ test('droplets preserve the attack direction with bounded deterministic scatter'
   assert.ok(left.reduce((sum, particle) => sum + particle.vx, 0) < 0);
   assert.ok(Math.max(...right.map(p => p.landY)) - Math.min(...right.map(p => p.landY)) > .3,
     'splash covers an irregular area instead of a narrow line');
-  assert.ok(right.every(particle => particle.size < .041));
+  assert.ok(right.every(particle => particle.size >= .025 && particle.size < .066));
   assert.ok(new Set(right.map(p => p.flightMs)).size > 8);
   assert.deepEqual(right, createBloodParticles(42, 0, 18));
-  assert.ok(createBloodParticles(42, 0, 10000).length <= 20);
+  assert.ok(createBloodParticles(42, 0, 10000).length <= 36);
 });
 
 test('blood lands on the ground, leaves temporary stains and fades completely', () => {
@@ -51,7 +51,7 @@ test('blood lands on the ground, leaves temporary stains and fades completely', 
   assert.equal(rects.length, 0, 'landed blood is drawn only by the ground pass');
   drawBloodStains(ctx, effect, 800, 10);
   assert.ok(airborne[0].y < rects[0].y);
-  assert.ok(rects[0].alpha < airborne[0].alpha);
+  assert.ok(Math.max(...rects.map(rect => rect.alpha)) < Math.max(...airborne.map(rect => rect.alpha)));
   assert.equal(ctx.globalAlpha, .6);
   const landedAlpha = rects[0].alpha;
   rects.length = 0; drawBloodStains(ctx, effect, BLOOD_EFFECT_DURATION_MS - 500, 10);
@@ -60,4 +60,17 @@ test('blood lands on the ground, leaves temporary stains and fades completely', 
   assert.equal(rects.length, 0);
   assert.ok(BLOOD_EFFECT_DURATION_MS - Math.max(...effect.particles.map(p => p.flightMs + p.delayMs)) >= 9900,
     'ground stains remain for approximately ten seconds after landing');
+});
+
+test('fast droplets leave short tapered trails along their varied trajectories', () => {
+  const effect = { x: 5, y: 5, duration: BLOOD_EFFECT_DURATION_MS, particles: createBloodParticles(42, 0, 18) };
+  const rects = [];
+  const ctx = { globalAlpha: 1, fillRect(x, y, w, h) { rects.push({ x, y, w, h, alpha: this.globalAlpha }); } };
+  drawBloodBurst(ctx, effect, 140, 10);
+  assert.ok(effect.particles.length >= 23);
+  assert.ok(rects.length > effect.particles.length);
+  assert.ok(rects.some(rect => rect.alpha === .35));
+  assert.ok(rects.some(rect => rect.alpha === .65));
+  assert.ok(rects.some(rect => rect.alpha === 1));
+  assert.equal(ctx.globalAlpha, 1);
 });

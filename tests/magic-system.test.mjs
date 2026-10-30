@@ -4,7 +4,7 @@ import { SPELLS } from '../src/simulation/magic/catalog.js';
 import { applyMagicEffect, magicModifiers } from '../src/simulation/magic/effects.js';
 import { advanceMagic, beginSpell, chooseMagicAction, configureMagicLoadout } from '../src/simulation/magic/system.js';
 import { changePersonHealth } from '../src/simulation/individuals/lifecycle.js';
-import { spendAttackStamina, spendDefenseStamina } from '../src/simulation/kingdoms/combat-resources.js';
+import { spendAttackStamina, spendDefenseStamina, updateCombatResources } from '../src/simulation/kingdoms/combat-resources.js';
 
 function fixture() {
   const person = (id, kingdomId, x, health = 100) => ({ id, kingdomId, x, y: 10, alive: true,
@@ -166,6 +166,25 @@ test('spell preparation and shared recovery prevent alternating spell spam', () 
   assert.equal(beginSpell(world, caster, 'protection', { targetId: ally.id }).reason, 'spell-cooldown');
   advanceMagic(world, 1500);
   assert.equal(beginSpell(world, caster, 'protection', { targetId: ally.id }).ok, true);
+});
+
+test('spells have distinct longer preparations and mana recovers only between casts', () => {
+  const spells = Object.values(SPELLS);
+  assert.equal(new Set(spells.map(spell => spell.castMs)).size, spells.length);
+  assert.ok(spells.every(spell => spell.castMs >= 2000 && spell.mana > 0 && spell.mana <= 200));
+  assert.ok(SPELLS['greater-heal'].castMs > SPELLS['area-heal'].castMs);
+  assert.ok(SPELLS['greater-heal'].mana > SPELLS['area-heal'].mana);
+  const { world, caster, ally } = fixture();
+  caster.magicSpells = ['heal'];
+  beginSpell(world, caster, 'heal', { targetId: ally.id });
+  const spent = caster.mana;
+  updateCombatResources(world, 1);
+  assert.equal(caster.mana, spent, 'preparation cannot refill its own mana cost');
+  advanceMagic(world, SPELLS.heal.castMs - 1);
+  assert.equal(ally.health, 45);
+  advanceMagic(world, 1);
+  updateCombatResources(world, 2);
+  assert.equal(caster.mana, spent + 10, 'normal recovery resumes after activation');
 });
 
 test('hostile magic preserves civilian eligibility and loadout changes cancel pending effects', () => {

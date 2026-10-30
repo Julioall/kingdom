@@ -21,8 +21,8 @@ function fixture(weapon = 'guerreiro') {
       terrain: 'land', elevationLevel: 0, slope: 0, plants: new Float32Array(PLANTS.length) })) };
   return { world, actor, target };
 }
-const add = (target, id, intensity) => applyMagicEffect(target, id,
-  { now: 0, durationMs: 10000, intensity, sourceId: 1, spellId: id });
+const add = (target, id, intensity, durationMs = 10000) => applyMagicEffect(target, id,
+  { now: 0, durationMs, intensity, sourceId: 1, spellId: id });
 
 for (const weapon of ['guerreiro', 'lanceiro', 'arqueiro']) {
   test(`${weapon}: blessing and weakness modify actual confirmed weapon damage`, () => {
@@ -59,7 +59,7 @@ test('curse reduces both great heal and its regeneration; purify preserves perma
   const { world, actor, target } = fixture();
   actor.militaryClass = 'monge'; actor.magicSpells = ['greater-heal', 'purify']; actor.mana = 200;
   target.kingdomId = 1; target.health = 50; target.militaryTraining = .8;
-  add(target, 'curse', .4); add(target, 'fortitude', .2);
+  add(target, 'curse', .4, 30000); add(target, 'fortitude', .2, 30000);
   beginSpell(world, actor, 'greater-heal', { targetId: target.id });
   advanceMagic(world, SPELLS['greater-heal'].castMs);
   assert.ok(Math.abs(target.health - 54.8) < 1e-8);
