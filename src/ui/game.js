@@ -3908,9 +3908,6 @@ export function mountGame() {
       $('settingsTray').hidden = true; $('settingsToggle').setAttribute('aria-expanded', 'false');
       showRight = false;
       $('rightPanel').classList.remove('is-open');
-    } else if (selection) {
-      showRight = true;
-      $('rightPanel').classList.add('is-open');
     }
     syncPanelAccess();
   };
@@ -3940,10 +3937,18 @@ export function mountGame() {
   };
   $('journalToggle').addEventListener('click', () => setJournalPanel($('journal').hidden));
   document.addEventListener('pointerdown', event => {
-    if (!$('journal').hidden && !$('journal').contains(event.target)
-      && !$('journalToggle').contains(event.target)) setJournalPanel(false);
-    if (showLeft && !$('leftPanel').contains(event.target)
-      && !$('kingdomsToggle').contains(event.target)) setKingdomPanel(false);
+    const target = event.target;
+    if (!$('journal').hidden && !$('journal').contains(target)
+      && !$('journalToggle').contains(target)) setJournalPanel(false);
+    if (showLeft && !$('leftPanel').contains(target)
+      && !$('kingdomsToggle').contains(target)) setKingdomPanel(false);
+    if (!$('settingsTray').hidden && !$('settingsTray').contains(target)
+      && !$('settingsToggle').contains(target)) setSettingsPanel(false);
+    if (showRight && !$('rightPanel').contains(target)) {
+      showRight = false;
+      $('rightPanel').classList.remove('is-open');
+      syncPanelAccess();
+    }
   });
   window.addEventListener('keydown', event => {
     if (event.key === 'Escape') {

@@ -122,6 +122,7 @@ function communitiesHaveClosedBorder(w, first, second) {
 // Never convert crop history or a community reserve into personal saleable property.
 const PERSONAL_SALE_FLOOR = 12;
 const PERSONAL_MARKET_LOT = 4;
+const PERSONAL_FOOD_SALE_RESERVE = 42;
 
 // Opt in only when physically owned smaller denominations are present (or when
 // the account explicitly enables coin mode). Historical fractional gold stays
@@ -400,6 +401,21 @@ function personalMarketOffer(world, community, person, marketOwner) {
       return { action: 'buy-food', amount: units, gold: units * foodPrice };
     }
   }
+  const carriedFood = accountAmount(person, 'carriedFood');
+  if (reserve !== null && reserve >= PERSONAL_FOOD_SALE_RESERVE
+      && carriedFood !== null && foodAmount !== null && Number.isFinite(foodPrice) && foodPrice > 0) {
+    const amount = Math.min(PERSONAL_MARKET_LOT, carriedFood - PERSONAL_SALE_FLOOR,
+      Math.max(0, 260 - foodAmount));
+    const gold = amount * foodPrice / 2;
+    if (coinMode) {
+      const priceCopper = goldPriceToCopper(gold);
+      if (amount > .01 && priceCopper && quoteCoinPayment(market, wallet, priceCopper))
+        return { action: 'sell-coins-food', resource: 'food', amount, priceCopper };
+    } else if (amount > .01 && canSpend(market, 'gold', gold)
+        && canReceiveUpTo(wallet, 'gold', gold, Infinity)) {
+      return { action: 'sell-food', resource: 'food', amount, gold };
+    }
+  }
   for (const resource of ['wood', 'stone', 'iron']) {
     const carried = accountAmount(person, 'carried' + resource[0].toUpperCase() + resource.slice(1));
     const marketAmount = accountAmount(market, resource);
@@ -525,11 +541,15 @@ export function findTradePartner(w, community, person) {
     countTradeDiagnostic(w, 'marketOpportunityChecks');
     if (!post) countTradeDiagnostic(w, 'marketOpportunityBlocked', 'no-market-station');
     else if (distance(person, post) > 16) countTradeDiagnostic(w, 'marketOpportunityBlocked', 'station-out-of-range');
-    else if (marketHasTradeOpportunity(w, community)
-        || personalMarketOffer(w, community, person, kingdom ? kingdom.market : w.market)) {
-      countTradeDiagnostic(w, 'marketOpportunities');
-      return { isMarket: true, station: post, market: kingdom ? kingdom.market : w.market, distance: distance(person, post) };
-    } else countTradeDiagnostic(w, 'marketOpportunityBlocked', 'no-exchange-offer');
+    else {
+      const personalOffer = personalMarketOffer(w, community, person, kingdom ? kingdom.market : w.market);
+      if (marketHasTradeOpportunity(w, community) || personalOffer) {
+        countTradeDiagnostic(w, 'marketOpportunities');
+        return { isMarket: true, station: post, market: kingdom ? kingdom.market : w.market,
+          distance: distance(person, post), personalOffer };
+      }
+      countTradeDiagnostic(w, 'marketOpportunityBlocked', 'no-exchange-offer');
+    }
     const visibleMembers = (person.perception && person.perception.people || []).filter(s => s.visible)
       .map(s => w.people.find(p => p.id === s.id && p.alive)).filter(Boolean);
     return w.communities.filter(c => !c.dissolved && c.id !== community.id && visibleMembers.some(p => p.communityId === c.id))

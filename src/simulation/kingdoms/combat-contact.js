@@ -3,6 +3,7 @@
 import { combatPathObstruction, worldCollisionIndex } from '../physics/hitboxes.js';
 import { rand } from '../core/random.js';
 import { abilityTargetLimit } from './ability-progression.js';
+import { isTerritorialIntruder } from './border-defense.js';
 
 export const COMBAT_PROFILES = Object.freeze({
   guerreiro: { windup: 200, active: 100, recovery: 100, reach: 1.8, radius: .17, arc: 1.2 },
@@ -134,6 +135,9 @@ export function isCombatTargetEligible(world, attacker, target, day = world?.day
       || attacker.id === target.id || attacker.kingdomId != null && target.kingdomId === attacker.kingdomId) return false;
   // Geometry-only callers may use lightweight target records; runtime people always have a role.
   if (target.role == null || target.role === 'soldier') return true;
+  // A civilian who crosses an actually controlled frontier can be repelled by
+  // a defending soldier; civilians outside that territory remain protected.
+  if (attacker.role === 'soldier' && isTerritorialIntruder(world, attacker.kingdomId, target)) return true;
   const currentDay = Number.isFinite(day) ? day : 0;
   return (world?.people || []).some(victim => victim.alive && victim.kingdomId === attacker.kingdomId
     && victim.lastAttackedById === target.id && Number.isFinite(victim.lastAttackedDay)

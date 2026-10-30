@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import Sim from '../src/simulation/engine.js';
 import { fightTacticalRound, respondToLocalThreats } from '../src/simulation/kingdoms/military.js';
-import { createCombatAction, resolveCombatAction } from '../src/simulation/kingdoms/combat-contact.js';
+import { createCombatAction, resolveCombatAction, isCombatTargetEligible } from '../src/simulation/kingdoms/combat-contact.js';
 import { markTerritoryStep } from '../src/simulation/kingdoms/territories.js';
 import { createPersonSpatialIndex } from '../src/simulation/individuals/spatial-index.js';
 import { cellAt } from '../src/simulation/world/spatial.js';
@@ -55,8 +55,9 @@ function defenseFixture({ enemyRole = 'soldier', guardClass = 'lanceiro', distan
   return { world, home, enemyKingdom, guard, intruder, site, day };
 }
 
-test('a peaceful civilian from another kingdom is not a tactical target', () => {
-  const { world, guard, intruder } = defenseFixture({ enemyRole: 'resident' });
+test('a foreign civilian outside defended territory is not a tactical target', () => {
+  const { world, guard, intruder, enemyKingdom } = defenseFixture({ enemyRole: 'resident' });
+  cellAt(world, intruder.x, intruder.y).kingdomId = enemyKingdom.id;
   const before = intruder.health;
 
   fightTacticalRound(world, [guard], [intruder], world.day);
@@ -65,10 +66,11 @@ test('a peaceful civilian from another kingdom is not a tactical target', () => 
   assert.equal(intruder.lastAttackedById, undefined);
 });
 
-test('projectile contact rejects a peaceful civilian even if a caller passes it as a candidate', () => {
-  const { world, guard, intruder } = defenseFixture({ enemyRole: 'resident' });
+test('projectile contact rejects a foreign civilian outside the defended border', () => {
+  const { world, guard, intruder, enemyKingdom } = defenseFixture({ enemyRole: 'resident' });
   guard.militaryClass = 'arqueiro';
   intruder.x = guard.x + 5;
+  cellAt(world, intruder.x, intruder.y).kingdomId = enemyKingdom.id;
   world.peopleSpatialIndex = createPersonSpatialIndex(world.people);
   const action = createCombatAction(world, guard, intruder, world.day);
   const before = intruder.health;
@@ -154,6 +156,7 @@ test('an active campaign does not authorize arrows against a peaceful enemy civi
     status: 'engaged', target: { x: site.x, y: site.y }
   }];
   const healthBefore = intruder.health;
+  cellAt(world, intruder.x, intruder.y).kingdomId = enemyKingdom.id;
 
   fightTacticalRound(world, [guard], [intruder], day);
 
@@ -176,6 +179,7 @@ test('civilian aggression authorizes only the aggressor, not a nearby peaceful b
   const peaceful = { ...intruder, id: world.nextId++, name: 'Morador pacífico',
     x: guard.x + 2, y: guard.y, health: 100, lastAttackedById: null, lastAttackedDay: null };
   world.people.push(peaceful);
+  cellAt(world, peaceful.x, peaceful.y).kingdomId = intruder.kingdomId;
   world.peopleSpatialIndex = createPersonSpatialIndex(world.people);
   guard.combatAction = null;
 
@@ -185,4 +189,73 @@ test('civilian aggression authorizes only the aggressor, not a nearby peaceful b
     'the recorded attacker, rather than the closer bystander, is the eligible target');
   assert.equal(peaceful.health, 100);
   assert.equal(peaceful.lastAttackedById, null);
+});
+
+test('a nonaggressive foreign pawn inside a guarded border is eligible, but not after retreating', () => {
+  const { world, guard, intruder, enemyKingdom } = defenseFixture({ enemyRole: 'resident' });
+  assert.equal(isCombatTargetEligible(world, guard, intruder, world.day), true,
+    'crossing into controlled territory makes an unauthorized civilian targetable');
+  const protectedTile = cellAt(world, intruder.x, intruder.y);
+  protectedTile.kingdomId = enemyKingdom.id;
+  assert.equal(isCombatTargetEligible(world, guard, intruder, world.day), false,
+    'the same civilian is no longer a territorial target after leaving the frontier');
+});
+
+test('projectile checks territorial authority at contact, not only when it was fired', () => {
+  const { world, guard, intruder, enemyKingdom } = defenseFixture({ enemyRole: 'resident',
+    guardClass: 'arqueiro', distance: 5 });
+  const action = createCombatAction(world, guard, intruder, world.day);
+  assert.equal(isCombatTargetEligible(world, guard, intruder, world.day), true);
+  cellAt(world, intruder.x, intruder.y).kingdomId = enemyKingdom.id;
+  const damage = [];
+  const result = resolveCombatAction(world, guard, action, [intruder], victim => {
+    damage.push(victim.id);
+    return 10;
+  });
+  assert.equal(result.kind, 'miss');
+  assert.deepEqual(damage, []);
+  assert.equal(intruder.health, 100);
+});
+
+test('a single foreign civilian draws at most one local patrol without mobilizing a campaign', () => {
+  const { world, guard, intruder } = defenseFixture({ enemyRole: 'resident' });
+  const extraGuards = Array.from({ length: 5 }, (_, index) => ({
+    ...guard, id: world.nextId++, x: guard.x - (index + 1) * .15, y: guard.y,
+    lastMilitaryAttackDay: -Infinity, combatAction: null
+  }));
+  world.people.push(...extraGuards);
+  world.peopleSpatialIndex = createPersonSpatialIndex(world.people);
+  const before = world.campaigns.length;
+  const responses = respondToLocalThreats(world, world.day);
+  assert.ok(responses.filter(item => item.targetId === intruder.id).length <= 1,
+    'one trespasser may not activate an entire garrison');
+  assert.equal(world.campaigns.length, before);
+});
+
+test('a notified general leads one local response to a reported civilian and records the proportional decision', () => {
+  const { world, home, enemyKingdom, guard, intruder, day } = defenseFixture({
+    enemyRole: 'resident', guardClass: 'guerreiro', distance: 5
+  });
+  guard.militaryRank = 'general';
+  home.militaryCommand = { generalIds: [guard.id], units: [] };
+  const report = {
+    id: 'tower:77:1', kind: 'tower-intrusion', day, opponentId: enemyKingdom.id,
+    intruderIds: [intruder.id], notifiedGeneralIds: [guard.id], intruderCount: 1,
+    civiliansObserved: 1, soldiersObserved: 0
+  };
+  home.frontierAlert = report;
+
+  const responses = respondToLocalThreats(world, day);
+
+  assert.deepEqual(responses.map(item => [item.soldierId, item.targetId, item.action]),
+    [[guard.id, intruder.id, 'intercept']]);
+  assert.deepEqual(home.militaryCommand.lastFrontierResponse, {
+    kind: 'proportional-local-defense', reportId: report.id, day,
+    generalId: guard.id, targetId: intruder.id, action: 'intercept',
+    defendersAssigned: 1, defenderLimit: 1
+  });
+  assert.equal(world.campaigns.length, 0, 'a local general response does not start a campaign');
+
+  cellAt(world, intruder.x, intruder.y).kingdomId = enemyKingdom.id;
+  assert.deepEqual(respondToLocalThreats(world, day + 1), [], 'the general stops responding after the intruder leaves');
 });
