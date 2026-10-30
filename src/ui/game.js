@@ -1,3 +1,5 @@
+import { surfaceComponents } from './components/surfaces.js';
+import { resourceMeter } from './components/resource-meter.js';
 import { dominantMetalKind } from '../config/mineral-deposits.js';
 import { dashPosition, dashGhosts, DASH_TRAIL_FADE_MS } from './dash-presentation.js';
 import { knockbackPose } from './knockback-presentation.js';
@@ -68,15 +70,15 @@ const RIBBON_PALETTE = Object.freeze({ blue: 'cyan', cyan: 'cyan', red: 'red', p
 const ARCHER_READY_FRAME_MS = 400;
 const ARCHER_RELEASE_FRAME_MS = 500;
 
-function setModalRibbon(panel, forjaUI, color) {
+function setModalRibbon(panel, surfaceComponents, color) {
   if (!panel) return;
   const heading = panel && [...panel.children].find(child => child.classList.contains('panel-heading')
     || child.classList.contains('utility-heading'));
-  if (!heading || !forjaUI?.ribbon) return;
+  if (!heading || !surfaceComponents?.ribbon) return;
   const ribbonColor = RIBBON_PALETTE[color] || 'black';
   let ribbon = [...heading.children].find(child => child.classList.contains('panel-ribbon'));
   if (ribbon?.dataset.ribbonColor === ribbonColor) return;
-  const nextRibbon = forjaUI.ribbon(ribbonColor, '', 'panel-ribbon', 47);
+  const nextRibbon = surfaceComponents.ribbon(ribbonColor, '', 'panel-ribbon', 47);
   nextRibbon.dataset.ribbonColor = ribbonColor;
   nextRibbon.setAttribute('aria-hidden', 'true');
   nextRibbon.querySelector('.ribbon-text')?.remove();
@@ -113,39 +115,38 @@ export function mountGame() {
   const combatDebug = diagnosticQuery.get('combatDebug') === '1';
   const trackedImage = () => loadingScreen.trackImage(new Image());
   const $ = id => document.getElementById(id);
-  const forjaUI = window.FantasyUI;
-  if (forjaUI) {
+  if (surfaceComponents) {
     for (const [selector, skin] of [['.topbar', 'wood'], ['.mini-map-panel', 'wood'], ['.left-panel', 'scroll'], ['.right-panel', 'scroll'], ['.journal-panel', 'scroll'], ['.utility-drawer', 'scroll']]) {
       const panel = document.querySelector(selector);
       if (panel && !panel.querySelector(':scope > .skin-layer')) {
         panel.classList.add('ui-skinned-panel');
         panel.dataset.uiSkin = skin;
-        panel.prepend(forjaUI.skinLayer(skin));
+        panel.prepend(surfaceComponents.skinLayer(skin));
       }
     }
     for (const [id, color] of [['kingdomsToggle', 'yellow'], ['journalToggle', 'cyan']]) {
       const button = $(id);
       if (button && !button.querySelector(':scope > .rail-ribbon')) {
-        const ribbon = forjaUI.ribbon(color, '', 'rail-ribbon', 50);
+        const ribbon = surfaceComponents.ribbon(color, '', 'rail-ribbon', 50);
         ribbon.dataset.ribbonColor = color;
         ribbon.setAttribute('aria-hidden', 'true');
         ribbon.querySelector('.ribbon-text')?.remove();
         button.prepend(ribbon);
       }
     }
-    setModalRibbon($('rightPanel'), forjaUI, 'black');
-    setModalRibbon($('settingsTray'), forjaUI, 'black');
+    setModalRibbon($('rightPanel'), surfaceComponents, 'black');
+    setModalRibbon($('settingsTray'), surfaceComponents, 'black');
   }
   const canvas = $('world');
   canvas.tabIndex = 0;
   const parryStarSprite = trackedImage();
-  parryStarSprite.src = '/assets/kingdom-ui/' + imageFileName('parry-star');
+  parryStarSprite.src = '/assets/sprites/effects/' + imageFileName('parry-star');
   const deathSprite = trackedImage();
   deathSprite.addEventListener('load', () => { if (world) drawMap(); });
-  deathSprite.src = '/assets/tiny-swords/military/dead.png';
+  deathSprite.src = '/assets/sprites/effects/death.png';
   const selectionFrameSprite = trackedImage();
   selectionFrameSprite.addEventListener('load', () => { if (world) drawMap(); });
-  selectionFrameSprite.src = '/assets/kingdom-ui/Cursor_04.png';
+  selectionFrameSprite.src = '/assets/ui/indicators/selection-frame.png';
   const cloudSpritesCanvas = $('cloudSprites');
   const cloudSpritesContext = cloudSpritesCanvas.getContext('2d');
   const miniMapCanvas = $('miniMap');
@@ -541,7 +542,7 @@ export function mountGame() {
   for (const [key, file] of Object.entries(constructionFoundationFiles)) {
     const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-    image.src = 'assets/construction-variants/' + imageFileName(file);
+    image.src = 'assets/sprites/buildings/construction/' + imageFileName(file);
     constructionFoundationSprites[key] = image;
   }
   const tinyMineralSprites = Object.fromEntries(MINERAL_SPRITE_KINDS.map(kind => [kind, Object.create(null)]));
@@ -550,30 +551,30 @@ export function mountGame() {
   for (const sprite of MAP_DECORATION_SPRITES) {
     const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-    image.src = 'assets/map-decorations/' + imageFileName(sprite);
+    image.src = 'assets/sprites/decorations/' + imageFileName(sprite);
     mapDecorationSprites[sprite] = image;
   }
   const tinyTerrainAtlases = [];
   for (let color = 1; color <= 5; color++) {
     const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(true); };
-    image.src = 'assets/kingdom-autotile/' + imageFileName('Tilemap_color' + color);
+    image.src = 'assets/sprites/terrain/' + imageFileName('Tilemap_color' + color);
     tinyTerrainAtlases.push(image);
   }
   // Water assets come from AutoTile.zip; its blue background happens to be
   // pixel-identical to the older Tiny Swords water tile.
   const autoTileWaterBackground = trackedImage();
   autoTileWaterBackground.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-  autoTileWaterBackground.src = 'assets/kingdom-autotile/water-background.png';
+  autoTileWaterBackground.src = 'assets/sprites/terrain/water-background.png';
   const autoTileWaterFoam = trackedImage();
   autoTileWaterFoam.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-  autoTileWaterFoam.src = 'assets/kingdom-autotile/water-foam.png';
+  autoTileWaterFoam.src = 'assets/sprites/terrain/water-foam.png';
   const cloudSprites = Array.from({ length: 8 }, (_, index) => {
     const image = trackedImage();
     const asset = imageFileName('Clouds_' + String(index + 1).padStart(2, '0'));
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
     image.onerror = () => console.error('[Kingdom cloud asset] Falha ao carregar ' + asset);
-    image.src = 'assets/kingdom-clouds/' + asset;
+    image.src = 'assets/sprites/environment/clouds/' + asset;
     return image;
   });
   const cloudSystem = createCloudSystem(cloudSprites, sessionSeed);
@@ -603,71 +604,65 @@ export function mountGame() {
     invalidateStaticDepthCache();
     if (visualPack === 'tiny-swords') queueAssetRender();
   };
-  tinyCorralSprite.src = 'assets/construction-variants/' + imageFileName('kingdom-curral');
+  tinyCorralSprite.src = 'assets/sprites/buildings/construction/' + imageFileName('kingdom-curral');
   const tinyMeatSprite = trackedImage();
   tinyMeatSprite.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-  tinyMeatSprite.src = 'assets/tiny-swords/meat-resource.png';
-  const showCropFieldGround = false;
-  const cropFieldTexture = showCropFieldGround ? trackedImage() : null;
-  if (cropFieldTexture) {
-    cropFieldTexture.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(true); };
-    cropFieldTexture.src = 'assets/kingdom-autotile/rice-field-ground.png';
-  }
+  tinyMeatSprite.src = 'assets/sprites/resources/meat.png';
   const riceGrowthWindTexture = trackedImage();
   riceGrowthWindTexture.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-  riceGrowthWindTexture.src = 'assets/kingdom-autotile/rice-growth-wind.png';
+  riceGrowthWindTexture.src = 'assets/sprites/vegetation/crops/rice-growth-wind.png';
   const healthBarSprites = { track: {}, fills: {} };
   for (const part of ['left', 'center', 'right']) {
     const image = trackedImage();
     image.onload = queueAssetRender;
-    image.src = 'assets/kingdom-ui/' + imageFileName('hud-big-track-' + part);
+    image.src = 'assets/ui/hud/' + imageFileName('hud-big-track-' + part);
     healthBarSprites.track[part] = image;
   }
   const personBarSprites = { track: {}, fills: {} };
   for (const part of ['left', 'center', 'right']) {
     const image = trackedImage();
     image.onload = queueAssetRender;
-    image.src = 'assets/kingdom-ui/' + imageFileName('hud-small-track-' + part);
+    image.src = 'assets/ui/hud/' + imageFileName('hud-small-track-' + part);
     personBarSprites.track[part] = image;
   }
   for (const color of ['red', 'yellow', 'green']) {
     const image = trackedImage();
     image.onload = queueAssetRender;
-    image.src = 'assets/kingdom-ui/' + imageFileName('hud-big-fill-' + color);
+    image.src = 'assets/ui/hud/' + imageFileName('hud-big-fill-' + color);
     healthBarSprites.fills[color] = image;
   }
   for (const color of ['red', 'yellow', 'green', 'blue']) {
     const image = trackedImage();
     image.onload = queueAssetRender;
-    image.src = 'assets/kingdom-ui/' + imageFileName('hud-small-fill-' + color);
+    image.src = 'assets/ui/hud/' + imageFileName('hud-small-fill-' + color);
     personBarSprites.fills[color] = image;
   }
   const commanderIcon = trackedImage();
   commanderIcon.onload = queueAssetRender;
-  commanderIcon.src = 'assets/kingdom-ui/icon-05.png';
+  commanderIcon.src = 'assets/ui/icons/commander.png';
   const generalSwordSprites = Object.create(null);
   for (const color of ['black', 'cyan', 'purple', 'red', 'yellow']) {
     generalSwordSprites[color] = {};
     for (const part of ['left', 'center', 'right']) {
       const image = trackedImage();
       image.onload = queueAssetRender;
-      image.src = 'assets/kingdom-ui/' + imageFileName('sword-' + color + '-' + part);
+      image.src = 'assets/ui/indicators/' + imageFileName('sword-' + color + '-' + part);
       generalSwordSprites[color][part] = image;
     }
   }
   const tinyWoodSprite = trackedImage();
   tinyWoodSprite.onload = queueAssetRender;
-  tinyWoodSprite.src = 'assets/tiny-swords/wood-resource.png';
+  tinyWoodSprite.src = 'assets/sprites/resources/wood.png';
   for (let variant = 1; variant <= 4; variant++) {
     const image = trackedImage();
     image.onload = queueAssetRender;
-    image.src = 'assets/tiny-swords/rocks/' + imageFileName('rock-' + variant);
+    image.src = 'assets/sprites/resources/rocks/' + imageFileName('rock-' + variant);
     tinyRockSprites[variant] = image;
   }
   for (const kind of MINERAL_SPRITE_KINDS) for (let variant = 1; variant <= 6; variant++) {
     const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-    image.src = 'assets/tiny-swords/minerals/' + imageFileName(kind + '-stone-' + variant);
+    image.src = 'assets/sprites/resources/minerals/' + imageFileName(kind + '-stone-' + variant);
     tinyMineralSprites[kind][variant] = image;
   }
   let terrainAssetRenderQueued = false;
@@ -904,23 +899,23 @@ export function mountGame() {
   for (let id = 1; id <= 4; id++) {
     const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-    image.src = 'assets/tiny-swords/trees/' + imageFileName('tree-' + id);
+    image.src = 'assets/sprites/vegetation/trees/' + imageFileName('tree-' + id);
     tinyTreeSprites[id] = image;
     const bush = trackedImage();
     bush.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-    bush.src = 'assets/tiny-swords/bushes/' + imageFileName('bush-' + id);
+    bush.src = 'assets/sprites/vegetation/bushes/' + imageFileName('bush-' + id);
     tinyBushSprites[id] = bush;
   }
   for (let id = 1; id <= 4; id++) {
     const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-    image.src = 'assets/tiny-swords/stumps/' + imageFileName('stump-' + id);
+    image.src = 'assets/sprites/vegetation/stumps/' + imageFileName('stump-' + id);
     tinyStumpSprites[id] = image;
   }
   for (const [action, file] of Object.entries({ idle: 'sheep_idle', move: 'sheep_move', grass: 'sheep_grass' })) {
     const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-    image.src = 'assets/tiny-swords/sheep/' + imageFileName(file);
+    image.src = 'assets/sprites/animals/sheep/' + imageFileName(file);
     tinySheepSprites[action] = image;
   }
   const tinyPalettes = ['blue', 'red', 'purple', 'yellow', 'black'];
@@ -934,7 +929,7 @@ export function mountGame() {
     for (const pose of ['frontal', 'diagonal']) {
       const image = trackedImage();
       image.onload = () => queueAssetRender();
-      image.src = 'assets/training-dummies/boneco_treino_' + pose + '_' + trainingDummyColorFiles[palette] + '.png';
+      image.src = 'assets/sprites/characters/training-dummies/boneco_treino_' + pose + '_' + trainingDummyColorFiles[palette] + '.png';
       trainingDummySprites[palette][pose] = image;
     }
     for (const action of ['idle', 'run', 'attack', 'arrow'])
@@ -944,7 +939,7 @@ export function mountGame() {
     for (const key of ['house1', 'house2', 'house3', 'castle', 'tower', 'barracks', 'archery', 'monastery', 'farmhouse']) {
       const image = trackedImage();
       image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-      image.src = 'assets/tiny-swords/buildings/' + palette + '/' + imageFileName(key);
+      image.src = 'assets/sprites/buildings/' + palette + '/' + imageFileName(key);
       tinyBuildingSprites[palette][key] = image;
     }
   }
@@ -1468,28 +1463,6 @@ export function mountGame() {
         ctx.fillRect(x, y, TILE, TILE);
         if (variation % 4 === 0) { ctx.fillStyle = '#d5c99a4d'; ctx.fillRect(x + 3 + variation % 5, y + 4 + variation % 6, 2, 1); }
       }
-    }
-  }
-
-  function drawGroundPlants(bounds) {
-    if (!showCropFieldGround || !cropFieldTexture) return;
-    for (const t of terrainTiles(bounds)) {
-      if (t.terrain === 'water') continue;
-      const px = t.x * TILE, py = t.y * TILE;
-      if (t.cropFieldId == null) continue;
-      const tileSize = TILE;
-      const columns = Math.floor(cropFieldTexture.naturalWidth / tileSize);
-      const rows = Math.floor(cropFieldTexture.naturalHeight / tileSize);
-      if (!cropFieldTexture.complete || !columns || !rows) continue;
-      const variantCount = columns * rows;
-      const variant = Math.min(variantCount - 1,
-        Math.floor(autoTileHash(t.x, t.y, world.seed + 2147) * variantCount));
-      const sourceX = (variant % columns) * tileSize;
-      const sourceY = Math.floor(variant / columns) * tileSize;
-      ctx.save(); ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(cropFieldTexture, sourceX, sourceY, tileSize, tileSize,
-        ...alignedTileRect(px, py, TILE, mapTransform));
-      ctx.restore();
     }
   }
 
@@ -2999,7 +2972,7 @@ export function mountGame() {
         ctx.imageSmoothingEnabled = false;
         profile?.mark('preparation');
         drawGround(); drawTinyCliffFaces(); drawTinyElevationLayer(); drawTinyRamps(); profile?.mark('terrain');
-        drawGroundPlants(); profile?.mark('plants');
+ profile?.mark('plants');
         drawRoads(); profile?.mark('roads');
       } else {
         profile?.mark('preparation');
@@ -3010,7 +2983,7 @@ export function mountGame() {
             drawGround(bounds);
             drawTinyCliffFaces(bounds); drawTinyElevationLayer(bounds); drawTinyRamps(bounds);
             profile?.mark('terrain');
-            drawGroundPlants(bounds); profile?.mark('plants');
+             profile?.mark('plants');
             drawRoads(bounds); profile?.mark('roads');
           } finally { ctx = previousContext; mapTransform = previousTransform; }
         });
@@ -3275,7 +3248,7 @@ export function mountGame() {
       if (selection.kind === 'plant') return 'yellow';
       return 'cyan';
     })();
-    setModalRibbon($('rightPanel'), forjaUI, ribbonPalette);
+    setModalRibbon($('rightPanel'), surfaceComponents, ribbonPalette);
     for (const detail of root.querySelectorAll('details')) detail.open = opened.has(detail.querySelector('summary')?.textContent);
     root.scrollTop = scroll;
   }
@@ -3409,7 +3382,7 @@ export function mountGame() {
         '<div class="note-card"><b>O que aprendeu</b><span>' + esc(p.lastLesson || 'Ainda está aprendendo com o ambiente.') + '</span></div>' +
         (choices.length ? '<h3>Alternativas avaliadas</h3>' + choices.map(item => '<div class="data-row"><span>' + esc(actionLabels[item.action] || item.action) + '</span><b>' + item.score.toFixed(2) + '</b></div>').join('') : '') +
         (p.parents ? '<div class="note-card"><b>Dependência familiar</b><span>Esta pessoa nasceu durante a simulação e ainda recebe cuidado de seus responsáveis.</span></div>' : '');
-      if (window.ForjaHUD) {
+      if (resourceMeter) {
         const meters = document.createElement('div');
         meters.className = 'vital-meters';
         for (const [label, value, color] of [['Vida', p.health, p.health < 30 ? 'red' : 'green'], ['Energia', p.energy, 'yellow'], ['Água', p.hydration, 'blue']]) {
@@ -3420,7 +3393,7 @@ export function mountGame() {
           const name = document.createElement('span'); name.textContent = label;
           const amount = document.createElement('b'); amount.textContent = Math.round(value) + '%';
           heading.append(name, amount);
-          meter.append(heading, window.ForjaHUD.create({ size: 'small', color, value, label, width: 220 }));
+          meter.append(heading, resourceMeter.create({ size: 'small', color, value, label, width: 220 }));
           meters.append(meter);
         }
         root.prepend(meters);
@@ -3519,7 +3492,7 @@ export function mountGame() {
       $('inspectTitle').textContent = structure.frontierOutpost ? 'Posto de fronteira' : structureDisplayName(structure.type);
       root.innerHTML = buildingCard(world, structure);
       const meter = root.querySelector('.construction-meter');
-      if (meter && window.ForjaHUD) meter.append(window.ForjaHUD.create({ size: 'small', color: 'yellow', value: Number(meter.dataset.progress), label: 'Progresso da construção' }));
+      if (meter && resourceMeter) meter.append(resourceMeter.create({ size: 'small', color: 'yellow', value: Number(meter.dataset.progress), label: 'Progresso da construção' }));
       return;
     }    if (selection.kind === 'plant') {
       const d = Sim.inspectTile(world, selection.x, selection.y);

@@ -5,17 +5,17 @@ import { createGameAudio } from '../src/ui/game-audio.js';
 
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const sourcePaths = {
-  sword_slash: 'audio/mp3/combat/sword/effect_sword_slash_01.mp3',
-  sword_swing_miss: 'audio/mp3/combat/sword/effect_sword_swing_miss_01.mp3',
-  sword_armor_swing_hit: 'audio/mp3/combat/sword/effect_sword_armor_swing_hit_01.mp3',
-  sword_armor_impact: 'audio/mp3/combat/sword/effect_sword_armor_impact_01.mp3',
-  character_body_impact: 'audio/mp3/characters/impact/effect_character_body_impact_01.mp3',
-  shield_impact: 'audio/mp3/combat/shield/effect_shield_impact_01.mp3',
-  sword_clash: 'audio/mp3/combat/sword/effect_sword_clash_01.mp3',
-  combat_grunt: 'audio/mp3/characters/grunts/effect_combat_grunt_01.mp3',
-  war_call: 'audio/mp3/signals/horn/effect_war_horn_call_01.mp3',
-  retreat_ordered: 'audio/mp3/signals/horn/effect_war_horn_retreat_01.mp3',
-  war_horn: 'audio/mp3/combat/effect_war_horn_01.mp3',
+  sword_slash: 'combat/sword/effect_sword_slash_01.mp3',
+  sword_swing_miss: 'combat/sword/effect_sword_swing_miss_01.mp3',
+  sword_armor_swing_hit: 'combat/sword/effect_sword_armor_swing_hit_01.mp3',
+  sword_armor_impact: 'combat/sword/effect_sword_armor_impact_01.mp3',
+  character_body_impact: 'characters/impact/effect_character_body_impact_01.mp3',
+  shield_impact: 'combat/shield/effect_shield_impact_01.mp3',
+  sword_clash: 'combat/sword/effect_sword_clash_01.mp3',
+  combat_grunt: 'characters/grunts/effect_combat_grunt_01.mp3',
+  war_call: 'signals/horn/effect_war_horn_call_01.mp3',
+  retreat_ordered: 'signals/horn/effect_war_horn_retreat_01.mp3',
+  war_horn: 'combat/effect_war_horn_01.mp3',
 };
 
 function harness() {
@@ -203,7 +203,7 @@ test('new wars and explicit general withdrawal orders play their mapped horns on
 });
 
 test('war and retreat horn assets are mapped and included in the shipped manifest', async () => {
-  const root = new URL('../public/assets/sfx/', import.meta.url);
+  const root = new URL('../public/assets/audio/sfx/', import.meta.url);
   const manifest = JSON.parse(await readFile(new URL('manifest.json', root), 'utf8'));
   for (const [event, id] of [['war_call', 'effect_war_horn_call_01'], ['retreat_ordered', 'effect_war_horn_retreat_01']]) {
     assert.deepEqual(manifest.events[event], [id]);
@@ -214,7 +214,7 @@ test('war and retreat horn assets are mapped and included in the shipped manifes
 });
 
 test('combat assets record their source, creator, license and ship every referenced MP3', async () => {
-  const root = new URL('../public/assets/sfx/', import.meta.url);
+  const root = new URL('../public/assets/audio/sfx/', import.meta.url);
   const manifest = JSON.parse(await readFile(new URL('manifest.json', root), 'utf8'));
   const combat = manifest.sounds.filter(sound =>
     ['sword_swing_miss', 'sword_armor_swing_hit', 'combat_grunt'].includes(sound.trigger));

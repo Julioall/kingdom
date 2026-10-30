@@ -1,4 +1,4 @@
-// Generated animation asset catalog. Keep entries aligned with the public sprite sheets.
+// Runtime animation catalog: only integrated sprite sheets.
 export default {
   "version": 1,
   "entries": [
@@ -7,7 +7,7 @@ export default {
       "category": "animal",
       "unit": "sheep",
       "action": "grass",
-      "url": "assets/tiny-swords/sheep/sheep_grass.png",
+      "url": "assets/sprites/animals/sheep/sheep_grass.png",
       "fps": 6.896551724137931,
       "anchor": {
         "x": 64,
@@ -26,7 +26,7 @@ export default {
       "category": "animal",
       "unit": "sheep",
       "action": "idle",
-      "url": "assets/tiny-swords/sheep/sheep_idle.png",
+      "url": "assets/sprites/animals/sheep/sheep_idle.png",
       "fps": 5.555555555555555,
       "anchor": {
         "x": 64,
@@ -45,7 +45,7 @@ export default {
       "category": "animal",
       "unit": "sheep",
       "action": "move",
-      "url": "assets/tiny-swords/sheep/sheep_move.png",
+      "url": "assets/sprites/animals/sheep/sheep_move.png",
       "fps": 5.555555555555555,
       "anchor": {
         "x": 64,
@@ -63,7 +63,7 @@ export default {
       "id": "effect.dust-01",
       "category": "effect",
       "action": "dust-01",
-      "url": "assets/tiny-swords/source-pack/Particle FX/Dust_01.png",
+      "url": "assets/sprites/effects/dust-01.png",
       "loop": false,
       "source": "public/assets/tiny-swords/source-pack/Particle FX/Dust_01.png",
       "width": 512,
@@ -81,7 +81,7 @@ export default {
       "id": "effect.dust-02",
       "category": "effect",
       "action": "dust-02",
-      "url": "assets/tiny-swords/source-pack/Particle FX/Dust_02.png",
+      "url": "assets/sprites/effects/dust-02.png",
       "loop": false,
       "source": "public/assets/tiny-swords/source-pack/Particle FX/Dust_02.png",
       "width": 640,
@@ -99,7 +99,7 @@ export default {
       "id": "effect.explosion-01",
       "category": "effect",
       "action": "explosion-01",
-      "url": "assets/tiny-swords/source-pack/Particle FX/Explosion_01.png",
+      "url": "assets/sprites/effects/explosion-01.png",
       "loop": false,
       "source": "public/assets/tiny-swords/source-pack/Particle FX/Explosion_01.png",
       "width": 1536,
@@ -114,82 +114,10 @@ export default {
       }
     },
     {
-      "id": "effect.explosion-02",
-      "category": "effect",
-      "action": "explosion-02",
-      "url": "assets/tiny-swords/source-pack/Particle FX/Explosion_02.png",
-      "loop": false,
-      "source": "public/assets/tiny-swords/source-pack/Particle FX/Explosion_02.png",
-      "width": 1920,
-      "height": 192,
-      "frameWidth": 192,
-      "frameHeight": 192,
-      "frames": 10,
-      "fps": 10,
-      "anchor": {
-        "x": 96,
-        "y": 96
-      }
-    },
-    {
-      "id": "effect.fire-01",
-      "category": "effect",
-      "action": "fire-01",
-      "url": "assets/tiny-swords/source-pack/Particle FX/Fire_01.png",
-      "loop": true,
-      "source": "public/assets/tiny-swords/source-pack/Particle FX/Fire_01.png",
-      "width": 512,
-      "height": 64,
-      "frameWidth": 64,
-      "frameHeight": 64,
-      "frames": 8,
-      "fps": 10,
-      "anchor": {
-        "x": 32,
-        "y": 32
-      }
-    },
-    {
-      "id": "effect.fire-02",
-      "category": "effect",
-      "action": "fire-02",
-      "url": "assets/tiny-swords/source-pack/Particle FX/Fire_02.png",
-      "loop": true,
-      "source": "public/assets/tiny-swords/source-pack/Particle FX/Fire_02.png",
-      "width": 640,
-      "height": 64,
-      "frameWidth": 64,
-      "frameHeight": 64,
-      "frames": 10,
-      "fps": 10,
-      "anchor": {
-        "x": 32,
-        "y": 32
-      }
-    },
-    {
-      "id": "effect.fire-03",
-      "category": "effect",
-      "action": "fire-03",
-      "url": "assets/tiny-swords/source-pack/Particle FX/Fire_03.png",
-      "loop": true,
-      "source": "public/assets/tiny-swords/source-pack/Particle FX/Fire_03.png",
-      "width": 768,
-      "height": 64,
-      "frameWidth": 64,
-      "frameHeight": 64,
-      "frames": 12,
-      "fps": 10,
-      "anchor": {
-        "x": 32,
-        "y": 32
-      }
-    },
-    {
       "id": "effect.water-splash",
       "category": "effect",
       "action": "water-splash",
-      "url": "assets/tiny-swords/source-pack/Particle FX/Water Splash.png",
+      "url": "assets/sprites/effects/water-splash.png",
       "loop": false,
       "source": "public/assets/tiny-swords/source-pack/Particle FX/Water Splash.png",
       "width": 1728,
@@ -208,7 +136,7 @@ export default {
       "category": "nature",
       "action": "sway",
       "variant": 1,
-      "url": "assets/tiny-swords/bushes/bush-1.png",
+      "url": "assets/sprites/vegetation/bushes/bush-1.png",
       "fps": 5.555555555555555,
       "anchor": {
         "x": 64,
@@ -227,7 +155,7 @@ export default {
       "category": "nature",
       "action": "sway",
       "variant": 2,
-      "url": "assets/tiny-swords/bushes/bush-2.png",
+      "url": "assets/sprites/vegetation/bushes/bush-2.png",
       "fps": 5.555555555555555,
       "anchor": {
         "x": 64,
@@ -246,7 +174,7 @@ export default {
       "category": "nature",
       "action": "sway",
       "variant": 3,
-      "url": "assets/tiny-swords/bushes/bush-3.png",
+      "url": "assets/sprites/vegetation/bushes/bush-3.png",
       "fps": 5.555555555555555,
       "anchor": {
         "x": 64,
@@ -265,7 +193,7 @@ export default {
       "category": "nature",
       "action": "sway",
       "variant": 4,
-      "url": "assets/tiny-swords/bushes/bush-4.png",
+      "url": "assets/sprites/vegetation/bushes/bush-4.png",
       "fps": 5.555555555555555,
       "anchor": {
         "x": 64,
@@ -280,29 +208,11 @@ export default {
       "loop": true
     },
     {
-      "id": "nature.rubber-duck",
-      "category": "nature",
-      "action": "float",
-      "url": "assets/tiny-swords/animations/nature/rubber-duck.png",
-      "source": "Tiny Swords/Terrain/Decorations/Rubber Duck/Rubber duck.png",
-      "width": 96,
-      "height": 32,
-      "frameWidth": 32,
-      "frameHeight": 32,
-      "frames": 3,
-      "fps": 10,
-      "loop": true,
-      "anchor": {
-        "x": 16,
-        "y": 16
-      }
-    },
-    {
       "id": "nature.tree-1",
       "category": "nature",
       "action": "sway",
       "variant": 1,
-      "url": "assets/tiny-swords/trees/tree-1.png",
+      "url": "assets/sprites/vegetation/trees/tree-1.png",
       "anchor": {
         "x": 96,
         "y": 241
@@ -321,7 +231,7 @@ export default {
       "category": "nature",
       "action": "sway",
       "variant": 2,
-      "url": "assets/tiny-swords/trees/tree-2.png",
+      "url": "assets/sprites/vegetation/trees/tree-2.png",
       "anchor": {
         "x": 96,
         "y": 249
@@ -340,7 +250,7 @@ export default {
       "category": "nature",
       "action": "sway",
       "variant": 3,
-      "url": "assets/tiny-swords/trees/tree-3.png",
+      "url": "assets/sprites/vegetation/trees/tree-3.png",
       "anchor": {
         "x": 96,
         "y": 170
@@ -359,7 +269,7 @@ export default {
       "category": "nature",
       "action": "sway",
       "variant": 4,
-      "url": "assets/tiny-swords/trees/tree-4.png",
+      "url": "assets/sprites/vegetation/trees/tree-4.png",
       "anchor": {
         "x": 96,
         "y": 168
@@ -374,28 +284,10 @@ export default {
       "loop": true
     },
     {
-      "id": "nature.water-foam",
-      "category": "nature",
-      "action": "foam",
-      "url": "assets/tiny-swords/terrain/water-foam.png",
-      "fps": 9.090909090909092,
-      "source": "Tiny Swords/Terrain/Tileset/Water Foam.png",
-      "width": 3072,
-      "height": 192,
-      "frameWidth": 192,
-      "frameHeight": 192,
-      "frames": 16,
-      "loop": true,
-      "anchor": {
-        "x": 96,
-        "y": 96
-      }
-    },
-    {
       "id": "nature.water-rocks-01",
       "category": "nature",
       "action": "water",
-      "url": "assets/tiny-swords/animations/nature/water-rocks-01.png",
+      "url": "assets/sprites/terrain/water/water-rocks-01.png",
       "source": "Tiny Swords/Terrain/Decorations/Rocks in the Water/Water Rocks_01.png",
       "width": 1024,
       "height": 64,
@@ -413,7 +305,7 @@ export default {
       "id": "nature.water-rocks-02",
       "category": "nature",
       "action": "water",
-      "url": "assets/tiny-swords/animations/nature/water-rocks-02.png",
+      "url": "assets/sprites/terrain/water/water-rocks-02.png",
       "source": "Tiny Swords/Terrain/Decorations/Rocks in the Water/Water Rocks_02.png",
       "width": 1024,
       "height": 64,
@@ -431,7 +323,7 @@ export default {
       "id": "nature.water-rocks-03",
       "category": "nature",
       "action": "water",
-      "url": "assets/tiny-swords/animations/nature/water-rocks-03.png",
+      "url": "assets/sprites/terrain/water/water-rocks-03.png",
       "source": "Tiny Swords/Terrain/Decorations/Rocks in the Water/Water Rocks_03.png",
       "width": 1024,
       "height": 64,
@@ -449,7 +341,7 @@ export default {
       "id": "nature.water-rocks-04",
       "category": "nature",
       "action": "water",
-      "url": "assets/tiny-swords/animations/nature/water-rocks-04.png",
+      "url": "assets/sprites/terrain/water/water-rocks-04.png",
       "source": "Tiny Swords/Terrain/Decorations/Rocks in the Water/Water Rocks_04.png",
       "width": 1024,
       "height": 64,
@@ -464,28 +356,10 @@ export default {
       }
     },
     {
-      "id": "resource.gold-resource-highlight",
-      "category": "resource",
-      "action": "highlight",
-      "url": "assets/tiny-swords/animations/resources/gold-resource-highlight.png",
-      "source": "Tiny Swords/Terrain/Resources/Gold/Gold Resource/Gold_Resource_Highlight.png",
-      "width": 768,
-      "height": 128,
-      "frameWidth": 128,
-      "frameHeight": 128,
-      "frames": 6,
-      "fps": 10,
-      "loop": true,
-      "anchor": {
-        "x": 64,
-        "y": 64
-      }
-    },
-    {
       "id": "resource.gold-stone-1-highlight",
       "category": "resource",
       "action": "highlight",
-      "url": "assets/tiny-swords/animations/resources/gold-stone-1-highlight.png",
+      "url": "assets/sprites/resources/animations/gold-stone-1-highlight.png",
       "source": "Tiny Swords/Terrain/Resources/Gold/Gold Stones/Gold Stone 1_Highlight.png",
       "width": 768,
       "height": 128,
@@ -503,7 +377,7 @@ export default {
       "id": "resource.gold-stone-2-highlight",
       "category": "resource",
       "action": "highlight",
-      "url": "assets/tiny-swords/animations/resources/gold-stone-2-highlight.png",
+      "url": "assets/sprites/resources/animations/gold-stone-2-highlight.png",
       "source": "Tiny Swords/Terrain/Resources/Gold/Gold Stones/Gold Stone 2_Highlight.png",
       "width": 768,
       "height": 128,
@@ -521,7 +395,7 @@ export default {
       "id": "resource.gold-stone-3-highlight",
       "category": "resource",
       "action": "highlight",
-      "url": "assets/tiny-swords/animations/resources/gold-stone-3-highlight.png",
+      "url": "assets/sprites/resources/animations/gold-stone-3-highlight.png",
       "source": "Tiny Swords/Terrain/Resources/Gold/Gold Stones/Gold Stone 3_Highlight.png",
       "width": 768,
       "height": 128,
@@ -539,7 +413,7 @@ export default {
       "id": "resource.gold-stone-4-highlight",
       "category": "resource",
       "action": "highlight",
-      "url": "assets/tiny-swords/animations/resources/gold-stone-4-highlight.png",
+      "url": "assets/sprites/resources/animations/gold-stone-4-highlight.png",
       "source": "Tiny Swords/Terrain/Resources/Gold/Gold Stones/Gold Stone 4_Highlight.png",
       "width": 768,
       "height": 128,
@@ -557,7 +431,7 @@ export default {
       "id": "resource.gold-stone-5-highlight",
       "category": "resource",
       "action": "highlight",
-      "url": "assets/tiny-swords/animations/resources/gold-stone-5-highlight.png",
+      "url": "assets/sprites/resources/animations/gold-stone-5-highlight.png",
       "source": "Tiny Swords/Terrain/Resources/Gold/Gold Stones/Gold Stone 5_Highlight.png",
       "width": 768,
       "height": 128,
@@ -575,7 +449,7 @@ export default {
       "id": "resource.gold-stone-6-highlight",
       "category": "resource",
       "action": "highlight",
-      "url": "assets/tiny-swords/animations/resources/gold-stone-6-highlight.png",
+      "url": "assets/sprites/resources/animations/gold-stone-6-highlight.png",
       "source": "Tiny Swords/Terrain/Resources/Gold/Gold Stones/Gold Stone 6_Highlight.png",
       "width": 768,
       "height": 128,
@@ -595,7 +469,7 @@ export default {
       "unit": "archer",
       "palette": "black",
       "action": "arrow",
-      "url": "assets/tiny-swords/military/black/Archer/Arrow.png",
+      "url": "assets/sprites/characters/military/black/Archer/Arrow.png",
       "loop": false,
       "anchor": {
         "x": 32,
@@ -615,7 +489,7 @@ export default {
       "unit": "archer",
       "palette": "black",
       "action": "attack",
-      "url": "assets/tiny-swords/military/black/Archer/Archer_Shoot.png",
+      "url": "assets/sprites/characters/military/black/Archer/Archer_Shoot.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -635,7 +509,7 @@ export default {
       "unit": "archer",
       "palette": "black",
       "action": "idle",
-      "url": "assets/tiny-swords/military/black/Archer/Archer_Idle.png",
+      "url": "assets/sprites/characters/military/black/Archer/Archer_Idle.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -655,7 +529,7 @@ export default {
       "unit": "archer",
       "palette": "black",
       "action": "run",
-      "url": "assets/tiny-swords/military/black/Archer/Archer_Run.png",
+      "url": "assets/sprites/characters/military/black/Archer/Archer_Run.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -675,7 +549,7 @@ export default {
       "unit": "lancer",
       "palette": "black",
       "action": "attack-down",
-      "url": "assets/tiny-swords/military/black/Lancer/Lancer_Down_Attack.png",
+      "url": "assets/sprites/characters/military/black/Lancer/Lancer_Down_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -695,7 +569,7 @@ export default {
       "unit": "lancer",
       "palette": "black",
       "action": "attack-down-right",
-      "url": "assets/tiny-swords/military/black/Lancer/Lancer_DownRight_Attack.png",
+      "url": "assets/sprites/characters/military/black/Lancer/Lancer_DownRight_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -715,7 +589,7 @@ export default {
       "unit": "lancer",
       "palette": "black",
       "action": "attack-right",
-      "url": "assets/tiny-swords/military/black/Lancer/Lancer_Right_Attack.png",
+      "url": "assets/sprites/characters/military/black/Lancer/Lancer_Right_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -735,7 +609,7 @@ export default {
       "unit": "lancer",
       "palette": "black",
       "action": "attack-up",
-      "url": "assets/tiny-swords/military/black/Lancer/Lancer_Up_Attack.png",
+      "url": "assets/sprites/characters/military/black/Lancer/Lancer_Up_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -755,7 +629,7 @@ export default {
       "unit": "lancer",
       "palette": "black",
       "action": "attack-up-right",
-      "url": "assets/tiny-swords/military/black/Lancer/Lancer_UpRight_Attack.png",
+      "url": "assets/sprites/characters/military/black/Lancer/Lancer_UpRight_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -775,7 +649,7 @@ export default {
       "unit": "lancer",
       "palette": "black",
       "action": "defend-down",
-      "url": "assets/tiny-swords/military/black/Lancer/Lancer_Down_Defence.png",
+      "url": "assets/sprites/characters/military/black/Lancer/Lancer_Down_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -795,7 +669,7 @@ export default {
       "unit": "lancer",
       "palette": "black",
       "action": "defend-down-right",
-      "url": "assets/tiny-swords/military/black/Lancer/Lancer_DownRight_Defence.png",
+      "url": "assets/sprites/characters/military/black/Lancer/Lancer_DownRight_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -815,7 +689,7 @@ export default {
       "unit": "lancer",
       "palette": "black",
       "action": "defend-right",
-      "url": "assets/tiny-swords/military/black/Lancer/Lancer_Right_Defence.png",
+      "url": "assets/sprites/characters/military/black/Lancer/Lancer_Right_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -835,7 +709,7 @@ export default {
       "unit": "lancer",
       "palette": "black",
       "action": "defend-up",
-      "url": "assets/tiny-swords/military/black/Lancer/Lancer_Up_Defence.png",
+      "url": "assets/sprites/characters/military/black/Lancer/Lancer_Up_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -855,7 +729,7 @@ export default {
       "unit": "lancer",
       "palette": "black",
       "action": "defend-up-right",
-      "url": "assets/tiny-swords/military/black/Lancer/Lancer_UpRight_Defence.png",
+      "url": "assets/sprites/characters/military/black/Lancer/Lancer_UpRight_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -875,7 +749,7 @@ export default {
       "unit": "lancer",
       "palette": "black",
       "action": "idle",
-      "url": "assets/tiny-swords/military/black/Lancer/Lancer_Idle.png",
+      "url": "assets/sprites/characters/military/black/Lancer/Lancer_Idle.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -895,7 +769,7 @@ export default {
       "unit": "lancer",
       "palette": "black",
       "action": "run",
-      "url": "assets/tiny-swords/military/black/Lancer/Lancer_Run.png",
+      "url": "assets/sprites/characters/military/black/Lancer/Lancer_Run.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -915,7 +789,7 @@ export default {
       "unit": "monk",
       "palette": "black",
       "action": "heal",
-      "url": "assets/tiny-swords/military/black/Monk/Heal.png",
+      "url": "assets/sprites/characters/military/black/Monk/Heal.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -930,32 +804,12 @@ export default {
       "fps": 10
     },
     {
-      "id": "unit.black.monk.heal-effect",
-      "category": "effect",
-      "unit": "monk",
-      "palette": "black",
-      "action": "heal-effect",
-      "url": "assets/tiny-swords/military/black/Monk/Heal_Effect.png",
-      "loop": false,
-      "anchor": {
-        "x": 96,
-        "y": 135
-      },
-      "source": "Tiny Swords/Units/Black Units/Monk/Heal_Effect.png",
-      "width": 2112,
-      "height": 192,
-      "frameWidth": 192,
-      "frameHeight": 192,
-      "frames": 11,
-      "fps": 10
-    },
-    {
       "id": "unit.black.monk.idle",
       "category": "unit",
       "unit": "monk",
       "palette": "black",
       "action": "idle",
-      "url": "assets/tiny-swords/military/black/Monk/Idle.png",
+      "url": "assets/sprites/characters/military/black/Monk/Idle.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -975,7 +829,7 @@ export default {
       "unit": "monk",
       "palette": "black",
       "action": "run",
-      "url": "assets/tiny-swords/military/black/Monk/Run.png",
+      "url": "assets/sprites/characters/military/black/Monk/Run.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -995,7 +849,7 @@ export default {
       "unit": "pawn",
       "palette": "black",
       "action": "idle",
-      "url": "assets/tiny-swords/people/black/pawn_idle.png",
+      "url": "assets/sprites/characters/residents/black/pawn_idle.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1015,7 +869,7 @@ export default {
       "unit": "pawn",
       "palette": "black",
       "action": "idle-axe",
-      "url": "assets/tiny-swords/people/black/pawn_idle-axe.png",
+      "url": "assets/sprites/characters/residents/black/pawn_idle-axe.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1035,7 +889,7 @@ export default {
       "unit": "pawn",
       "palette": "black",
       "action": "idle-gold",
-      "url": "assets/tiny-swords/people/black/pawn_idle-gold.png",
+      "url": "assets/sprites/characters/residents/black/pawn_idle-gold.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1055,7 +909,7 @@ export default {
       "unit": "pawn",
       "palette": "black",
       "action": "idle-hammer",
-      "url": "assets/tiny-swords/people/black/pawn_idle-hammer.png",
+      "url": "assets/sprites/characters/residents/black/pawn_idle-hammer.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1075,7 +929,7 @@ export default {
       "unit": "pawn",
       "palette": "black",
       "action": "idle-knife",
-      "url": "assets/tiny-swords/people/black/pawn_idle-knife.png",
+      "url": "assets/sprites/characters/residents/black/pawn_idle-knife.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1095,7 +949,7 @@ export default {
       "unit": "pawn",
       "palette": "black",
       "action": "idle-meat",
-      "url": "assets/tiny-swords/people/black/pawn_idle-meat.png",
+      "url": "assets/sprites/characters/residents/black/pawn_idle-meat.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1115,7 +969,7 @@ export default {
       "unit": "pawn",
       "palette": "black",
       "action": "idle-pickaxe",
-      "url": "assets/tiny-swords/people/black/pawn_idle-pickaxe.png",
+      "url": "assets/sprites/characters/residents/black/pawn_idle-pickaxe.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1135,7 +989,7 @@ export default {
       "unit": "pawn",
       "palette": "black",
       "action": "idle-stone",
-      "url": "assets/tiny-swords/people/black/pawn_idle-stone.png",
+      "url": "assets/sprites/characters/residents/black/pawn_idle-stone.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1155,7 +1009,7 @@ export default {
       "unit": "pawn",
       "palette": "black",
       "action": "idle-wood",
-      "url": "assets/tiny-swords/people/black/pawn_idle-wood.png",
+      "url": "assets/sprites/characters/residents/black/pawn_idle-wood.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1175,7 +1029,7 @@ export default {
       "unit": "pawn",
       "palette": "black",
       "action": "interact-axe",
-      "url": "assets/tiny-swords/people/black/pawn_interact-axe.png",
+      "url": "assets/sprites/characters/residents/black/pawn_interact-axe.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -1195,7 +1049,7 @@ export default {
       "unit": "pawn",
       "palette": "black",
       "action": "interact-hammer",
-      "url": "assets/tiny-swords/people/black/pawn_interact-hammer.png",
+      "url": "assets/sprites/characters/residents/black/pawn_interact-hammer.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -1215,7 +1069,7 @@ export default {
       "unit": "pawn",
       "palette": "black",
       "action": "interact-knife",
-      "url": "assets/tiny-swords/people/black/pawn_interact-knife.png",
+      "url": "assets/sprites/characters/residents/black/pawn_interact-knife.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -1235,7 +1089,7 @@ export default {
       "unit": "pawn",
       "palette": "black",
       "action": "interact-pickaxe",
-      "url": "assets/tiny-swords/people/black/pawn_interact-pickaxe.png",
+      "url": "assets/sprites/characters/residents/black/pawn_interact-pickaxe.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -1255,7 +1109,7 @@ export default {
       "unit": "pawn",
       "palette": "black",
       "action": "run",
-      "url": "assets/tiny-swords/people/black/pawn_run.png",
+      "url": "assets/sprites/characters/residents/black/pawn_run.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1275,7 +1129,7 @@ export default {
       "unit": "pawn",
       "palette": "black",
       "action": "run-axe",
-      "url": "assets/tiny-swords/people/black/pawn_run-axe.png",
+      "url": "assets/sprites/characters/residents/black/pawn_run-axe.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1295,7 +1149,7 @@ export default {
       "unit": "pawn",
       "palette": "black",
       "action": "run-gold",
-      "url": "assets/tiny-swords/people/black/pawn_run-gold.png",
+      "url": "assets/sprites/characters/residents/black/pawn_run-gold.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1315,7 +1169,7 @@ export default {
       "unit": "pawn",
       "palette": "black",
       "action": "run-hammer",
-      "url": "assets/tiny-swords/people/black/pawn_run-hammer.png",
+      "url": "assets/sprites/characters/residents/black/pawn_run-hammer.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1335,7 +1189,7 @@ export default {
       "unit": "pawn",
       "palette": "black",
       "action": "run-knife",
-      "url": "assets/tiny-swords/people/black/pawn_run-knife.png",
+      "url": "assets/sprites/characters/residents/black/pawn_run-knife.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1355,7 +1209,7 @@ export default {
       "unit": "pawn",
       "palette": "black",
       "action": "run-meat",
-      "url": "assets/tiny-swords/people/black/pawn_run-meat.png",
+      "url": "assets/sprites/characters/residents/black/pawn_run-meat.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1375,7 +1229,7 @@ export default {
       "unit": "pawn",
       "palette": "black",
       "action": "run-pickaxe",
-      "url": "assets/tiny-swords/people/black/pawn_run-pickaxe.png",
+      "url": "assets/sprites/characters/residents/black/pawn_run-pickaxe.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1395,7 +1249,7 @@ export default {
       "unit": "pawn",
       "palette": "black",
       "action": "run-stone",
-      "url": "assets/tiny-swords/people/black/pawn_run-stone.png",
+      "url": "assets/sprites/characters/residents/black/pawn_run-stone.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1415,7 +1269,7 @@ export default {
       "unit": "pawn",
       "palette": "black",
       "action": "run-wood",
-      "url": "assets/tiny-swords/people/black/pawn_run-wood.png",
+      "url": "assets/sprites/characters/residents/black/pawn_run-wood.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1435,7 +1289,7 @@ export default {
       "unit": "warrior",
       "palette": "black",
       "action": "attack",
-      "url": "assets/tiny-swords/military/black/Warrior/Warrior_Attack1.png",
+      "url": "assets/sprites/characters/military/black/Warrior/Warrior_Attack1.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -1455,7 +1309,7 @@ export default {
       "unit": "warrior",
       "palette": "black",
       "action": "attack-2",
-      "url": "assets/tiny-swords/military/black/Warrior/Warrior_Attack2.png",
+      "url": "assets/sprites/characters/military/black/Warrior/Warrior_Attack2.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -1475,7 +1329,7 @@ export default {
       "unit": "warrior",
       "palette": "black",
       "action": "defend",
-      "url": "assets/tiny-swords/military/black/Warrior/Warrior_Guard.png",
+      "url": "assets/sprites/characters/military/black/Warrior/Warrior_Guard.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1495,7 +1349,7 @@ export default {
       "unit": "warrior",
       "palette": "black",
       "action": "idle",
-      "url": "assets/tiny-swords/military/black/Warrior/Warrior_Idle.png",
+      "url": "assets/sprites/characters/military/black/Warrior/Warrior_Idle.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1515,7 +1369,7 @@ export default {
       "unit": "warrior",
       "palette": "black",
       "action": "run",
-      "url": "assets/tiny-swords/military/black/Warrior/Warrior_Run.png",
+      "url": "assets/sprites/characters/military/black/Warrior/Warrior_Run.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1535,7 +1389,7 @@ export default {
       "unit": "archer",
       "palette": "blue",
       "action": "arrow",
-      "url": "assets/tiny-swords/military/blue/Archer/Arrow.png",
+      "url": "assets/sprites/characters/military/blue/Archer/Arrow.png",
       "loop": false,
       "anchor": {
         "x": 32,
@@ -1555,7 +1409,7 @@ export default {
       "unit": "archer",
       "palette": "blue",
       "action": "attack",
-      "url": "assets/tiny-swords/military/blue/Archer/Archer_Shoot.png",
+      "url": "assets/sprites/characters/military/blue/Archer/Archer_Shoot.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -1575,7 +1429,7 @@ export default {
       "unit": "archer",
       "palette": "blue",
       "action": "idle",
-      "url": "assets/tiny-swords/military/blue/Archer/Archer_Idle.png",
+      "url": "assets/sprites/characters/military/blue/Archer/Archer_Idle.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1595,7 +1449,7 @@ export default {
       "unit": "archer",
       "palette": "blue",
       "action": "run",
-      "url": "assets/tiny-swords/military/blue/Archer/Archer_Run.png",
+      "url": "assets/sprites/characters/military/blue/Archer/Archer_Run.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1615,7 +1469,7 @@ export default {
       "unit": "lancer",
       "palette": "blue",
       "action": "attack-down",
-      "url": "assets/tiny-swords/military/blue/Lancer/Lancer_Down_Attack.png",
+      "url": "assets/sprites/characters/military/blue/Lancer/Lancer_Down_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -1635,7 +1489,7 @@ export default {
       "unit": "lancer",
       "palette": "blue",
       "action": "attack-down-right",
-      "url": "assets/tiny-swords/military/blue/Lancer/Lancer_DownRight_Attack.png",
+      "url": "assets/sprites/characters/military/blue/Lancer/Lancer_DownRight_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -1655,7 +1509,7 @@ export default {
       "unit": "lancer",
       "palette": "blue",
       "action": "attack-right",
-      "url": "assets/tiny-swords/military/blue/Lancer/Lancer_Right_Attack.png",
+      "url": "assets/sprites/characters/military/blue/Lancer/Lancer_Right_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -1675,7 +1529,7 @@ export default {
       "unit": "lancer",
       "palette": "blue",
       "action": "attack-up",
-      "url": "assets/tiny-swords/military/blue/Lancer/Lancer_Up_Attack.png",
+      "url": "assets/sprites/characters/military/blue/Lancer/Lancer_Up_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -1695,7 +1549,7 @@ export default {
       "unit": "lancer",
       "palette": "blue",
       "action": "attack-up-right",
-      "url": "assets/tiny-swords/military/blue/Lancer/Lancer_UpRight_Attack.png",
+      "url": "assets/sprites/characters/military/blue/Lancer/Lancer_UpRight_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -1715,7 +1569,7 @@ export default {
       "unit": "lancer",
       "palette": "blue",
       "action": "defend-down",
-      "url": "assets/tiny-swords/military/blue/Lancer/Lancer_Down_Defence.png",
+      "url": "assets/sprites/characters/military/blue/Lancer/Lancer_Down_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -1735,7 +1589,7 @@ export default {
       "unit": "lancer",
       "palette": "blue",
       "action": "defend-down-right",
-      "url": "assets/tiny-swords/military/blue/Lancer/Lancer_DownRight_Defence.png",
+      "url": "assets/sprites/characters/military/blue/Lancer/Lancer_DownRight_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -1755,7 +1609,7 @@ export default {
       "unit": "lancer",
       "palette": "blue",
       "action": "defend-right",
-      "url": "assets/tiny-swords/military/blue/Lancer/Lancer_Right_Defence.png",
+      "url": "assets/sprites/characters/military/blue/Lancer/Lancer_Right_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -1775,7 +1629,7 @@ export default {
       "unit": "lancer",
       "palette": "blue",
       "action": "defend-up",
-      "url": "assets/tiny-swords/military/blue/Lancer/Lancer_Up_Defence.png",
+      "url": "assets/sprites/characters/military/blue/Lancer/Lancer_Up_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -1795,7 +1649,7 @@ export default {
       "unit": "lancer",
       "palette": "blue",
       "action": "defend-up-right",
-      "url": "assets/tiny-swords/military/blue/Lancer/Lancer_UpRight_Defence.png",
+      "url": "assets/sprites/characters/military/blue/Lancer/Lancer_UpRight_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -1815,7 +1669,7 @@ export default {
       "unit": "lancer",
       "palette": "blue",
       "action": "idle",
-      "url": "assets/tiny-swords/military/blue/Lancer/Lancer_Idle.png",
+      "url": "assets/sprites/characters/military/blue/Lancer/Lancer_Idle.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -1835,7 +1689,7 @@ export default {
       "unit": "lancer",
       "palette": "blue",
       "action": "run",
-      "url": "assets/tiny-swords/military/blue/Lancer/Lancer_Run.png",
+      "url": "assets/sprites/characters/military/blue/Lancer/Lancer_Run.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -1855,7 +1709,7 @@ export default {
       "unit": "monk",
       "palette": "blue",
       "action": "heal",
-      "url": "assets/tiny-swords/military/blue/Monk/Heal.png",
+      "url": "assets/sprites/characters/military/blue/Monk/Heal.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -1870,32 +1724,12 @@ export default {
       "fps": 10
     },
     {
-      "id": "unit.blue.monk.heal-effect",
-      "category": "effect",
-      "unit": "monk",
-      "palette": "blue",
-      "action": "heal-effect",
-      "url": "assets/tiny-swords/military/blue/Monk/Heal_Effect.png",
-      "loop": false,
-      "anchor": {
-        "x": 96,
-        "y": 135
-      },
-      "source": "Tiny Swords/Units/Blue Units/Monk/Heal_Effect.png",
-      "width": 2112,
-      "height": 192,
-      "frameWidth": 192,
-      "frameHeight": 192,
-      "frames": 11,
-      "fps": 10
-    },
-    {
       "id": "unit.blue.monk.idle",
       "category": "unit",
       "unit": "monk",
       "palette": "blue",
       "action": "idle",
-      "url": "assets/tiny-swords/military/blue/Monk/Idle.png",
+      "url": "assets/sprites/characters/military/blue/Monk/Idle.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1915,7 +1749,7 @@ export default {
       "unit": "monk",
       "palette": "blue",
       "action": "run",
-      "url": "assets/tiny-swords/military/blue/Monk/Run.png",
+      "url": "assets/sprites/characters/military/blue/Monk/Run.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1935,7 +1769,7 @@ export default {
       "unit": "pawn",
       "palette": "blue",
       "action": "idle",
-      "url": "assets/tiny-swords/people/blue/pawn_idle.png",
+      "url": "assets/sprites/characters/residents/blue/pawn_idle.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1955,7 +1789,7 @@ export default {
       "unit": "pawn",
       "palette": "blue",
       "action": "idle-axe",
-      "url": "assets/tiny-swords/people/blue/pawn_idle-axe.png",
+      "url": "assets/sprites/characters/residents/blue/pawn_idle-axe.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1975,7 +1809,7 @@ export default {
       "unit": "pawn",
       "palette": "blue",
       "action": "idle-gold",
-      "url": "assets/tiny-swords/people/blue/pawn_idle-gold.png",
+      "url": "assets/sprites/characters/residents/blue/pawn_idle-gold.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -1995,7 +1829,7 @@ export default {
       "unit": "pawn",
       "palette": "blue",
       "action": "idle-hammer",
-      "url": "assets/tiny-swords/people/blue/pawn_idle-hammer.png",
+      "url": "assets/sprites/characters/residents/blue/pawn_idle-hammer.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2015,7 +1849,7 @@ export default {
       "unit": "pawn",
       "palette": "blue",
       "action": "idle-knife",
-      "url": "assets/tiny-swords/people/blue/pawn_idle-knife.png",
+      "url": "assets/sprites/characters/residents/blue/pawn_idle-knife.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2035,7 +1869,7 @@ export default {
       "unit": "pawn",
       "palette": "blue",
       "action": "idle-meat",
-      "url": "assets/tiny-swords/people/blue/pawn_idle-meat.png",
+      "url": "assets/sprites/characters/residents/blue/pawn_idle-meat.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2055,7 +1889,7 @@ export default {
       "unit": "pawn",
       "palette": "blue",
       "action": "idle-pickaxe",
-      "url": "assets/tiny-swords/people/blue/pawn_idle-pickaxe.png",
+      "url": "assets/sprites/characters/residents/blue/pawn_idle-pickaxe.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2075,7 +1909,7 @@ export default {
       "unit": "pawn",
       "palette": "blue",
       "action": "idle-stone",
-      "url": "assets/tiny-swords/people/blue/pawn_idle-stone.png",
+      "url": "assets/sprites/characters/residents/blue/pawn_idle-stone.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2095,7 +1929,7 @@ export default {
       "unit": "pawn",
       "palette": "blue",
       "action": "idle-wood",
-      "url": "assets/tiny-swords/people/blue/pawn_idle-wood.png",
+      "url": "assets/sprites/characters/residents/blue/pawn_idle-wood.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2115,7 +1949,7 @@ export default {
       "unit": "pawn",
       "palette": "blue",
       "action": "interact-axe",
-      "url": "assets/tiny-swords/people/blue/pawn_interact-axe.png",
+      "url": "assets/sprites/characters/residents/blue/pawn_interact-axe.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -2135,7 +1969,7 @@ export default {
       "unit": "pawn",
       "palette": "blue",
       "action": "interact-hammer",
-      "url": "assets/tiny-swords/people/blue/pawn_interact-hammer.png",
+      "url": "assets/sprites/characters/residents/blue/pawn_interact-hammer.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -2155,7 +1989,7 @@ export default {
       "unit": "pawn",
       "palette": "blue",
       "action": "interact-knife",
-      "url": "assets/tiny-swords/people/blue/pawn_interact-knife.png",
+      "url": "assets/sprites/characters/residents/blue/pawn_interact-knife.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -2175,7 +2009,7 @@ export default {
       "unit": "pawn",
       "palette": "blue",
       "action": "interact-pickaxe",
-      "url": "assets/tiny-swords/people/blue/pawn_interact-pickaxe.png",
+      "url": "assets/sprites/characters/residents/blue/pawn_interact-pickaxe.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -2195,7 +2029,7 @@ export default {
       "unit": "pawn",
       "palette": "blue",
       "action": "run",
-      "url": "assets/tiny-swords/people/blue/pawn_run.png",
+      "url": "assets/sprites/characters/residents/blue/pawn_run.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2215,7 +2049,7 @@ export default {
       "unit": "pawn",
       "palette": "blue",
       "action": "run-axe",
-      "url": "assets/tiny-swords/people/blue/pawn_run-axe.png",
+      "url": "assets/sprites/characters/residents/blue/pawn_run-axe.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2235,7 +2069,7 @@ export default {
       "unit": "pawn",
       "palette": "blue",
       "action": "run-gold",
-      "url": "assets/tiny-swords/people/blue/pawn_run-gold.png",
+      "url": "assets/sprites/characters/residents/blue/pawn_run-gold.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2255,7 +2089,7 @@ export default {
       "unit": "pawn",
       "palette": "blue",
       "action": "run-hammer",
-      "url": "assets/tiny-swords/people/blue/pawn_run-hammer.png",
+      "url": "assets/sprites/characters/residents/blue/pawn_run-hammer.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2275,7 +2109,7 @@ export default {
       "unit": "pawn",
       "palette": "blue",
       "action": "run-knife",
-      "url": "assets/tiny-swords/people/blue/pawn_run-knife.png",
+      "url": "assets/sprites/characters/residents/blue/pawn_run-knife.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2295,7 +2129,7 @@ export default {
       "unit": "pawn",
       "palette": "blue",
       "action": "run-meat",
-      "url": "assets/tiny-swords/people/blue/pawn_run-meat.png",
+      "url": "assets/sprites/characters/residents/blue/pawn_run-meat.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2315,7 +2149,7 @@ export default {
       "unit": "pawn",
       "palette": "blue",
       "action": "run-pickaxe",
-      "url": "assets/tiny-swords/people/blue/pawn_run-pickaxe.png",
+      "url": "assets/sprites/characters/residents/blue/pawn_run-pickaxe.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2335,7 +2169,7 @@ export default {
       "unit": "pawn",
       "palette": "blue",
       "action": "run-stone",
-      "url": "assets/tiny-swords/people/blue/pawn_run-stone.png",
+      "url": "assets/sprites/characters/residents/blue/pawn_run-stone.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2355,7 +2189,7 @@ export default {
       "unit": "pawn",
       "palette": "blue",
       "action": "run-wood",
-      "url": "assets/tiny-swords/people/blue/pawn_run-wood.png",
+      "url": "assets/sprites/characters/residents/blue/pawn_run-wood.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2375,7 +2209,7 @@ export default {
       "unit": "warrior",
       "palette": "blue",
       "action": "attack",
-      "url": "assets/tiny-swords/military/blue/Warrior/Warrior_Attack1.png",
+      "url": "assets/sprites/characters/military/blue/Warrior/Warrior_Attack1.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -2395,7 +2229,7 @@ export default {
       "unit": "warrior",
       "palette": "blue",
       "action": "attack-2",
-      "url": "assets/tiny-swords/military/blue/Warrior/Warrior_Attack2.png",
+      "url": "assets/sprites/characters/military/blue/Warrior/Warrior_Attack2.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -2415,7 +2249,7 @@ export default {
       "unit": "warrior",
       "palette": "blue",
       "action": "defend",
-      "url": "assets/tiny-swords/military/blue/Warrior/Warrior_Guard.png",
+      "url": "assets/sprites/characters/military/blue/Warrior/Warrior_Guard.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2435,7 +2269,7 @@ export default {
       "unit": "warrior",
       "palette": "blue",
       "action": "idle",
-      "url": "assets/tiny-swords/military/blue/Warrior/Warrior_Idle.png",
+      "url": "assets/sprites/characters/military/blue/Warrior/Warrior_Idle.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2455,7 +2289,7 @@ export default {
       "unit": "warrior",
       "palette": "blue",
       "action": "run",
-      "url": "assets/tiny-swords/military/blue/Warrior/Warrior_Run.png",
+      "url": "assets/sprites/characters/military/blue/Warrior/Warrior_Run.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2475,7 +2309,7 @@ export default {
       "unit": "archer",
       "palette": "purple",
       "action": "arrow",
-      "url": "assets/tiny-swords/military/purple/Archer/Arrow.png",
+      "url": "assets/sprites/characters/military/purple/Archer/Arrow.png",
       "loop": false,
       "anchor": {
         "x": 32,
@@ -2495,7 +2329,7 @@ export default {
       "unit": "archer",
       "palette": "purple",
       "action": "attack",
-      "url": "assets/tiny-swords/military/purple/Archer/Archer_Shoot.png",
+      "url": "assets/sprites/characters/military/purple/Archer/Archer_Shoot.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -2515,7 +2349,7 @@ export default {
       "unit": "archer",
       "palette": "purple",
       "action": "idle",
-      "url": "assets/tiny-swords/military/purple/Archer/Archer_Idle.png",
+      "url": "assets/sprites/characters/military/purple/Archer/Archer_Idle.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2535,7 +2369,7 @@ export default {
       "unit": "archer",
       "palette": "purple",
       "action": "run",
-      "url": "assets/tiny-swords/military/purple/Archer/Archer_Run.png",
+      "url": "assets/sprites/characters/military/purple/Archer/Archer_Run.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2555,7 +2389,7 @@ export default {
       "unit": "lancer",
       "palette": "purple",
       "action": "attack-down",
-      "url": "assets/tiny-swords/military/purple/Lancer/Lancer_Down_Attack.png",
+      "url": "assets/sprites/characters/military/purple/Lancer/Lancer_Down_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -2575,7 +2409,7 @@ export default {
       "unit": "lancer",
       "palette": "purple",
       "action": "attack-down-right",
-      "url": "assets/tiny-swords/military/purple/Lancer/Lancer_DownRight_Attack.png",
+      "url": "assets/sprites/characters/military/purple/Lancer/Lancer_DownRight_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -2595,7 +2429,7 @@ export default {
       "unit": "lancer",
       "palette": "purple",
       "action": "attack-right",
-      "url": "assets/tiny-swords/military/purple/Lancer/Lancer_Right_Attack.png",
+      "url": "assets/sprites/characters/military/purple/Lancer/Lancer_Right_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -2615,7 +2449,7 @@ export default {
       "unit": "lancer",
       "palette": "purple",
       "action": "attack-up",
-      "url": "assets/tiny-swords/military/purple/Lancer/Lancer_Up_Attack.png",
+      "url": "assets/sprites/characters/military/purple/Lancer/Lancer_Up_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -2635,7 +2469,7 @@ export default {
       "unit": "lancer",
       "palette": "purple",
       "action": "attack-up-right",
-      "url": "assets/tiny-swords/military/purple/Lancer/Lancer_UpRight_Attack.png",
+      "url": "assets/sprites/characters/military/purple/Lancer/Lancer_UpRight_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -2655,7 +2489,7 @@ export default {
       "unit": "lancer",
       "palette": "purple",
       "action": "defend-down",
-      "url": "assets/tiny-swords/military/purple/Lancer/Lancer_Down_Defence.png",
+      "url": "assets/sprites/characters/military/purple/Lancer/Lancer_Down_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -2675,7 +2509,7 @@ export default {
       "unit": "lancer",
       "palette": "purple",
       "action": "defend-down-right",
-      "url": "assets/tiny-swords/military/purple/Lancer/Lancer_DownRight_Defence.png",
+      "url": "assets/sprites/characters/military/purple/Lancer/Lancer_DownRight_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -2695,7 +2529,7 @@ export default {
       "unit": "lancer",
       "palette": "purple",
       "action": "defend-right",
-      "url": "assets/tiny-swords/military/purple/Lancer/Lancer_Right_Defence.png",
+      "url": "assets/sprites/characters/military/purple/Lancer/Lancer_Right_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -2715,7 +2549,7 @@ export default {
       "unit": "lancer",
       "palette": "purple",
       "action": "defend-up",
-      "url": "assets/tiny-swords/military/purple/Lancer/Lancer_Up_Defence.png",
+      "url": "assets/sprites/characters/military/purple/Lancer/Lancer_Up_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -2735,7 +2569,7 @@ export default {
       "unit": "lancer",
       "palette": "purple",
       "action": "defend-up-right",
-      "url": "assets/tiny-swords/military/purple/Lancer/Lancer_UpRight_Defence.png",
+      "url": "assets/sprites/characters/military/purple/Lancer/Lancer_UpRight_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -2755,7 +2589,7 @@ export default {
       "unit": "lancer",
       "palette": "purple",
       "action": "idle",
-      "url": "assets/tiny-swords/military/purple/Lancer/Lancer_Idle.png",
+      "url": "assets/sprites/characters/military/purple/Lancer/Lancer_Idle.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -2775,7 +2609,7 @@ export default {
       "unit": "lancer",
       "palette": "purple",
       "action": "run",
-      "url": "assets/tiny-swords/military/purple/Lancer/Lancer_Run.png",
+      "url": "assets/sprites/characters/military/purple/Lancer/Lancer_Run.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -2795,7 +2629,7 @@ export default {
       "unit": "monk",
       "palette": "purple",
       "action": "heal",
-      "url": "assets/tiny-swords/military/purple/Monk/Heal.png",
+      "url": "assets/sprites/characters/military/purple/Monk/Heal.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -2810,32 +2644,12 @@ export default {
       "fps": 10
     },
     {
-      "id": "unit.purple.monk.heal-effect",
-      "category": "effect",
-      "unit": "monk",
-      "palette": "purple",
-      "action": "heal-effect",
-      "url": "assets/tiny-swords/military/purple/Monk/Heal_Effect.png",
-      "loop": false,
-      "anchor": {
-        "x": 96,
-        "y": 135
-      },
-      "source": "Tiny Swords/Units/Purple Units/Monk/Heal_Effect.png",
-      "width": 2112,
-      "height": 192,
-      "frameWidth": 192,
-      "frameHeight": 192,
-      "frames": 11,
-      "fps": 10
-    },
-    {
       "id": "unit.purple.monk.idle",
       "category": "unit",
       "unit": "monk",
       "palette": "purple",
       "action": "idle",
-      "url": "assets/tiny-swords/military/purple/Monk/Idle.png",
+      "url": "assets/sprites/characters/military/purple/Monk/Idle.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2855,7 +2669,7 @@ export default {
       "unit": "monk",
       "palette": "purple",
       "action": "run",
-      "url": "assets/tiny-swords/military/purple/Monk/Run.png",
+      "url": "assets/sprites/characters/military/purple/Monk/Run.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2875,7 +2689,7 @@ export default {
       "unit": "pawn",
       "palette": "purple",
       "action": "idle",
-      "url": "assets/tiny-swords/people/purple/pawn_idle.png",
+      "url": "assets/sprites/characters/residents/purple/pawn_idle.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2895,7 +2709,7 @@ export default {
       "unit": "pawn",
       "palette": "purple",
       "action": "idle-axe",
-      "url": "assets/tiny-swords/people/purple/pawn_idle-axe.png",
+      "url": "assets/sprites/characters/residents/purple/pawn_idle-axe.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2915,7 +2729,7 @@ export default {
       "unit": "pawn",
       "palette": "purple",
       "action": "idle-gold",
-      "url": "assets/tiny-swords/people/purple/pawn_idle-gold.png",
+      "url": "assets/sprites/characters/residents/purple/pawn_idle-gold.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2935,7 +2749,7 @@ export default {
       "unit": "pawn",
       "palette": "purple",
       "action": "idle-hammer",
-      "url": "assets/tiny-swords/people/purple/pawn_idle-hammer.png",
+      "url": "assets/sprites/characters/residents/purple/pawn_idle-hammer.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2955,7 +2769,7 @@ export default {
       "unit": "pawn",
       "palette": "purple",
       "action": "idle-knife",
-      "url": "assets/tiny-swords/people/purple/pawn_idle-knife.png",
+      "url": "assets/sprites/characters/residents/purple/pawn_idle-knife.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2975,7 +2789,7 @@ export default {
       "unit": "pawn",
       "palette": "purple",
       "action": "idle-meat",
-      "url": "assets/tiny-swords/people/purple/pawn_idle-meat.png",
+      "url": "assets/sprites/characters/residents/purple/pawn_idle-meat.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -2995,7 +2809,7 @@ export default {
       "unit": "pawn",
       "palette": "purple",
       "action": "idle-pickaxe",
-      "url": "assets/tiny-swords/people/purple/pawn_idle-pickaxe.png",
+      "url": "assets/sprites/characters/residents/purple/pawn_idle-pickaxe.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3015,7 +2829,7 @@ export default {
       "unit": "pawn",
       "palette": "purple",
       "action": "idle-stone",
-      "url": "assets/tiny-swords/people/purple/pawn_idle-stone.png",
+      "url": "assets/sprites/characters/residents/purple/pawn_idle-stone.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3035,7 +2849,7 @@ export default {
       "unit": "pawn",
       "palette": "purple",
       "action": "idle-wood",
-      "url": "assets/tiny-swords/people/purple/pawn_idle-wood.png",
+      "url": "assets/sprites/characters/residents/purple/pawn_idle-wood.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3055,7 +2869,7 @@ export default {
       "unit": "pawn",
       "palette": "purple",
       "action": "interact-axe",
-      "url": "assets/tiny-swords/people/purple/pawn_interact-axe.png",
+      "url": "assets/sprites/characters/residents/purple/pawn_interact-axe.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -3075,7 +2889,7 @@ export default {
       "unit": "pawn",
       "palette": "purple",
       "action": "interact-hammer",
-      "url": "assets/tiny-swords/people/purple/pawn_interact-hammer.png",
+      "url": "assets/sprites/characters/residents/purple/pawn_interact-hammer.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -3095,7 +2909,7 @@ export default {
       "unit": "pawn",
       "palette": "purple",
       "action": "interact-knife",
-      "url": "assets/tiny-swords/people/purple/pawn_interact-knife.png",
+      "url": "assets/sprites/characters/residents/purple/pawn_interact-knife.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -3115,7 +2929,7 @@ export default {
       "unit": "pawn",
       "palette": "purple",
       "action": "interact-pickaxe",
-      "url": "assets/tiny-swords/people/purple/pawn_interact-pickaxe.png",
+      "url": "assets/sprites/characters/residents/purple/pawn_interact-pickaxe.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -3135,7 +2949,7 @@ export default {
       "unit": "pawn",
       "palette": "purple",
       "action": "run",
-      "url": "assets/tiny-swords/people/purple/pawn_run.png",
+      "url": "assets/sprites/characters/residents/purple/pawn_run.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3155,7 +2969,7 @@ export default {
       "unit": "pawn",
       "palette": "purple",
       "action": "run-axe",
-      "url": "assets/tiny-swords/people/purple/pawn_run-axe.png",
+      "url": "assets/sprites/characters/residents/purple/pawn_run-axe.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3175,7 +2989,7 @@ export default {
       "unit": "pawn",
       "palette": "purple",
       "action": "run-gold",
-      "url": "assets/tiny-swords/people/purple/pawn_run-gold.png",
+      "url": "assets/sprites/characters/residents/purple/pawn_run-gold.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3195,7 +3009,7 @@ export default {
       "unit": "pawn",
       "palette": "purple",
       "action": "run-hammer",
-      "url": "assets/tiny-swords/people/purple/pawn_run-hammer.png",
+      "url": "assets/sprites/characters/residents/purple/pawn_run-hammer.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3215,7 +3029,7 @@ export default {
       "unit": "pawn",
       "palette": "purple",
       "action": "run-knife",
-      "url": "assets/tiny-swords/people/purple/pawn_run-knife.png",
+      "url": "assets/sprites/characters/residents/purple/pawn_run-knife.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3235,7 +3049,7 @@ export default {
       "unit": "pawn",
       "palette": "purple",
       "action": "run-meat",
-      "url": "assets/tiny-swords/people/purple/pawn_run-meat.png",
+      "url": "assets/sprites/characters/residents/purple/pawn_run-meat.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3255,7 +3069,7 @@ export default {
       "unit": "pawn",
       "palette": "purple",
       "action": "run-pickaxe",
-      "url": "assets/tiny-swords/people/purple/pawn_run-pickaxe.png",
+      "url": "assets/sprites/characters/residents/purple/pawn_run-pickaxe.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3275,7 +3089,7 @@ export default {
       "unit": "pawn",
       "palette": "purple",
       "action": "run-stone",
-      "url": "assets/tiny-swords/people/purple/pawn_run-stone.png",
+      "url": "assets/sprites/characters/residents/purple/pawn_run-stone.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3295,7 +3109,7 @@ export default {
       "unit": "pawn",
       "palette": "purple",
       "action": "run-wood",
-      "url": "assets/tiny-swords/people/purple/pawn_run-wood.png",
+      "url": "assets/sprites/characters/residents/purple/pawn_run-wood.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3315,7 +3129,7 @@ export default {
       "unit": "warrior",
       "palette": "purple",
       "action": "attack",
-      "url": "assets/tiny-swords/military/purple/Warrior/Warrior_Attack1.png",
+      "url": "assets/sprites/characters/military/purple/Warrior/Warrior_Attack1.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -3335,7 +3149,7 @@ export default {
       "unit": "warrior",
       "palette": "purple",
       "action": "attack-2",
-      "url": "assets/tiny-swords/military/purple/Warrior/Warrior_Attack2.png",
+      "url": "assets/sprites/characters/military/purple/Warrior/Warrior_Attack2.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -3355,7 +3169,7 @@ export default {
       "unit": "warrior",
       "palette": "purple",
       "action": "defend",
-      "url": "assets/tiny-swords/military/purple/Warrior/Warrior_Guard.png",
+      "url": "assets/sprites/characters/military/purple/Warrior/Warrior_Guard.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3375,7 +3189,7 @@ export default {
       "unit": "warrior",
       "palette": "purple",
       "action": "idle",
-      "url": "assets/tiny-swords/military/purple/Warrior/Warrior_Idle.png",
+      "url": "assets/sprites/characters/military/purple/Warrior/Warrior_Idle.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3395,7 +3209,7 @@ export default {
       "unit": "warrior",
       "palette": "purple",
       "action": "run",
-      "url": "assets/tiny-swords/military/purple/Warrior/Warrior_Run.png",
+      "url": "assets/sprites/characters/military/purple/Warrior/Warrior_Run.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3415,7 +3229,7 @@ export default {
       "unit": "archer",
       "palette": "red",
       "action": "arrow",
-      "url": "assets/tiny-swords/military/red/Archer/Arrow.png",
+      "url": "assets/sprites/characters/military/red/Archer/Arrow.png",
       "loop": false,
       "anchor": {
         "x": 32,
@@ -3435,7 +3249,7 @@ export default {
       "unit": "archer",
       "palette": "red",
       "action": "attack",
-      "url": "assets/tiny-swords/military/red/Archer/Archer_Shoot.png",
+      "url": "assets/sprites/characters/military/red/Archer/Archer_Shoot.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -3455,7 +3269,7 @@ export default {
       "unit": "archer",
       "palette": "red",
       "action": "idle",
-      "url": "assets/tiny-swords/military/red/Archer/Archer_Idle.png",
+      "url": "assets/sprites/characters/military/red/Archer/Archer_Idle.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3475,7 +3289,7 @@ export default {
       "unit": "archer",
       "palette": "red",
       "action": "run",
-      "url": "assets/tiny-swords/military/red/Archer/Archer_Run.png",
+      "url": "assets/sprites/characters/military/red/Archer/Archer_Run.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3495,7 +3309,7 @@ export default {
       "unit": "lancer",
       "palette": "red",
       "action": "attack-down",
-      "url": "assets/tiny-swords/military/red/Lancer/Lancer_Down_Attack.png",
+      "url": "assets/sprites/characters/military/red/Lancer/Lancer_Down_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -3515,7 +3329,7 @@ export default {
       "unit": "lancer",
       "palette": "red",
       "action": "attack-down-right",
-      "url": "assets/tiny-swords/military/red/Lancer/Lancer_DownRight_Attack.png",
+      "url": "assets/sprites/characters/military/red/Lancer/Lancer_DownRight_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -3535,7 +3349,7 @@ export default {
       "unit": "lancer",
       "palette": "red",
       "action": "attack-right",
-      "url": "assets/tiny-swords/military/red/Lancer/Lancer_Right_Attack.png",
+      "url": "assets/sprites/characters/military/red/Lancer/Lancer_Right_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -3555,7 +3369,7 @@ export default {
       "unit": "lancer",
       "palette": "red",
       "action": "attack-up",
-      "url": "assets/tiny-swords/military/red/Lancer/Lancer_Up_Attack.png",
+      "url": "assets/sprites/characters/military/red/Lancer/Lancer_Up_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -3575,7 +3389,7 @@ export default {
       "unit": "lancer",
       "palette": "red",
       "action": "attack-up-right",
-      "url": "assets/tiny-swords/military/red/Lancer/Lancer_UpRight_Attack.png",
+      "url": "assets/sprites/characters/military/red/Lancer/Lancer_UpRight_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -3595,7 +3409,7 @@ export default {
       "unit": "lancer",
       "palette": "red",
       "action": "defend-down",
-      "url": "assets/tiny-swords/military/red/Lancer/Lancer_Down_Defence.png",
+      "url": "assets/sprites/characters/military/red/Lancer/Lancer_Down_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -3615,7 +3429,7 @@ export default {
       "unit": "lancer",
       "palette": "red",
       "action": "defend-down-right",
-      "url": "assets/tiny-swords/military/red/Lancer/Lancer_DownRight_Defence.png",
+      "url": "assets/sprites/characters/military/red/Lancer/Lancer_DownRight_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -3635,7 +3449,7 @@ export default {
       "unit": "lancer",
       "palette": "red",
       "action": "defend-right",
-      "url": "assets/tiny-swords/military/red/Lancer/Lancer_Right_Defence.png",
+      "url": "assets/sprites/characters/military/red/Lancer/Lancer_Right_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -3655,7 +3469,7 @@ export default {
       "unit": "lancer",
       "palette": "red",
       "action": "defend-up",
-      "url": "assets/tiny-swords/military/red/Lancer/Lancer_Up_Defence.png",
+      "url": "assets/sprites/characters/military/red/Lancer/Lancer_Up_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -3675,7 +3489,7 @@ export default {
       "unit": "lancer",
       "palette": "red",
       "action": "defend-up-right",
-      "url": "assets/tiny-swords/military/red/Lancer/Lancer_UpRight_Defence.png",
+      "url": "assets/sprites/characters/military/red/Lancer/Lancer_UpRight_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -3695,7 +3509,7 @@ export default {
       "unit": "lancer",
       "palette": "red",
       "action": "idle",
-      "url": "assets/tiny-swords/military/red/Lancer/Lancer_Idle.png",
+      "url": "assets/sprites/characters/military/red/Lancer/Lancer_Idle.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -3715,7 +3529,7 @@ export default {
       "unit": "lancer",
       "palette": "red",
       "action": "run",
-      "url": "assets/tiny-swords/military/red/Lancer/Lancer_Run.png",
+      "url": "assets/sprites/characters/military/red/Lancer/Lancer_Run.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -3735,7 +3549,7 @@ export default {
       "unit": "monk",
       "palette": "red",
       "action": "heal",
-      "url": "assets/tiny-swords/military/red/Monk/Heal.png",
+      "url": "assets/sprites/characters/military/red/Monk/Heal.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -3750,32 +3564,12 @@ export default {
       "fps": 10
     },
     {
-      "id": "unit.red.monk.heal-effect",
-      "category": "effect",
-      "unit": "monk",
-      "palette": "red",
-      "action": "heal-effect",
-      "url": "assets/tiny-swords/military/red/Monk/Heal_Effect.png",
-      "loop": false,
-      "anchor": {
-        "x": 96,
-        "y": 135
-      },
-      "source": "Tiny Swords/Units/Red Units/Monk/Heal_Effect.png",
-      "width": 2112,
-      "height": 192,
-      "frameWidth": 192,
-      "frameHeight": 192,
-      "frames": 11,
-      "fps": 10
-    },
-    {
       "id": "unit.red.monk.idle",
       "category": "unit",
       "unit": "monk",
       "palette": "red",
       "action": "idle",
-      "url": "assets/tiny-swords/military/red/Monk/Idle.png",
+      "url": "assets/sprites/characters/military/red/Monk/Idle.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3795,7 +3589,7 @@ export default {
       "unit": "monk",
       "palette": "red",
       "action": "run",
-      "url": "assets/tiny-swords/military/red/Monk/Run.png",
+      "url": "assets/sprites/characters/military/red/Monk/Run.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3815,7 +3609,7 @@ export default {
       "unit": "pawn",
       "palette": "red",
       "action": "idle",
-      "url": "assets/tiny-swords/people/red/pawn_idle.png",
+      "url": "assets/sprites/characters/residents/red/pawn_idle.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3835,7 +3629,7 @@ export default {
       "unit": "pawn",
       "palette": "red",
       "action": "idle-axe",
-      "url": "assets/tiny-swords/people/red/pawn_idle-axe.png",
+      "url": "assets/sprites/characters/residents/red/pawn_idle-axe.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3855,7 +3649,7 @@ export default {
       "unit": "pawn",
       "palette": "red",
       "action": "idle-gold",
-      "url": "assets/tiny-swords/people/red/pawn_idle-gold.png",
+      "url": "assets/sprites/characters/residents/red/pawn_idle-gold.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3875,7 +3669,7 @@ export default {
       "unit": "pawn",
       "palette": "red",
       "action": "idle-hammer",
-      "url": "assets/tiny-swords/people/red/pawn_idle-hammer.png",
+      "url": "assets/sprites/characters/residents/red/pawn_idle-hammer.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3895,7 +3689,7 @@ export default {
       "unit": "pawn",
       "palette": "red",
       "action": "idle-knife",
-      "url": "assets/tiny-swords/people/red/pawn_idle-knife.png",
+      "url": "assets/sprites/characters/residents/red/pawn_idle-knife.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3915,7 +3709,7 @@ export default {
       "unit": "pawn",
       "palette": "red",
       "action": "idle-meat",
-      "url": "assets/tiny-swords/people/red/pawn_idle-meat.png",
+      "url": "assets/sprites/characters/residents/red/pawn_idle-meat.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3935,7 +3729,7 @@ export default {
       "unit": "pawn",
       "palette": "red",
       "action": "idle-pickaxe",
-      "url": "assets/tiny-swords/people/red/pawn_idle-pickaxe.png",
+      "url": "assets/sprites/characters/residents/red/pawn_idle-pickaxe.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3955,7 +3749,7 @@ export default {
       "unit": "pawn",
       "palette": "red",
       "action": "idle-stone",
-      "url": "assets/tiny-swords/people/red/pawn_idle-stone.png",
+      "url": "assets/sprites/characters/residents/red/pawn_idle-stone.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3975,7 +3769,7 @@ export default {
       "unit": "pawn",
       "palette": "red",
       "action": "idle-wood",
-      "url": "assets/tiny-swords/people/red/pawn_idle-wood.png",
+      "url": "assets/sprites/characters/residents/red/pawn_idle-wood.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -3995,7 +3789,7 @@ export default {
       "unit": "pawn",
       "palette": "red",
       "action": "interact-axe",
-      "url": "assets/tiny-swords/people/red/pawn_interact-axe.png",
+      "url": "assets/sprites/characters/residents/red/pawn_interact-axe.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -4015,7 +3809,7 @@ export default {
       "unit": "pawn",
       "palette": "red",
       "action": "interact-hammer",
-      "url": "assets/tiny-swords/people/red/pawn_interact-hammer.png",
+      "url": "assets/sprites/characters/residents/red/pawn_interact-hammer.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -4035,7 +3829,7 @@ export default {
       "unit": "pawn",
       "palette": "red",
       "action": "interact-knife",
-      "url": "assets/tiny-swords/people/red/pawn_interact-knife.png",
+      "url": "assets/sprites/characters/residents/red/pawn_interact-knife.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -4055,7 +3849,7 @@ export default {
       "unit": "pawn",
       "palette": "red",
       "action": "interact-pickaxe",
-      "url": "assets/tiny-swords/people/red/pawn_interact-pickaxe.png",
+      "url": "assets/sprites/characters/residents/red/pawn_interact-pickaxe.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -4075,7 +3869,7 @@ export default {
       "unit": "pawn",
       "palette": "red",
       "action": "run",
-      "url": "assets/tiny-swords/people/red/pawn_run.png",
+      "url": "assets/sprites/characters/residents/red/pawn_run.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4095,7 +3889,7 @@ export default {
       "unit": "pawn",
       "palette": "red",
       "action": "run-axe",
-      "url": "assets/tiny-swords/people/red/pawn_run-axe.png",
+      "url": "assets/sprites/characters/residents/red/pawn_run-axe.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4115,7 +3909,7 @@ export default {
       "unit": "pawn",
       "palette": "red",
       "action": "run-gold",
-      "url": "assets/tiny-swords/people/red/pawn_run-gold.png",
+      "url": "assets/sprites/characters/residents/red/pawn_run-gold.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4135,7 +3929,7 @@ export default {
       "unit": "pawn",
       "palette": "red",
       "action": "run-hammer",
-      "url": "assets/tiny-swords/people/red/pawn_run-hammer.png",
+      "url": "assets/sprites/characters/residents/red/pawn_run-hammer.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4155,7 +3949,7 @@ export default {
       "unit": "pawn",
       "palette": "red",
       "action": "run-knife",
-      "url": "assets/tiny-swords/people/red/pawn_run-knife.png",
+      "url": "assets/sprites/characters/residents/red/pawn_run-knife.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4175,7 +3969,7 @@ export default {
       "unit": "pawn",
       "palette": "red",
       "action": "run-meat",
-      "url": "assets/tiny-swords/people/red/pawn_run-meat.png",
+      "url": "assets/sprites/characters/residents/red/pawn_run-meat.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4195,7 +3989,7 @@ export default {
       "unit": "pawn",
       "palette": "red",
       "action": "run-pickaxe",
-      "url": "assets/tiny-swords/people/red/pawn_run-pickaxe.png",
+      "url": "assets/sprites/characters/residents/red/pawn_run-pickaxe.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4215,7 +4009,7 @@ export default {
       "unit": "pawn",
       "palette": "red",
       "action": "run-stone",
-      "url": "assets/tiny-swords/people/red/pawn_run-stone.png",
+      "url": "assets/sprites/characters/residents/red/pawn_run-stone.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4235,7 +4029,7 @@ export default {
       "unit": "pawn",
       "palette": "red",
       "action": "run-wood",
-      "url": "assets/tiny-swords/people/red/pawn_run-wood.png",
+      "url": "assets/sprites/characters/residents/red/pawn_run-wood.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4255,7 +4049,7 @@ export default {
       "unit": "warrior",
       "palette": "red",
       "action": "attack",
-      "url": "assets/tiny-swords/military/red/Warrior/Warrior_Attack1.png",
+      "url": "assets/sprites/characters/military/red/Warrior/Warrior_Attack1.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -4275,7 +4069,7 @@ export default {
       "unit": "warrior",
       "palette": "red",
       "action": "attack-2",
-      "url": "assets/tiny-swords/military/red/Warrior/Warrior_Attack2.png",
+      "url": "assets/sprites/characters/military/red/Warrior/Warrior_Attack2.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -4295,7 +4089,7 @@ export default {
       "unit": "warrior",
       "palette": "red",
       "action": "defend",
-      "url": "assets/tiny-swords/military/red/Warrior/Warrior_Guard.png",
+      "url": "assets/sprites/characters/military/red/Warrior/Warrior_Guard.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4315,7 +4109,7 @@ export default {
       "unit": "warrior",
       "palette": "red",
       "action": "idle",
-      "url": "assets/tiny-swords/military/red/Warrior/Warrior_Idle.png",
+      "url": "assets/sprites/characters/military/red/Warrior/Warrior_Idle.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4335,7 +4129,7 @@ export default {
       "unit": "warrior",
       "palette": "red",
       "action": "run",
-      "url": "assets/tiny-swords/military/red/Warrior/Warrior_Run.png",
+      "url": "assets/sprites/characters/military/red/Warrior/Warrior_Run.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4355,7 +4149,7 @@ export default {
       "unit": "archer",
       "palette": "yellow",
       "action": "arrow",
-      "url": "assets/tiny-swords/military/yellow/Archer/Arrow.png",
+      "url": "assets/sprites/characters/military/yellow/Archer/Arrow.png",
       "loop": false,
       "anchor": {
         "x": 32,
@@ -4375,7 +4169,7 @@ export default {
       "unit": "archer",
       "palette": "yellow",
       "action": "attack",
-      "url": "assets/tiny-swords/military/yellow/Archer/Archer_Shoot.png",
+      "url": "assets/sprites/characters/military/yellow/Archer/Archer_Shoot.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -4395,7 +4189,7 @@ export default {
       "unit": "archer",
       "palette": "yellow",
       "action": "idle",
-      "url": "assets/tiny-swords/military/yellow/Archer/Archer_Idle.png",
+      "url": "assets/sprites/characters/military/yellow/Archer/Archer_Idle.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4415,7 +4209,7 @@ export default {
       "unit": "archer",
       "palette": "yellow",
       "action": "run",
-      "url": "assets/tiny-swords/military/yellow/Archer/Archer_Run.png",
+      "url": "assets/sprites/characters/military/yellow/Archer/Archer_Run.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4435,7 +4229,7 @@ export default {
       "unit": "lancer",
       "palette": "yellow",
       "action": "attack-down",
-      "url": "assets/tiny-swords/military/yellow/Lancer/Lancer_Down_Attack.png",
+      "url": "assets/sprites/characters/military/yellow/Lancer/Lancer_Down_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -4455,7 +4249,7 @@ export default {
       "unit": "lancer",
       "palette": "yellow",
       "action": "attack-down-right",
-      "url": "assets/tiny-swords/military/yellow/Lancer/Lancer_DownRight_Attack.png",
+      "url": "assets/sprites/characters/military/yellow/Lancer/Lancer_DownRight_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -4475,7 +4269,7 @@ export default {
       "unit": "lancer",
       "palette": "yellow",
       "action": "attack-right",
-      "url": "assets/tiny-swords/military/yellow/Lancer/Lancer_Right_Attack.png",
+      "url": "assets/sprites/characters/military/yellow/Lancer/Lancer_Right_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -4495,7 +4289,7 @@ export default {
       "unit": "lancer",
       "palette": "yellow",
       "action": "attack-up",
-      "url": "assets/tiny-swords/military/yellow/Lancer/Lancer_Up_Attack.png",
+      "url": "assets/sprites/characters/military/yellow/Lancer/Lancer_Up_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -4515,7 +4309,7 @@ export default {
       "unit": "lancer",
       "palette": "yellow",
       "action": "attack-up-right",
-      "url": "assets/tiny-swords/military/yellow/Lancer/Lancer_UpRight_Attack.png",
+      "url": "assets/sprites/characters/military/yellow/Lancer/Lancer_UpRight_Attack.png",
       "loop": false,
       "anchor": {
         "x": 160,
@@ -4535,7 +4329,7 @@ export default {
       "unit": "lancer",
       "palette": "yellow",
       "action": "defend-down",
-      "url": "assets/tiny-swords/military/yellow/Lancer/Lancer_Down_Defence.png",
+      "url": "assets/sprites/characters/military/yellow/Lancer/Lancer_Down_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -4555,7 +4349,7 @@ export default {
       "unit": "lancer",
       "palette": "yellow",
       "action": "defend-down-right",
-      "url": "assets/tiny-swords/military/yellow/Lancer/Lancer_DownRight_Defence.png",
+      "url": "assets/sprites/characters/military/yellow/Lancer/Lancer_DownRight_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -4575,7 +4369,7 @@ export default {
       "unit": "lancer",
       "palette": "yellow",
       "action": "defend-right",
-      "url": "assets/tiny-swords/military/yellow/Lancer/Lancer_Right_Defence.png",
+      "url": "assets/sprites/characters/military/yellow/Lancer/Lancer_Right_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -4595,7 +4389,7 @@ export default {
       "unit": "lancer",
       "palette": "yellow",
       "action": "defend-up",
-      "url": "assets/tiny-swords/military/yellow/Lancer/Lancer_Up_Defence.png",
+      "url": "assets/sprites/characters/military/yellow/Lancer/Lancer_Up_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -4615,7 +4409,7 @@ export default {
       "unit": "lancer",
       "palette": "yellow",
       "action": "defend-up-right",
-      "url": "assets/tiny-swords/military/yellow/Lancer/Lancer_UpRight_Defence.png",
+      "url": "assets/sprites/characters/military/yellow/Lancer/Lancer_UpRight_Defence.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -4635,7 +4429,7 @@ export default {
       "unit": "lancer",
       "palette": "yellow",
       "action": "idle",
-      "url": "assets/tiny-swords/military/yellow/Lancer/Lancer_Idle.png",
+      "url": "assets/sprites/characters/military/yellow/Lancer/Lancer_Idle.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -4655,7 +4449,7 @@ export default {
       "unit": "lancer",
       "palette": "yellow",
       "action": "run",
-      "url": "assets/tiny-swords/military/yellow/Lancer/Lancer_Run.png",
+      "url": "assets/sprites/characters/military/yellow/Lancer/Lancer_Run.png",
       "loop": true,
       "anchor": {
         "x": 160,
@@ -4675,7 +4469,7 @@ export default {
       "unit": "monk",
       "palette": "yellow",
       "action": "heal",
-      "url": "assets/tiny-swords/military/yellow/Monk/Heal.png",
+      "url": "assets/sprites/characters/military/yellow/Monk/Heal.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -4690,32 +4484,12 @@ export default {
       "fps": 10
     },
     {
-      "id": "unit.yellow.monk.heal-effect",
-      "category": "effect",
-      "unit": "monk",
-      "palette": "yellow",
-      "action": "heal-effect",
-      "url": "assets/tiny-swords/military/yellow/Monk/Heal_Effect.png",
-      "loop": false,
-      "anchor": {
-        "x": 96,
-        "y": 135
-      },
-      "source": "Tiny Swords/Units/Yellow Units/Monk/Heal_Effect.png",
-      "width": 2112,
-      "height": 192,
-      "frameWidth": 192,
-      "frameHeight": 192,
-      "frames": 11,
-      "fps": 10
-    },
-    {
       "id": "unit.yellow.monk.idle",
       "category": "unit",
       "unit": "monk",
       "palette": "yellow",
       "action": "idle",
-      "url": "assets/tiny-swords/military/yellow/Monk/Idle.png",
+      "url": "assets/sprites/characters/military/yellow/Monk/Idle.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4735,7 +4509,7 @@ export default {
       "unit": "monk",
       "palette": "yellow",
       "action": "run",
-      "url": "assets/tiny-swords/military/yellow/Monk/Run.png",
+      "url": "assets/sprites/characters/military/yellow/Monk/Run.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4755,7 +4529,7 @@ export default {
       "unit": "pawn",
       "palette": "yellow",
       "action": "idle",
-      "url": "assets/tiny-swords/people/yellow/pawn_idle.png",
+      "url": "assets/sprites/characters/residents/yellow/pawn_idle.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4775,7 +4549,7 @@ export default {
       "unit": "pawn",
       "palette": "yellow",
       "action": "idle-axe",
-      "url": "assets/tiny-swords/people/yellow/pawn_idle-axe.png",
+      "url": "assets/sprites/characters/residents/yellow/pawn_idle-axe.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4795,7 +4569,7 @@ export default {
       "unit": "pawn",
       "palette": "yellow",
       "action": "idle-gold",
-      "url": "assets/tiny-swords/people/yellow/pawn_idle-gold.png",
+      "url": "assets/sprites/characters/residents/yellow/pawn_idle-gold.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4815,7 +4589,7 @@ export default {
       "unit": "pawn",
       "palette": "yellow",
       "action": "idle-hammer",
-      "url": "assets/tiny-swords/people/yellow/pawn_idle-hammer.png",
+      "url": "assets/sprites/characters/residents/yellow/pawn_idle-hammer.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4835,7 +4609,7 @@ export default {
       "unit": "pawn",
       "palette": "yellow",
       "action": "idle-knife",
-      "url": "assets/tiny-swords/people/yellow/pawn_idle-knife.png",
+      "url": "assets/sprites/characters/residents/yellow/pawn_idle-knife.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4855,7 +4629,7 @@ export default {
       "unit": "pawn",
       "palette": "yellow",
       "action": "idle-meat",
-      "url": "assets/tiny-swords/people/yellow/pawn_idle-meat.png",
+      "url": "assets/sprites/characters/residents/yellow/pawn_idle-meat.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4875,7 +4649,7 @@ export default {
       "unit": "pawn",
       "palette": "yellow",
       "action": "idle-pickaxe",
-      "url": "assets/tiny-swords/people/yellow/pawn_idle-pickaxe.png",
+      "url": "assets/sprites/characters/residents/yellow/pawn_idle-pickaxe.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4895,7 +4669,7 @@ export default {
       "unit": "pawn",
       "palette": "yellow",
       "action": "idle-stone",
-      "url": "assets/tiny-swords/people/yellow/pawn_idle-stone.png",
+      "url": "assets/sprites/characters/residents/yellow/pawn_idle-stone.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4915,7 +4689,7 @@ export default {
       "unit": "pawn",
       "palette": "yellow",
       "action": "idle-wood",
-      "url": "assets/tiny-swords/people/yellow/pawn_idle-wood.png",
+      "url": "assets/sprites/characters/residents/yellow/pawn_idle-wood.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -4935,7 +4709,7 @@ export default {
       "unit": "pawn",
       "palette": "yellow",
       "action": "interact-axe",
-      "url": "assets/tiny-swords/people/yellow/pawn_interact-axe.png",
+      "url": "assets/sprites/characters/residents/yellow/pawn_interact-axe.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -4955,7 +4729,7 @@ export default {
       "unit": "pawn",
       "palette": "yellow",
       "action": "interact-hammer",
-      "url": "assets/tiny-swords/people/yellow/pawn_interact-hammer.png",
+      "url": "assets/sprites/characters/residents/yellow/pawn_interact-hammer.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -4975,7 +4749,7 @@ export default {
       "unit": "pawn",
       "palette": "yellow",
       "action": "interact-knife",
-      "url": "assets/tiny-swords/people/yellow/pawn_interact-knife.png",
+      "url": "assets/sprites/characters/residents/yellow/pawn_interact-knife.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -4995,7 +4769,7 @@ export default {
       "unit": "pawn",
       "palette": "yellow",
       "action": "interact-pickaxe",
-      "url": "assets/tiny-swords/people/yellow/pawn_interact-pickaxe.png",
+      "url": "assets/sprites/characters/residents/yellow/pawn_interact-pickaxe.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -5015,7 +4789,7 @@ export default {
       "unit": "pawn",
       "palette": "yellow",
       "action": "run",
-      "url": "assets/tiny-swords/people/yellow/pawn_run.png",
+      "url": "assets/sprites/characters/residents/yellow/pawn_run.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -5035,7 +4809,7 @@ export default {
       "unit": "pawn",
       "palette": "yellow",
       "action": "run-axe",
-      "url": "assets/tiny-swords/people/yellow/pawn_run-axe.png",
+      "url": "assets/sprites/characters/residents/yellow/pawn_run-axe.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -5055,7 +4829,7 @@ export default {
       "unit": "pawn",
       "palette": "yellow",
       "action": "run-gold",
-      "url": "assets/tiny-swords/people/yellow/pawn_run-gold.png",
+      "url": "assets/sprites/characters/residents/yellow/pawn_run-gold.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -5075,7 +4849,7 @@ export default {
       "unit": "pawn",
       "palette": "yellow",
       "action": "run-hammer",
-      "url": "assets/tiny-swords/people/yellow/pawn_run-hammer.png",
+      "url": "assets/sprites/characters/residents/yellow/pawn_run-hammer.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -5095,7 +4869,7 @@ export default {
       "unit": "pawn",
       "palette": "yellow",
       "action": "run-knife",
-      "url": "assets/tiny-swords/people/yellow/pawn_run-knife.png",
+      "url": "assets/sprites/characters/residents/yellow/pawn_run-knife.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -5115,7 +4889,7 @@ export default {
       "unit": "pawn",
       "palette": "yellow",
       "action": "run-meat",
-      "url": "assets/tiny-swords/people/yellow/pawn_run-meat.png",
+      "url": "assets/sprites/characters/residents/yellow/pawn_run-meat.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -5135,7 +4909,7 @@ export default {
       "unit": "pawn",
       "palette": "yellow",
       "action": "run-pickaxe",
-      "url": "assets/tiny-swords/people/yellow/pawn_run-pickaxe.png",
+      "url": "assets/sprites/characters/residents/yellow/pawn_run-pickaxe.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -5155,7 +4929,7 @@ export default {
       "unit": "pawn",
       "palette": "yellow",
       "action": "run-stone",
-      "url": "assets/tiny-swords/people/yellow/pawn_run-stone.png",
+      "url": "assets/sprites/characters/residents/yellow/pawn_run-stone.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -5175,7 +4949,7 @@ export default {
       "unit": "pawn",
       "palette": "yellow",
       "action": "run-wood",
-      "url": "assets/tiny-swords/people/yellow/pawn_run-wood.png",
+      "url": "assets/sprites/characters/residents/yellow/pawn_run-wood.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -5195,7 +4969,7 @@ export default {
       "unit": "warrior",
       "palette": "yellow",
       "action": "attack",
-      "url": "assets/tiny-swords/military/yellow/Warrior/Warrior_Attack1.png",
+      "url": "assets/sprites/characters/military/yellow/Warrior/Warrior_Attack1.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -5215,7 +4989,7 @@ export default {
       "unit": "warrior",
       "palette": "yellow",
       "action": "attack-2",
-      "url": "assets/tiny-swords/military/yellow/Warrior/Warrior_Attack2.png",
+      "url": "assets/sprites/characters/military/yellow/Warrior/Warrior_Attack2.png",
       "loop": false,
       "anchor": {
         "x": 96,
@@ -5235,7 +5009,7 @@ export default {
       "unit": "warrior",
       "palette": "yellow",
       "action": "defend",
-      "url": "assets/tiny-swords/military/yellow/Warrior/Warrior_Guard.png",
+      "url": "assets/sprites/characters/military/yellow/Warrior/Warrior_Guard.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -5255,7 +5029,7 @@ export default {
       "unit": "warrior",
       "palette": "yellow",
       "action": "idle",
-      "url": "assets/tiny-swords/military/yellow/Warrior/Warrior_Idle.png",
+      "url": "assets/sprites/characters/military/yellow/Warrior/Warrior_Idle.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -5275,7 +5049,7 @@ export default {
       "unit": "warrior",
       "palette": "yellow",
       "action": "run",
-      "url": "assets/tiny-swords/military/yellow/Warrior/Warrior_Run.png",
+      "url": "assets/sprites/characters/military/yellow/Warrior/Warrior_Run.png",
       "loop": true,
       "anchor": {
         "x": 96,
@@ -5289,160 +5063,5 @@ export default {
       "frames": 6,
       "fps": 10
     }
-  ],
-  "staticSources": [
-    "Tiny Swords/Buildings/Black Buildings/Archery.png",
-    "Tiny Swords/Buildings/Black Buildings/Barracks.png",
-    "Tiny Swords/Buildings/Black Buildings/Castle.png",
-    "Tiny Swords/Buildings/Black Buildings/House1.png",
-    "Tiny Swords/Buildings/Black Buildings/House2.png",
-    "Tiny Swords/Buildings/Black Buildings/House3.png",
-    "Tiny Swords/Buildings/Black Buildings/Monastery.png",
-    "Tiny Swords/Buildings/Black Buildings/Tower.png",
-    "Tiny Swords/Buildings/Blue Buildings/Archery.png",
-    "Tiny Swords/Buildings/Blue Buildings/Barracks.png",
-    "Tiny Swords/Buildings/Blue Buildings/Castle.png",
-    "Tiny Swords/Buildings/Blue Buildings/House1.png",
-    "Tiny Swords/Buildings/Blue Buildings/House2.png",
-    "Tiny Swords/Buildings/Blue Buildings/House3.png",
-    "Tiny Swords/Buildings/Blue Buildings/Monastery.png",
-    "Tiny Swords/Buildings/Blue Buildings/Tower.png",
-    "Tiny Swords/Buildings/Purple Buildings/Archery.png",
-    "Tiny Swords/Buildings/Purple Buildings/Barracks.png",
-    "Tiny Swords/Buildings/Purple Buildings/Castle.png",
-    "Tiny Swords/Buildings/Purple Buildings/House1.png",
-    "Tiny Swords/Buildings/Purple Buildings/House2.png",
-    "Tiny Swords/Buildings/Purple Buildings/House3.png",
-    "Tiny Swords/Buildings/Purple Buildings/Monastery.png",
-    "Tiny Swords/Buildings/Purple Buildings/Tower.png",
-    "Tiny Swords/Buildings/Red Buildings/Archery.png",
-    "Tiny Swords/Buildings/Red Buildings/Barracks.png",
-    "Tiny Swords/Buildings/Red Buildings/Castle.png",
-    "Tiny Swords/Buildings/Red Buildings/House1.png",
-    "Tiny Swords/Buildings/Red Buildings/House2.png",
-    "Tiny Swords/Buildings/Red Buildings/House3.png",
-    "Tiny Swords/Buildings/Red Buildings/Monastery.png",
-    "Tiny Swords/Buildings/Red Buildings/Tower.png",
-    "Tiny Swords/Buildings/Yellow Buildings/Archery.png",
-    "Tiny Swords/Buildings/Yellow Buildings/Barracks.png",
-    "Tiny Swords/Buildings/Yellow Buildings/Castle.png",
-    "Tiny Swords/Buildings/Yellow Buildings/House1.png",
-    "Tiny Swords/Buildings/Yellow Buildings/House2.png",
-    "Tiny Swords/Buildings/Yellow Buildings/House3.png",
-    "Tiny Swords/Buildings/Yellow Buildings/Monastery.png",
-    "Tiny Swords/Buildings/Yellow Buildings/Tower.png",
-    "Tiny Swords/Terrain/Decorations/Clouds/Clouds_01.png",
-    "Tiny Swords/Terrain/Decorations/Clouds/Clouds_02.png",
-    "Tiny Swords/Terrain/Decorations/Clouds/Clouds_03.png",
-    "Tiny Swords/Terrain/Decorations/Clouds/Clouds_04.png",
-    "Tiny Swords/Terrain/Decorations/Clouds/Clouds_05.png",
-    "Tiny Swords/Terrain/Decorations/Clouds/Clouds_06.png",
-    "Tiny Swords/Terrain/Decorations/Clouds/Clouds_07.png",
-    "Tiny Swords/Terrain/Decorations/Clouds/Clouds_08.png",
-    "Tiny Swords/Terrain/Decorations/Rocks/Rock1.png",
-    "Tiny Swords/Terrain/Decorations/Rocks/Rock2.png",
-    "Tiny Swords/Terrain/Decorations/Rocks/Rock3.png",
-    "Tiny Swords/Terrain/Decorations/Rocks/Rock4.png",
-    "Tiny Swords/Terrain/Resources/Gold/Gold Resource/Gold_Resource.png",
-    "Tiny Swords/Terrain/Resources/Gold/Gold Stones/Gold Stone 1.png",
-    "Tiny Swords/Terrain/Resources/Gold/Gold Stones/Gold Stone 2.png",
-    "Tiny Swords/Terrain/Resources/Gold/Gold Stones/Gold Stone 3.png",
-    "Tiny Swords/Terrain/Resources/Gold/Gold Stones/Gold Stone 4.png",
-    "Tiny Swords/Terrain/Resources/Gold/Gold Stones/Gold Stone 5.png",
-    "Tiny Swords/Terrain/Resources/Gold/Gold Stones/Gold Stone 6.png",
-    "Tiny Swords/Terrain/Resources/Meat/Meat Resource/Meat Resource.png",
-    "Tiny Swords/Terrain/Resources/Tools/Tool_01.png",
-    "Tiny Swords/Terrain/Resources/Tools/Tool_02.png",
-    "Tiny Swords/Terrain/Resources/Tools/Tool_03.png",
-    "Tiny Swords/Terrain/Resources/Tools/Tool_04.png",
-    "Tiny Swords/Terrain/Resources/Wood/Trees/Stump 1.png",
-    "Tiny Swords/Terrain/Resources/Wood/Trees/Stump 2.png",
-    "Tiny Swords/Terrain/Resources/Wood/Trees/Stump 3.png",
-    "Tiny Swords/Terrain/Resources/Wood/Trees/Stump 4.png",
-    "Tiny Swords/Terrain/Resources/Wood/Wood Resource/Wood Resource.png",
-    "Tiny Swords/Terrain/Tileset/Shadow.png",
-    "Tiny Swords/Terrain/Tileset/Tilemap_color1.png",
-    "Tiny Swords/Terrain/Tileset/Tilemap_color2.png",
-    "Tiny Swords/Terrain/Tileset/Tilemap_color3.png",
-    "Tiny Swords/Terrain/Tileset/Tilemap_color4.png",
-    "Tiny Swords/Terrain/Tileset/Tilemap_color5.png",
-    "Tiny Swords/Terrain/Tileset/Water Background color.png",
-    "Tiny Swords/UI Elements/UI Banners from the store page/Banner/Banner.png",
-    "Tiny Swords/UI Elements/UI Banners from the store page/Banner/Slots.png",
-    "Tiny Swords/UI Elements/UI Banners from the store page/Ribbons/Ribbon_Black.png",
-    "Tiny Swords/UI Elements/UI Banners from the store page/Ribbons/Ribbon_Blue.png",
-    "Tiny Swords/UI Elements/UI Banners from the store page/Ribbons/Ribbon_Purple.png",
-    "Tiny Swords/UI Elements/UI Banners from the store page/Ribbons/Ribbon_Red.png",
-    "Tiny Swords/UI Elements/UI Banners from the store page/Ribbons/Ribbon_Yellow.png",
-    "Tiny Swords/UI Elements/UI Elements/Banners/Banner.png",
-    "Tiny Swords/UI Elements/UI Elements/Banners/Banner_Slots.png",
-    "Tiny Swords/UI Elements/UI Elements/Bars/BigBar_Base.png",
-    "Tiny Swords/UI Elements/UI Elements/Bars/BigBar_Fill.png",
-    "Tiny Swords/UI Elements/UI Elements/Bars/SmallBar_Base.png",
-    "Tiny Swords/UI Elements/UI Elements/Bars/SmallBar_Fill.png",
-    "Tiny Swords/UI Elements/UI Elements/Buttons/BigBlueButton_Pressed.png",
-    "Tiny Swords/UI Elements/UI Elements/Buttons/BigBlueButton_Regular.png",
-    "Tiny Swords/UI Elements/UI Elements/Buttons/BigRedButton_Pressed.png",
-    "Tiny Swords/UI Elements/UI Elements/Buttons/BigRedButton_Regular.png",
-    "Tiny Swords/UI Elements/UI Elements/Buttons/SmallBlueRoundButton_Pressed.png",
-    "Tiny Swords/UI Elements/UI Elements/Buttons/SmallBlueRoundButton_Regular.png",
-    "Tiny Swords/UI Elements/UI Elements/Buttons/SmallBlueSquareButton_Pressed.png",
-    "Tiny Swords/UI Elements/UI Elements/Buttons/SmallBlueSquareButton_Regular.png",
-    "Tiny Swords/UI Elements/UI Elements/Buttons/SmallRedRoundButton_Pressed.png",
-    "Tiny Swords/UI Elements/UI Elements/Buttons/SmallRedRoundButton_Regular.png",
-    "Tiny Swords/UI Elements/UI Elements/Buttons/SmallRedSquareButton_Pressed.png",
-    "Tiny Swords/UI Elements/UI Elements/Buttons/SmallRedSquareButton_Regular.png",
-    "Tiny Swords/UI Elements/UI Elements/Buttons/TinyRoundBlueButton.png",
-    "Tiny Swords/UI Elements/UI Elements/Buttons/TinyRoundRedButton.png",
-    "Tiny Swords/UI Elements/UI Elements/Buttons/TinySquareBlueButton.png",
-    "Tiny Swords/UI Elements/UI Elements/Buttons/TinySquareRedButton.png",
-    "Tiny Swords/UI Elements/UI Elements/Cursors/Cursor_01.png",
-    "Tiny Swords/UI Elements/UI Elements/Cursors/Cursor_02.png",
-    "Tiny Swords/UI Elements/UI Elements/Cursors/Cursor_03.png",
-    "Tiny Swords/UI Elements/UI Elements/Cursors/Cursor_04.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_01.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_02.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_03.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_04.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_05.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_06.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_07.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_08.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_09.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_10.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_11.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_12.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_13.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_14.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_15.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_16.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_17.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_18.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_19.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_20.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_21.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_22.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_23.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_24.png",
-    "Tiny Swords/UI Elements/UI Elements/Human Avatars/Avatars_25.png",
-    "Tiny Swords/UI Elements/UI Elements/Icons/Icon_01.png",
-    "Tiny Swords/UI Elements/UI Elements/Icons/Icon_02.png",
-    "Tiny Swords/UI Elements/UI Elements/Icons/Icon_03.png",
-    "Tiny Swords/UI Elements/UI Elements/Icons/Icon_04.png",
-    "Tiny Swords/UI Elements/UI Elements/Icons/Icon_05.png",
-    "Tiny Swords/UI Elements/UI Elements/Icons/Icon_06.png",
-    "Tiny Swords/UI Elements/UI Elements/Icons/Icon_07.png",
-    "Tiny Swords/UI Elements/UI Elements/Icons/Icon_08.png",
-    "Tiny Swords/UI Elements/UI Elements/Icons/Icon_09.png",
-    "Tiny Swords/UI Elements/UI Elements/Icons/Icon_10.png",
-    "Tiny Swords/UI Elements/UI Elements/Icons/Icon_11.png",
-    "Tiny Swords/UI Elements/UI Elements/Icons/Icon_12.png",
-    "Tiny Swords/UI Elements/UI Elements/Papers/RegularPaper.png",
-    "Tiny Swords/UI Elements/UI Elements/Papers/SpecialPaper.png",
-    "Tiny Swords/UI Elements/UI Elements/Ribbons/BigRibbons.png",
-    "Tiny Swords/UI Elements/UI Elements/Ribbons/SmallRibbons.png",
-    "Tiny Swords/UI Elements/UI Elements/Swords/Swords.png",
-    "Tiny Swords/UI Elements/UI Elements/Wood Table/WoodTable.png",
-    "Tiny Swords/UI Elements/UI Elements/Wood Table/WoodTable_Slots.png"
   ]
 };

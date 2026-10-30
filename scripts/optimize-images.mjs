@@ -130,3 +130,10 @@ const savedBytes = originalBytes - optimizedBytes;
 const savedPercent = originalBytes === 0 ? 0 : (savedBytes / originalBytes) * 100;
 console.log(`Image optimization: ${pngFiles.length} PNGs converted to lossless WebP.`);
 console.log(`Assets: ${(originalBytes / 1024 / 1024).toFixed(2)} MiB → ${(optimizedBytes / 1024 / 1024).toFixed(2)} MiB (${savedPercent.toFixed(1)}% smaller).`);
+
+// Keep the published inventory aligned with the PNG-to-WebP conversion.
+const inventoryPath = join(assetsDir, 'catalog.json');
+const inventory = JSON.parse(await readFile(inventoryPath, 'utf8'));
+for (const group of Object.values(inventory.groups))
+  group.files = group.files.map(name => imagePaths.has(name) ? name.replace(/\.png$/i, '.webp') : name);
+await writeFile(inventoryPath, JSON.stringify(inventory, null, 2) + '\n');

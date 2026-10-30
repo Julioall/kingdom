@@ -1,6 +1,6 @@
-/* Kingdom pixel UI — layer on top of main.css, using the existing Forja sprites.
+/* Kingdom pixel UI — layer on top of main.css, using the existing UI components sprites.
  * Keep the live map clear: textures here only decorate existing HUD surfaces.
- * Forja source art is 9-slice (64px cuts); its corners stay intact.
+ * UI components source art is 9-slice (64px cuts); its corners stay intact.
  */
 :root{
   --kingdom-pixel-ink:#3d2a19;
@@ -9,7 +9,7 @@
   --kingdom-pixel-shadow:#110d0a;
 }
 
-/* The existing tiny-swords/Forja imagery is nearest-neighbour everywhere. */
+/* The existing tiny-swords/UI components imagery is nearest-neighbour everywhere. */
 .brand-art img,
 .world-rail button,
 .world-metrics .resource-metric,
@@ -53,7 +53,7 @@
   display:flex;flex-direction:column;flex-wrap:nowrap;align-items:center;justify-content:center;
   padding:2px 6px;gap:1px;
   border:4px solid transparent;
-  border-image:url('/assets/kingdom-ui/paper.png') 64 fill / 4px / 0 stretch;
+  border-image:url('/assets/ui/frames/paper.png') 64 fill / 4px / 0 stretch;
   border-radius:0;
   background:transparent;
   box-shadow:none;
@@ -69,7 +69,7 @@
 /* Existing parchment sprite reused on kingdom choices and detailed data cards. */
 .left-panel .community-card{
   border:8px solid transparent;
-  border-image:url('/assets/kingdom-ui/paper.png') 64 fill / 8px / 0 stretch;
+  border-image:url('/assets/ui/frames/paper.png') 64 fill / 8px / 0 stretch;
   border-radius:0;
   background:transparent;
   color:var(--kingdom-pixel-ink);
@@ -99,7 +99,7 @@
 }
 .right-panel .note-card,.right-panel .data-row{
   border:6px solid transparent;
-  border-image:url('/assets/kingdom-ui/paper.png') 64 fill / 6px / 0 stretch;
+  border-image:url('/assets/ui/frames/paper.png') 64 fill / 6px / 0 stretch;
   border-radius:0;
   background:transparent;
   box-shadow:none;
@@ -110,7 +110,7 @@
   .topbar>.world-metrics{flex:1 1 0;justify-content:flex-end}
 }
 
-/* Forja blue/red pixel buttons already provide press and hover sprites.
+/* UI components blue/red pixel buttons already provide press and hover sprites.
  * Their text needs contrast over the dark sprite fill. */
 .right-panel .kingdom-actions button,
 .right-panel .building-picker button{
