@@ -808,17 +808,6 @@ button:disabled{cursor:url('/assets/kingdom-ui/Cursor_03.png') 32 32,not-allowed
 .right-panel.has-ribbon-heading .panel-ribbon .band-right,
 .utility-drawer.has-ribbon-heading .panel-ribbon .band-left,
 .utility-drawer.has-ribbon-heading .panel-ribbon .band-right{
-  flex:0 0 41px;width:41px;height:100%;background-repeat:no-repeat;background-position:center;background-size:100% 100%;
-}
-.right-panel.has-ribbon-heading .panel-ribbon .band-center,
-.utility-drawer.has-ribbon-heading .panel-ribbon .band-center{
-  flex:1 1 0;width:auto;min-width:1px;height:calc(79% - 2px);align-self:center;
-  background-repeat:repeat-x;background-position:left center;background-size:auto 100%;
-}
-.right-panel.has-ribbon-heading .panel-ribbon .band-left,
-.right-panel.has-ribbon-heading .panel-ribbon .band-right,
-.utility-drawer.has-ribbon-heading .panel-ribbon .band-left,
-.utility-drawer.has-ribbon-heading .panel-ribbon .band-right{
   flex:0 0 44px;width:44px;height:100%;background-repeat:no-repeat;background-position:center;background-size:100% 100%;
 }
 .right-panel.has-ribbon-heading .panel-ribbon .band-center,
@@ -828,7 +817,7 @@ button:disabled{cursor:url('/assets/kingdom-ui/Cursor_03.png') 32 32,not-allowed
 }
 .right-panel.has-ribbon-heading .panel-heading>div:not(.panel-ribbon),
 .utility-drawer.has-ribbon-heading .utility-heading>div:not(.panel-ribbon){
-  position:absolute;inset:-5px 38px 5px;z-index:2;display:grid;place-items:center;min-width:0;pointer-events:none;text-align:center;
+  position:absolute;inset:0 38px;z-index:2;display:grid;place-items:center;min-width:0;pointer-events:none;text-align:center;
 }
 .right-panel.has-ribbon-heading .panel-heading small,
 .utility-drawer.has-ribbon-heading .utility-heading small{display:none}
@@ -870,13 +859,13 @@ button:disabled{cursor:url('/assets/kingdom-ui/Cursor_03.png') 32 32,not-allowed
 .world-rail:has(#kingdomsToggle[aria-expanded="true"]){width:min(330px,calc(100vw - 24px));height:50px;gap:0}
 .world-rail:has(#journalToggle[aria-expanded="true"]){width:min(390px,calc(100vw - 24px));height:50px;gap:0}
 .left-panel{top:52px;left:12px;right:auto;bottom:auto;width:min(330px,calc(100vw - 24px));height:auto;max-height:min(58dvh,500px)}
-.left-panel .panel-scroll{flex:0 1 auto;min-height:0;min-width:0;max-height:calc(min(58dvh,470px) - 24px);margin:8px 14px 16px;padding:40px 14px 48px;scroll-padding-block:40px 48px;overflow-x:hidden;overflow-y:auto;scrollbar-gutter:stable;box-sizing:border-box}
+.left-panel .panel-scroll{flex:0 1 auto;min-height:0;min-width:0;max-height:calc(min(58dvh,470px) - 24px);margin:8px 14px 16px;padding:50px 14px;scroll-padding-block:50px;overflow-x:hidden;overflow-y:auto;scrollbar-gutter:stable;box-sizing:border-box}
 .left-panel .panel-scroll>.block:first-child>.block-title{justify-content:flex-end;margin-bottom:0}
 .left-panel .panel-scroll>.block:first-child>.block-title h3{display:none}
 .journal-panel{top:52px;left:12px;right:auto;bottom:16px;width:min(390px,calc(100vw - 24px));height:auto;max-height:none}
 .journal-panel .event-list{
-  flex:1 1 auto;min-height:0;max-height:none;margin:28px 20px;padding:40px 14px 48px;
-  overflow:auto;box-sizing:border-box;scroll-padding-block:40px 48px;
+  flex:1 1 auto;min-height:0;max-height:none;margin:8px 14px 16px;padding:50px 14px;
+  overflow:auto;box-sizing:border-box;scroll-padding-block:50px;
 }
 .journal-panel .event,.journal-panel .event>p{min-width:0;max-width:100%;overflow-wrap:anywhere;white-space:normal}
 .right-panel .panel-scroll,.utility-drawer .utility-content{padding-top:8px;padding-bottom:50px;scroll-padding-top:8px;scroll-padding-bottom:50px}
@@ -890,7 +879,7 @@ button:disabled{cursor:url('/assets/kingdom-ui/Cursor_03.png') 32 32,not-allowed
   .world-rail:has(#kingdomsToggle[aria-expanded="true"]) #journalToggle,
   .world-rail:has(#journalToggle[aria-expanded="true"]) #kingdomsToggle{min-height:48px;height:48px}
   .left-panel{top:42px;left:7px;right:auto;bottom:auto;width:min(330px,calc(100vw - 14px));max-height:min(58dvh,470px)}
-.left-panel .panel-scroll{max-height:calc(min(58dvh,440px) - 22px);margin:8px 10px 14px;padding:40px 11px 50px;scroll-padding-block:40px 50px;overflow-x:hidden;overflow-y:auto;scrollbar-gutter:stable}
+.left-panel .panel-scroll{max-height:calc(min(58dvh,440px) - 22px);margin:8px 10px 14px;padding:50px 11px;scroll-padding-block:50px;overflow-x:hidden;overflow-y:auto;scrollbar-gutter:stable}
   .journal-panel{top:42px;left:7px;right:7px;bottom:72px;width:auto;max-height:none}
   .journal-panel .event-list{margin:8px 10px 14px;padding:50px 11px;max-height:none;scroll-padding-block:50px}
   .right-panel{width:calc((100vw - 65px)*.8)}

@@ -2,7 +2,8 @@ import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
-const output = 'browser-ui-evidence/impact';
+const output = process.env.KINGDOM_IMPACT_OUTPUT || 'browser-ui-evidence/impact';
+const base = process.env.KINGDOM_BROWSER_URL || 'http://127.0.0.1:5173/';
 const bloodMode = process.argv.includes('--blood');
 await mkdir(output, { recursive: true });
 const source = `
@@ -27,7 +28,7 @@ self.addEventListener('message',event=>{
  if(event.data.command?.type==='player-control'&&event.data.command.enabled)
   for(const p of fixtureWorld.people.slice(1))p.playerControlled=true;
  self.postMessage(response);
-});`;
+});`.replaceAll('http://127.0.0.1:5173/', base);
 const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH
   || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
 try {
@@ -60,7 +61,7 @@ try {
       }
     };
   }, source);
-  await page.goto('http://127.0.0.1:5173/?seed=42&paused=1&profile=1');
+  await page.goto(new URL('?seed=42&paused=1&profile=1', base).href);
   await page.waitForFunction(() => window.impactProbe.world && document.querySelector('.app')?.inert === false,
     null, { timeout: 120000 });
   await page.evaluate(() => window.kingdomProfiler.enable({ panel: false }));

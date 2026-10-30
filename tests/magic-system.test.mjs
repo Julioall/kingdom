@@ -12,7 +12,8 @@ function fixture() {
   const caster = { ...person(1, 1, 10), militaryClass: 'monge', militaryLevel: 7, mana: 200, maxMana: 200 };
   const ally = person(2, 1, 12, 45), enemy = person(3, 2, 13, 65);
   const world = { day: 0, width: 32, height: 32, people: [caster, ally, enemy], kingdoms: [], structures: [],
-    magicTimeMs: 0, events: [], logs: [] };
+    magicTimeMs: 0, events: [], logs: [],
+    tiles: Array.from({ length: 32 * 32 }, (_, i) => ({ i, x: i % 32, y: Math.floor(i / 32), terrain: 'land', kingdomId: null })) };
   return { world, caster, ally, enemy };
 }
 const effect = (target, id, intensity, durationMs = 10000) => applyMagicEffect(target, id,

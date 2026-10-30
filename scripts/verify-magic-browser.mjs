@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { SPELLS } from '../src/simulation/magic/catalog.js';
 
 const output = process.argv.find(arg => arg.startsWith('--output='))?.slice('--output='.length) || 'browser-ui-evidence/magic';
+const base = process.env.KINGDOM_BROWSER_URL || 'http://127.0.0.1:5173/';
 await mkdir(output, { recursive: true });
 const workerSource = `
 import { createSimulationWorkerRuntime } from '/src/simulation/worker-runtime.js';
@@ -26,7 +27,7 @@ const runtime = createSimulationWorkerRuntime({ createWorldImpl: seed => {
 self.addEventListener('message', event => self.postMessage(runtime.handle(event.data)));
 `;
 // Absolute URLs are required because the fixture worker lives in a Blob URL.
-const source = workerSource.replaceAll("from '/", "from 'http://127.0.0.1:5173/");
+const source = workerSource.replaceAll("from '/", "from '" + base);
 const browser = await chromium.launch({ headless: true,
   executablePath: process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
 try {
@@ -64,7 +65,7 @@ try {
       }
     };
   }, source);
-  await page.goto('http://127.0.0.1:5173/?seed=42&paused=1&profile=1', { waitUntil: 'domcontentloaded' });
+  await page.goto(new URL('?seed=42&paused=1&profile=1', base).href, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => document.querySelector('.app')?.inert === false && window.magicProbe.world,
     null, { timeout: 120000 });
   await page.evaluate(() => window.kingdomProfiler.enable({ panel: false }));

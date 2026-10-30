@@ -156,7 +156,7 @@ try {
       assert.ok(sample.inspectorWidth <= maxInspectorWidth, 'Inspector is 20% narrower and leaves zoom controls clear');
       assert.ok(sample.kingdomScrollInset.left >= 8 && sample.kingdomScrollInset.right >= 8,
         'Kingdom scroll viewport stays inside the parchment frame');
-      assert.ok(sample.panelRibbons[0].centerHeight === Math.round(50 * .79 - 2)
+      assert.ok(sample.panelRibbons[0].centerHeight === Math.round(47 * .79 - 2)
         && sample.panelRibbons[0].headingOffset <= 6, 'Selection ribbon uses the short center and sits higher on the parchment');
       if (viewport.width <= 760) assert.ok(sample.topbarHeight <= 100, 'Mobile HUD should leave map height available');
       scenario.checks.push('Forja sprites / map stage rendered');
@@ -342,7 +342,7 @@ try {
         return { centerHeight: Math.round(ribbon.children[1].getBoundingClientRect().height),
           headingOffset: Math.round(panel.querySelector('.utility-heading').getBoundingClientRect().top - panel.getBoundingClientRect().top) };
       });
-      assert.equal(settingsRibbonLayout.centerHeight, Math.round(50 * .79 - 2), 'Settings ribbon uses the short center slice');
+      assert.equal(settingsRibbonLayout.centerHeight, Math.round(47 * .79 - 2), 'Settings ribbon uses the short center slice');
       assert.ok(settingsRibbonLayout.headingOffset <= 6, 'Settings ribbon sits higher on the parchment');
       await page.screenshot({ path: resolve(directory, viewport.label + '-settings.png'), timeout: 45_000 });
       await page.locator('.date-metric').click();
