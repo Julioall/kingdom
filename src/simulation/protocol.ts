@@ -56,7 +56,7 @@ export type SimulationWorkerRequest = RequestEnvelope & (
   | { type: 'dispatch'; command: WorldCommand }
   | { type: 'set-kingdom-ai'; enabled: boolean }
   | { type: 'pull-kingdom-ai-request'; limit: number }
-  | { type: 'apply-kingdom-ai-decision'; aiRequest: KingdomAiDecisionRequest; decision: { action: string; confidence: number; reason: string }; providerMetadata?: { provider?: string; model?: string; elapsedMs?: number; outputTokens?: number } }
+  | { type: 'apply-kingdom-ai-decision'; aiRequest: KingdomAiDecisionRequest; decision: { action: string; confidence: number; reason: string }; providerMetadata?: { provider?: string; model?: string; elapsedMs?: number; inputTokens?: number; contextTokens?: number; outputTokens?: number } }
   | { type: 'fail-kingdom-ai-request'; aiRequest: KingdomAiDecisionRequest; failure?: { reason?: string; provider?: string; model?: string } }
   | { type: 'inspect-tile'; x: number; y: number }
 );
@@ -70,6 +70,7 @@ type ResponseEnvelope = {
 
 export type SimulationWorkerResponse = ResponseEnvelope & (
   | { type: 'snapshot'; snapshot: WorldSnapshot; result?: unknown }
+  | { type: 'player-update'; person?: WorldState['people'][number] | null; people?: WorldState['people']; combatEvents?: unknown[]; loot?: unknown[]; trainingDummyStates?: WorldState['trainingDummyStates']; events?: unknown[]; logs?: unknown[]; magicTimeMs?: number; magicZones?: unknown[]; magicEvents?: unknown[]; magicStats?: unknown; result?: unknown }
   | { type: 'ack'; result?: unknown }
   | { type: 'kingdom-ai-request'; request: KingdomAiDecisionRequest | null }
   | { type: 'query'; result: unknown }

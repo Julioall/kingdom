@@ -1,5 +1,7 @@
 import { cellAt } from '../world/spatial.js';
 import { distance } from '../core/math.js';
+import { magicModifiers } from '../magic/effects.js';
+import { isCombatStunned } from '../kingdoms/combat-status.js';
 import { carriedResources } from '../economy/inventories.js';
 import { isTreeAnchor } from '../ecology/plants.js';
 import { canEnterForeignTerritory, markTerritoryStep } from '../kingdoms/territories.js';
@@ -9,9 +11,11 @@ import { congestionRouteStep, rememberedRouteStep, rememberRouteArrival } from '
 import { peopleNear } from './spatial-index.js';
 import { consumePersonEnergy } from './energy.js';
 import { collidesWithWorldAt, hitboxesOverlap, mineralHitbox, npcHitbox, worldCollisionIndex } from '../physics/hitboxes.js';
+import { assignedHerdPen, corralFenceRadius, herdPenRadius } from '../ecology/herd.js';
 
 const PASSAGE_BUSY_ACTIONS = new Set(['forage', 'hunt', 'deliver', 'drink', 'rest', 'build', 'gather',
   'collect_log', 'collect_feed', 'trade', 'capture_sheep', 'lead_sheep', 'raid', 'campaign']);
+const MAX_PASSAGE_HANDOFF_DEPTH = 12;
 
 function insideCorral(x, y, structure, radius) {
   return x > structure.x - radius && x < structure.x + radius
@@ -23,7 +27,7 @@ function resourceBlocksTile(w, tile) {
 }
 
 export function corralGate(w, structure, radiusOverride) {
-  const radius = Math.max(2, Math.round(radiusOverride || structure.radius || 3.5));
+  const radius = Math.max(2, Math.round(radiusOverride || corralFenceRadius(structure)));
   const centerX = Math.round(structure.x), centerY = Math.round(structure.y);
   const candidates = [];
   for (let offset = -radius; offset <= radius; offset++) {
@@ -58,7 +62,7 @@ export function corralGate(w, structure, radiusOverride) {
 
 function activeCorrals(w) {
   return w.structures.filter(structure => structure.complete && structure.type === 'curral').map(structure => {
-    const radius = Math.max(2, Math.round(structure.radius || 3.5));
+    const radius = corralFenceRadius(structure);
     return { structure, radius, gate: corralGate(w, structure, radius) };
   });
 }
@@ -71,6 +75,15 @@ function isCorralFenceCell(corrals, x, y) {
     if (onPerimeter && !(gate.x === x && gate.y === y)) return true;
   }
   return false;
+}
+
+function corralGateExitCell(corral) {
+  const centerX = Math.round(corral.structure.x), centerY = Math.round(corral.structure.y);
+  const outwardX = Math.abs(corral.gate.x - centerX) === corral.radius
+    ? Math.sign(corral.gate.x - centerX) : 0;
+  const outwardY = Math.abs(corral.gate.y - centerY) === corral.radius
+    ? Math.sign(corral.gate.y - centerY) : 0;
+  return { x: corral.gate.x + outwardX, y: corral.gate.y + outwardY };
 }
 
 function corralWaypoint(agent, target, corrals) {
@@ -95,9 +108,17 @@ function canEnter(w, agent, tile, aquatic, pen, corrals, movementOptions) {
   if (!aquatic && !canEnterForeignTerritory(w, agent, tile)) return false;
   if (movementOptions?.allowedTile && !movementOptions.allowedTile(tile)) return false;
   if (!aquatic && isCorralFenceCell(corrals, tile.x, tile.y)) return false;
+  if (pen && distance(tile, pen) > herdPenRadius(pen) && !movementOptions?.allowPenReturn) {
+    const penCorral = corrals.find(corral => corral.structure.id === pen.id);
+    const isGate = penCorral && tile.x === penCorral.gate.x && tile.y === penCorral.gate.y;
+    const exit = penCorral && corralGateExitCell(penCorral);
+    const isGateExit = penCorral && Math.round(agent.x) === penCorral.gate.x
+      && Math.round(agent.y) === penCorral.gate.y && tile.x === exit.x && tile.y === exit.y;
+    if (!isGate && !isGateExit) return false;
+  }
   if (!aquatic && movementOptions?.collisionIndex
       && collidesWithWorldAt(w, agent, tile.x, tile.y, movementOptions.collisionIndex)) return false;
-  return !pen || distance(tile, pen) <= (pen.radius || 3.5);
+  return true;
 }
 
 function canStep(w, agent, from, to, aquatic, pen, corrals, movementOptions) {
@@ -156,16 +177,41 @@ function personById(w, id) {
   return (w.people || []).find(person => person.id === id && person.alive);
 }
 
+function ledSheepFor(w, person) {
+  return person.leadingSheepId == null ? null : w.animals.find(animal => animal.id === person.leadingSheepId
+    && animal.alive && animal.beingLedBy === person.id) || null;
+}
+
+function syncLedSheepPosition(w, person) {
+  const sheep = ledSheepFor(w, person);
+  if (!sheep) return;
+  // A passage handoff is part of the handler's actual step, so keep the pair
+  // together before another traveler attempts to occupy the just-cleared tile.
+  sheep.x = person.x + .25;
+  sheep.y = person.y + .15;
+}
+
 function canYieldPassage(w, person, requester) {
-  if (person.role === 'soldier') return person.alive && !person.towerMounted
-    && person.kingdomId === requester.kingdomId && person.campaignId != null
-    && person.campaignId === requester.campaignId
-    && w.day - (person.lastMilitaryAttackDay ?? -Infinity) > 1
-    && person.health >= 28 && person.energy >= 12;
+  if (person.role === 'soldier') {
+    const healthyAndReady = person.alive && !person.towerMounted
+      && w.day - (person.lastMilitaryAttackDay ?? -Infinity) > 1
+      && person.health >= 28 && person.energy >= 12;
+    const sameCampaign = person.kingdomId === requester.kingdomId && person.campaignId != null
+      && person.campaignId === requester.campaignId;
+    // Local shepherds may pass a healthy guard on friendly ground; active
+    // combat, tower duty and recently attacked soldiers remain in position.
+    const friendlyShepherdPass = ledSheepFor(w, requester) && person.kingdomId != null
+      && person.kingdomId === requester.kingdomId
+      && cellAt(w, Math.round(person.x), Math.round(person.y))?.kingdomId === person.kingdomId;
+    return healthyAndReady && (sameCampaign || friendlyShepherdPass);
+  }
+  const ledSheep = ledSheepFor(w, person);
   const assignment = person.assignment;
+  const activeAssignment = assignment && (assignment.expiresDay == null || assignment.expiresDay >= w.day) && !assignment.pauseReason;
+  const shepherdCanYield = ledSheep && person.brain?.lastAction === 'lead_sheep';
   return person.alive && person.role !== 'soldier'
-    && !(assignment && (assignment.expiresDay == null || assignment.expiresDay >= w.day) && !assignment.pauseReason)
-    && !PASSAGE_BUSY_ACTIONS.has(person.brain?.lastAction)
+    && (!activeAssignment || shepherdCanYield)
+    && (!PASSAGE_BUSY_ACTIONS.has(person.brain?.lastAction) || shepherdCanYield)
     && !(Number.isFinite(person.health) && person.health < 30)
     && !(Number.isFinite(person.energy) && person.energy < 12);
 }
@@ -177,6 +223,11 @@ function respondToPassageRequest(w, person) {
   if (request.expiresDay < w.day) return false;
   const requester = personById(w, request.requesterId);
   if (!requester || Math.hypot(requester.x - request.x, requester.y - request.y) > 2) return false;
+  const passageChain = request.passageChain instanceof Set ? request.passageChain : new Set();
+  if (passageChain.has(person.id) || passageChain.size >= MAX_PASSAGE_HANDOFF_DEPTH) {
+    requester.passageResponse = { personId: person.id, accepted: false, day: w.day };
+    return false;
+  }
   if (!canYieldPassage(w, person, requester)) {
     requester.passageResponse = { personId: person.id, accepted: false, day: w.day };
     return false;
@@ -197,11 +248,16 @@ function respondToPassageRequest(w, person) {
   candidates.sort((a, b) => a.lateral - b.lateral
     || Math.hypot(b.tile.x - requester.x, b.tile.y - requester.y) - Math.hypot(a.tile.x - requester.x, a.tile.y - requester.y)
     || a.tile.y - b.tile.y || a.tile.x - b.tile.x);
-  for (const { tile } of candidates) {
-    if (moveOne(w, person, tile, false, { passageYield: true })) {
-      requester.passageResponse = { personId: person.id, accepted: true, day: w.day };
-      return true;
+  passageChain.add(person.id);
+  try {
+    for (const { tile } of candidates) {
+      if (moveOne(w, person, tile, false, { passageYield: true, passageChain })) {
+        requester.passageResponse = { personId: person.id, accepted: true, day: w.day };
+        return true;
+      }
     }
+  } finally {
+    passageChain.delete(person.id);
   }
   requester.passageResponse = { personId: person.id, accepted: false, day: w.day };
   return false;
@@ -299,7 +355,16 @@ function persistentCongestionStep(w, agent, start, destination, canEnterFree, ca
 }
 
 export function moveOne(w, agent, target, aquatic, movementOptions = null) {
+    if (isCombatStunned(agent, w.day, w.magicTimeMs || 0)) return false;
+    if (agent.playerControlled) return false;
+    if (agent.magicCast) return false;
     if (!target) return false;
+    if (agent.speciesId == null && !movementOptions?.passageYield && !movementOptions?.magicExtraStep) {
+      const speed = agent.magicEffects?.length ? magicModifiers(agent, w).speed : 1;
+      agent.magicStrideCredit = Math.min(2, (agent.magicStrideCredit || 0) + speed);
+      if (agent.magicStrideCredit < 1) return false;
+      agent.magicStrideCredit -= 1;
+    }
     movementOptions = { ...(movementOptions || {}), collisionIndex: worldCollisionIndex(w) };
     if (!movementOptions?.passageYield) respondToPassageRequest(w, agent);
     const currentTile = cellAt(w, Math.round(agent.x), Math.round(agent.y));
@@ -311,7 +376,11 @@ export function moveOne(w, agent, target, aquatic, movementOptions = null) {
     const destination = corralWaypoint(agent, target, corrals);
     const current = { x: Math.round(agent.x), y: Math.round(agent.y) };
     const pen = agent.speciesId === 'sheep' && agent.herdCommunityId !== null
-      ? w.structures.find(s => s.complete && s.type === 'curral' && s.communityId === agent.herdCommunityId) : null;
+      ? assignedHerdPen(w, agent) : null;
+    const returningToPen = pen
+      && !insideCorral(agent.x, agent.y, pen, corralFenceRadius(pen))
+      && insideCorral(target.x, target.y, pen, corralFenceRadius(pen));
+    if (returningToPen) movementOptions.allowPenReturn = true;
     function stepToward(from, avoidPeople = true) {
       const canEnterAgent = tile => canEnter(w, agent, tile, aquatic, pen, corrals, movementOptions)
         && (!avoidPeople || aquatic || agent.speciesId != null || !personOnTile(w, tile, agent));
@@ -355,9 +424,19 @@ export function moveOne(w, agent, target, aquatic, movementOptions = null) {
       const preferred = stepToward(current, false);
       const blocker = personOnTile(w, preferred, agent);
       if (blocker) {
-        blocker.passageRequest = { requesterId: agent.id, x: preferred.x, y: preferred.y, expiresDay: w.day + 1 };
-        agent.passageRequestSent = { personId: blocker.id, x: preferred.x, y: preferred.y, day: w.day };
-        respondToPassageRequest(w, blocker);
+        const passageChain = movementOptions.passageChain instanceof Set ? movementOptions.passageChain : new Set();
+        if (!passageChain.has(blocker.id) && passageChain.size < MAX_PASSAGE_HANDOFF_DEPTH) {
+          const ownsChainEntry = !passageChain.has(agent.id);
+          if (ownsChainEntry) passageChain.add(agent.id);
+          blocker.passageRequest = { requesterId: agent.id, x: preferred.x, y: preferred.y,
+            expiresDay: w.day + 1, passageChain };
+          agent.passageRequestSent = { personId: blocker.id, x: preferred.x, y: preferred.y, day: w.day };
+          try {
+            respondToPassageRequest(w, blocker);
+          } finally {
+            if (ownsChainEntry) passageChain.delete(agent.id);
+          }
+        }
         const canEnterFree = tile => canEnter(w, agent, tile, aquatic, pen, corrals, movementOptions) && !personOnTile(w, tile, agent);
         const canStepFree = (from, to) => canStep(w, agent, from, to, aquatic, pen, corrals, movementOptions) && !personOnTile(w, to, agent);
         first = !personOnTile(w, preferred, agent) ? preferred : localCongestionStep(w, agent,
@@ -415,9 +494,14 @@ export function moveOne(w, agent, target, aquatic, movementOptions = null) {
       agent.headingX = next.x - agent.x; agent.headingY = next.y - agent.y;
       agent.x = next.x; agent.y = next.y;
       w.peopleSpatialIndex?.move(agent);
+      if (agent.speciesId == null && agent.leadingSheepId != null) syncLedSheepPosition(w, agent);
       markTerritoryStep(w, agent, next);
       recordFootstep(next, agent, w.day);
     }
     rememberRouteArrival(agent, route.at(-1).i);
+    if (agent.speciesId == null && !movementOptions.magicExtraStep && agent.magicStrideCredit >= 1) {
+      agent.magicStrideCredit -= 1;
+      moveOne(w, agent, target, aquatic, { ...movementOptions, magicExtraStep: true });
+    }
     return true;
   }

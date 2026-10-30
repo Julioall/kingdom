@@ -1,6 +1,15 @@
+import { dominantMetalKind } from '../config/mineral-deposits.js';
+import { dashPosition, dashGhosts, DASH_TRAIL_FADE_MS } from './dash-presentation.js';
+import { knockbackPose } from './knockback-presentation.js';
+import { drawBloodBurst, drawBloodStains } from './blood-presentation.js';
+import { isCombatStunned } from '../simulation/kingdoms/combat-status.js';
+import { manualAttackProfile } from '../simulation/kingdoms/military.js';
+import { createCombatAction } from '../simulation/kingdoms/combat-contact.js';
+import { createManualMovementPrediction } from './manual-movement-prediction.js';
 import { resourceSummary } from './gameplay-data.js';
+import { formatWholeMeasure } from './whole-measures.js';
 import { buildingCard, kingdomOverview } from './building-card.js';
-import { towerVitality, campaignTower } from '../simulation/kingdoms/fortifications.js';
+import { towerVitality } from '../simulation/kingdoms/fortifications.js';
 import { activeLeadershipRank } from '../simulation/kingdoms/military-identity.js';
 import { createMovementInterpolator } from './movement-interpolation.js';
 import { createDamageBarTracker } from './health-bars.js';
@@ -11,27 +20,71 @@ import LocalAI from '../ai/local-engine.js';
 import { readLocalAiPreference, writeLocalAiPreference } from '../ai/preference.js';
 import { DOMESTIC_SHEEP_DAILY_FEED, SHEEP_ADULT_AGE_DAYS, SHEEP_JUVENILE_MIN_SCALE } from '../config/ecosystem.js';
 import { isRoadTile, ROAD_RULES } from '../simulation/world/roads.js';
+import { trainingDummiesForWorld } from '../simulation/world/training-dummies.js';
+import { SPELLS, equippedSpells } from '../simulation/magic/catalog.js';
+import { magicHasActivity } from '../simulation/magic/system.js';
+import { createMagicPresentation } from './magic/presentation.js';
+import { renderMagicInspector, magicInspectorCommand } from './magic/inspector.js';
 import { isBushAnchor } from '../simulation/ecology/plants.js';
 import { CHARACTER_SPRITE_SCALE, MILITARY_SPRITES, militarySpritePose } from './military-sprites.js';
 import { createAnimationRenderer, getUnitAnimation, getAnimationFrame } from './animations.js';
-import { residentSpritePose, createActorAnimationClock, createActivityEffects } from './person-animations.js';
+import { residentSpritePose, createActorAnimationClock, createActivityEffects, priestCastAnimationPose } from './person-animations.js';
 import { createGameAudio, windGainAtZoom } from './game-audio.js';
 import { musicGainAtZoom } from './music-audio.js';
 import { mapDecorationAt, MAP_DECORATION_SPRITES } from './map-decorations.js';
 import { MILITARY_PAY, GARRISON_RECOVERY } from '../simulation/kingdoms/service.js';
-import { mapCamera, spriteScale, BUILDING_FEET, alignedTileRect, SOURCE_TILE_PIXELS } from './map-camera.js';
+import { MILITARY_SOURCE_LABELS } from '../simulation/kingdoms/military-sources.js';
+import { mapCamera, followCameraPan, spriteScale, BUILDING_FEET, alignedTileRect, SOURCE_TILE_PIXELS } from './map-camera.js';
 import { structureDepthY } from './world-depth.js';
 import { createCloudSystem, atmosphereZoomProfile } from './cloud-system.js';
 import AtmosphericLayer from './atmospheric-layer.js';
-import DirtBrush from './dirt-brush.js';
+import DirtBrush, { SOIL_PALETTE } from './dirt-brush.js';
 import { createLoadingScreen } from './loading-screen.js';
+import { renderSocialInspectorSections } from './social-inspector.js';
 import { createRenderDiagnostics } from './render-profiler-panel.js';
+import { syncHudPanelAccess } from './hud-panel-access.js';
+import { createKingThoughts } from './king-thoughts.js';
 import { createTerrainChunkCache } from './terrain-chunks.js';
 import { createPixelTileCache } from './pixel-tile-cache.js';
 import { compareDepth, mergeDepthItems } from './depth-order.js';
+import { createStaticDepthSpatialIndex } from './depth-spatial-index.js';
+import { shouldDrawMineralAtZoom } from './mineral-lod.js';
+import { MINERAL_SPRITE_KINDS, mineralDepositVariant } from './mineral-sprites.js';
+import { CORRAL_VISUAL_SCALE, corralFenceRadius } from '../simulation/ecology/herd.js';
+
 
 const IMAGE_ASSET_EXTENSION = import.meta.env?.PROD ? 'webp' : 'png';
 const imageFileName = name => `${name}.${IMAGE_ASSET_EXTENSION}`;
+const lightenHexColor = (hex, amount) => {
+  const value = Number.parseInt(hex.slice(1), 16);
+  return '#' + [16, 8, 0].map(shift => {
+    const channel = value >> shift & 255;
+    return Math.round(channel + (255 - channel) * amount).toString(16).padStart(2, '0');
+  }).join('');
+};
+const PATH_SOIL_PALETTE = Object.freeze(Object.fromEntries(Object.entries(SOIL_PALETTE)
+  .map(([name, color]) => [name, lightenHexColor(color, .25)])));
+const RIBBON_PALETTE = Object.freeze({ blue: 'cyan', cyan: 'cyan', red: 'red', purple: 'purple', yellow: 'yellow', black: 'black' });
+const ARCHER_READY_FRAME_MS = 400;
+const ARCHER_RELEASE_FRAME_MS = 500;
+
+function setModalRibbon(panel, forjaUI, color) {
+  if (!panel) return;
+  const heading = panel && [...panel.children].find(child => child.classList.contains('panel-heading')
+    || child.classList.contains('utility-heading'));
+  if (!heading || !forjaUI?.ribbon) return;
+  const ribbonColor = RIBBON_PALETTE[color] || 'black';
+  let ribbon = [...heading.children].find(child => child.classList.contains('panel-ribbon'));
+  if (ribbon?.dataset.ribbonColor === ribbonColor) return;
+  const nextRibbon = forjaUI.ribbon(ribbonColor, '', 'panel-ribbon', 47);
+  nextRibbon.dataset.ribbonColor = ribbonColor;
+  nextRibbon.setAttribute('aria-hidden', 'true');
+  nextRibbon.querySelector('.ribbon-text')?.remove();
+  if (ribbon) ribbon.replaceWith(nextRibbon);
+  else heading.prepend(nextRibbon);
+  heading.dataset.ribbonColor = ribbonColor;
+  panel.classList.add('has-ribbon-heading');
+}
 
 function atmosphereProfileForZoom(zoom) {
   const density = atmosphereZoomProfile(zoom).fogDensity;
@@ -57,11 +110,12 @@ export function mountGame() {
   const diagnosticQuery = new URLSearchParams(window.location.search);
   const referenceRendering = diagnosticQuery.get('profile') === '1' && diagnosticQuery.get('render') === 'reference';
   const fixedEffects = diagnosticQuery.get('profile') === '1' && diagnosticQuery.get('effects') === 'fixed';
+  const combatDebug = diagnosticQuery.get('combatDebug') === '1';
   const trackedImage = () => loadingScreen.trackImage(new Image());
   const $ = id => document.getElementById(id);
   const forjaUI = window.FantasyUI;
   if (forjaUI) {
-    for (const [selector, skin] of [['.topbar', 'wood'], ['.mini-map-panel', 'wood'], ['.left-panel', 'scroll'], ['.right-panel', 'paper'], ['.journal-panel', 'scroll'], ['.utility-drawer', 'wood']]) {
+    for (const [selector, skin] of [['.topbar', 'wood'], ['.mini-map-panel', 'wood'], ['.left-panel', 'scroll'], ['.right-panel', 'scroll'], ['.journal-panel', 'scroll'], ['.utility-drawer', 'scroll']]) {
       const panel = document.querySelector(selector);
       if (panel && !panel.querySelector(':scope > .skin-layer')) {
         panel.classList.add('ui-skinned-panel');
@@ -69,8 +123,26 @@ export function mountGame() {
         panel.prepend(forjaUI.skinLayer(skin));
       }
     }
+    for (const [id, color] of [['kingdomsToggle', 'yellow'], ['journalToggle', 'cyan']]) {
+      const button = $(id);
+      if (button && !button.querySelector(':scope > .rail-ribbon')) {
+        const ribbon = forjaUI.ribbon(color, '', 'rail-ribbon', 50);
+        ribbon.dataset.ribbonColor = color;
+        ribbon.setAttribute('aria-hidden', 'true');
+        ribbon.querySelector('.ribbon-text')?.remove();
+        button.prepend(ribbon);
+      }
+    }
+    setModalRibbon($('rightPanel'), forjaUI, 'black');
+    setModalRibbon($('settingsTray'), forjaUI, 'black');
   }
   const canvas = $('world');
+  canvas.tabIndex = 0;
+  const parryStarSprite = trackedImage();
+  parryStarSprite.src = '/assets/kingdom-ui/' + imageFileName('parry-star');
+  const deathSprite = trackedImage();
+  deathSprite.addEventListener('load', () => { if (world) drawMap(); });
+  deathSprite.src = '/assets/tiny-swords/military/dead.png';
   const selectionFrameSprite = trackedImage();
   selectionFrameSprite.addEventListener('load', () => { if (world) drawMap(); });
   selectionFrameSprite.src = '/assets/kingdom-ui/Cursor_04.png';
@@ -89,21 +161,25 @@ export function mountGame() {
   ctx.imageSmoothingEnabled = false;
   groundCacheContext.imageSmoothingEnabled = false;
   const W = Sim.width, H = Sim.height, TILE = LOGICAL_SIZE / W, stage = canvas.parentElement;
+  const magicVfx = createMagicPresentation({ tileSize: TILE });
+  const kingThoughts = createKingThoughts(stage);
   const terrainChunks = createTerrainChunkCache({ width: W, height: H, tileSize: TILE });
   const pixelTiles = createPixelTileCache();
-  let terrainSyncRevision = -1, terrainSyncFallback = null, assetRevision = 0, renderTimestamp = null;
+  let terrainSyncRevision = -1, terrainSyncFallback = null, assetRevision = 0, terrainAssetRevision = 0, renderTimestamp = null;
   const seasonNames = Sim.seasons;
   const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0] || 1;
   const requestedSeed = diagnosticQuery.get('seed');
   const sessionSeed = requestedSeed !== null && /^\d+$/.test(requestedSeed) && Number(requestedSeed) <= 0xffffffff
     ? Number(requestedSeed) : randomSeed();
-  const PATH_VISUAL_STRENGTH = 1.5; // 50% stronger footpath shading.
-  const PATH_EDGE_IRREGULARITY = 1; // DirtBrush maximum.
+  const PATH_TRAIL_OPACITY = .74;
+  const PATH_TRAIL_WIDTH = 8;
+  const PATH_EDGE_IRREGULARITY = .77;
   const trailCanvasScale = 1;
+  const trailBrushSize = PATH_TRAIL_WIDTH * trailCanvasScale;
   const trailCanvas = document.createElement('canvas');
   trailCanvas.width = trailCanvas.height = LOGICAL_SIZE * trailCanvasScale;
-  const dirtBrush = new DirtBrush({ canvas: trailCanvas, size: 5, irregularity: PATH_EDGE_IRREGULARITY,
-    seed: sessionSeed ^ 0x4d2b79f5, autoBind: false });
+  const dirtBrush = new DirtBrush({ canvas: trailCanvas, size: trailBrushSize, irregularity: PATH_EDGE_IRREGULARITY,
+    palette: PATH_SOIL_PALETTE, seed: sessionSeed ^ 0x4d2b79f5, autoBind: false });
   const trailLastPositionByPerson = new Map();
   const trailSegmentByPerson = new Map();
   const pendingPersonTrailPoints = new Map();
@@ -117,8 +193,129 @@ export function mountGame() {
 
   let world = null, rendered = false, localAI = null;
   let peopleById = new Map(), animalsById = new Map(), communitiesById = new Map(), kingdomsById = new Map(), structuresById = new Map();
-  let selection = null, showLeft = false, showRight = false, hoveredTerritoryStructureId = null, hoveredMapEntity = false;
-  let kingdomActionNotice = '';
+  let selection = null, showLeft = false, showRight = false, hoveredTerritoryStructureId = null, hoveredMapEntity = false, hoveredPersonId = null;
+  let manualControlId = null, manualAimWorld = null, manualDefending = false, manualHealing = false, lastManualInputKey = '';
+  const manualHeldKeys = new Set();
+  let manualAttackPreview = null, lastManualPointer = null;
+  const dashPresentations = new Map();
+  let lastDashEvent = 0;
+  let manualDispatchQueue = Promise.resolve();
+  const queueManualDispatch = command => {
+    manualDispatchQueue = manualDispatchQueue.then(() => session.dispatch(command)).catch(error => {
+      if (!isResetCancellation(error)) console.error('[Controle manual]', error);
+    });
+    return manualDispatchQueue;
+  };
+  const isEditableTarget = target => !!target?.closest?.('input, textarea, select, button, [contenteditable="true"]');
+  const currentManualPerson = () => manualControlId == null ? null : peopleById.get(manualControlId) || null;
+  const primaryIsHealing = () => {
+    const person = currentManualPerson();
+    return person?.militaryClass === 'monge' && SPELLS[equippedSpells(person)[0]]?.kind === 'heal';
+  };
+  const manualPrediction = createManualMovementPrediction();
+  let lastManualTick = 0;
+  function sendManualInput(dt = 0) {
+    const person = currentManualPerson();
+    if (!person || !world || dt && !person.playerControlled) return;
+    const moveX = Number(manualHeldKeys.has('d')) - Number(manualHeldKeys.has('a'));
+    const moveY = Number(manualHeldKeys.has('s')) - Number(manualHeldKeys.has('w'));
+    let aimX, aimY, aimBucket = '';
+    if (person.role === 'soldier' && manualAimWorld) {
+      aimX = Math.max(0, Math.min(W - .001, manualAimWorld.x));
+      aimY = Math.max(0, Math.min(H - .001, manualAimWorld.y));
+      const angle = Math.atan2(aimY - person.y, aimX - person.x);
+      aimBucket = Math.round(angle / (Math.PI / 16));
+    }
+    const healingTarget = hoveredPersonId == null ? null : getPerson(hoveredPersonId);
+    const healingTargetId = healingTarget?.kingdomId === person.kingdomId ? healingTarget.id : null;
+    const signature = [moveX, moveY, Number(manualDefending), Number(manualHealing), healingTargetId ?? '', aimBucket].join(':');
+    if (dt && ['shield-bash', 'lance-charge'].includes(manualAttackPreview?.action.attackVariant)) return;
+    if (!dt && signature === lastManualInputKey) return;
+    if (dt && !moveX && !moveY && !manualHealing && !(person.playerFlurryUntil > Date.now())) return;
+    lastManualInputKey = signature;
+    const command = { type: 'player-input', personId: person.id, moveX, moveY, dt,
+      defending: manualDefending, healing: manualHealing && person.militaryClass === 'monge',
+      healingTargetId: healingTargetId ?? undefined,
+      aimX, aimY };
+    if (dt) {
+      manualPrediction.predict(world, person, command);
+      session.dispatch(command).catch(error => { if (!isResetCancellation(error)) console.error('[Controle manual]', error); });
+    } else queueManualDispatch(command);
+  }
+  function updateManualAim(event, forceMouse = false, redraw = true) {
+    if (manualControlId == null || !forceMouse && event.pointerType !== 'mouse' || !world) return;
+    lastManualPointer = { clientX: event.clientX, clientY: event.clientY, pointerType: 'mouse' };
+    const rect = stage.getBoundingClientRect();
+    const point = currentMapCamera().toWorld(event.clientX - rect.left, event.clientY - rect.top);
+    const picked = pickEntity(point.x / TILE, point.y / TILE);
+    const targetPerson = picked?.kind === 'person' ? getPerson(picked.id) : null;
+    const nextAim = targetPerson && targetPerson.kingdomId !== currentManualPerson()?.kingdomId
+      ? { x: targetPerson.x, y: targetPerson.y }
+      : { x: Math.max(0, Math.min(W - .001, point.x / TILE)),
+        y: Math.max(0, Math.min(H - .001, point.y / TILE)) };
+    const visualChanged = !manualAimWorld || Math.hypot(nextAim.x - manualAimWorld.x, nextAim.y - manualAimWorld.y) > .06;
+    manualAimWorld = nextAim;
+    if (currentManualPerson()?.role === 'soldier') sendManualInput();
+    if (visualChanged && redraw) drawMap();
+  }
+  function queueManualAttack(actionKey) {
+    const person = currentManualPerson();
+    if (!person || person.role !== 'soldier' || !manualAimWorld) return;
+    let aimX = Math.max(0, Math.min(W - .001, manualAimWorld.x));
+    let aimY = Math.max(0, Math.min(H - .001, manualAimWorld.y));
+    const hoveredTargetPerson = hoveredPersonId == null ? null : getPerson(hoveredPersonId);
+    const target = hoveredTargetPerson?.alive
+      ? { kind: 'person', id: hoveredTargetPerson.id } : pickEntity(aimX, aimY);
+    const hoveredTarget = target?.kind === 'person' ? getPerson(target.id) : null;
+    const locksTarget = hoveredTarget && (person.militaryClass === 'monge'
+      || hoveredTarget.id !== person.id && hoveredTarget.kingdomId !== person.kingdomId);
+    if (locksTarget) { aimX = hoveredTarget.x; aimY = hoveredTarget.y; }
+    const profile = manualAttackProfile(person, actionKey);
+    const preview = profile && (target?.kind === 'training-dummy' || (person.stamina ?? 100) >= (profile.minStamina || 8))
+      && !isCombatStunned(person, world.day, world.magicTimeMs || 0) ? {
+        personId: person.id, previousId: person.combatAction?.id, startedAt: animationTime,
+        action: createCombatAction({ combatSequence: 0, rngState: 42 }, { ...person },
+          { id: -1, x: aimX, y: aimY }, world.day,
+          { ...profile, reach: profile.range, aim: { x: aimX, y: aimY }, targetLock: !!locksTarget })
+      } : null;
+    manualAttackPreview = preview;
+    queueManualDispatch({ type: 'player-action', personId: person.id, actionKey,
+      aimX, aimY, targetId: target?.kind === 'training-dummy' ? target.id
+        : locksTarget ? hoveredTarget.id : undefined })
+      .finally(() => { if (manualAttackPreview === preview) manualAttackPreview = null; });
+  }
+  function toggleManualControl() {
+    if (!world) return;
+    manualPrediction.reset(); manualAttackPreview = null;
+    const selectedPerson = selection?.kind === 'person' ? getPerson(selection.id) : null;
+    if (manualControlId != null && (!selectedPerson || selectedPerson.id === manualControlId)) {
+      const previousId = manualControlId;
+      manualControlId = null; manualAimWorld = null; manualDefending = false; manualHealing = false;
+      manualHeldKeys.clear(); lastManualInputKey = '';
+      queueManualDispatch({ type: 'player-control', personId: previousId, enabled: false });
+    } else if (selectedPerson?.alive) {
+      manualControlId = selectedPerson.id; manualDefending = false; manualHealing = false;
+      mapZoom = Math.max(mapZoom, FIT_MAP_ZOOM);
+      showRight = false; $('rightPanel').classList.remove('is-open');
+      syncPanelAccess(); updateMapViewport();
+      manualHeldKeys.clear(); lastManualInputKey = '';
+      const facingX = selectedPerson.militaryFacingX || 1, facingY = selectedPerson.militaryFacingY || 0;
+      const length = Math.hypot(facingX, facingY) || 1;
+      manualAimWorld = { x: Math.max(0, Math.min(W - .001, selectedPerson.x + facingX / length * 4)),
+        y: Math.max(0, Math.min(H - .001, selectedPerson.y + facingY / length * 4)) };
+      queueManualDispatch({ type: 'player-control', personId: selectedPerson.id, enabled: true });
+    } else return;
+    sendManualInput();
+    renderInspector(); drawMap();
+  }
+  function clearManualInput() {
+    if (manualControlId == null) return;
+    manualHeldKeys.clear(); manualDefending = false; manualHealing = false;
+    lastManualInputKey = '';
+    sendManualInput();
+  }
+  const syncPanelAccess = () => syncHudPanelAccess($('leftPanel'), $('rightPanel'), { leftOpen: showLeft, rightOpen: showRight });
+  syncPanelAccess();
   const isResetCancellation = error => error && error.name === 'AbortError';
   session.onUpdate = (nextWorld, _stats, reset) => {
     world = nextWorld;
@@ -127,13 +324,20 @@ export function mountGame() {
     communitiesById = new Map(world.communities.map(community => [community.id, community]));
     kingdomsById = new Map(world.kingdoms.map(kingdom => [kingdom.id, kingdom]));
     structuresById = new Map(world.structures.map(structure => [structure.id, structure]));
+    if (manualControlId != null && !peopleById.get(manualControlId)?.alive) {
+      manualControlId = null; manualAimWorld = null; manualDefending = false; manualHealing = false;
+      manualHeldKeys.clear(); lastManualInputKey = '';
+    }
+    manualPrediction.reconcile(world, currentManualPerson());
     invalidateStaticDepthCache();
 
     movementInterpolator.observe(world, performance.now(), { reset, speed: session.speed });
     npcDamageBars.observe(world.people, performance.now(), reset);
     structureDamageBars.observe(world.structures.map(s => ({ id: s.id, alive: s.destroyedDay == null,
       lastAttackSequence: s.lastAttackSequence })), performance.now(), reset);
+    observeDashPresentations(world, animationTime, reset);
     activityEffects.observe(world, animationTime, reset);
+    magicVfx.sync(world, animationTime, reset);
     gameAudio.observe(world, animationTime, reset);
     for (const person of world.people) if (person.combatAction?.day === world.day) {
       actorAnimationClock.elapsed('combat:' + person.id, String(person.combatAction.id), animationTime);
@@ -143,19 +347,23 @@ export function mountGame() {
     }
     activeMiningSites = new Set(world.people.filter(person => person.alive && person.visualActivity?.day === world.day
       && person.visualActivity.kind === 'mine').map(person => person.visualActivity.x + ':' + person.visualActivity.y));
-    actorAnimationClock.retain(new Set(world.people.filter(person => person.alive).flatMap(person => [person.id, 'shot:' + person.id, 'combat:' + person.id, 'defense:' + person.id])));
+    actorAnimationClock.retain(new Set(world.people.filter(person => person.alive).flatMap(person => [person.id, 'shot:' + person.id, 'combat:' + person.id, 'defense:' + person.id, 'launch:' + person.id])));
     for (const kingdom of world.kingdoms) ensureTinyPalette(kingdom.palette);
     if (reset) {
+      magicGeneration++; magicAccumulator = 0; magicTickPending = false; lastMagicFrame = 0;
       dirtBrush.clear();
       trailLastPositionByPerson.clear();
       trailSegmentByPerson.clear();
       pendingPersonTrailPoints.clear();
       lastTrailFlushAt = performance.now();
       selection = null;
+      manualPrediction.reset(); manualAttackPreview = null;
+      manualControlId = null; manualAimWorld = null; manualDefending = false;
+      manualHeldKeys.clear(); lastManualInputKey = '';
       showRight = false;
 
       $('rightPanel').classList.remove('is-open');
-      kingdomActionNotice = '';
+      syncPanelAccess();
       actorAnimationClock.clear();
       invalidateStaticDepthCache();
       resetMapViewport(MIN_MAP_ZOOM);
@@ -168,6 +376,38 @@ export function mountGame() {
       loadingScreen.markWorldReady();
     } else render('snapshot');
     if (localAI) localAI.pump();
+  };
+  session.onPlayerUpdate = (combat, personIds, magic = false) => {
+    if (!world) return;
+    magicVfx.sync(world, animationTime);
+    const controlled = currentManualPerson();
+    if (controlled?.militaryClass === 'monge' && !controlled.playerHealing) manualHealing = false;
+    if (personIds.includes(manualControlId)) manualPrediction.reconcile(world, currentManualPerson());
+    if (magic) {
+      npcDamageBars.observe(world.people, performance.now(), false);
+      activityEffects.observe(world, animationTime, false);
+      gameAudio.observe(world, animationTime, false);
+      return;
+    }
+    if (!combat) return;
+    invalidateStaticDepthCache();
+    if (selection?.kind === 'training-dummy') renderInspector();
+    let combatPresentationAt = animationTime;
+    const preview = manualAttackPreview;
+    if (preview && personIds.includes(preview.personId) && controlled?.combatAction
+        && controlled.combatAction.id !== preview.previousId) {
+      const prepared = Math.min(animationTime - preview.startedAt, preview.action.windupMs * .85);
+      combatPresentationAt -= prepared;
+      actorAnimationClock.startAt('combat:' + controlled.id, String(controlled.combatAction.id), animationTime - prepared);
+      manualAttackPreview = null;
+    }
+    npcDamageBars.observe(world.people, performance.now(), false);
+    observeDashPresentations(world, combatPresentationAt, false);
+    activityEffects.observe(world, combatPresentationAt, false);
+    gameAudio.observe(world, combatPresentationAt, false);
+    const person = currentManualPerson();
+    if (person?.combatAction?.day === world.day)
+      actorAnimationClock.elapsed('combat:' + person.id, String(person.combatAction.id), animationTime);
   };
   session.onError = error => {
     if (isResetCancellation(error)) return;
@@ -210,6 +450,7 @@ export function mountGame() {
   const COLLISION_CALIBRATION_STORAGE_KEY = 'kingdom-collision-calibration-v3';
   const LEGACY_COLLISION_CALIBRATION_STORAGE_KEY = 'kingdom-collision-calibration-v2';
   let mapZoom = MIN_MAP_ZOOM, mapPanX = 0, mapPanY = 0;
+  let showHitboxes = false;
 
   let mapTransform = [1, 0, 0, 1, 0, 0];
   let animationTime = 0, lastSpriteDraw = 0, lastAtmosphereUpdate = 0, assetRenderQueued = false, groundCacheKey = '', pendingClockDays = 0;
@@ -303,7 +544,7 @@ export function mountGame() {
     image.src = 'assets/construction-variants/' + imageFileName(file);
     constructionFoundationSprites[key] = image;
   }
-  const tinyGoldSprites = Object.create(null);
+  const tinyMineralSprites = Object.fromEntries(MINERAL_SPRITE_KINDS.map(kind => [kind, Object.create(null)]));
   const tinyRockSprites = Object.create(null);
   const mapDecorationSprites = Object.create(null);
   for (const sprite of MAP_DECORATION_SPRITES) {
@@ -315,7 +556,7 @@ export function mountGame() {
   const tinyTerrainAtlases = [];
   for (let color = 1; color <= 5; color++) {
     const image = trackedImage();
-    image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
+    image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(true); };
     image.src = 'assets/kingdom-autotile/' + imageFileName('Tilemap_color' + color);
     tinyTerrainAtlases.push(image);
   }
@@ -347,6 +588,8 @@ export function mountGame() {
   fogCanvas.style.opacity = String(atmosphereLayerOpacityForZoom(mapZoom));
   let atmosphericProfile = atmosphereProfileForZoom(mapZoom);
   function syncAtmosphereWithZoom() {
+    fogCanvas.hidden = mapZoom >= 2;
+    cloudSpritesCanvas.hidden = mapZoom >= 2;
     fogCanvas.style.opacity = String(atmosphereLayerOpacityForZoom(mapZoom));
     cloudSpritesCanvas.style.opacity = String(atmosphereZoomProfile(mapZoom).cloudLayerOpacity);
     const next = atmosphereProfileForZoom(mapZoom);
@@ -355,16 +598,19 @@ export function mountGame() {
       atmosphericProfile = next;
     }
   }
-  const tinyFenceTilemap = trackedImage();
-  tinyFenceTilemap.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-  tinyFenceTilemap.src = 'assets/tiny-swords/fences/tileset-fences-1.png';
+  const tinyCorralSprite = trackedImage();
+  tinyCorralSprite.onload = () => {
+    invalidateStaticDepthCache();
+    if (visualPack === 'tiny-swords') queueAssetRender();
+  };
+  tinyCorralSprite.src = 'assets/construction-variants/' + imageFileName('kingdom-curral');
   const tinyMeatSprite = trackedImage();
   tinyMeatSprite.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
   tinyMeatSprite.src = 'assets/tiny-swords/meat-resource.png';
   const showCropFieldGround = false;
   const cropFieldTexture = showCropFieldGround ? trackedImage() : null;
   if (cropFieldTexture) {
-    cropFieldTexture.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
+    cropFieldTexture.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(true); };
     cropFieldTexture.src = 'assets/kingdom-autotile/rice-field-ground.png';
   }
   const riceGrowthWindTexture = trackedImage();
@@ -418,24 +664,51 @@ export function mountGame() {
     image.src = 'assets/tiny-swords/rocks/' + imageFileName('rock-' + variant);
     tinyRockSprites[variant] = image;
   }
-  for (let variant = 1; variant <= 6; variant++) {
+  for (const kind of MINERAL_SPRITE_KINDS) for (let variant = 1; variant <= 6; variant++) {
     const image = trackedImage();
     image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
-    image.src = 'assets/tiny-swords/minerals/' + imageFileName('gold-stone-' + variant);
-    tinyGoldSprites[variant] = image;
+    image.src = 'assets/tiny-swords/minerals/' + imageFileName(kind + '-stone-' + variant);
+    tinyMineralSprites[kind][variant] = image;
   }
-  function queueAssetRender() {
+  let terrainAssetRenderQueued = false;
+  function queueAssetRender(terrain = false) {
+    terrainAssetRenderQueued ||= terrain === true;
     if (assetRenderQueued) return;
     assetRenderQueued = true;
     window.requestAnimationFrame(() => {
-      assetRenderQueued = false; groundCacheKey = ''; assetRevision++;
-      terrainChunks.invalidateAll(); invalidateStaticDepthCache();
+      assetRenderQueued = false; assetRevision++;
+      if (terrainAssetRenderQueued) {
+        terrainAssetRenderQueued = false; terrainAssetRevision++; groundCacheKey = '';
+        terrainChunks.invalidateAll();
+      }
+      invalidateStaticDepthCache();
       if (world) render();
     });
   }
+  let manualVisualPosition = null;
   function visualPose(kind, agent) {
     // Interpolation samples are stamped with real snapshot arrival times.
     const pose = movementInterpolator.pose(kind, agent, renderTimestamp ?? performance.now());
+    if (kind === 'person' && agent.playerControlled) {
+      const now = renderTimestamp ?? performance.now();
+      if (!manualVisualPosition || manualVisualPosition.id !== agent.id
+          || Math.hypot(agent.x - manualVisualPosition.x, agent.y - manualVisualPosition.y) > 5) {
+        manualVisualPosition = { id: agent.id, x: agent.x, y: agent.y, time: now };
+      }
+      const alpha = 1 - Math.exp(-Math.max(0, now - manualVisualPosition.time) / 35);
+      manualVisualPosition.x += (agent.x - manualVisualPosition.x) * alpha;
+      manualVisualPosition.y += (agent.y - manualVisualPosition.y) * alpha;
+      manualVisualPosition.time = now;
+      pose.x = manualVisualPosition.x; pose.y = manualVisualPosition.y;
+      pose.moving = manualHeldKeys.has('w') || manualHeldKeys.has('a') || manualHeldKeys.has('s') || manualHeldKeys.has('d');
+      pose.dirX = agent.militaryFacingX || 1; pose.dirY = agent.militaryFacingY || 0;
+    }
+    const action = kind === 'person' ? agent.combatAction : null;
+    if (action?.attackVariant === 'lance-flurry') {
+      const elapsed = actorAnimationClock.elapsed('combat:' + agent.id, String(action.id), animationTime);
+      if (elapsed < action.durationMs)
+        return { ...pose, moving: false, dirX: 0, dirY: 0 };
+    }
     if (kind !== 'person' || !agent.towerMounted) return pose;
     const tower = structuresById.get(agent.towerDutyId);
     return tower ? { ...pose, x: tower.x, y: tower.y - 3, moving: false }
@@ -443,7 +716,7 @@ export function mountGame() {
   }
   function updateIndividualTrails(now) {
     if (!world) return;
-    const visibleWear = ROAD_RULES.fastAt;
+    const visibleWear = ROAD_RULES.visibleAt;
     const minSampleDistance = 2.2;
     const maxSegmentDistance = TILE * 6;
     const maxPointSpacing = TILE * .2;
@@ -455,8 +728,8 @@ export function mountGame() {
         ? tile : null;
     };
     const isWalkableGround = point => !!wornGroundAt(point);
-    const pressureForWear = wear => .65 + Math.max(0, Math.min(1,
-      (wear - visibleWear) / (ROAD_RULES.maxWear - visibleWear))) * .55;
+    const pressureForWear = wear => .34 + Math.sqrt(Math.max(0, Math.min(1,
+      (wear - visibleWear) / (ROAD_RULES.maxWear - visibleWear)))) * .86;
     const queuePoints = (key, points) => {
       if (!points.length) return;
       let pending = pendingPersonTrailPoints.get(key);
@@ -479,7 +752,7 @@ export function mountGame() {
         if (trailLastPositionByPerson.has(id)) breakTrail(id);
         continue;
       }
-      const pose = visualPose('person', person);
+      const pose = combatDisplayPose(person, visualPose('person', person));
       if (!pose.moving) continue;
       const current = { x: (pose.x + .5) * TILE, y: (pose.y + 1) * TILE };
       if (!isWalkableGround(current)) {
@@ -525,7 +798,7 @@ export function mountGame() {
 
     if (now - lastTrailFlushAt >= 180 && pendingPersonTrailPoints.size) {
       dirtBrush.appendPaths(Array.from(pendingPersonTrailPoints, ([key, points]) => ({
-        key, points, options: { size: 5, irregularity: PATH_EDGE_IRREGULARITY }
+        key, points, options: { size: trailBrushSize, irregularity: PATH_EDGE_IRREGULARITY }
       })));
       pendingPersonTrailPoints.clear();
       lastTrailFlushAt = now;
@@ -652,12 +925,21 @@ export function mountGame() {
   }
   const tinyPalettes = ['blue', 'red', 'purple', 'yellow', 'black'];
   const loadedTinyPalettes = new Set();
+  const trainingDummySprites = Object.create(null);
+  const trainingDummyColorFiles = { blue: 'azul', red: 'vermelho', purple: 'purpura', yellow: 'amarelo', black: 'preto' };
   function ensureTinyPalette(palette) {
     if (!tinyPalettes.includes(palette) || loadedTinyPalettes.has(palette)) return;
     loadedTinyPalettes.add(palette);
+    trainingDummySprites[palette] = Object.create(null);
+    for (const pose of ['frontal', 'diagonal']) {
+      const image = trackedImage();
+      image.onload = () => queueAssetRender();
+      image.src = 'assets/training-dummies/boneco_treino_' + pose + '_' + trainingDummyColorFiles[palette] + '.png';
+      trainingDummySprites[palette][pose] = image;
+    }
     for (const action of ['idle', 'run', 'attack', 'arrow'])
       animationRenderer.load(getUnitAnimation('arqueiro', action, palette)).catch(error => console.warn(error));
-    animationRenderer.load(getUnitAnimation('monge', 'heal-effect', palette)).catch(error => console.warn(error));
+    animationRenderer.load(getUnitAnimation('guerreiro', 'attack-2', palette)).catch(error => console.warn(error));
     tinyBuildingSprites[palette] = Object.create(null);
     for (const key of ['house1', 'house2', 'house3', 'castle', 'tower', 'barracks', 'archery', 'monastery', 'farmhouse']) {
       const image = trackedImage();
@@ -668,7 +950,8 @@ export function mountGame() {
   }
   // Kingdom palettes load when the Worker first returns its world snapshot.
 
-  function fmt(n, digits) { return Number(n || 0).toLocaleString('pt-BR', { maximumFractionDigits: digits || 0 }); }
+  function fmt(n) { return formatWholeMeasure(n); }
+  function fmtRationPortions(feed) { return fmt((Number(feed) || 0) / DOMESTIC_SHEEP_DAILY_FEED); }
   function qualityLabel(score) { return score >= .62 ? 'boa' : score >= .28 ? 'moderada' : 'ruim'; }
   function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); }
   function rgb(hex) {
@@ -769,41 +1052,107 @@ export function mountGame() {
 
   function militaryAnimationState(person, pose) {
     const palette = getKingdom(person.kingdomId)?.palette || 'blue';
-    const action = person.combatAction;
-    const contactElapsed = action ? actorAnimationClock.elapsed('combat:' + person.id, String(action.id), animationTime) : Infinity;
-    const attacking = action?.day === world.day && contactElapsed < action.durationMs;
+    const channelingHeal = !!person.magicCast && person.militaryClass === 'monge';
+    const castPose = person.militaryClass === 'monge'
+      ? priestCastAnimationPose(world, person, getUnitAnimation('monge', 'heal', palette)) : null;
+    const presentingCast = !!castPose && (channelingHeal || !pose.moving);
+    const preview = manualAttackPreview?.personId === person.id ? manualAttackPreview : null;
+    const action = isCombatStunned(person, world.day, world.magicTimeMs || 0)
+      ? null : preview?.action || presentedCombatAction(person);
+    const contactElapsed = preview ? Math.min(animationTime - preview.startedAt, action.windupMs * .85)
+      : action ? presentedCombatElapsed(person, action) : Infinity;
+    const extendedMeleeAction = ['shield-bash', 'lance-charge', 'lance-flurry'].includes(action?.attackVariant);
+    const attacking = (preview || action?.day === world.day || extendedMeleeAction) && contactElapsed < action.durationMs;
     const defense = person.combatDefense;
     const defenseElapsed = defense ? actorAnimationClock.elapsed('defense:' + person.id, String(defense.actionId), animationTime) : Infinity;
     const defending = defense?.day === world.day && defenseElapsed >= Math.max(0, defense.atMs - 100)
       && defenseElapsed < defense.atMs + 200;
+    const comboHoldingGuard = !attacking && person.militaryClass === 'guerreiro'
+      && person.combatCombo?.lastDay === world.day && person.combatCombo.count < 4;
     const preparingSpear = attacking && action.weapon === 'lanceiro' && contactElapsed < action.windupMs;
+    const repeatingLanceAttack = attacking && action.weapon === 'lanceiro'
+      && ['lance-charge', 'lance-flurry'].includes(action.attackVariant)
+      && contactElapsed >= action.windupMs && contactElapsed < action.windupMs + action.activeMs;
+    const shieldBashing = attacking && action.weapon === 'guerreiro' && action.attackVariant === 'shield-bash';
+    const bowPoseElapsed = attacking && action.weapon === 'arqueiro'
+      ? contactElapsed < action.windupMs
+        ? Math.min(contactElapsed, ARCHER_READY_FRAME_MS)
+        : ARCHER_RELEASE_FRAME_MS + contactElapsed - action.windupMs
+      : contactElapsed;
     const shotElapsed = actorAnimationClock.elapsed('shot:' + person.id, String(person.lastArrowSequence || 0), animationTime);
     const shooting = !action && person.militaryClass === 'arqueiro' && person.lastArrowSequence > 0 && shotElapsed < 800;
     const restingPerson = (action || defense) && ['attack', 'defend'].includes(person.militaryAnimation)
       ? { ...person, militaryAnimationDay: -1 } : person;
-    const animatedPerson = attacking || shooting ? { ...person, militaryAnimation: preparingSpear ? 'defend' : 'attack', militaryAnimationDay: world.day,
+    const animatedPerson = presentingCast ? { ...person, militaryAnimation: 'heal', militaryAnimationDay: world.day }
+      : attacking || shooting ? { ...person,
+      militaryAnimation: preparingSpear || shieldBashing ? 'defend' : 'attack', militaryAnimationDay: world.day,
       militaryFacingX: action ? Math.cos(action.angle) : person.militaryFacingX,
       militaryFacingY: action ? Math.sin(action.angle) : person.militaryFacingY }
-      : defending ? { ...person, militaryAnimation: 'defend', militaryAnimationDay: world.day } : restingPerson;
+      : defending || comboHoldingGuard
+        ? { ...person, militaryAnimation: 'defend', militaryAnimationDay: world.day } : restingPerson;
     let sprite = militarySpritePose(animatedPerson, attacking || shooting ? { ...pose, moving: false, dirX: 0, dirY: 0 } : pose, world.day);
     let animation = getUnitAnimation(sprite.unit.folder.toLowerCase(), sprite.action, palette);
-    const battle = attacking || defending || shooting || animatedPerson.militaryAnimationDay === world.day;
-    const elapsedMs = attacking ? action.weapon === 'lanceiro' && !preparingSpear
-      ? contactElapsed - action.windupMs : contactElapsed : defending ? Math.max(0, defenseElapsed - defense.atMs + 100)
+    const battle = attacking || defending || comboHoldingGuard || shooting || animatedPerson.militaryAnimationDay === world.day;
+    const elapsedMs = presentingCast ? castPose.elapsedMs : attacking ? action.weapon === 'lanceiro' && !preparingSpear
+      ? (contactElapsed - action.windupMs) * (action.animationSpeedMultiplier || 1)
+      : action.weapon === 'arqueiro' ? bowPoseElapsed : contactElapsed : defending ? Math.max(0, defenseElapsed - defense.atMs + 100)
       : shooting ? shotElapsed : actorAnimationClock.elapsed(person.id, animation.id + (battle ? ':' + world.day : ''), animationTime);
-    if (battle && getAnimationFrame(animation, elapsedMs, { loop: false }).done) {
+    if (battle && !presentingCast && !repeatingLanceAttack && !comboHoldingGuard
+        && getAnimationFrame(animation, elapsedMs, { loop: false }).done) {
       sprite = militarySpritePose(restingPerson, pose, -1);
       animation = getUnitAnimation(sprite.unit.folder.toLowerCase(), sprite.action, palette);
     }
-    return { sprite, animation, elapsedMs, battle };
+    return { sprite, animation, elapsedMs, battle,
+      loop: presentingCast ? false : shieldBashing || repeatingLanceAttack || comboHoldingGuard || animation.loop };
   }
 
   function drawMilitaryPerson(person, x, y, pose) {
-    const { sprite, animation, elapsedMs, battle } = militaryAnimationState(person, pose);
-    return animationRenderer.draw(ctx, animation, x + TILE / 2, y + TILE,
-      { elapsedMs, scale: spriteScale(TILE, CHARACTER_SPRITE_SCALE), flipX: sprite.flip,
-        rotation: pose.rotation || 0,
-        loop: battle ? animation.loop : true });
+    const { sprite, animation, elapsedMs, battle, loop } = militaryAnimationState(person, pose);
+    const centerX = x + TILE / 2, baseY = y + TILE;
+    const scale = spriteScale(TILE, CHARACTER_SPRITE_SCALE);
+    const preview = manualAttackPreview?.personId === person.id ? manualAttackPreview : null;
+    const action = isCombatStunned(person, world.day, world.magicTimeMs || 0)
+      ? null : preview?.action || presentedCombatAction(person);
+    const actionElapsed = preview ? Math.min(animationTime - preview.startedAt, action.windupMs * .85)
+      : action ? presentedCombatElapsed(person, action) : Infinity;
+    let shieldLean = 0;
+    if (action?.attackVariant === 'shield-bash') {
+      const windupEnd = action.windupMs;
+      const dashEnd = windupEnd + action.activeMs;
+      const recovery = Math.max(1, action.recoveryMs);
+      shieldLean = actionElapsed < windupEnd ? actionElapsed / Math.max(1, windupEnd)
+        : actionElapsed < dashEnd ? 1
+          : Math.max(0, 1 - (actionElapsed - dashEnd) / recovery);
+      shieldLean = shieldLean * shieldLean * (3 - 2 * shieldLean);
+    }
+    const facingAngle = action?.angle ?? Math.atan2(person.militaryFacingY || 0, person.militaryFacingX || 1);
+    const leanDistance = TILE * .07 * shieldLean;
+    const drawCenterX = centerX + Math.cos(facingAngle) * leanDistance;
+    const drawBaseY = baseY + Math.sin(facingAngle) * leanDistance - (pose.lift || 0) * TILE;
+    const leanRotation = Math.cos(facingAngle) * .085 * shieldLean;
+    if (action?.attackVariant === 'lance-flurry'
+        && actionElapsed >= action.windupMs && actionElapsed < action.windupMs + action.activeMs) {
+      const flurryElapsed = actionElapsed - action.windupMs;
+      const interval = Math.max(1, action.strikeIntervalMs || 233);
+      const strikeAge = flurryElapsed % interval;
+      const angle = action.angle || 0;
+      const backX = Math.cos(angle), backY = Math.sin(angle);
+      for (let echo = 1; echo <= 4; echo++) {
+        const age = strikeAge + echo * 45;
+        if (age >= 235) continue;
+        ctx.save();
+        ctx.globalAlpha *= .24 * (1 - age / 235);
+        animationRenderer.draw(ctx, animation,
+          centerX - backX * age / 235 * 3.5, baseY - backY * age / 235 * 3.5,
+          { elapsedMs: Math.max(0, elapsedMs - age * (action.animationSpeedMultiplier || 1)),
+            scale, flipX: sprite.flip, loop: true });
+        ctx.restore();
+      }
+    }
+    return animationRenderer.draw(ctx, animation, drawCenterX, drawBaseY,
+      { elapsedMs, scale, flipX: sprite.flip,
+        rotation: (pose.rotation || 0) + leanRotation,
+        loop: battle ? loop : true });
   }
 
   function drawTinySwordsPerson(person, x, y, child, pose) {
@@ -1028,8 +1377,8 @@ export function mountGame() {
 
   // Match AutoTile's paint order: the low ground stays visible, the south
   // facing wall occupies the tile below the raised edge, then ramp and top.
-  function drawTinyCliffFaces() {
-    for (const t of world.tiles) {
+  function drawTinyCliffFaces(bounds) {
+    for (const t of terrainTiles(bounds)) {
       if (!hasElevation(t.x, t.y) || hasElevation(t.x, t.y + 1)) continue;
       const lower = cell(t.x, t.y + 1);
       if (!lower) continue;
@@ -1043,8 +1392,8 @@ export function mountGame() {
     }
   }
 
-  function drawTinyElevationLayer() {
-    for (const t of world.tiles) {
+  function drawTinyElevationLayer(bounds) {
+    for (const t of terrainTiles(bounds)) {
       if (!hasElevation(t.x, t.y)) continue;
       const atlas = tinyTerrainAtlases[tinyTerrainPalette()];
       const coord = cliffTopCoord(t.x, t.y);
@@ -1052,8 +1401,8 @@ export function mountGame() {
     }
   }
 
-  function drawTinyRamps() {
-    for (const t of world.tiles) {
+  function drawTinyRamps(bounds) {
+    for (const t of terrainTiles(bounds)) {
       if (!isValidTinyRamp(t)) continue;
       const high = cell(t.x + (t.rampSide === 1 ? 1 : -1), t.y);
       const atlas = high && tinyTerrainAtlases[tinyTerrainPalette()];
@@ -1355,24 +1704,32 @@ export function mountGame() {
     ctx.save();
     for (const tile of terrainTiles(bounds)) {
       const wear = tile.roadWear || 0;
-      if (tile.terrain !== 'land' || tile.cropFieldId != null || !isRoadTile(tile, true)) continue;
-      const strength = Math.min(1, (wear - ROAD_RULES.fastAt) / (ROAD_RULES.maxWear - ROAD_RULES.fastAt));
-      const radius = .48 + Math.sqrt(strength) * .12;
-      const alpha = (.025 + strength * .05) * PATH_VISUAL_STRENGTH;
+      if (tile.terrain !== 'land' || tile.cropFieldId != null || !isRoadTile(tile)) continue;
+      const strength = Math.max(0, Math.min(1,
+        (wear - ROAD_RULES.visibleAt) / (ROAD_RULES.maxWear - ROAD_RULES.visibleAt)));
+      const maturity = Math.sqrt(strength);
+      const radius = .2 + maturity * .36;
+      const variation = autoTileHash(tile.x, tile.y, world.seed + 2587);
+      const darkVariation = Math.max(0, variation - .3) / .7 * maturity * .46;
+      const outerColor = mix(mix(rgb('#C79565'), rgb('#795033'), maturity), rgb('#493222'), darkVariation);
+      const innerColor = mix(mix(rgb('#D3A274'), rgb('#98643F'), maturity), rgb('#63432D'), darkVariation * .4);
+      const alpha = .09 + strength * .22;
       traceMudBlob(tile, radius, 781);
-      ctx.fillStyle = 'rgba(112, 83, 53, ' + alpha + ')';
+      ctx.fillStyle = 'rgba(' + outerColor.join(',') + ',' + alpha + ')';
       ctx.fill();
-      traceMudBlob(tile, radius * .58, 1781);
-      ctx.fillStyle = 'rgba(155, 119, 75, ' + (alpha * .28) + ')';
+      traceMudBlob(tile, radius * (.54 + variation * .06), 1781);
+      ctx.fillStyle = 'rgba(' + innerColor.join(',') + ',' + (alpha * (.28 + maturity * .18)) + ')';
       ctx.fill();
     }
     ctx.restore();
   }
 
   let staticDepthCacheWorld = null, staticDepthCacheDay = -1, staticDepthItems = [];
+  let staticDepthSpatialIndex = null;
   function invalidateStaticDepthCache() {
     staticDepthCacheWorld = null;
     staticDepthCacheDay = -1;
+    staticDepthSpatialIndex = null;
   }
 
   function collectStaticDepthItems() {
@@ -1393,8 +1750,11 @@ export function mountGame() {
       const tree = t.plants[broad], pine = t.plants[conifer];
       const variant = (t.x * 13 + t.y * 17 + world.seed) % 5;
       const treeAnchor = !gateCells.has(t.i) && Sim.modules.Biosphere.Botany.isTreeAnchor(world, t);
-      if ((t.stoneDeposit || 0) > .7 || (t.goldOre || 0) > .05) {
-        add('mineral', t.x, t.y, t, .15, t.i, { tile: t, stone: t.stoneDeposit || 0, gold: t.goldOre || 0 });
+      if ((t.stoneDeposit || 0) > .7 || ['gold', 'copper', 'silver', 'iron'].some(metal => (t[metal + 'Ore'] || 0) > .05)) {
+        add('mineral', t.x, t.y, t, .15, t.i, {
+          tile: t, stone: t.stoneDeposit || 0, gold: t.goldOre || 0,
+          copper: t.copperOre || 0, silver: t.silverOre || 0, iron: t.ironOre || 0
+        });
       }
       if (treeAnchor) {
         const type = tree >= pine ? 'broadleaf' : 'conifer', mass = type === 'broadleaf' ? tree : pine;
@@ -1410,6 +1770,7 @@ export function mountGame() {
         }
       }
       const decoration = !treeAnchor && !bushAnchor && !isRoadTile(t) && t.stoneDeposit <= .7 && t.goldOre <= .05
+        && (t.copperOre || 0) <= .05 && (t.silverOre || 0) <= .05 && (t.ironOre || 0) <= .05
         ? mapDecorationAt(t, world.seed) : null;
       if (decoration) add('decoration', t.x, t.y, t, 1.5, t.i, { decoration });
       if (t.stump && t.stump.untilDay >= world.day) add('stump', t.x, t.y, t, 2, t.i, { tile: t, stump: t.stump });
@@ -1427,33 +1788,107 @@ export function mountGame() {
       if (s.complete && s.type === 'curral') {
         const radius = Math.max(2, Math.round(s.radius || 3.5));
         const centerX = Math.round(s.x), centerY = Math.round(s.y);
-        const gate = corralGates.find(item => item.structureId === s.id);
-        function addFence(x, y, sourceColumn, sourceRow, key) {
-          if (gate && gate.x === x && gate.y === y) return;
-          const fenceTile = cell(x, y);
-          if (fenceTile) add('fence', x, y, fenceTile, 2.6, s.id * 100 + key, { sourceX: sourceColumn * 32, sourceY: sourceRow * 32 });
-        }
-        for (let offset = -radius; offset <= radius; offset++) {
-          const topColumn = offset === -radius ? 0 : offset === radius ? 4 : 2;
-          addFence(centerX + offset, centerY - radius, topColumn, 0, offset + radius);
-          addFence(centerX + offset, centerY + radius, topColumn, 3, offset + radius + 2 * radius + 1);
-          if (offset > -radius && offset < radius) {
-            const sideRow = 1 + ((offset + radius - 1) % 2);
-            addFence(centerX - radius, centerY + offset, 0, sideRow, offset + radius + 4 * radius + 2);
-            addFence(centerX + radius, centerY + offset, 4, sideRow, offset + radius + 6 * radius + 3);
+        const imageWidth = tinyCorralSprite.naturalWidth;
+        const imageHeight = tinyCorralSprite.naturalHeight;
+        if (imageWidth > 0 && imageHeight > 0) {
+          const columns = radius * 2 + 1;
+          const spriteWidth = columns * TILE * CORRAL_VISUAL_SCALE;
+          const spriteHeight = spriteWidth * imageHeight / imageWidth;
+          const rows = Math.max(1, Math.round(spriteHeight / TILE));
+          const spriteX = (centerX + .5) * TILE - spriteWidth / 2;
+          const spriteY = (centerY + .5) * TILE - spriteHeight / 2;
+          const sourceColumnWidth = imageWidth / columns;
+          const sourceRowHeight = imageHeight / rows;
+          const destinationCellWidth = spriteWidth / columns;
+          const destinationCellHeight = spriteHeight / rows;
+          // Tile-sized slices let people and sheep pass in front of the near fence and behind the far fence.
+          for (let row = 0; row < rows; row++) for (let column = 0; column < columns; column++) {
+            const destX = spriteX + column * destinationCellWidth;
+            const destY = spriteY + row * destinationCellHeight;
+            const x = (destX + destinationCellWidth / 2) / TILE;
+            const y = (destY + destinationCellHeight) / TILE - 1;
+            const sourceX = column * sourceColumnWidth;
+            const sourceY = row * sourceRowHeight;
+            const corralTile = cell(Math.floor(x), Math.floor(y));
+            add('corral', x, y, corralTile, 2.6, s.id * 1000 + row * columns + column, {
+              depthY: y, sourceX, sourceY, sourceWidth: sourceColumnWidth, sourceHeight: sourceRowHeight,
+              destX, destY, destWidth: destinationCellWidth, destHeight: destinationCellHeight
+            });
           }
         }
       }
     }
+    for (const dummy of trainingDummiesForWorld(world)) {
+      const tile = cell(Math.round(dummy.x), Math.round(dummy.y));
+      add('training-dummy', dummy.x, dummy.y, tile, 2.1, dummy.id,
+        { dummy, depthY: dummy.y });
+    }
     staticDepthItems = referenceRendering ? items : items.sort(compareDepth);
+    staticDepthSpatialIndex = referenceRendering ? null : createStaticDepthSpatialIndex(staticDepthItems);
     staticDepthCacheWorld = world;
     staticDepthCacheDay = world.day;
     return staticDepthItems;
   }
 
+  function observeDashPresentations(nextWorld, now, reset) {
+    if (reset) { dashPresentations.clear(); lastDashEvent = nextWorld.combatSequence || 0; return; }
+    for (const event of nextWorld.combatEvents || []) {
+      if (event.id <= lastDashEvent) continue;
+      lastDashEvent = event.id;
+      if (event.day !== nextWorld.day || !['shield-bash', 'lance-charge'].includes(event.attackVariant)
+          || event.result?.kind === 'cancelled') continue;
+      const durationMs = Math.max(event.durationMs, event.windupMs + event.activeMs + DASH_TRAIL_FADE_MS);
+      dashPresentations.set(event.actorId, { action: { ...event, durationMs }, startedAt: now });
+    }
+  }
+  function presentedCombatAction(person) {
+    return dashPresentations.get(person.id)?.action || person.combatAction;
+  }
+  function presentedCombatElapsed(person, action) {
+    const track = dashPresentations.get(person.id);
+    return track?.action.id === action.id ? Math.max(0, animationTime - track.startedAt)
+      : actorAnimationClock.elapsed('combat:' + person.id, String(action.id), animationTime);
+  }
+  function combatDisplayPose(person, pose) {
+    if (isCombatStunned(person, world.day, world.magicTimeMs || 0)) {
+      if (person.combatLaunch) {
+        const elapsed = actorAnimationClock.elapsed('launch:' + person.id, String(person.combatLaunch.id), animationTime);
+        return { ...pose, ...knockbackPose(person.combatLaunch, elapsed) };
+      }
+      return { ...pose, moving: false };
+    }
+    const action = presentedCombatAction(person);
+    if (!['shield-bash', 'lance-charge'].includes(action?.attackVariant)) return pose;
+    const elapsed = presentedCombatElapsed(person, action);
+    if (elapsed >= action.durationMs) return pose;
+    return { ...pose, ...dashPosition(action, elapsed), moving: elapsed >= action.windupMs,
+      dirX: Math.cos(action.angle), dirY: Math.sin(action.angle) };
+  }
+  function updateFollowCamera(now) {
+    for (const [id, track] of dashPresentations) {
+      if (animationTime - track.startedAt < track.action.durationMs) continue;
+      const person = getPerson(id);
+      if (person && !person.playerControlled) movementInterpolator.settleActor('person', person,
+        dashPosition(track.action, track.action.durationMs), now);
+      dashPresentations.delete(id);
+    }
+    const person = currentManualPerson();
+    if (!person) return;
+    const pose = combatDisplayPose(person, visualPose('person', person));
+    const pan = followCameraPan(stage.clientWidth, stage.clientHeight, mapZoom, pose, TILE, LOGICAL_SIZE);
+    const moved = Math.abs(mapPanX - pan.x) + Math.abs(mapPanY - pan.y) > .01;
+    mapPanX = pan.x; mapPanY = pan.y;
+    if (moved && lastManualPointer) updateManualAim(lastManualPointer, true, false);
+  }
+
   function collectDepthItems(bounds) {
-    const staticItems = collectStaticDepthItems().filter(item => item.x >= bounds.minX && item.x <= bounds.maxX
-      && item.y >= bounds.minY && item.y <= bounds.maxY);
+    // Only off-screen resources are culled. Camera zoom never thins deposits.
+    const allStatic = collectStaticDepthItems();
+    const staticCandidates = referenceRendering ? allStatic : staticDepthSpatialIndex.query(bounds);
+    const staticItems = staticCandidates.filter(item => item.x >= bounds.minX && item.x <= bounds.maxX
+      && item.y >= bounds.minY && item.y <= bounds.maxY
+      && (referenceRendering || item.kind !== 'mineral'
+        || shouldDrawMineralAtZoom(item, mapZoom, activeMiningSites.has(item.x + ':' + item.y))));
     const items = referenceRendering ? staticItems : [];
     let sequence = staticItems.length;
     function add(kind, x, y, tile, order, id, extra) {
@@ -1469,9 +1904,9 @@ export function mountGame() {
     }
     for (const p of world.people) {
       if (!p.alive || p.restingStructureId != null) continue;
-      const pose = visualPose('person', p);
+      const pose = combatDisplayPose(p, visualPose('person', p));
       if (pose.x < bounds.minX || pose.x > bounds.maxX || pose.y < bounds.minY || pose.y > bounds.maxY) continue;
-      const tile = cell(Math.round(p.x), Math.round(p.y));
+      const tile = cell(Math.round(pose.x), Math.round(pose.y));
       add('person', pose.x, pose.y, tile, 4, p.id, { person: p, pose });
       if (p.towerMounted) {
         const tower = structuresById.get(p.towerDutyId);
@@ -1485,17 +1920,180 @@ export function mountGame() {
     for (const effect of activityEffects.active(animationTime)) {
       const recipient = effect.personId != null ? getPerson(effect.personId) : null;
       if (effect.personId != null && !recipient) continue;
-      const flight = effect.projectile ? Math.min(1, (animationTime - effect.startedAt) / effect.duration) : 0;
-      const position = recipient ? visualPose('person', recipient) : effect.projectile
-        ? { x: effect.x + (effect.targetX - effect.x) * flight, y: effect.y + (effect.targetY - effect.y) * flight } : effect;
+      const elapsed = animationTime - effect.startedAt;
+      if (effect.blood && elapsed >= 600) continue;
+      const flightDuration = effect.flightDuration || effect.duration;
+      const flight = effect.projectile ? Math.min(1, Math.max(0, elapsed / flightDuration)) : 0;
+      const fallProgress = effect.projectile && effect.fallDuration
+        ? Math.min(1, Math.max(0, (elapsed - flightDuration) / effect.fallDuration)) : 0;
+      const arcEnd = effect.arcProgressEnd ?? 1;
+      const arcHeight = effect.arcHeight || 0;
+      const arcAtImpact = arcHeight * Math.sin(Math.PI * arcEnd);
+      const isDash = ['lance-dash', 'shield-dash'].includes(effect.animation);
+      const dashAction = isDash ? { origin: { x: effect.x, y: effect.y },
+        endPosition: { x: effect.endX, y: effect.endY }, activeMs: effect.activeDuration, windupMs: 0,
+        attackVariant: effect.animation === 'shield-dash' ? 'shield-bash' : 'lance-charge' } : null;
+      const position = isDash && Number.isFinite(effect.endX) && Number.isFinite(effect.endY)
+        ? dashPosition(dashAction, elapsed)
+        : recipient ? combatDisplayPose(recipient, visualPose('person', recipient)) : effect.projectile
+        ? elapsed < flightDuration
+          ? { x: effect.x + (effect.targetX - effect.x) * flight,
+            y: effect.y + (effect.targetY + arcAtImpact - effect.y) * flight
+              - arcHeight * Math.sin(Math.PI * flight * arcEnd) }
+          : { x: effect.targetX,
+            y: effect.targetY + ((effect.groundY ?? effect.targetY) - effect.targetY) * fallProgress }
+        : effect;
       if (position.x < bounds.minX || position.x > bounds.maxX || position.y < bounds.minY || position.y > bounds.maxY) continue;
-      add('effect', position.x, position.y, cell(Math.round(position.x), Math.round(position.y)), 5, effect.id, { effect });
-      if (effect.projectile || recipient?.towerMounted) items[items.length - 1].depth = Number.MAX_SAFE_INTEGER;
+      add('effect', position.x, position.y, cell(Math.round(position.x), Math.round(position.y)), 5, effect.id,
+        { effect, recipient, pose: recipient ? position : null });
+      if ((effect.projectile && elapsed < flightDuration) || recipient?.towerMounted)
+        items[items.length - 1].depth = Number.MAX_SAFE_INTEGER;
     }
     return referenceRendering ? items.sort(compareDepth) : mergeDepthItems(staticItems, items);
   }
 
+  function drawParryStars(effect, centerX, feetY, person, pose) {
+    if (!parryStarSprite.complete || !parryStarSprite.naturalWidth) return;
+    const elapsed = Math.max(0, animationTime - effect.startedAt);
+    const duration = effect.duration || 3000;
+    const anchorPixels = person?.militaryClass
+      ? militaryAnimationState(person, pose).animation.anchor.y : 64;
+    const headY = feetY - anchorPixels * spriteScale(TILE, CHARACTER_SPRITE_SCALE) + TILE * .38;
+    const crop = { x: 365, y: 366, width: 524, height: 525 };
+    const particleLife = 690;
+    const particleInterval = 220;
+    const particleCount = Math.ceil(duration / particleInterval);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    for (let index = 0; index < particleCount; index++) {
+      const age = elapsed - index * particleInterval;
+      if (age < 0 || age >= particleLife) continue;
+      const progress = age / particleLife;
+      const drift = Math.sin(index * 2.31) * TILE * .36 * progress;
+      const bob = Math.sin(progress * Math.PI * 2 + index) * TILE * .05;
+      const size = Math.max(2, Math.round(TILE * [.34, .28, .31][index % 3] * .375));
+      const alpha = Math.min(1, (1 - progress) * 1.35, Math.min(1, (duration - elapsed) / 180));
+      if (alpha <= 0) continue;
+      ctx.globalAlpha = alpha;
+      const x = Math.round(centerX + Math.sin(index * 1.71) * TILE * .18 + drift - size / 2);
+      const y = Math.round(headY - progress * TILE * .3 + bob - size / 2);
+      ctx.drawImage(parryStarSprite, crop.x, crop.y, crop.width, crop.height, x, y, size, size);
+    }
+    ctx.restore();
+  }
+
+  function drawCombatDash(effect, centerX, feetY, person = null, pose = null) {
+    if (!person) return;
+    const elapsed = Math.max(0, animationTime - effect.startedAt);
+    const shieldDash = effect.animation === 'shield-dash';
+    const action = { origin: { x: effect.x, y: effect.y }, endPosition: { x: effect.endX, y: effect.endY },
+      activeMs: effect.activeDuration || 780, windupMs: 0,
+      attackVariant: shieldDash ? 'shield-bash' : 'lance-charge' };
+    const angle = Math.atan2(effect.endY - effect.y, effect.endX - effect.x);
+    const ghostPose = { ...(pose || {}), moving: false, dirX: Math.cos(angle), dirY: Math.sin(angle) };
+    const ghostState = militaryAnimationState({ ...person, id: 'ghost:' + person.id,
+      combatAction: null, combatDefense: null, combatCombo: null,
+      militaryAnimation: shieldDash ? 'defend' : 'attack', militaryAnimationDay: world.day,
+      militaryFacingX: Math.cos(angle), militaryFacingY: Math.sin(angle) }, ghostPose);
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    for (const ghost of dashGhosts(action, elapsed)) {
+      ctx.globalAlpha = ghost.alpha;
+      animationRenderer.draw(ctx, ghostState.animation, (ghost.x + .5) * TILE, (ghost.y + 1) * TILE, {
+        elapsedMs: ghostState.elapsedMs, scale: spriteScale(TILE, CHARACTER_SPRITE_SCALE),
+        flipX: ghostState.sprite.flip, loop: true
+      });
+    }
+    ctx.restore();
+  }
+
+  function drawPersonDeath(effect, centerX, feetY) {
+    if (!deathSprite.complete || !deathSprite.naturalWidth) return;
+    const elapsed = Math.max(0, animationTime - effect.startedAt);
+    const frameSize = effect.pixels || 128;
+    const frameCount = effect.frameCount || 7;
+    const transformDuration = effect.transformDurationMs || 700;
+    const holdDuration = effect.skullHoldDurationMs || 10_000;
+    const disappearDuration = effect.disappearDurationMs || 700;
+    const scale = spriteScale(TILE, CHARACTER_SPRITE_SCALE);
+    const footAnchorY = 100;
+    let row = 0, frame = frameCount - 1;
+    if (elapsed < transformDuration) {
+      frame = Math.min(frameCount - 1, Math.floor(elapsed / transformDuration * frameCount));
+    } else if (elapsed >= transformDuration + holdDuration) {
+      row = 1;
+      const progress = Math.min(1, (elapsed - transformDuration - holdDuration) / disappearDuration);
+      frame = Math.min(frameCount - 1, Math.floor(progress * frameCount));
+    }
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(deathSprite, frame * frameSize, row * frameSize, frameSize, frameSize,
+      centerX - frameSize * scale / 2, feetY - footAnchorY * scale,
+      frameSize * scale, frameSize * scale);
+    ctx.restore();
+  }
+
+  function projectileRotation(effect, elapsed) {
+    const flightDuration = effect.flightDuration || effect.duration;
+    const flight = Math.min(1, Math.max(0, elapsed / flightDuration));
+    const arcEnd = effect.arcProgressEnd ?? 1;
+    const arcHeight = effect.arcHeight || 0;
+    const arcAtImpact = arcHeight * Math.sin(Math.PI * arcEnd);
+    const verticalTangent = effect.targetY + arcAtImpact - effect.y
+      - arcHeight * Math.PI * Math.cos(Math.PI * flight * arcEnd) * arcEnd;
+    return Math.atan2(verticalTangent, effect.targetX - effect.x);
+  }
+
+  function drawTrainingDummyDamage(effect) {
+    const elapsed = animationTime - effect.startedAt;
+    const duration = effect.duration || 1050;
+    const progress = Math.max(0, Math.min(1, elapsed / duration));
+    const centerX = (effect.x + .5) * TILE + Math.sin(effect.id * 2.3) * TILE * .12;
+    const baseY = (effect.y + 1) * TILE - TILE * 1.35;
+    const rise = TILE * 1.2 * (progress * (2 - progress));
+    const label = '−' + Math.max(1, Math.round(effect.damage || 0));
+    ctx.save();
+    ctx.globalAlpha *= Math.pow(1 - progress, .8);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold ' + Math.max(8, TILE * .62) + 'px MedievalSharp, Georgia, serif';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = Math.max(1.5, TILE * .12);
+    ctx.strokeStyle = '#30231c';
+    ctx.fillStyle = '#ffe1a0';
+    ctx.strokeText(label, centerX, baseY - rise);
+    ctx.fillText(label, centerX, baseY - rise);
+    ctx.restore();
+  }
+
+  function drawCombatDamageNumber(effect) {
+    const elapsed = animationTime - effect.startedAt;
+    const duration = effect.duration || 1050;
+    const progress = Math.max(0, Math.min(1, elapsed / duration));
+    const centerX = (effect.x + .5) * TILE;
+    const rise = TILE * .9 * (progress * (2 - progress));
+    const centerY = (effect.y - .55) * TILE - rise;
+    const label = '−' + Math.max(1, Math.round(effect.damage || 0));
+    ctx.save();
+    ctx.globalAlpha *= Math.pow(1 - progress, .8);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = 'bold ' + Math.max(10, 12 / mapZoom) + 'px monospace';
+    ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(2, 2 / mapZoom);
+    ctx.strokeStyle = '#34221f'; ctx.fillStyle = '#fff0a8';
+    ctx.strokeText(label, centerX, centerY); ctx.fillText(label, centerX, centerY);
+    ctx.restore();
+  }
+
   function drawDepthSortedWorld(bounds, profile = null) {
+    for (const effect of activityEffects.active(animationTime)) {
+      if (effect.blood && effect.x >= bounds.minX - 2 && effect.x <= bounds.maxX + 2
+          && effect.y >= bounds.minY - 2 && effect.y <= bounds.maxY + 2)
+        drawBloodStains(ctx, effect, animationTime - effect.startedAt, TILE);
+    }
+    magicVfx.prepare(world, animationTime, bounds, id => {
+      const person = peopleById.get(id);
+      return person?.alive ? combatDisplayPose(person, visualPose('person', person)) : null;
+    });
+    magicVfx.drawGround(ctx);
     const items = collectDepthItems(bounds);
     profile?.mark('depthOrder');
     for (const item of items) {
@@ -1506,24 +2104,160 @@ export function mountGame() {
       else if (item.kind === 'stump') drawTreeStump(item);
       else if (item.kind === 'log') drawLooseTreeLog(item);
       else if (item.kind === 'loot') drawLootPile(item.pile);
-      else if (item.kind === 'fence') drawFenceSegment(item);
+      else if (item.kind === 'corral') drawCorralSlice(item);
+      else if (item.kind === 'training-dummy') drawTrainingDummy(item.dummy);
       else if (item.kind === 'structure') drawStructure(item.structure);
       else if (item.kind === 'animal') drawAnimal(item.animal, item.pose);
       else if (item.kind === 'person') drawPerson(item.person, item.pose);
-      else if (item.kind === 'effect') animationRenderer.draw(ctx, item.effect.animation,
-        (item.x + .5) * TILE, (item.y + (item.effect.personId != null ? 1 : .5)) * TILE,
-        { elapsedMs: animationTime - item.effect.startedAt, scale: TILE / item.effect.pixels, rotation: item.effect.projectile ? Math.atan2(item.effect.targetY - item.effect.y, item.effect.targetX - item.effect.x) : 0 });
+      else if (item.kind === 'effect') {
+        if (item.effect.blood) {
+          drawBloodBurst(ctx, item.effect, animationTime - item.effect.startedAt, TILE);
+        } else if (item.effect.damageNumber) {
+          drawCombatDamageNumber(item.effect);
+        } else if (item.effect.trainingDummyDamage) {
+          drawTrainingDummyDamage(item.effect);
+        } else if (item.effect.deathAnimation) {
+          drawPersonDeath(item.effect, (item.x + .5) * TILE, (item.y + 1) * TILE);
+        } else if (item.effect.animation === 'parry-stars') {
+          drawParryStars(item.effect, (item.x + .5) * TILE, (item.y + 1) * TILE, item.recipient, item.pose);
+        } else if (['lance-dash', 'shield-dash'].includes(item.effect.animation)) {
+          drawCombatDash(item.effect, (item.x + .5) * TILE, (item.y + 1) * TILE,
+            item.recipient, item.pose);
+        } else {
+          const elapsed = animationTime - item.effect.startedAt;
+          const groundedAt = (item.effect.flightDuration || item.effect.duration) + (item.effect.fallDuration || 0);
+          const fadeStart = item.effect.duration - 360;
+          const landedAlpha = item.effect.projectile && elapsed > groundedAt && elapsed > fadeStart
+            ? Math.max(0, Math.min(1, (item.effect.duration - elapsed) / 360)) : 1;
+          ctx.save();
+          ctx.globalAlpha *= landedAlpha;
+          animationRenderer.draw(ctx, item.effect.animation,
+            (item.x + .5) * TILE, (item.y + (item.effect.personId != null ? 1 : .5)) * TILE,
+            { elapsedMs: elapsed, scale: TILE / item.effect.pixels,
+              rotation: item.effect.projectile ? projectileRotation(item.effect, elapsed) : 0 });
+          ctx.restore();
+        }
+      }
     }
+    magicVfx.drawAura(ctx);
+    if (showHitboxes) drawHitboxOverlay(bounds);
+    drawMovementBlockLabels(bounds);
+    if (combatDebug) drawCombatDebugOverlay(bounds);
     profile?.mark('entities');
   }
 
-  function drawFenceSegment(item) {
-    const image = tinyFenceTilemap;
-    if (!image.complete || image.naturalWidth < 352 || image.naturalHeight < 768) return;
-    const x = item.x * TILE + TILE / 2, y = item.y * TILE + TILE / 2;
-    if (referenceRendering) { ctx.save(); ctx.imageSmoothingEnabled = false; }
-    ctx.drawImage(image, item.sourceX, item.sourceY, 32, 32, x - TILE / 2, y - TILE / 2, TILE, TILE);
-    if (referenceRendering) ctx.restore();
+  function drawHitboxOverlay(bounds) {
+    const collision = Sim.modules.Collision.worldCollisionIndex(world);
+    ctx.save();
+    ctx.lineWidth = Math.max(1, 1.5 / mapZoom);
+    // Show the physical character mask separately from the wider proximity
+    // spacing used by manual movement to avoid walking through other people.
+    for (const person of world.people || []) {
+      if (!person.alive || person.restingStructureId != null || person.towerMounted) continue;
+      const pose = visualPose('person', person);
+      const body = Sim.modules.Collision.npcHitbox(person, pose.x, pose.y);
+      if (body.x < bounds.minX - 1 || body.x > bounds.maxX + 1
+          || body.y < bounds.minY - 1 || body.y > bounds.maxY + 1) continue;
+      ctx.beginPath(); ctx.strokeStyle = '#72e6ff';
+      ctx.arc(body.x * TILE, body.y * TILE, body.radius * TILE, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.strokeStyle = '#ff7edb'; ctx.setLineDash([5 / mapZoom, 4 / mapZoom]);
+      ctx.arc(person.x * TILE, person.y * TILE, .42 * TILE, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    for (const [index, color] of [[collision.resources, '#ffcc55'], [collision.structures, '#ff5c6c']]) {
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color + '24';
+      for (const hitbox of index?.hitboxes || []) {
+        const radius = hitbox.shape === 'circle' ? hitbox.radius : 0;
+        if (hitbox.x + (hitbox.halfWidth || radius) < bounds.minX - 1
+            || hitbox.x - (hitbox.halfWidth || radius) > bounds.maxX + 1
+            || hitbox.y + (hitbox.halfDepth || radius) < bounds.minY - 1
+            || hitbox.y - (hitbox.halfDepth || radius) > bounds.maxY + 1) continue;
+        ctx.beginPath();
+        if (hitbox.shape === 'circle') {
+          ctx.arc(hitbox.x * TILE, hitbox.y * TILE, hitbox.radius * TILE, 0, Math.PI * 2);
+        } else {
+          ctx.rect((hitbox.x - hitbox.halfWidth) * TILE, (hitbox.y - hitbox.halfDepth) * TILE,
+            hitbox.halfWidth * 2 * TILE, hitbox.halfDepth * 2 * TILE);
+        }
+        ctx.fill(); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawMovementBlockLabels(bounds) {
+    const reasonLabels = { 'map-edge': 'limite do mapa', water: 'água', rock: 'rocha',
+      elevation: 'desnível', object: 'objeto/cenário', person: 'personagem', action: 'ação em andamento',
+      stunned: 'atordoamento', casting: 'conjuração' };
+    ctx.save();
+    for (const person of world.people || []) {
+      if (!person.alive || !person.playerControlled || !person.playerMovementBlockedReason
+          || person.x < bounds.minX - 1 || person.x > bounds.maxX + 1
+          || person.y < bounds.minY - 1 || person.y > bounds.maxY + 1) continue;
+      const label = 'Bloqueio: ' + (reasonLabels[person.playerMovementBlockedReason] || 'outro');
+      ctx.font = `${Math.max(10, 12 / mapZoom)}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      const textX = (person.x + .5) * TILE, textY = person.y * TILE - 18 / mapZoom;
+      const width = ctx.measureText(label).width + 10 / mapZoom;
+      ctx.fillStyle = '#17231bea'; ctx.fillRect(textX - width / 2, textY - 20 / mapZoom, width, 22 / mapZoom);
+      ctx.fillStyle = '#fff0c4'; ctx.fillText(label, textX, textY - 4 / mapZoom);
+    }
+    ctx.restore();
+  }
+
+  function drawCombatDebugOverlay(bounds) {
+    const events = (world.combatEvents || []).filter(event => event.day === world.day
+      && (event.origin.x >= bounds.minX && event.origin.x <= bounds.maxX
+        && event.origin.y >= bounds.minY && event.origin.y <= bounds.maxY
+        || event.result?.point && event.result.point.x >= bounds.minX && event.result.point.x <= bounds.maxX
+          && event.result.point.y >= bounds.minY && event.result.point.y <= bounds.maxY)).slice(-16);
+    if (!events.length) return;
+    ctx.save();
+    ctx.lineWidth = 2;
+    ctx.font = '12px sans-serif';
+    ctx.textBaseline = 'bottom';
+    for (const event of events) {
+      const origin = { x: (event.origin.x + .5) * TILE, y: (event.origin.y + .5) * TILE };
+      const aim = event.result?.point || event.aim;
+      const endpoint = { x: (aim.x + .5) * TILE, y: (aim.y + .5) * TILE };
+      const hit = ['body', 'shield', 'weapon-guard', 'parry', 'structure'].includes(event.result?.kind);
+      const color = event.result?.kind === 'obstructed' ? '#ff9b38' : hit ? '#68ef93' : '#f05b5b';
+      ctx.strokeStyle = 'rgba(245, 245, 235, .75)';
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath(); ctx.moveTo(origin.x, origin.y); ctx.lineTo((event.aim.x + .5) * TILE, (event.aim.y + .5) * TILE); ctx.stroke();
+      ctx.setLineDash([]);
+      if (event.geometry?.type === 'swept-arc') {
+        const radius = event.geometry.reach * TILE;
+        const thickness = Math.max(2, event.geometry.radius * TILE);
+        ctx.strokeStyle = 'rgba(95, 220, 255, .82)';
+        ctx.beginPath(); ctx.arc(origin.x, origin.y, radius - thickness, event.angle - event.geometry.arcRadians,
+          event.angle + event.geometry.arcRadians); ctx.stroke();
+        ctx.beginPath(); ctx.arc(origin.x, origin.y, radius + thickness, event.angle - event.geometry.arcRadians,
+          event.angle + event.geometry.arcRadians); ctx.stroke();
+      } else {
+        ctx.strokeStyle = 'rgba(95, 220, 255, .82)';
+        ctx.beginPath(); ctx.moveTo(origin.x, origin.y); ctx.lineTo(endpoint.x, endpoint.y); ctx.stroke();
+      }
+      if (['circle', 'structure-contact'].includes(event.result?.hitbox?.shape) && event.result.targetPosition) {
+        ctx.strokeStyle = 'rgba(255, 230, 92, .9)';
+        ctx.beginPath(); ctx.arc((event.result.targetPosition.x + .5) * TILE,
+          (event.result.targetPosition.y + .5) * TILE, event.result.hitbox.radius * TILE, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(endpoint.x, endpoint.y, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillText(`#${event.id} ${event.result?.kind || 'miss'} ${event.result?.atMs ?? '—'}ms`, endpoint.x + 6, endpoint.y - 5);
+    }
+    ctx.restore();
+  }
+
+  function drawCorralSlice(item) {
+    const image = tinyCorralSprite;
+    if (!image.complete || !image.naturalWidth) return;
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(image, item.sourceX, item.sourceY, item.sourceWidth, item.sourceHeight,
+      item.destX, item.destY, item.destWidth, item.destHeight);
+    ctx.restore();
   }
 
   function drawTreeStump(item) {
@@ -1557,13 +2291,14 @@ export function mountGame() {
 
   function drawMineralDeposit(item) {
     const x = item.x * TILE, y = item.y * TILE;
-    const gold = item.gold > .05;
-    if (gold) {
-      const variant = Math.max(1, Math.min(6, Math.ceil(item.gold / 3.5 * 6)));
+    const kind = dominantMetalKind(item);
+    const ore = item[kind] || 0;
+    if (ore > .05) {
+      const variant = mineralDepositVariant(kind, ore);
       const highlighted = activeMiningSites.has(item.x + ':' + item.y);
-      if (highlighted && animationRenderer.draw(ctx, 'resource.gold-stone-' + variant + '-highlight',
+      if (kind === 'gold' && highlighted && animationRenderer.draw(ctx, 'resource.gold-stone-' + variant + '-highlight',
         x + TILE / 2, y + TILE / 2, { elapsedMs: animationTime, scale: spriteScale(TILE), phase: item.id || 0 })) return;
-      const image = tinyGoldSprites[variant];
+      const image = tinyMineralSprites[kind][variant];
       if (image && image.complete && image.naturalWidth) {
         const scale = spriteScale(TILE), width = image.naturalWidth * scale, height = image.naturalHeight * scale;
         if (referenceRendering) { ctx.save(); ctx.imageSmoothingEnabled = false; }
@@ -1587,6 +2322,16 @@ export function mountGame() {
 
   function drawLootPile(pile) {
     const x = pile.x * TILE, y = pile.y * TILE;
+    if (MINERAL_SPRITE_KINDS.includes(pile.mineralKind) && (pile.resources[pile.mineralKind] || 0) > 0) {
+      const image = tinyMineralSprites[pile.mineralKind][1];
+      if (image?.complete && image.naturalWidth) {
+        const scale = spriteScale(TILE);
+        ctx.drawImage(image, x + TILE / 2 - image.naturalWidth * scale / 2,
+          y + TILE / 2 - image.naturalHeight * scale / 2,
+          image.naturalWidth * scale, image.naturalHeight * scale);
+      }
+      return;
+    }
     const stoneOnly = (pile.resources.stone || 0) > 0
       && !['food', 'meat', 'wood', 'gold', 'feed'].some(resource => (pile.resources[resource] || 0) > 0);
     if (stoneOnly) {
@@ -1653,26 +2398,6 @@ export function mountGame() {
       }
       ctx.restore();
     }
-  }
-
-  function towerDiplomacyPanel(kingdom) {
-    const relations = Object.values(world.kingdomRelations || {}).filter(r => r.a === kingdom.id || r.b === kingdom.id);
-    const pressure = relations.map(r => '<div class="data-row"><span>Tensão nas fronteiras</span><b>'
-      + Math.round((r.tension || 0) * 100) + '% · ' + (r.towerPressure?.pairs.length || 0)
-      + ' pares de torres próximos · ' + (r.towerPressure?.overlappingPairs || 0) + ' sobreposições</b></div>').join('');
-    const targets = world.structures.filter(t => ['torre', 'centro_militar', 'arquearia', 'monasterio', 'mercado', 'castelo'].includes(t.type)
-      && t.complete && t.destroyedDay == null && t.kingdomId != null && t.kingdomId !== kingdom.id)
-      .sort((a, b) => Math.hypot(a.x - kingdom.x, a.y - kingdom.y) - Math.hypot(b.x - kingdom.x, b.y - kingdom.y))
-      .filter((t, i, all) => all.findIndex(other => other.type === t.type) === i).slice(0, 6);
-    const reports = (kingdom.militaryIntel || []).filter(r => ['enemy-approach', 'territory-lost'].includes(r.kind)).slice(-5).reverse();
-    const alerts = reports.map(r => '<div class="data-row"><span>Dia ' + r.day + ' · aviso ao rei</span><b>'
-      + esc(r.kind === 'territory-lost' ? 'Perdeu ' + r.tiles + ' células em ' + r.location.x + ',' + r.location.y
-        : r.soldiersObserved + ' inimigos avistados em ' + r.location.x + ',' + r.location.y) + '</b></div>').join('');
-    return pressure + alerts + '<div class="kingdom-actions">' + targets.map(t => (t.type === 'torre'
-      ? '<button type="button" data-structure-command="capture-tower" data-kingdom-id="' + kingdom.id + '" data-tower-id="' + t.id + '">Capturar torre ' + t.id + '</button>' : '')
-      + '<button type="button" data-structure-command="attack-installation" data-kingdom-id="' + kingdom.id
-      + '" data-structure-id="' + t.id + '">Atacar ' + esc(structureDisplayName(t.type)) + ' ' + t.id + '</button>').join('')
-      + '</div><p class="quiet">A captura exige enfraquecer a torre e ocupá-la por cinco dias. Ataques às demais instalações organizam um cerco com tropas e suprimentos. A paz inicial e os armistícios são respeitados.</p>';
   }
 
   function drawWorldHealthBar(x, y, width, height, value, colorOverride = null) {
@@ -1798,12 +2523,16 @@ export function mountGame() {
     if (!structureDamageBars.visible(s.id, performance.now())) return;
     const life = towerVitality(s), ratio = life.health / life.maxHealth;
     const spriteKey = structureSpriteKey(s);
-    const top = s.type === 'curral' ? y - Math.round(s.radius || 3.5) * TILE
+    const top = s.type === 'curral' ? y - corralFenceRadius(s) * TILE
       : y + TILE - (BUILDING_FEET[spriteKey] || 150) * spriteScale(TILE);
-    const barHeight = 7, barY = (s.complete ? top - barHeight - 2 : y - barHeight - 2) + constructionBarOffset;
-    drawWorldHealthBar(x - 12, barY, 40, barHeight, ratio);
+    const barWidth = 20, barHeight = 3.5, barX = x - 2;
+    const barY = (s.complete ? top - barHeight - 2 : y - barHeight - 2) + constructionBarOffset;
+    drawWorldHealthBar(barX, barY, barWidth, barHeight, ratio);
     if (world.day - (s.lastAttackedDay ?? -Infinity) <= 1) {
-      ctx.strokeStyle = '#f6aa63'; ctx.lineWidth = 1; ctx.strokeRect(x - 13, barY - 1, 42, barHeight + 2);
+      ctx.save();
+      ctx.strokeStyle = '#f6aa63'; ctx.lineWidth = .5;
+      ctx.strokeRect(barX - .5, barY - .5, barWidth + 1, barHeight + 1);
+      ctx.restore();
     }
   }
 
@@ -1849,6 +2578,26 @@ export function mountGame() {
       if (s.maxHealth) drawStructureLife(s, x, y, !s.complete && foundationSpec ? 9 : 0);
   }
 
+  function drawTrainingDummy(dummy) {
+    const image = trainingDummySprites[dummy.palette]?.[dummy.pose];
+    if (!image?.complete || !image.naturalWidth) return false;
+    const size = TILE * 3 * (dummy.sizeScale ?? 1);
+    const centerX = (dummy.x + .5) * TILE, footY = (dummy.y + 1) * TILE;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    if (dummy.flipX) {
+      ctx.translate(centerX, 0);
+      ctx.scale(-1, 1);
+      ctx.translate(-centerX, 0);
+    }
+    ctx.drawImage(image, centerX - size / 2, footY - size, size, size);
+    ctx.restore();
+    const healthRatio = dummy.health / dummy.maxHealth;
+    const healthColor = healthRatio < .3 ? 'red' : healthRatio < .6 ? 'yellow' : 'green';
+    drawPersonStatusBar(centerX - 5.5, footY - size - 3, 11, 2, healthRatio, healthColor);
+    return true;
+  }
+
   function drawAnimal(a, pose) {
       const p = Sim.animals.find(s => s.id === a.speciesId), x = pose.x * TILE, y = pose.y * TILE;
       if (!p) return;
@@ -1878,6 +2627,10 @@ export function mountGame() {
 
   const npcDamageBars = createDamageBarTracker();
   const structureDamageBars = createDamageBarTracker();
+  function drawHoverEnergyCircle(centerX, centerY) {
+    magicVfx.drawIndicator(ctx, centerX, centerY, animationTime,
+      { color: manualControlId != null ? '#ff674e' : '#51e6ff', radius: TILE * .55, rotationSpeed: .23 });
+  }
   function drawPerson(p, pose) {
       const c = p.communityId ? getCommunity(p.communityId) : null;
       const militarySprite = MILITARY_SPRITES[p.militaryClass];
@@ -1886,7 +2639,9 @@ export function mountGame() {
           * spriteScale(TILE, CHARACTER_SPRITE_SCALE) : 0;
       const x = pose.x * TILE, y = pose.y * TILE + towerDrop, child = p.ageDays < 12 * 365;
       const scale = child ? .72 : 1, color = c ? c.color : ['#d9c28b', '#cfb585', '#e0c99b', '#c9b27f'][p.id % 4];
-      if (p.conflictRisk > .5) { ctx.strokeStyle = 'rgba(196,109,72,.52)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x + 8, y + 8, 7.5, 0, Math.PI * 2); ctx.stroke(); }
+      if (selection?.kind === 'person' && selection.id === p.id) {
+        magicVfx.drawIndicator(ctx, x + TILE / 2, y + TILE - .5, animationTime);
+      } else if (hoveredPersonId === p.id) drawHoverEnergyCircle(x + TILE / 2, y + TILE - .5);
       if (!drawTinySwordsPerson(p, x, y, child, pose)) {
         ctx.save();
         ctx.translate(x + TILE / 2, y + TILE);
@@ -1907,23 +2662,6 @@ export function mountGame() {
       }
       drawCarriedMeat(p, x, y, pose);
       drawCarriedWood(p, x, y, pose);
-      const disarmed = p.role === 'soldier' && p.combatDisarmedUntilDay > world.day;
-      const opening = p.role === 'soldier' && p.combatOpening?.expiresDay > world.day;
-      if (disarmed || opening) {
-        const badgeX = x + TILE / 2, badgeY = y + 2;
-        ctx.save();
-        ctx.fillStyle = 'rgba(34,31,23,.92)';
-        ctx.beginPath(); ctx.arc(badgeX, badgeY, 4.5, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = disarmed ? '#f2ca73' : '#a9dfa7'; ctx.lineWidth = 1.25;
-        if (disarmed) {
-          ctx.beginPath(); ctx.moveTo(badgeX - 1.7, badgeY - 1.7); ctx.lineTo(badgeX + 1.7, badgeY + 1.7);
-          ctx.moveTo(badgeX + 1.7, badgeY - 1.7); ctx.lineTo(badgeX - 1.7, badgeY + 1.7); ctx.stroke();
-        } else {
-          ctx.beginPath(); ctx.moveTo(badgeX, badgeY - 2.4); ctx.lineTo(badgeX + 2.4, badgeY);
-          ctx.lineTo(badgeX, badgeY + 2.4); ctx.lineTo(badgeX - 2.4, badgeY); ctx.closePath(); ctx.fillStyle = '#a9dfa7'; ctx.fill();
-        }
-        ctx.restore();
-      }
       const now = performance.now();
       const isMonk = p.role === 'soldier' && p.militaryClass === 'monge';
       if (npcDamageBars.visible(p.id, now)) {
@@ -1931,9 +2669,9 @@ export function mountGame() {
         drawPersonStatusBar(x + 2.5, y - (isMonk ? 12 : 8), 11, 2, p.health / 100, ratio);
       }
       if (p.role === 'soldier' && (npcDamageBars.visible(p.id, now) || selection?.kind === 'person' && selection.id === p.id)) {
-        drawPersonStatusBar(x + 2.5, y - (isMonk ? 10 : 6), 11, 2, (p.stamina ?? 100) / 100, 'yellow');
+        drawPersonStatusBar(x + 2.5, y - (isMonk ? 10 : 6), 11, 2, (p.stamina ?? p.maxStamina ?? 200) / (p.maxStamina || 200), 'yellow');
         if (isMonk) {
-          drawPersonStatusBar(x + 2.5, y - 8, 11, 2, (p.mana ?? 100) / 100, 'blue');
+          drawPersonStatusBar(x + 2.5, y - 8, 11, 2, (p.mana ?? p.maxMana ?? 200) / (p.maxMana || 200), 'blue');
         }
       }
       drawLeaderBadge(p, x, y);
@@ -1942,6 +2680,10 @@ export function mountGame() {
 
   function drawSelection() {
     if (!selection) return;
+    if (selection.kind === 'person') {
+      // Unit indicators are drawn with the hover, before their sprite.
+      if (getPerson(selection.id)?.alive) return;
+    }
     const bounds = selectionBounds(selection);
     if (bounds) drawSelectionFrame(bounds);
   }
@@ -1967,10 +2709,17 @@ export function mountGame() {
       const broadleaf = tile.plants[plantIndex('broadleaf')], conifer = tile.plants[plantIndex('conifer')];
       return tinyTreeSpriteLayout(tile, broadleaf >= conifer ? 'broadleaf' : 'conifer', Math.max(broadleaf, conifer));
     }
+    if (item.kind === 'training-dummy') {
+      const dummy = trainingDummiesForWorld(world).find(entry => entry.id === item.id);
+      if (!dummy) return null;
+      const size = TILE * 3 * (dummy.sizeScale ?? 1);
+      return { x: (dummy.x + .5) * TILE - size / 2, y: (dummy.y + 1) * TILE - size,
+        width: size, height: size };
+    }
     if (item.kind === 'person') {
       const person = getPerson(item.id);
       if (!person || person.restingStructureId != null) return null;
-      const pose = visualPose('person', person);
+      const pose = combatDisplayPose(person, visualPose('person', person));
       const towerDrop = person.towerMounted
         ? ((MILITARY_SPRITES[person.militaryClass]?.foot || 0) * .625
           + (MILITARY_SPRITES[person.militaryClass]?.size || 0) * .1) * spriteScale(TILE, CHARACTER_SPRITE_SCALE) : 0;
@@ -2047,7 +2796,7 @@ export function mountGame() {
       return { x: x + 8 - radius, y: y + 8 - radius, width: radius * 2, height: radius * 2 };
     }
     if (structure.type === 'curral' && structure.complete && structure.destroyedDay == null) {
-      const radius = Math.max(2, Math.round(structure.radius || 3.5));
+      const radius = corralFenceRadius(structure);
       return { x: (Math.round(structure.x) - radius) * TILE, y: (Math.round(structure.y) - radius) * TILE,
         width: (radius * 2 + 1) * TILE, height: (radius * 2 + 1) * TILE };
     }
@@ -2117,9 +2866,49 @@ export function mountGame() {
   }
 
   const oceanPatterns = new WeakMap();
+  const oceanBackdropCache = document.createElement('canvas');
+  const waterLayerCache = document.createElement('canvas');
+  let oceanBackdropKey = '', waterLayerKey = '';
+  function drawCachedWater(camera, view) {
+    const oceanKey = [camera.width, camera.height, camera.transform[0],
+      autoTileWaterBackground.naturalWidth, world.seed].join(':');
+    const period = Math.max(1, camera.transform[0] * TILE);
+    if (oceanBackdropKey !== oceanKey) {
+      oceanBackdropCache.width = camera.width + Math.ceil(period * 2);
+      oceanBackdropCache.height = camera.height + Math.ceil(period * 2);
+      drawOceanBackdrop(oceanBackdropCache.getContext('2d'),
+        { ...camera, transform: [camera.transform[0], 0, 0, camera.transform[3], 0, 0] });
+      oceanBackdropKey = oceanKey;
+    }
+    const viewKey = [oceanKey, ...camera.transform].join(':');
+    const key = [viewKey, Math.floor(animationTime / 110), world.day, assetRevision].join(':');
+    if (waterLayerKey !== key) {
+      if (waterLayerCache.width !== camera.width || waterLayerCache.height !== camera.height) {
+        waterLayerCache.width = camera.width; waterLayerCache.height = camera.height;
+      }
+      const previousContext = ctx;
+      try {
+        ctx = waterLayerCache.getContext('2d');
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        const offsetX = ((camera.transform[4] % period) + period) % period - period;
+        const offsetY = ((camera.transform[5] % period) + period) % period - period;
+        ctx.drawImage(oceanBackdropCache, offsetX, offsetY);
+        ctx.setTransform(...camera.transform);
+        ctx.imageSmoothingEnabled = false;
+        ctx.save();
+        ctx.beginPath(); ctx.rect(view.x, view.y, view.width, view.height); ctx.clip();
+        drawWaterRocks(view.bounds); drawTinyWaterFoam(view.bounds);
+        ctx.restore();
+      } finally { ctx = previousContext; }
+      waterLayerKey = key;
+    }
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(waterLayerCache, 0, 0); ctx.restore();
+  }
+
   function drawOceanBackdrop(context, camera) {
     context.fillStyle = '#16536e';
-    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillRect(0, 0, context.canvas.width, context.canvas.height);
     if (!autoTileWaterBackground.complete || !autoTileWaterBackground.naturalWidth) return;
     let pattern = referenceRendering ? null : oceanPatterns.get(context);
     if (!pattern) {
@@ -2134,7 +2923,7 @@ export function mountGame() {
       ]));
     }
     context.fillStyle = pattern;
-    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillRect(0, 0, context.canvas.width, context.canvas.height);
   }
 
 
@@ -2174,10 +2963,12 @@ export function mountGame() {
     if (!world) return;
     const profile = renderDiagnostics.profiler.beginDraw(source);
     renderTimestamp = performance.now();
+    updateFollowCamera(renderTimestamp);
     updateIndividualTrails(renderTimestamp);
     syncAtmosphereWithZoom();
     const displayContext = ctx;
     const camera = currentMapCamera();
+    kingThoughts.update(world, camera, TILE, visualPose, selection);
     mapTransform = camera.transform;
     if (canvas.width !== camera.width || canvas.height !== camera.height) {
       canvas.width = camera.width; canvas.height = camera.height;
@@ -2194,7 +2985,7 @@ export function mountGame() {
       terrainSyncRevision = session.revision; terrainSyncFallback = fallbackTerrain;
     }
     const transition = seasonalTerrainTransition(world.day);
-    const terrainStyle = [world.seed, visualPack, transition.season, transition.nextSeason, transition.alpha, assetRevision, fallbackTerrain].join(':');
+    const terrainStyle = [world.seed, visualPack, transition.season, transition.nextSeason, transition.alpha, terrainAssetRevision, fallbackTerrain].join(':');
     const nextGroundKey = [referenceRendering ? world.day : terrainChunks.revision, terrainStyle,
       camera.width, camera.height, ...camera.transform].join(':');
     const cacheRebuilt = groundCacheKey !== nextGroundKey;
@@ -2207,7 +2998,7 @@ export function mountGame() {
         ctx.setTransform(...camera.transform);
         ctx.imageSmoothingEnabled = false;
         profile?.mark('preparation');
-        drawGround(); profile?.mark('terrain');
+        drawGround(); drawTinyCliffFaces(); drawTinyElevationLayer(); drawTinyRamps(); profile?.mark('terrain');
         drawGroundPlants(); profile?.mark('plants');
         drawRoads(); profile?.mark('roads');
       } else {
@@ -2216,7 +3007,9 @@ export function mountGame() {
           const previousContext = ctx, previousTransform = mapTransform;
           try {
             ctx = chunkContext; mapTransform = transform;
-            drawGround(bounds); profile?.mark('terrain');
+            drawGround(bounds);
+            drawTinyCliffFaces(bounds); drawTinyElevationLayer(bounds); drawTinyRamps(bounds);
+            profile?.mark('terrain');
             drawGroundPlants(bounds); profile?.mark('plants');
             drawRoads(bounds); profile?.mark('roads');
           } finally { ctx = previousContext; mapTransform = previousTransform; }
@@ -2229,6 +3022,8 @@ export function mountGame() {
     ctx = displayContext;
     ctx.imageSmoothingEnabled = false;
     profile?.mark('preparation');
+    if (!referenceRendering) drawCachedWater(camera, view);
+    else {
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -2241,6 +3036,7 @@ export function mountGame() {
       drawTinyWaterFoam(view.bounds);
       ctx.restore();
     }
+    }
     profile?.mark('water');
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -2251,7 +3047,7 @@ export function mountGame() {
       ctx.save();
       ctx.beginPath(); ctx.rect(view.x, view.y, view.width, view.height); ctx.clip();
       ctx.imageSmoothingEnabled = true;
-      ctx.globalAlpha = .15;
+      ctx.globalAlpha = PATH_TRAIL_OPACITY;
       ctx.drawImage(trailCanvas, 0, 0, LOGICAL_SIZE, LOGICAL_SIZE);
       ctx.restore();
     }
@@ -2278,6 +3074,7 @@ export function mountGame() {
     }
     profile?.end({ cacheRebuilt, day: world.day, zoom: mapZoom,
       context: { renderer: 'canvas2d', atmosphereRenderer: atmosphericLayer.rendererType,
+        magic: magicVfx.stats(),
         referenceRendering, fixedEffects, terrainChunks: referenceRendering ? null : terrainChunks.stats(),
         pixelTiles: referenceRendering ? null : pixelTiles.stats(),
         seed: world.seed, day: world.day, season: world.stats.season, paused: session.paused, speed: session.speed,
@@ -2292,16 +3089,69 @@ export function mountGame() {
   function renderKingdomList() {
     $('kingdomList').innerHTML = world.kingdoms.map(kingdom => {
       const residents = kingdom.memberIds.map(id => getPerson(id)).filter(Boolean);
+      const resources = resourceSummary(world, kingdom.id);
       const ruler = getPerson(kingdom.rulerId);
       const soldiers = residents.filter(person => person.role === 'soldier').length;
-      const patrolling = residents.filter(person => person.role === 'soldier' && String(person.state || '').startsWith('patrulhando')).length;
       const campaign = (world.campaigns || []).find(item => item.status !== 'complete'
         && (item.attackerId === kingdom.id || item.defenderId === kingdom.id));
       const campaignStatus = campaign ? ' · campanha ' + (campaign.status === 'engaged' ? 'em combate' : campaign.status === 'withdrawing' ? 'retirada' : 'em marcha') : '';
+      const metrics = [
+        ['food', 'Comida', fmt(resources.food), 'Comida disponível nas contas vinculadas ao reino, em dias alimentares equivalentes.'],
+        ['wealth', 'Riqueza', fmt(resources.gold, 0), 'Ouro nas contas vinculadas ao reino e com moradores vivos.'],
+        ['people', 'Pessoas', fmt(resources.people), 'Moradores vivos deste reino.'],
+        ['births', 'Nascimentos', fmt(resources.births), 'Nascimentos registrados para este reino desde o início.'],
+        ['deaths', 'Mortes', fmt(resources.deaths), 'Mortes registradas para este reino desde o início.']
+      ].map(([key, label, value, title]) => '<span class="kingdom-card-stat" data-kingdom-stat="' + key + '" title="' + title + '"><small>' + label + '</small><b>' + value + '</b></span>').join('');
       return '<button class="community-card" data-kingdom="' + kingdom.id + '" title="Inspecionar reino, moradias, tesouro e mercado" style="--community:' + esc(kingdom.color) + '">' +
-        '<i class="color-dot"></i><span><strong>' + esc(kingdom.name) + '</strong><small>' + residents.length + ' moradores · ' + soldiers + ' soldados (' + patrolling + ' em patrulha)' + esc(campaignStatus) + ' · ' + (kingdom.homeIds || []).length + ' casas · ' + kingdom.towerIds.map(id => world.structures.find(structure => structure.id === id && structure.complete)).filter(Boolean).length + ' torres · rei ' + esc(ruler ? ruler.name : 'sem governante') + '</small></span><em>' + fmt(kingdom.territoryTileCount) + ' células</em></button>';
+        '<i class="color-dot"></i><span class="kingdom-card-body"><strong>' + esc(kingdom.name) + '</strong><small>' + soldiers + ' soldados' + esc(campaignStatus) + ' · ' + (kingdom.homeIds || []).length + ' casas · ' + kingdom.towerIds.map(id => world.structures.find(structure => structure.id === id && structure.complete)).filter(Boolean).length + ' torres · rei ' + esc(ruler ? ruler.name : 'sem governante') + '</small><span class="kingdom-card-stats" aria-label="Indicadores de ' + esc(kingdom.name) + '">' + metrics + '</span></span><em>' + fmt(kingdom.territoryTileCount) + ' células</em></button>';
     }).join('');
     $('solitaryCount').textContent = world.kingdoms.length + ' domínios';
+  }
+
+  function renderLocalAiHistory() {
+    const list = $('localAiHistoryList');
+    if (!list || !world) return;
+    const kingdomsById = new Map(world.kingdoms.map(kingdom => [kingdom.id, kingdom]));
+    const choiceLabels = {
+      trade_for_food: 'trocar excedentes por alimento',
+      forage_for_food: 'buscar alimento para a reserva comum',
+      repair_damaged_structures: 'reparar construções danificadas',
+      secure_herd_feed: 'repor a ração do rebanho',
+      build_project: 'avançar a construção comunitária',
+      gather_materials: 'reunir materiais de construção',
+      recruit_soldier: 'recrutar um soldado',
+      patrol_borders: 'patrulhar as fronteiras',
+      reserve_garrison: 'manter a guarnição em reserva',
+      maintain_autonomy: 'manter a iniciativa local'
+    };
+    const decisions = [];
+    for (const kingdom of world.kingdoms) {
+      for (const decision of kingdom.strategy?.aiHistory || []) {
+        decisions.push({
+          day: decision.day,
+          role: 'Rei',
+          kingdomName: kingdom.name,
+          action: choiceLabels[decision.choice] || String(decision.choice || decision.action || 'ordem estratégica').replaceAll('_', ' ')
+        });
+      }
+    }
+    for (const decision of world.campaignGeneralAi?.events || []) {
+      if (decision.type !== 'applied' || decision.role !== 'general' || !decision.decision?.action) continue;
+      const kingdom = kingdomsById.get(decision.kingdomId);
+      if (!kingdom) continue;
+      const actionLabels = { advance: 'avançar ao objetivo', hold_position: 'manter posição', withdraw: 'retirada ordenada' };
+      decisions.push({
+        day: decision.day,
+        role: 'General',
+        kingdomName: kingdom.name,
+        action: actionLabels[decision.decision.action] || String(decision.decision.action).replaceAll('_', ' ')
+      });
+    }
+    decisions.sort((a, b) => b.day - a.day);
+    list.innerHTML = decisions.slice(0, 4).map(decision =>
+      '<li><span>Dia ' + fmt(decision.day) + ' · ' + decision.role + ' de ' + esc(decision.kingdomName) + '</span><b>'
+      + esc(decision.action) + '</b></li>'
+    ).join('') || '<li class="quiet">Nenhuma decisão registrada nesta partida.</li>';
   }
 
   function renderSpecies(stats) {
@@ -2329,28 +3179,16 @@ export function mountGame() {
   }
 
   function updateHeader(stats) {
-    const region = world.regions[0] || { temperatureC: 18, rainfallMm: 0 };
-    const avgTemp = world.regions.reduce((s, r) => s + r.temperatureC, 0) / world.regions.length;
     const calendar = Sim.modules.Cosmos.calendarDate(world.day);
-    const global = resourceSummary(world);
-    $('globalFood').textContent = fmt(global.food, 1);
-    $('globalGold').textContent = fmt(global.gold, 0);
     $('day').textContent = fmt(calendar.dayOfYear);
     $('day').parentElement.title = 'Dia ' + world.day + ' desde a criação · 365 dias por ano';
     $('year').textContent = fmt(stats.year);
     $('animalCount').textContent = fmt(stats.animalCount);
-    $('peopleCount').textContent = fmt(stats.peopleCount);
     $('kingdomCount').textContent = fmt(stats.kingdomCount);
-    $('birthCount').textContent = fmt(global.births);
-    $('deathCount').textContent = fmt(global.deaths);
     $('conflictCount').textContent = fmt(stats.borderIncidents);
     $('harvestCount').textContent = fmt(stats.harvests.hunting);
-    $('meatCount').textContent = fmt(stats.meatCarried, 1) + '/' + fmt(stats.meatStored, 1);
+    $('meatCount').textContent = fmt(stats.meatCarried) + '/' + fmt(stats.meatStored);
     $('season').textContent = seasonNames[stats.season].toUpperCase();
-    $('temperature').textContent = Math.round(avgTemp) + ' °C';
-    $('rainfall').textContent = fmt(stats.rainfallMm, 1) + ' mm';
-    $('foodPressureTag').hidden = stats.foodRiskPeople === 0;
-    $('foodRiskCount').textContent = fmt(stats.foodRiskPeople);
     $('runState').textContent = session.paused ? 'PAUSADA' : 'ATIVA';
     $('toggle').innerHTML = session.paused ? '▶' : 'Ⅱ';
     $('toggle').title = session.paused ? 'Retomar' : 'Pausar';
@@ -2372,10 +3210,10 @@ export function mountGame() {
       $('leftPanel').classList.remove('is-open');
       $('kingdomsToggle').setAttribute('aria-expanded', 'false');
     }
-    if (item && item.kind === 'kingdom' && (!selection || selection.kind !== 'kingdom' || selection.id !== item.id)) kingdomActionNotice = '';
     selection = item;
     showRight = !!item;
     $('rightPanel').classList.toggle('is-open', showRight);
+    syncPanelAccess();
     renderInspector();
     drawMap();
   }
@@ -2411,6 +3249,33 @@ export function mountGame() {
     const opened = new Set((sameSelection ? [...root.querySelectorAll('details[open]')] : []).map(d => d.querySelector('summary')?.textContent));
     const scroll = sameSelection ? root.scrollTop : 0;
     renderInspectorContent();
+    const ribbonPalette = (() => {
+      if (!selection) return 'black';
+      if (selection.kind === 'kingdom') return getKingdom(selection.id)?.palette || 'black';
+      if (selection.kind === 'structure') {
+        const structure = world.structures.find(item => item.id === selection.id);
+        return getKingdom(structure?.kingdomId)?.palette
+          || (structure?.communityId != null ? communityPalette(structure.communityId) : 'black');
+      }
+      if (selection.kind === 'training-dummy')
+        return trainingDummiesForWorld(world).find(item => item.id === selection.id)?.palette || 'black';
+      if (selection.kind === 'person') return getKingdom(getPerson(selection.id)?.kingdomId)?.palette || 'black';
+      if (selection.kind === 'community') return communityPalette(selection.id);
+      if (selection.kind === 'animal') {
+        const animal = world.animals.find(item => item.id === selection.id);
+        return animal?.herdCommunityId != null ? communityPalette(animal.herdCommunityId) : 'cyan';
+      }
+      if (selection.kind === 'loot') {
+        const pile = (world.loot || []).find(item => item.id === selection.id);
+        if (pile?.mineralKind || pile?.resources?.stone > 0 || pile?.resources?.iron > 0) return 'black';
+        if (pile?.resources?.gold > 0 || pile?.resources?.silver > 0 || pile?.resources?.copper > 0) return 'yellow';
+        if (pile?.resources?.wood > 0) return 'purple';
+      }
+      if (selection.kind === 'log') return 'purple';
+      if (selection.kind === 'plant') return 'yellow';
+      return 'cyan';
+    })();
+    setModalRibbon($('rightPanel'), forjaUI, ribbonPalette);
     for (const detail of root.querySelectorAll('details')) detail.open = opened.has(detail.querySelector('summary')?.textContent);
     root.scrollTop = scroll;
   }
@@ -2425,221 +3290,24 @@ export function mountGame() {
       root.innerHTML = '<p class="intro">Selecione um organismo, construção ou reino para acompanhar suas condições.</p>';
       return;
     }
+    if (selection.kind === 'training-dummy') {
+      const dummy = trainingDummiesForWorld(world).find(item => item.id === selection.id);
+      if (!dummy) { selection = null; renderInspector(); return; }
+      const kingdom = getKingdom(dummy.kingdomId);
+      $('inspectEyebrow').textContent = 'TREINO MILITAR · ' + (kingdom?.name || 'REINO');
+      $('inspectTitle').textContent = 'Boneco de treino';
+      root.innerHTML = '<div class="data-row"><span>Função</span><b>alvo de prática</b></div>'
+        + '<div class="data-row"><span>Vida</span><b>' + fmt(dummy.health) + ' / ' + fmt(dummy.maxHealth) + '</b></div>'
+        + '<div class="data-row"><span>Resistência</span><b>permanece no lugar</b></div>'
+        + '<p class="quiet">Os ataques mostram o dano causado. O boneco bloqueia a passagem como um personagem.</p>';
+      return;
+    }
     if (selection.kind === 'kingdom') {
       const kingdom = getKingdom(selection.id);
       if (!kingdom) { selection = null; renderInspector(); return; }
-      const residents = kingdom.memberIds.map(id => getPerson(id)).filter(Boolean);
-      const ruler = getPerson(kingdom.rulerId);
-      const homes = kingdom.homeIds.map(id => world.structures.find(s => s.id === id)).filter(Boolean);
-      const housed = homes.reduce((sum, home) => sum + home.residentIds.filter(id => getPerson(id)).length, 0);
-      const treasury = kingdom.treasury.stock, market = kingdom.market;
-      const structures = kingdom.structureIds.map(id => world.structures.find(s => s.id === id)).filter(Boolean);
-      const maintenanceHistory = (kingdom.fortificationMaintenance && kingdom.fortificationMaintenance.history || []).slice(-3).reverse();
-      const maintenancePanel = maintenanceHistory.length
-        ? '<h3>Manutenção recente</h3>' + maintenanceHistory.map(item =>
-          '<div class="event">Dia ' + fmt(item.day, 0) + ' · ' + fmt(item.paidStructures, 0) + '/' + fmt(item.fortificationCount, 0)
-          + ' pagas · ' + fmt(item.deferredStructures, 0) + ' adiadas · pagos: ' + fmt(item.paidCost.wood, 2) + ' madeira / '
-          + fmt(item.paidCost.stone, 2) + ' pedra · adiados: ' + fmt(item.deferredCost.wood, 2) + ' madeira / '
-          + fmt(item.deferredCost.stone, 2) + ' pedra · perda de integridade ' + fmt(item.integrityLost, 2)
-          + ' · ' + fmt(item.collapsedStructureIds && item.collapsedStructureIds.length, 0) + ' colapsos</div>').join('')
-        : '';
-      const reserveTransfers = (Array.isArray(kingdom.reserveTransfers) ? kingdom.reserveTransfers : []).slice(-3).reverse();
-      const reserveTransferPanel = reserveTransfers.length
-        ? '<h3>Repasses recentes do tesouro</h3>' + reserveTransfers.map(item => {
-          const reason = item.foodReason === 'emergency-community-below-one-day'
-            ? 'estoque abaixo de um dia; piso de seca liberado'
-            : item.foodReason === 'restore-two-day-community-buffer' ? 'buffer comunitário de dois dias'
-              : item.feedReason ? 'buffer de ração do rebanho' : 'reserva comunitária';
-          return '<div class="event">Dia ' + fmt(item.day, 0) + ' · tesouro → comunidade · ' + fmt(item.food, 3) + ' alimento / '
-            + fmt(item.feed, 3) + ' ração · tesouro restante ' + fmt(item.treasuryFood, 3) + ' alimento · reserva comum '
-            + fmt(item.communityFood, 3) + ' · piso de seca ' + fmt(item.protectedFoodFloor, 3) + ' · ' + esc(reason) + '</div>';
-        }).join('')
-        : '';
-      const towers = structures.filter(s => s.type === 'torre' && s.complete && !s.frontierOutpost);
-      const frontierTowers = structures.filter(s => s.frontierOutpost && (s.complete
-        || s.integrity > 0 && s.builtDay == null && (s.progress || 0) < (s.required || 1)));
-      const militaryCenters = (kingdom.militaryCenterIds || []).map(id => world.structures.find(s => s.id === id && s.complete)).filter(Boolean);
-      const soldiers = residents.filter(person => person.role === 'soldier');
-      const pendingRecruitments = residents.filter(person => person.alive && person.recruitmentOrder);
-      const activeKingdomProject = structures.find(structure => structure.kingdomProject && !structure.complete && structure.integrity > 0 && structure.builtDay == null);
-      const activeCommunityProject = world.structures.find(structure => structure.communityId === kingdom.communityId
-        && !structure.kingdomProject && !structure.complete && structure.integrity > 0 && structure.builtDay == null);
-      const patrollingSoldiers = soldiers.filter(person => String(person.state || '').startsWith('patrulhando')).length;
-      const soldierCapacity = militaryCenters.reduce((sum, center) => sum + (center.capacity || 8), 0);
-      const soldierSlots = Math.max(0, soldierCapacity - soldiers.length - pendingRecruitments.length);
-      const constructionStatus = activeKingdomProject
-        ? '<div class="note-card"><b>Obra de defesa em andamento</b><span>'
-          + esc(activeKingdomProject.frontierOutpost ? 'Posto de fronteira' : structureDisplayName(activeKingdomProject.type))
-          + ' · ' + activeKingdomProject.progress + '/' + activeKingdomProject.required
-          + ' dias de trabalho · ' + esc(activeKingdomProject.lastConstructionWorkDay === world.day ? 'peão construindo no local' : 'aguardando peão no local')
-          + ' · ' + (activeKingdomProject.siegeBlocked ? 'obra interrompida por ataque' : 'depende da chegada e proteção dos trabalhadores') + '.</span></div>' : '';
-      const communityWorkStatus = activeCommunityProject && activeCommunityProject.workStatus;
-      const communityWorkStatusLabels = {
-        delegated: 'trabalhador designado', 'not-delegated': 'sem reserva de trabalhador',
-        blocked: 'obra bloqueada', 'worker-out-of-range': 'trabalhador fora do alcance',
-        'worker-approaching': 'trabalhador a caminho', 'worker-paused': 'atribuição pausada',
-        'worker-working': 'trabalhador avançando', 'worker-following-local-policy': 'decisão local em curso'
-      };
-      const communityConstructionStatus = activeCommunityProject
-        ? '<div class="note-card"><b>Obra comunitária em andamento</b><span>'
-          + esc(structureDisplayName(activeCommunityProject.type)) + ' · ' + fmt(activeCommunityProject.progress, 0)
-          + '/' + fmt(activeCommunityProject.required, 0) + ' dias · '
-          + (Number.isFinite(activeCommunityProject.lastProgressDay)
-            ? 'último avanço no dia ' + fmt(activeCommunityProject.lastProgressDay, 0) + '.'
-            : 'sem avanço registrado ainda.')
-          + (communityWorkStatus ? '<br>Diagnóstico do dia ' + fmt(communityWorkStatus.day, 0) + ' · '
-            + esc(communityWorkStatusLabels[communityWorkStatus.status] || communityWorkStatus.status) + ' · '
-            + esc(communityWorkStatus.reason || 'sem motivo informado')
-            + (communityWorkStatus.workerId != null && getPerson(communityWorkStatus.workerId)
-              ? ' · responsável: ' + esc(getPerson(communityWorkStatus.workerId).name) : '')
-            + (Number.isFinite(communityWorkStatus.distance) ? ' · distância ' + fmt(communityWorkStatus.distance, 1) + ' células' : '')
-            + (Number.isFinite(communityWorkStatus.safeNearby) ? ' · ' + fmt(communityWorkStatus.safeNearby, 0) + ' trabalhadores seguros de '
-              + fmt(communityWorkStatus.availableNearby, 0) + ' adultos livres próximos' : '')
-            + '</span></div>' : '<br>O diagnóstico de trabalho será registrado na próxima atualização da governança.</span></div>')
-        : '';
-      const recruitmentStatus = pendingRecruitments.length
-        ? '<div class="note-card"><b>Treinamento em andamento</b><span>' + pendingRecruitments.map(person =>
-          esc(person.name) + ' · ' + Math.max(0, person.recruitmentOrder.readyDay - world.day) + ' dias restantes').join(' · ') + '</span></div>' : '';
-      const kingdomId = kingdom.id;
-      const calendar = Sim.modules.Cosmos.calendarDate(world.day);
-      const strategy = kingdom.strategy;
-      const strategyGoalLabels = {
-        'secure-shared-food': 'proteger alimento compartilhado',
-        'secure-herd-feed': 'proteger a ração do rebanho',
-        'repair-damaged-structures': 'reparar construções danificadas',
-        'complete-community-structure': 'concluir obra comunitária',
-        'gather-construction-materials': 'reunir materiais de construção',
-        'maintain-autonomy': 'manter a iniciativa local'
-      };
-      const strategyActionLabels = { forage: 'buscar alimento', collect_feed: 'recolher ração', gather: 'reunir materiais', build: 'construir' };
-      const strategyActionLabel = strategy && strategy.goal === 'repair-damaged-structures'
-        ? 'reparar construções' : strategy && strategy.action
-          ? strategyActionLabels[strategy.action] || strategy.action : 'sem delegação';
-      const repairEvidence = strategy && strategy.evidence && strategy.evidence.repairs;
-      const repairEvidenceText = repairEvidence && Array.isArray(repairEvidence.damagedStructures) && repairEvidence.damagedStructures.length
-        ? repairEvidence.damagedStructures.map(item => item.type + ' ' + Math.round(item.integrity * 100) + '%'
-          + (item.healthRatio == null ? '' : ' · vida ' + Math.round(item.healthRatio * 100) + '%')).join(' · ')
-        : '';
-      const strategyOutcomeLabels = { planned: 'aguardando execução', maintained: 'sem nova ordem civil', completed: 'tarefa concluída', blocked: 'delegação sem trabalhador ou recurso observável', refused: 'ordem recusada pelo domínio' };
-      const frontier = kingdom.frontierExpansion;
-      const frontierStatusLabels = {
-        observing: 'observando terreno neutro', constructing: 'construindo posto', established: 'posto estabelecido',
-        cooldown: 'consolidando expansão', 'awaiting-resources': 'aguardando recursos', 'no-neutral-site': 'sem local neutro seguro',
-        'paused-war': 'adiada durante conflito', 'limit-reached': 'limite atual alcançado', blocked: 'obra bloqueada'
-      };
-      const frontierGuards = frontierTowers.filter(item => item.garrisonSoldierId != null
-        && getPerson(item.garrisonSoldierId)?.alive).length;
-      const frontierProject = frontierTowers.find(item => !item.complete && item.builtDay == null);
-      const frontierSite = frontierProject
-        ? ' · local ' + fmt(frontierProject.x, 0) + ', ' + fmt(frontierProject.y, 0) + ' · ' + frontierProject.progress + '/' + frontierProject.required + ' dias'
-        : '';
-      const frontierOutcome = frontier && frontier.lastOutcome;
-      const frontierOutcomeText = frontierOutcome && frontierOutcome.status === 'completed'
-        ? 'Último posto: ' + fmt(frontierOutcome.territoryTilesGained || 0) + ' células incorporadas em '
-          + fmt(frontierOutcome.site.x, 0) + ', ' + fmt(frontierOutcome.site.y, 0) + ' no dia ' + frontierOutcome.day
-          + ' · custo ' + fmt(frontierOutcome.cost.wood, 0) + ' madeira, ' + fmt(frontierOutcome.cost.stone, 0)
-          + ' pedra e ' + fmt(frontierOutcome.cost.gold, 0) + ' ouro.'
-        : frontierOutcome && frontierOutcome.status === 'planned'
-          ? 'Obra iniciada no dia ' + frontierOutcome.day + ' em ' + fmt(frontierOutcome.site.x, 0) + ', ' + fmt(frontierOutcome.site.y, 0) + '.'
-          : '';
-      const frontierPanel = '<h3>Expansão e patrulha de fronteira</h3>'
-        + '<div class="data-row"><span>Plano autônomo</span><b>' + esc(frontierStatusLabels[frontier && frontier.status] || 'observando terreno neutro')
-        + ' · ' + frontierTowers.length + ' postos · ' + frontierGuards + ' guarnições designadas</b></div>'
-        + (frontierProject ? '<div class="data-row"><span>Posto em obra</span><b>' + esc(frontierSite.slice(3)) + '</b></div>' : '')
-        + '<p class="quiet">' + esc(frontier && frontier.reason || 'O reino avalia locais neutros e reserva recursos do próprio tesouro para expandir.') + '</p>'
-        + (frontierOutcomeText ? '<div class="note-card"><span>' + esc(frontierOutcomeText) + '</span></div>' : '');
-      const strategyPanel = strategy
-        ? '<h3>Estratégia observável</h3>'
-          + '<div class="data-row"><span>Objetivo / ordem civil</span><b>' + esc(strategyGoalLabels[strategy.goal] || strategy.goal) + ' · '
-          + esc(strategyActionLabel) + '</b></div>'
-          + '<div class="data-row"><span>Postura da guarnição</span><b>' + (strategy.garrisonMode === 'patrol' ? 'patrulha autorizada' : 'reserva') + '</b></div>'
-          + '<div class="data-row"><span>Evidências agregadas</span><b>' + fmt(strategy.evidence && strategy.evidence.population) + ' moradores · '
-          + fmt(strategy.evidence && strategy.evidence.sharedFood, 1) + ' alimento compartilhado · '
-          + fmt(strategy.evidence && strategy.evidence.foodPerResident, 1) + ' por morador · '
-          + fmt(strategy.evidence && strategy.evidence.feedStock, 1) + '/' + fmt(strategy.evidence && strategy.evidence.feedTarget, 1) + ' ração</b></div>'
-          + (repairEvidence ? '<div class="data-row"><span>Construções danificadas que o rei conhece</span><b>'
-            + repairEvidence.damagedStructureCount + ' encontradas · ' + repairEvidence.criticalStructureCount + ' críticas'
-            + (repairEvidenceText ? ' · ' + esc(repairEvidenceText) : '') + '</b></div>' : '')
-          + '<p class="quiet">' + esc(strategy.reason || '') + '</p>'
-          + (strategy.aiPlan ? '<div class="note-card"><b>' + (strategy.goal === strategy.aiPlan.goal && strategy.action === strategy.aiPlan.action ? 'Ordem experimental do rei via IA' : 'Proposta experimental do rei') + ' · ' + esc(strategy.aiPlan.label || strategy.aiPlan.id) + '</b><span>'
-            + 'Justificativa do modelo, não verificada: ' + esc(strategy.aiPlan.reason || '') + ' · ' + esc(strategy.aiPlan.model || strategy.aiPlan.provider || 'modelo local')
-            + ' · pedido ' + esc(strategy.aiPlan.requestId || 'legado')
-            + ' · confiança ' + Math.round((strategy.aiPlan.confidence || 0) * 100) + '% · válida até o dia ' + strategy.aiPlan.expiresDay + '</span></div>' : '')
-          + (strategy.lastAiCommand ? '<div class="note-card"><b>Última ordem militar da IA local · recrutamento</b><span>'
-            + esc(strategy.lastAiCommand.personName) + ' iniciou treinamento; previsão de conclusão no dia ' + strategy.lastAiCommand.readyDay
-            + '. Dia da ordem: ' + strategy.lastAiCommand.day + '. ' + esc(strategy.lastAiCommand.reason || '') + '</span></div>' : '')
-          + (strategy.lastOutcome ? '<div class="note-card"><b>' + esc(strategyOutcomeLabels[strategy.lastOutcome.status] || strategy.lastOutcome.status) + '</b><span>'
-            + esc(strategy.lastOutcome.reason || ('Dia ' + strategy.lastOutcome.day)) + '</span></div>' : '')
-        : '<p class="quiet">O governante ainda não recebeu um relatório estratégico.</p>';
-      const campaign = (world.campaigns || []).find(item => item.status !== 'complete'
-        && (item.attackerId === kingdom.id || item.defenderId === kingdom.id));
-      let campaignPanel = '<h3>Campanha e logística</h3><p class="quiet">Nenhuma campanha ativa. Uma mobilização exige causa e local de incidente conhecidos pelo reino.</p>';
-      if (campaign) {
-        const side = campaign.attackerId === kingdom.id ? campaign.attacker : campaign.defender;
-        const activeTroops = side.troopIds.map(id => getPerson(id)).filter(Boolean);
-        const dailyRation = activeTroops.length * .78 / .72;
-        const foodDays = dailyRation > 0 ? side.supply.stock.food / dailyRation : 0;
-        const statusLabels = { mobilizing: 'reunindo suprimentos', marching: 'em marcha', engaged: 'em combate', withdrawing: 'retornando após armistício' };
-        const roleLabel = side.role === 'attacker' ? 'força atacante' : 'defesa local';
-        const evidence = campaign.evidence && campaign.evidence[side.role] || {};
-        const generalOrder = side.aiOrder;
-        const generalLabel = generalOrder?.action === 'advance' ? 'avançar ao objetivo'
-          : generalOrder?.action === 'hold_position' ? 'manter posição'
-            : generalOrder?.action === 'withdraw' ? 'retirada ordenada' : 'ordem por regras';
-        const objectiveTower = campaignTower(world, campaign);
-        const formation = side.formation;
-        const formationStateLabels = { forming: 'formando', marching: 'marchando', maintaining: 'mantendo posição', attacking: 'atacando', retreating: 'retirando' };
-        const formationTypeLabel = formation?.type === 'line' ? 'linha' : 'coluna';
-        const formationLeader = formation?.leaderId ? getPerson(formation.leaderId)?.name || 'reorganizando' : 'sem líder';
-        const recentCampaignEvents = (campaign.history || []).slice(-3).reverse().map(item =>
-          '<li>DIA ' + fmt(item.day) + ' · ' + esc(item.text || item.type) + '</li>').join('');
-        campaignPanel = '<h3>Campanha e logística</h3>'
-          + '<div class="data-row"><span>Missão / estado</span><b>' + esc(roleLabel + ' · ' + (statusLabels[campaign.status] || campaign.status)) + '</b></div>'
-          + '<div class="data-row"><span>Objetivo observado</span><b>' + fmt(campaign.target.x, 1) + ', ' + fmt(campaign.target.y, 1) + ' · ' + activeTroops.length + ' soldados · ' + fmt(foodDays, 1) + ' dias de ração</b></div>'
-          + (objectiveTower ? '<div class="data-row"><span>Objetivo principal</span><b>' + (side.role === 'attacker' ? campaign.evidence?.mission === 'capture-tower' ? 'Capturar' : 'Destruir' : 'Proteger') + ' · vida ' + fmt(towerVitality(objectiveTower).health) + ' / ' + fmt(towerVitality(objectiveTower).maxHealth) + '</b></div>' : '')
-          + '<div class="data-row"><span>Equipamento / lealdade</span><b>' + fmt(side.supply.stock.wood, 1) + ' madeira · ' + fmt(side.supply.stock.gold, 1) + ' ouro · coesão ' + fmt(side.morale, 0) + '%</b></div>'
-          + (formation ? '<div class="data-row"><span>Formação / posições</span><b>' + esc(formationTypeLabel) + ' · ' + esc(formationStateLabels[formation.state] || formation.state)
-            + ' · líder ' + esc(formationLeader) + ' · coesão ' + Math.round((formation.metrics?.cohesion ?? 1) * 100) + '% · fora dos postos ' + fmt(formation.metrics?.outsideSlots || 0) + '</b></div>' : '')
-          + (generalOrder ? '<div class="note-card"><b>Ordem experimental do general · ' + esc(generalLabel) + '</b><span>'
-            + 'Justificativa do modelo, não verificada: ' + esc(generalOrder.reason || '') + ' · ' + esc(generalOrder.model || 'modelo local')
-            + ' · pedido ' + esc(generalOrder.requestId || 'desconhecido') + ' · versão ' + fmt(generalOrder.version) + ' · dia ' + fmt(generalOrder.assignedDay) + '</span></div>'
-            : '<div class="data-row"><span>Plano do general</span><b>Regras determinísticas</b></div>')
-          + '<div class="data-row"><span>Motivo / evidência local</span><b>' + esc(campaign.cause) + ' · ' + esc(evidence.source || 'relato da guarnição') + '</b></div>'
-          + '<ul class="quiet campaign-events">' + recentCampaignEvents + '</ul>';
-      }
       $('inspectEyebrow').textContent = 'REINO · ASSENTAMENTO INICIAL';
       $('inspectTitle').textContent = kingdom.name;
-      root.innerHTML = kingdomOverview(world, kingdom) + '<details class="gameplay-details"><summary>Gestão, construção e defesa</summary><div class="data-row"><span>Governante</span><b>' + esc(ruler ? ruler.name : 'sem governante') + '</b></div>' +
-        '<div class="data-row"><span>Calendário conhecido pelo reino</span><b>' + (world.day ? esc(seasonNames[calendar.season]) + ' · dia ' + calendar.dayOfSeason + '/' + calendar.daysInSeason + ' · ano ' + calendar.year : 'Primavera · início do ano 1') + '</b></div>' +
-        '<div class="data-row"><span>Próxima estação</span><b>' + esc(seasonNames[calendar.nextSeason]) + ' · em ' + calendar.daysUntilNextSeason + ' dias</b></div>' +
-        '<div class="data-row"><span>Moradores / com moradia</span><b>' + residents.length + ' / ' + housed + '</b></div>' +
-        '<div class="data-row"><span>Casas ocupadas</span><b>' + homes.filter(home => home.residentIds.some(id => getPerson(id))).length + ' de ' + homes.length + ' · capacidade ' + homes.reduce((sum, home) => sum + home.capacity, 0) + '</b></div>' +
-        '<div class="data-row"><span>Território controlado</span><b>' + fmt(kingdom.territoryTileCount * .01, 1) + ' hectares · ' + fmt(kingdom.territoryTileCount) + ' células · ' + towers.length + ' torres · ' + frontierTowers.filter(item => item.complete).length + ' postos</b></div>' +
-        '<div class="data-row"><span>Classes / comando</span><b>' + ['guerreiro', 'lanceiro', 'arqueiro', 'monge'].map(c => soldiers.filter(p => p.militaryClass === c).length + ' ' + ({ guerreiro: 'infantes', lanceiro: 'lanceiros', arqueiro: 'arqueiros', monge: 'clérigos' })[c]).join(' · ') + '</b></div>' +
-        '<div class="data-row"><span>Cadeia de comando</span><b>' + (kingdom.militaryCommand?.generalIds.length || 0) + ' general · ' + (kingdom.militaryCommand?.units.length || 0) + ' unidades de até 10</b></div>' +
-        '<div class="data-row"><span>Soldados / vagas</span><b>' + soldiers.length + ' / ' + soldierCapacity + (militaryCenters.length ? ' · ' + militaryCenters.length + ' centros · ' + patrollingSoldiers + ' em patrulha' : ' · sem centro militar') + '</b></div>' +
-        '<div class="data-row"><span>Tesouro · alimento / madeira / pedra / ouro</span><b>' + fmt(treasury.food, 0) + ' / ' + fmt(treasury.wood, 0) + ' / ' + fmt(treasury.stone, 0) + ' / ' + fmt(treasury.gold, 0) + '</b></div>' +
-        '<div class="data-row"><span>Mercado · alimento / ouro</span><b>' + fmt(market.stock.food, 0) + ' / ' + fmt(market.stock.gold, 0) + '</b></div>' +
-        '<div class="data-row"><span>Preços · alimento / madeira / pedra</span><b>' + market.prices.food + ' / ' + market.prices.wood + ' / ' + market.prices.stone + ' ouro</b></div>' +
-        '<div class="data-row"><span>Imposto / reserva para seca</span><b>' + Math.round(kingdom.policy.taxRate * 100) + '% / ' + kingdom.policy.droughtReserveDays + ' dias</b></div>' +
-        reserveTransferPanel +
-        maintenancePanel +
-        frontierPanel +
-        strategyPanel +
-        campaignPanel +
-        towerDiplomacyPanel(kingdom) +
-        '<h3>Construção e defesa</h3>' +
-        constructionStatus + communityConstructionStatus + recruitmentStatus +
-        '<div class="kingdom-actions"><button type="button" data-kingdom-command="torre" data-kingdom-id="' + kingdomId + '"' + (activeKingdomProject ? ' disabled' : '') + '>Construir torre · ' + Sim.kingdomCommands.timing.torre + ' dias · 34 madeira · 24 pedra · 8 ouro</button>' +
-        '<button type="button" data-kingdom-command="centro_militar" data-kingdom-id="' + kingdomId + '"' + (activeKingdomProject ? ' disabled' : '') + '>Construir centro militar · ' + Sim.kingdomCommands.timing.centro_militar + ' dias · 32 madeira · 30 pedra · 12 ouro</button>' +
-        '<button type="button" data-kingdom-command="recruit" data-kingdom-id="' + kingdomId + '"' + (soldierSlots < 1 ? ' disabled' : '') + '>Recrutar lanceiro · ' + Sim.kingdomCommands.timing.recruit + ' dias · 10 alimento · 8 madeira · 3 ouro</button>' +
-        ['guerreiro', 'arqueiro', 'monge'].map(unitClass => '<button type="button" data-kingdom-command="recruit" data-military-class="' + unitClass + '" data-kingdom-id="' + kingdomId + '"' + (soldierSlots < 1 ? ' disabled' : '') + '>Treinar ' + ({ guerreiro: 'infantaria', arqueiro: 'arqueiro', monge: 'clérigo' })[unitClass] + ' · 6 dias · 10 alimento · 8 madeira · 3 ouro</button>').join('') +
-        ['monasterio', 'arquearia'].map(building => '<button type="button" data-kingdom-command="' + building + '" data-kingdom-id="' + kingdomId + '"' + (activeKingdomProject ? ' disabled' : '') + '>Construir ' + structureDisplayName(building) + '</button>').join('') + '</div>' +
-        (soldierSlots < 1 ? '<p class="quiet">Para recrutar, construa um centro militar com vaga. Cada centro comporta até 60 militares.</p>' : '<p class="quiet">Um centro militar comporta até 60 militares. O recrutamento exige um morador adulto em boas condições. Após a promoção, ele deixa as tarefas civis para cumprir guarda, patrulha e campanha.</p>') +
-        '<p class="quiet">Soldo: ' + MILITARY_PAY.gold + ' ouro a cada ' + MILITARY_PAY.days + ' dias (' + fmt(MILITARY_PAY.gold / MILITARY_PAY.days, 2) + ' ouro/dia), pago pelo tesouro desde a promoção. O soldado compra alimento no mercado; valores sem cobertura ficam em atraso.</p>' +
-        (kingdomActionNotice ? '<div class="note-card kingdom-action-notice" role="status">' + esc(kingdomActionNotice) + '</div>' : '') +
-
-        '<p class="quiet">As casas ficam distribuídas em torno do castelo. As torres estendem o território; os centros militares abrigam os soldados. O mercado e o tesouro mantêm estoques separados.</p></details>';
+      root.innerHTML = kingdomOverview(world, kingdom);
       return;
     }
     if (selection.kind === 'person') {
@@ -2662,33 +3330,64 @@ export function mountGame() {
       const choices = p.lastDecision && Array.isArray(p.lastDecision.scores) ? p.lastDecision.scores.map((score, i) => ({ action: (p.lastDecision.actions || Sim.actions)[i], score }))
         .filter(choice => choice.score > -1e8).sort((a, b) => b.score - a.score).slice(0, 3) : [];
       const personalMemories = (p.personalMemory || []).slice(-3).reverse();
+      const socialInspector = renderSocialInspectorSections(p, world);
       const decisionBrain = p.role === 'soldier' && p.militaryBrain ? p.militaryBrain : p.brain;
+      const progressionAudit = p.militaryProgressionStatus;
+      const progressionAuditText = progressionAudit?.state === 'paused'
+        ? 'Pausada desde o dia ' + progressionAudit.sinceDay + ': falta ' + (MILITARY_SOURCE_LABELS[progressionAudit.sourceType] || 'fonte operacional') + '. Mérito preservado.'
+        : progressionAudit?.state === 'resumed'
+          ? 'Retomada no dia ' + progressionAudit.resumedDay + ' após reconstrução de ' + (MILITARY_SOURCE_LABELS[progressionAudit.sourceType] || 'fonte operacional') + '.' : '';
       const recoveryNeeds = [];
       if (p.energy < GARRISON_RECOVERY.restEnergy) recoveryNeeds.push('energia até ' + GARRISON_RECOVERY.restEnergy + '%');
       if (p.health < GARRISON_RECOVERY.restHealth) recoveryNeeds.push('saúde até ' + GARRISON_RECOVERY.restHealth + '%');
       if (p.injury >= GARRISON_RECOVERY.restInjury) recoveryNeeds.push('tratar ferimentos');
+      const manualAttackHint = p.militaryClass === 'guerreiro'
+        ? 'Combo: 1 → 2 → 1 → 2 · 3 investida com escudo'
+        : p.militaryClass === 'lanceiro'
+          ? '1 estocada · 2 rajada de lanças · 3 investida de lança'
+          : p.militaryClass === 'arqueiro'
+            ? '1 tiro padrão · 2 chuva de flechas · 3 tiro em cunha · 4 tiro concentrado'
+            : p.militaryClass === 'monge' ? '1–5 usam as magias equipadas; segure E/1 quando a primeira for cura.'
+            : p.role === 'soldier' ? 'Esta classe não possui ataques manuais mapeados.' : 'Sem ataques para esta unidade.';
+      const isManualPerson = manualControlId === p.id || p.playerControlled;
+      const manualControlHint = p.role === 'soldier'
+        ? (isManualPerson ? 'WASD move · mouse mira · ' + (p.militaryClass === 'monge' ? 'segure E ou 1 para curar' : 'E: ataque básico · teclas numéricas: habilidades') + ' · segure F para defender · Espaço devolve a autonomia. ' + manualAttackHint
+          : 'Clique no personagem e pressione Espaço para controlar. Depois, WASD move · mouse mira · ' + (p.militaryClass === 'monge' ? 'segure E ou 1 para curar' : 'E ataca · teclas numéricas acionam habilidades') + ' · segure F para defender. ' + manualAttackHint)
+        : (isManualPerson ? 'WASD move · Espaço devolve a autonomia. Ataques e defesa manuais estão disponíveis para soldados.'
+          : 'Clique no personagem e pressione Espaço para controlar com WASD. Ataques e defesa manuais estão disponíveis para soldados.');
       $('inspectEyebrow').textContent = p.role === 'soldier' ? (p.militaryRank || p.militaryGrade || 'soldado').toUpperCase() + ' · ' + (kingdom ? kingdom.name.toUpperCase() : 'SEM REINO') : kingdom ? 'MORADOR · ' + kingdom.name.toUpperCase() : 'INDIVÍDUO · SEM REINO';
       $('inspectTitle').textContent = p.name;
       root.innerHTML = '<div class="data-row"><span>Estado atual</span><b>' + esc(p.state) + '</b></div>' +
+        '<div class="note-card"><b>' + (isManualPerson ? 'Controle manual ativo' : 'Controle do personagem') + '</b><span>'
+          + manualControlHint
+          + '</span></div>' +
+        (p.recruitmentOrder ? '<div class="note-card"><b>Treinamento militar</b><span>' + (p.recruitmentOrder.progressionStatus === 'paused'
+          ? 'Pausado: ' + esc(p.recruitmentOrder.pauseReason) + '. Custo e progresso preservados.'
+          : 'Classe ' + esc(p.recruitmentOrder.militaryClass) + ' · conclusão prevista no dia ' + p.recruitmentOrder.readyDay + '.') + '</span></div>' : '') +
         (p.role === 'ruler' && kingdom?.lastSitingDecision ? '<div class="note-card"><b>Última escolha de local para obra</b><span>' + esc(kingdom.lastSitingDecision.label) + ' em ' + kingdom.lastSitingDecision.x + ',' + kingdom.lastSitingDecision.y + '. ' + esc(kingdom.lastSitingDecision.reason) + '</span></div>' : '') +
         (p.restingStructureId != null || p.homeRestTargetId != null || p.militaryRestTargetId != null
           ? '<div class="data-row"><span>Recuperação em casa</span><b>'
             + esc(recoveryNeeds.length ? 'Falta recuperar: ' + recoveryNeeds.join(' · ') : 'Recuperado · sai no próximo dia') + '</b></div>' : '') +
         '<div class="data-row"><span>Idade aproximada</span><b>' + fmt(p.ageDays / 365, 1) + ' anos</b></div>' +
-        '<div class="data-row"><span>Alimento / água</span><b>' + Math.round(p.foodReserve) + ' / ' + Math.round(p.hydration) + '%</b></div>' +
+        '<div class="data-row"><span>Reserva alimentar (dias) / água</span><b>' + Math.round(p.foodReserve) + ' / ' + Math.round(p.hydration) + '%</b></div>' +
         (p.role === 'soldier' ? '<div class="data-row"><span>Vitalidade de combate</span><b>' + Math.round(p.health / 100 * (p.maxCombatHealth || 100)) + ' / ' + (p.maxCombatHealth || 100) + '</b></div>' : '') +
-        (p.role === 'soldier' ? '<div class="data-row"><span>Estamina</span><b>' + Math.round(p.stamina ?? 100) + ' / 100</b></div>' : '') +
-        (p.role === 'soldier' && p.combatDisarmedUntilDay > world.day
-          ? '<div class="data-row"><span>Estado de combate</span><b>Desarmado · volta a lutar no dia ' + p.combatDisarmedUntilDay + '</b></div>' : '') +
+        (p.role === 'soldier' ? '<div class="data-row"><span>Estamina</span><b>' + Math.round(p.stamina ?? p.maxStamina ?? 200) + ' / ' + (p.maxStamina || 200) + '</b></div>' : '') +
+        (p.role === 'soldier' && isCombatStunned(p, world.day, world.magicTimeMs || 0)
+          ? '<div class="data-row"><span>Estado de combate</span><b>Atordoado · '
+            + (p.combatStunnedUntilMs != null ? Math.max(0, (p.combatStunnedUntilMs - (world.magicTimeMs || 0)) / 1000).toFixed(1) + ' s'
+              : 'até o dia ' + p.combatDisarmedUntilDay) + '</b></div>' : '') +
         (p.role === 'soldier' && p.combatOpening?.expiresDay > world.day
           ? '<div class="data-row"><span>Abertura de parry</span><b>Contra ' + esc(getPerson(p.combatOpening.targetId)?.name || 'oponente') + '</b></div>' : '') +
         (p.role === 'soldier' && p.combatCombo?.lastDay === world.day
-          ? '<div class="data-row"><span>Combo</span><b>' + p.combatCombo.count + ' / 3 golpes contra ' + esc(getPerson(p.combatCombo.targetId)?.name || 'oponente') + '</b></div>' : '') +
-        (p.militaryClass === 'monge' ? '<div class="data-row"><span>Mana · cura custa 30</span><b>' + Math.round(p.mana ?? 100) + ' / 100</b></div>' : '') +
+          ? '<div class="data-row"><span>Combo</span><b>' + p.combatCombo.count + ' / '
+            + (p.militaryClass === 'guerreiro' ? 4 : 3) + ' golpes contra '
+            + esc(getPerson(p.combatCombo.targetId)?.name || 'oponente') + '</b></div>' : '') +
+        (p.militaryClass === 'monge' ? '<div class="data-row"><span>Mana</span><b>' + Math.round(p.mana ?? p.maxMana ?? 200) + ' / ' + (p.maxMana || 200) + '</b></div>' : '') +
+        renderMagicInspector(p, world.magicTimeMs || 0) +
         (p.towerMounted ? '<div class="data-row"><span>Posto na torre</span><b>Alcance: 14 células</b></div>' : '') +
         '<div class="data-row"><span>Energia / saúde</span><b>' + Math.round(p.energy) + ' / ' + Math.round(p.health) + '%</b></div>' +
-        '<div class="data-row"><span>Reino / moradia</span><b>' + esc(kingdom ? kingdom.name : 'sem reino') + ' · ' + esc(p.homeId ? 'casa ' + p.homeId : 'sem casa registrada') + '</b></div>' +
-        '<div class="data-row"><span>Ferimentos / carga</span><b>' + Math.round(p.injury) + ' · carne ' + fmt(p.carriedMeat, 1) + ' · madeira ' + fmt(p.carriedWood, 1) + ' · pedra ' + fmt(p.carriedStone, 1) + ' · ração ' + fmt(p.carriedFeed, 1) + '</b></div>' +
+        '<div class="data-row"><span>Reino / moradia</span><b>' + esc(kingdom ? kingdom.name : 'sem reino') + ' · ' + esc(p.homeId ? 'moradia ' + p.homeId : 'sem moradia registrada') + '</b></div>' +
+        '<div class="data-row"><span>Ferimentos / carga</span><b>' + Math.round(p.injury) + ' · carne ' + fmt(p.carriedMeat) + ' · madeira ' + fmt(p.carriedWood) + ' · pedra ' + fmt(p.carriedStone) + ' · ração ' + fmtRationPortions(p.carriedFeed) + ' porções</b></div>' +
         ((p.carriedFood > .01 || p.carriedFruit > .01) ? '<div class="data-row"><span>Alimento na carga</span><b>' + fmt(p.carriedFood, 1) + ' para o estoque · ' + fmt(p.carriedFruit, 1) + ' frutos</b></div>' : '') +
         '<div class="data-row"><span>Necessidade social</span><b>' + Math.round(p.socialNeed) + '%</b></div>' +
         '<div class="data-row"><span>Caminhos aprendidos</span><b>' + (p.knownRoutes?.length || 0) + ' · reutilizações: ' + (p.navigationCacheHits || 0) + '</b></div>' +
@@ -2696,13 +3395,17 @@ export function mountGame() {
         '<div class="data-row"><span>Prestígio / tarefa</span><b>' + fmt(p.prestige || 0, 1) + (p.assignment ? ' · ' + esc(p.assignment.title) + esc(assignmentPhase) + (p.assignment.pauseReason ? ' · suspensa por ' + esc(p.assignment.pauseReason) : ' · até dia ' + p.assignment.expiresDay) : ' · sem delegação ativa') + '</b></div>' +
         '<div class="data-row"><span>Vínculos observados</span><b>' + links + '</b></div>' +
         (p.role === 'soldier' ? '<div class="data-row"><span>Patente / nível</span><b>' + esc(p.militaryRank || p.militaryGrade || 'soldado') + (p.militaryGrade && p.militaryRank !== p.militaryGrade ? ' · carreira: ' + esc(p.militaryGrade) : '') + ' · nível ' + (p.militaryLevel || 1) + ' · mérito ' + fmt(p.militaryMerit || 0, 1) + '</b></div><div class="data-row"><span>Função militar</span><b>' + esc((p.militaryRank || 'soldado') + ' · ' + (p.militaryClass || 'soldado')) + ' · guarnição do centro ' + (p.militaryCenterId || '—') + '</b></div>'
+          + (progressionAuditText ? '<div class="data-row"><span>Progressão de classe</span><b>' + esc(progressionAuditText) + '</b></div>' : '')
           + (p.campaignId != null && p.fieldCommand ? '<div class="note-card"><b>' + (p.fieldCommand.issuerId === p.id ? 'Ordem emitida' : 'Ordem recebida de ' + esc(getPerson(p.fieldCommand.issuerId)?.name || 'general')) + '</b><span>' + esc(p.fieldCommand.reason) + ' Formação: ' + (p.fieldCommand.formationType === 'line' ? 'linha' : 'coluna') + '. Alvo: ' + p.fieldCommand.target.x + ',' + p.fieldCommand.target.y + '.</span></div>' : '')
-          + '<div class="data-row"><span>Soldo do rei</span><b>' + MILITARY_PAY.gold + ' ouro / ' + MILITARY_PAY.days + ' dias (' + fmt(MILITARY_PAY.gold / MILITARY_PAY.days, 2) + '/dia)</b></div>'
-          + '<div class="data-row"><span>Saldo pessoal / atrasado</span><b>' + fmt(p.militaryWallet?.stock.gold || 0) + ' / ' + fmt(p.militaryPayArrears || 0) + ' ouro</b></div>'
+          + '<div class="data-row"><span>Soldo do rei</span><b>' + MILITARY_PAY.copper + ' cobres / ' + MILITARY_PAY.days + ' dias</b></div>'
+          + '<div class="data-row"><span>Carteira / pendências</span><b>' + fmt(p.militaryWallet?.stock?.gold || 0) + ' ouro · ' + fmt(p.militaryWallet?.stock?.silver || 0) + ' prata · ' + fmt(p.militaryWallet?.stock?.copper || 0) + ' cobre; legado: ' + fmt(p.militaryPayArrears || 0, 3) + ' ouro; novo: ' + fmt(p.militaryPayArrearsCopper || 0) + ' cobres</b></div>'
+
           + '<div class="data-row"><span>Próximo soldo</span><b>Dia ' + (p.nextMilitaryPayDay ?? '—') + '</b></div>' : '') +
         '<h3>Reino e fronteiras</h3><div class="note-card"><b>' + esc(kingdom ? kingdom.name : 'Terra comum') + '</b><span>' + esc(p.perception && p.perception.territorialAwareness && p.perception.territorialAwareness.warningText || (kingdom ? 'Você reconhece este domínio e os riscos de atravessar fronteiras estrangeiras.' : 'Você vive em terra comum, sem a proteção territorial de um reino.')) + '</span></div>' +
         '<h3>Decisão e aprendizado</h3><div class="brain-box"><strong>' + (p.militaryBrain && p.role === 'soldier' ? 'Rede militar' : 'Rede individual') + ' · ' + decisionBrain.inputSize + ' → ' + decisionBrain.hiddenSize + ' → ' + decisionBrain.actionCount + '</strong><small>' + (p.role === 'soldier' ? 'Compara guarda, patrulha e treino. Campanhas e necessidades urgentes limitam as opções disponíveis; os resultados ajustam seus pesos militares.' : p.role === 'ruler' ? 'O rei usa uma rede maior para comparar necessidades, recursos e riscos do reino; seus pesos também aprendem com os resultados.' : 'Avalia necessidades, alimento, água, risco de fronteira e áreas próximas; resultados positivos e negativos ajustam decisões futuras.') + '</small><div class="brain-metrics"><span>Intenção<b>' + esc(actionLabels[p.brain.lastAction] || p.brain.lastAction) + '</b></span><span>Atualizações<b>' + fmt(decisionBrain.updates) + '</b></span><span>Recompensa média<b>' + decisionBrain.rewardMean.toFixed(2) + '</b></span><span>Memória por ação<b>individual</b></span></div></div>' +
         (personalMemories.length ? '<h3>Memória pessoal recente</h3>' + personalMemories.map(memory => '<div class="event">Dia ' + memory.day + ': ' + esc(memory.state) + ' — ' + esc(memory.lesson) + '</div>').join('') : '') +
+        socialInspector.planSection + socialInspector.commitmentSection
+        + socialInspector.memorySection + socialInspector.beliefSection +
         '<div class="note-card"><b>O que aprendeu</b><span>' + esc(p.lastLesson || 'Ainda está aprendendo com o ambiente.') + '</span></div>' +
         (choices.length ? '<h3>Alternativas avaliadas</h3>' + choices.map(item => '<div class="data-row"><span>' + esc(actionLabels[item.action] || item.action) + '</span><b>' + item.score.toFixed(2) + '</b></div>').join('') : '') +
         (p.parents ? '<div class="note-card"><b>Dependência familiar</b><span>Esta pessoa nasceu durante a simulação e ainda recebe cuidado de seus responsáveis.</span></div>' : '');
@@ -2732,11 +3435,13 @@ export function mountGame() {
       $('inspectTitle').textContent = profile.name;
       root.innerHTML = '<div class="data-row"><span>Perfil funcional</span><b>' + esc(profile.role) + '</b></div>' +
         '<div class="data-row"><span>Comportamento</span><b>' + esc(a.state) + '</b></div>' +
-        (a.beingLedBy ? '<div class="data-row"><span>Conduzida por</span><b>' + esc((getPerson(a.beingLedBy) || {}).name || 'morador') + ' · a caminho do curral</b></div>' : a.herdCommunityId ? '<div class="data-row"><span>Rebanho</span><b>ovelha habituada · ' + Math.round((a.habituation || 0) * 100) + '%</b></div>' : '<div class="data-row"><span>Condição</span><b>ovelha selvagem</b></div>') +
+        (a.beingLedBy ? '<div class="data-row"><span>Conduzida por</span><b>' + esc((getPerson(a.beingLedBy) || {}).name || 'morador') + ' · a caminho do curral</b></div>' : a.herdCommunityId ? '<div class="data-row"><span>Rebanho</span><b>ovelha habituada · ' + (a.herdPenId != null ? 'em curral · ' : 'fora dos currais · aguardando vaga · ') + Math.round((a.habituation || 0) * 100) + '%</b></div>' : '<div class="data-row"><span>Condição</span><b>ovelha selvagem</b></div>') +
         '<div class="data-row"><span>Idade / longevidade</span><b>' + fmt(a.ageDays / 365, 1) + ' / ' + fmt(profile.life / 365) + ' anos</b></div>' +
         '<div class="data-row"><span>Energia / hidratação</span><b>' + Math.round(a.energy) + ' / ' + Math.round(a.hydration) + '%</b></div>' +
         (a.speciesId === 'sheep' && a.herdCommunityId != null
-          ? '<div class="brain-box"><strong>Manejo do rebanho · IA individual desligada</strong><small>A ovelha permanece no curral e recebe uma ração pequena. Os moradores recolhem brotos para manter o estoque comunitário.</small><div class="brain-metrics"><span>Ração diária<b>' + fmt(DOMESTIC_SHEEP_DAILY_FEED, 2) + '</b></span><span>Recebida hoje<b>' + fmt(a.lastFeedAmount || 0, 2) + '</b></span><span>Ração no reino<b>' + fmt((getCommunity(a.herdCommunityId) || { stores: {} }).stores.feed || 0, 1) + '</b></span><span>Aprendizado<b>desativado</b></span></div></div>'
+          ? '<div class="brain-box"><strong>Manejo do rebanho · IA individual desligada</strong><small>' + (a.herdPenId != null
+            ? 'A ovelha está associada a um curral e recebe uma porção diária. Os moradores recolhem brotos para manter o estoque comunitário.'
+            : 'A ovelha pertence ao rebanho comunitário, mas aguarda vaga em um curral. A ração vem do estoque compartilhado.') + '</small><div class="brain-metrics"><span>Ração diária<b>1 porção</b></span><span>Recebida hoje<b>' + fmtRationPortions(a.lastFeedAmount || 0) + ' porção</b></span><span>Ração no reino<b>' + fmtRationPortions((getCommunity(a.herdCommunityId) || { stores: {} }).stores.feed || 0) + ' porções</b></span><span>Aprendizado<b>desativado</b></span></div></div>'
           : '<div class="brain-box"><strong>Controlador individual · rede ' + a.brain.inputSize + ' → ' + a.brain.hiddenSize + ' → ' + a.brain.actionCount + '</strong><small>As necessidades e o habitat limitam as ações possíveis; a rede aprende com os resultados das decisões.</small><div class="brain-metrics"><span>Última intenção<b>' + esc(a.brain.lastAction) + '</b></span><span>Decisões<b>' + a.brain.decisions + '</b></span><span>Atualizações<b>' + a.brain.updates + '</b></span><span>Pesos<b>independentes</b></span></div></div>') +
         '<p class="quiet">' + (profile.prey.length ? 'A dieta inclui ' + profile.prey.map(id => Sim.animals.find(s => s.id === id).name.toLowerCase()).join(', ') + '; a predação depende de encontros e do estado da presa.' : 'A dieta retira biomassa vegetal disponível; não há reposição automática de indivíduos.') + '</p>';
       return;
@@ -2746,10 +3451,12 @@ export function mountGame() {
       if (!pile) { selection = null; renderInspector(); return; }
       $('inspectEyebrow').textContent = 'RECURSOS · LIVRES NO CHÃO';
       $('inspectTitle').textContent = 'Recursos derrubados';
-      const labels = { food: 'Alimento', meat: 'Carne', wood: 'Madeira', stone: 'Pedra', gold: 'Ouro', feed: 'Ração' };
-      root.innerHTML = Object.entries(pile.resources).filter(([, n]) => n > .001).map(([resource, amount]) =>
+      const labels = { food: 'Alimento', meat: 'Carne', wood: 'Madeira', stone: 'Pedra', gold: 'Ouro',
+        silver: 'Prata', copper: 'Cobre', iron: 'Ferro', feed: 'Ração' };
+      root.innerHTML = Object.entries(pile.resources).filter(([, n]) => n > (pile.mineralKind ? 0 : .001)).map(([resource, amount]) =>
         '<div class="data-row"><span>' + esc(labels[resource] || resource) + '</span><b>' + fmt(amount, 1) + '</b></div>').join('')
-        + '<p class="quiet">Qualquer pessoa pode recolher os recursos. O limite de carga é de 24 unidades por viagem.</p>';
+        + '<p class="quiet">' + (pile.mineralKind ? 'Moradores podem recolher os fragmentos de minério.'
+          : 'Qualquer pessoa pode recolher os recursos.') + ' O limite de carga é de 24 unidades por viagem.</p>';
       return;
     }
     if (selection.kind === 'log') {
@@ -2768,7 +3475,6 @@ export function mountGame() {
       if (!c) { selection = null; renderInspector(); return; }
       const members = c.memberIds.map(getPerson).filter(Boolean);
       const names = members.slice(0, 8).map(p => p.name).join(', ');
-      const structures = world.structures.filter(s => s.communityId === c.id);
       const activeUse = Object.values(c.usedCells || {}).filter(day => world.day - day <= 45).length;
       const relations = Object.values(world.communityRelations).filter(r => r.a === c.id || r.b === c.id);
       const disputes = relations.reduce((sum, r) => sum + r.conflicts, 0);
@@ -2779,9 +3485,7 @@ export function mountGame() {
         roles[best] = (roles[best] || 0) + 1;
       }
       const roleText = Object.entries(roles).map(([key, count]) => count + ' ' + roleNames[key]).join(' · ') || 'Sem especializações observadas';
-      const structureText = structures.length ? structures.map(s => s.type + (s.complete ? ' (concluída)' : ' (' + Math.floor(s.progress / s.required * 100) + '%)')).join(', ') : 'Nenhuma construção';
       const groundsText = c.grounds && c.grounds.hunting ? ['caça perto de ' + c.grounds.hunting.feature + ' (' + qualityLabel(c.grounds.hunting.score || 0) + ')'] : [];
-      const boundaryCount = structures.filter(s => s.type === 'divisa' && s.complete).length;
       const stageText = { vínculo: 'Laços ainda pequenos', grupo: 'Grupo local', tribo: 'Tribo emergente', reino: 'Reino emergente' }[c.stage] || c.stage;
       const leader = members.find(person => person.id === c.leaderId) || null;
       const taskCount = (c.assignments || []).filter(task => task.status === 'delegada').length;
@@ -2795,34 +3499,29 @@ export function mountGame() {
         '<div class="data-row"><span>Coesão média</span><b>' + Math.round(c.cohesion * 100) + '%</b></div>' +
         '<div class="data-row"><span>' + (c.stage === 'reino' ? 'Rei' : 'Prefeito') + '</span><b>' + (leader ? esc(leader.name) : 'ainda sem nomeação') + ' · prestígio ' + fmt(leader && leader.prestige || 0, 1) + '</b></div>' +
         '<div class="data-row"><span>Satisfação</span><b>' + Math.round((c.satisfaction || 0) * 100) + '% · mede alimento, saúde, abrigo e vínculos</b></div>' +
-        '<div class="data-row"><span>Reservas compartilhadas</span><b>alimento ' + fmt(c.stores.food, 1) + ' · carne ' + fmt(c.stores.meat, 1) + ' · madeira ' + fmt(c.stores.wood, 1) + ' · pedra ' + fmt(c.stores.stone, 1) + ' · ração ' + fmt(c.stores.feed, 1) + ' · ouro ' + fmt(c.stores.gold, 1) + '</b></div>' +
+        '<div class="data-row"><span>Reservas compartilhadas</span><b>alimento ' + fmt(c.stores.food) + ' · carne ' + fmt(c.stores.meat) + ' · madeira ' + fmt(c.stores.wood) + ' · pedra ' + fmt(c.stores.stone) + ' · ração ' + fmtRationPortions(c.stores.feed) + ' porções · ouro ' + fmt(c.stores.gold) + '</b></div>' +
         '<div class="data-row"><span>Tarefas / propriedades</span><b>' + tasksCompleted + ' concluídas · ' + taskCount + ' ativas · ' + propertyCount + ' propriedade(s)</b></div>' +
         '<div class="data-row"><span>Trocas / disputas / assaltos</span><b>' + c.tradeCount + ' / ' + disputes + ' / ' + raids + ' no mundo</b></div>' +
         '<div class="data-row"><span>Primeiro vínculo</span><b>dia ' + c.createdDay + '</b></div>' +
         '<h3>Membros observados</h3><p>' + esc(names || 'Nenhum membro vivo') + (members.length > 8 ? '…' : '') + '</p>' +
         '<div class="note-card"><b>Ordens e prestígio</b><span>' + esc(roleText) + '. A liderança prioriza alimento para o reino quando as reservas caem; sede, fome ou energia críticas suspendem a tarefa para a pessoa cuidar da própria sobrevivência. Concluir uma tarefa concede 1 ponto de prestígio ao membro e 0,2 à liderança; um membro mais prestigiado precisa manter apoio por sete dias para assumir.</span></div>' +
-        '<h3>Construção e área de uso</h3><div class="note-card"><b>' + esc(structureText) + '</b><span>' + activeUse + ' locais usados nos últimos 45 dias. Caçadas bem-sucedidas marcam áreas comunitárias; divisas exigem reservas e trabalho, e cruzá-las consome energia.</span></div>' +
-        '<div class="note-card"><b>Áreas, propriedades e divisas</b><span>' + esc(groundsText.join(' · ') || 'Ainda sem áreas de caça marcadas') + (propertyCount ? ' · ' + propertyCount + ' propriedade(s), adquiridas por ouro, madeira e pedra' : '') + (boundaryCount ? ' · ' + boundaryCount + ' divisa(s) concluída(s)' : '') + '</span></div>' +
+        '<h3>Áreas e uso comunitário</h3><div class="note-card"><span>' + activeUse + ' locais usados nos últimos 45 dias. Caçadas bem-sucedidas marcam áreas comunitárias.</span></div>' +
+        '<div class="note-card"><b>Áreas e propriedades</b><span>' + esc(groundsText.join(' · ') || 'Ainda sem áreas de caça marcadas') + (propertyCount ? ' · ' + propertyCount + ' propriedade(s), adquiridas por ouro, madeira e pedra' : '') + '</span></div>' +
         '<div class="note-card"><b>Nome comunitário</b><span>' + esc(c.nameSource || 'Os primeiros membros') + ' propôs o nome usando um marco da paisagem local. Uma união pode gerar uma nova votação.</span></div>' +
         (c.history.length ? '<h3>Histórico</h3>' + c.history.slice(-5).reverse().map(item => '<div class="event">' + esc(item) + '</div>').join('') : '');
       return;
     }
     if (selection.kind === 'structure') {
-      const s = world.structures.find(item => item.id === selection.id);
-      if (!s) { selection = null; renderInspector(); return; }
-      const kingdom = getKingdom(s.kingdomId);
+      const structure = world.structures.find(item => item.id === selection.id);
+      if (!structure) { selection = null; renderInspector(); return; }
+      const kingdom = getKingdom(structure.kingdomId);
       $('inspectEyebrow').textContent = kingdom ? kingdom.name.toUpperCase() : 'CONSTRUÇÃO';
-      $('inspectTitle').textContent = s.frontierOutpost ? 'Posto de fronteira' : structureDisplayName(s.type);
-      root.innerHTML = buildingCard(world, s) +
-        (s.type === 'castelo' && kingdom ? '<button type="button" data-inspect-kingdom="' + kingdom.id + '">Abrir card do reino</button>' : '') +
-        (s.type === 'torre' && s.complete && s.destroyedDay == null ? '<details class="gameplay-details"><summary>Ordens militares</summary><div class="kingdom-actions">' + world.kingdoms.filter(k => k.id !== s.kingdomId).map(k => '<button type="button" data-structure-command="capture-tower" data-kingdom-id="' + k.id + '" data-tower-id="' + s.id + '">Rei de ' + esc(k.name) + ': ordenar captura</button>').join('') +
-          (kingdom && !s.frontierOutpost ? '<button type="button" data-structure-command="destroy-tower" data-kingdom-id="' + kingdom.id + '" data-tower-id="' + s.id + '">Destruir torre</button>' : '') + '</div></details>' : '') +
-        (['centro_militar', 'arquearia', 'monasterio', 'mercado', 'castelo'].includes(s.type) && s.complete && s.destroyedDay == null ? '<details class="gameplay-details"><summary>Ordens militares</summary><div class="kingdom-actions">' + world.kingdoms.filter(k => k.id !== s.kingdomId).map(k => '<button type="button" data-structure-command="attack-installation" data-kingdom-id="' + k.id + '" data-structure-id="' + s.id + '">Rei de ' + esc(k.name) + ': ordenar ataque</button>').join('') + '</div></details>' : '');
+      $('inspectTitle').textContent = structure.frontierOutpost ? 'Posto de fronteira' : structureDisplayName(structure.type);
+      root.innerHTML = buildingCard(world, structure);
       const meter = root.querySelector('.construction-meter');
       if (meter && window.ForjaHUD) meter.append(window.ForjaHUD.create({ size: 'small', color: 'yellow', value: Number(meter.dataset.progress), label: 'Progresso da construção' }));
       return;
-    }
-    if (selection.kind === 'plant') {
+    }    if (selection.kind === 'plant') {
       const d = Sim.inspectTile(world, selection.x, selection.y);
       if (!d) return;
       $('inspectEyebrow').textContent = 'BIOSFERA · VEGETAÇÃO';
@@ -2841,6 +3540,7 @@ export function mountGame() {
     drawMap(source);
     renderMiniMap();
     renderKingdomList();
+    renderLocalAiHistory();
     renderSpecies(stats);
     renderEvents();
     renderInspector();
@@ -2862,9 +3562,14 @@ export function mountGame() {
     const looseLog = (world.logs || []).filter(item => item.available && item.amount > .01 && Math.hypot(item.x - x, item.y - y) < .72)
       .sort((u, v) => Math.hypot(u.x - x, u.y - y) - Math.hypot(v.x - x, v.y - y))[0];
     if (looseLog) return { kind: 'log', id: looseLog.id };
+    const trainingDummy = trainingDummiesForWorld(world).filter(dummy =>
+      Math.abs(dummy.x - x) <= 1.5 * (dummy.sizeScale ?? 1)
+        && y >= dummy.y + .5 - 3 * (dummy.sizeScale ?? 1) && y <= dummy.y + .5)
+      .sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0];
+    if (trainingDummy) return { kind: 'training-dummy', id: trainingDummy.id };
     const structure = world.structures.filter(s => s.type === 'divisa'
       ? Math.abs(Math.hypot(s.x - x, s.y - y) - (s.radius || 4)) < .85
-      : s.type === 'curral' ? Math.abs(Math.max(Math.abs(s.x - x), Math.abs(s.y - y)) - Math.round(s.radius || 3.5)) < .85
+      : s.type === 'curral' ? Math.abs(Math.max(Math.abs(s.x - x), Math.abs(s.y - y)) - corralFenceRadius(s)) < .85
       : (() => {
         const kingdom = getKingdom(s.kingdomId), community = getCommunity(s.communityId);
         const spriteKey = structureSpriteKey(s);
@@ -2978,17 +3683,21 @@ export function mountGame() {
     }
   }
   function moveMapPointer(event) {
-
+    updateManualAim(event);
     if (!activeMapPointers.has(event.pointerId)) {
       if (event.pointerType === 'mouse' && world) {
         const rect = stage.getBoundingClientRect();
         const point = currentMapCamera().toWorld(event.clientX - rect.left, event.clientY - rect.top);
         const structure = territoryStructureAtMapPosition(point.x / TILE, point.y / TILE);
         const nextHoveredId = structure?.id ?? null;
-        const nextHoveringEntity = !!pickEntity(point.x / TILE, point.y / TILE);
-        if (nextHoveredId !== hoveredTerritoryStructureId || nextHoveringEntity !== hoveredMapEntity) {
+        const hoveredEntity = pickEntity(point.x / TILE, point.y / TILE);
+        const nextHoveredPersonId = hoveredEntity?.kind === 'person' ? hoveredEntity.id : null;
+        const nextHoveringEntity = !!hoveredEntity;
+        if (nextHoveredId !== hoveredTerritoryStructureId || nextHoveringEntity !== hoveredMapEntity
+            || nextHoveredPersonId !== hoveredPersonId) {
           hoveredTerritoryStructureId = nextHoveredId;
           hoveredMapEntity = nextHoveringEntity;
+          hoveredPersonId = nextHoveredPersonId;
           syncMapCursor();
           drawMap();
         } else syncMapCursor();
@@ -3053,9 +3762,10 @@ export function mountGame() {
   canvas.addEventListener('pointerdown', beginMapPointer);
   canvas.addEventListener('pointermove', moveMapPointer);
   canvas.addEventListener('pointerleave', () => {
-    if (hoveredTerritoryStructureId == null && !hoveredMapEntity) return;
+    if (hoveredTerritoryStructureId == null && !hoveredMapEntity && hoveredPersonId == null) return;
     hoveredTerritoryStructureId = null;
     hoveredMapEntity = false;
+    hoveredPersonId = null;
     setMapCursor('default');
     drawMap();
   });
@@ -3089,11 +3799,26 @@ export function mountGame() {
     if (!world) return;
 
     if (ignoreNextMapClick) { ignoreNextMapClick = false; return; }
+    canvas.focus({ preventScroll: true });
     const rect = stage.getBoundingClientRect();
     const point = currentMapCamera().toWorld(event.clientX - rect.left, event.clientY - rect.top);
     const mapX = point.x / TILE;
     const mapY = point.y / TILE;
-    if (mapX >= 0 && mapX < W && mapY >= 0 && mapY < H) openSelection(pickEntity(mapX, mapY));
+    if (mapX >= 0 && mapX < W && mapY >= 0 && mapY < H) {
+      if (manualControlId != null) {
+        updateManualAim(event, true);
+        const item = pickEntity(mapX, mapY);
+        const actor = currentManualPerson();
+        const clickedPerson = item?.kind === 'person' ? getPerson(item.id) : null;
+        if (clickedPerson && actor && clickedPerson.id !== actor.id
+            && clickedPerson.kingdomId === actor.kingdomId) {
+          openSelection(item);
+          return;
+        }
+        return;
+      }
+      openSelection(pickEntity(mapX, mapY));
+    }
   });
 
   function advanceWorld(days = 1, source = 'clock') {
@@ -3183,10 +3908,8 @@ export function mountGame() {
       $('settingsTray').hidden = true; $('settingsToggle').setAttribute('aria-expanded', 'false');
       showRight = false;
       $('rightPanel').classList.remove('is-open');
-    } else if (selection) {
-      showRight = true;
-      $('rightPanel').classList.add('is-open');
     }
+    syncPanelAccess();
   };
   const setSettingsPanel = open => {
     if (open) {
@@ -3196,32 +3919,93 @@ export function mountGame() {
     }
     $('settingsTray').hidden = !open;
     $('settingsToggle').setAttribute('aria-expanded', String(open));
+    syncPanelAccess();
   };
   $('kingdomsToggle').addEventListener('click', () => setKingdomPanel(!showLeft));
   $('settingsToggle').addEventListener('click', () => setSettingsPanel($('settingsTray').hidden));
-  $('settingsClose').addEventListener('click', () => setSettingsPanel(false));
-  $('environmentToggle').addEventListener('click', () => {
-    const open = !$('mapTags').classList.contains('is-open');
-    $('mapTags').classList.toggle('is-open', open);
-    $('environmentToggle').setAttribute('aria-expanded', String(open));
+  $('hitboxToggle').addEventListener('click', event => {
+    showHitboxes = !showHitboxes;
+    event.currentTarget.setAttribute('aria-pressed', String(showHitboxes));
+    event.currentTarget.textContent = showHitboxes ? 'Ocultar hitboxes' : 'Mostrar hitboxes';
+    drawMap();
   });
-  $('journalToggle').addEventListener('click', () => {
-    const panel = $('journal'), open = panel.hidden;
+  const setJournalPanel = open => {
+    const panel = $('journal');
     if (open) { setKingdomPanel(false); setSettingsPanel(false); showRight = false; $('rightPanel').classList.remove('is-open'); }
     panel.hidden = !open; $('journalToggle').setAttribute('aria-expanded', String(open));
-  });
-  $('journalClose').addEventListener('click', () => { $('journal').hidden = true; $('journalToggle').setAttribute('aria-expanded', 'false'); });
-  $('leftClose').addEventListener('click', () => setKingdomPanel(false));
-  $('rightClose').addEventListener('click', () => {
-    showRight = false; $('rightPanel').classList.remove('is-open');
+    syncPanelAccess();
+  };
+  $('journalToggle').addEventListener('click', () => setJournalPanel($('journal').hidden));
+  document.addEventListener('pointerdown', event => {
+    const target = event.target;
+    if (!$('journal').hidden && !$('journal').contains(target)
+      && !$('journalToggle').contains(target)) setJournalPanel(false);
+    if (showLeft && !$('leftPanel').contains(target)
+      && !$('kingdomsToggle').contains(target)) setKingdomPanel(false);
+    if (!$('settingsTray').hidden && !$('settingsTray').contains(target)
+      && !$('settingsToggle').contains(target)) setSettingsPanel(false);
+    if (showRight && !$('rightPanel').contains(target)) {
+      showRight = false;
+      $('rightPanel').classList.remove('is-open');
+      syncPanelAccess();
+    }
   });
   window.addEventListener('keydown', event => {
-
-    if (event.key !== 'Escape') return;
-    setKingdomPanel(false); setSettingsPanel(false);
-    $('journal').hidden = true; $('journalToggle').setAttribute('aria-expanded', 'false');
-    $('mapTags').classList.remove('is-open'); $('environmentToggle').setAttribute('aria-expanded', 'false');
-    showRight = false; $('rightPanel').classList.remove('is-open');
+    if (event.key === 'Escape') {
+      setKingdomPanel(false); setSettingsPanel(false);
+      $('journal').hidden = true; $('journalToggle').setAttribute('aria-expanded', 'false');
+      showRight = false; $('rightPanel').classList.remove('is-open');
+      syncPanelAccess();
+      return;
+    }
+    if (isEditableTarget(event.target)) return;
+    if (event.code === 'Space') {
+      event.preventDefault();
+      if (!event.repeat) toggleManualControl();
+      return;
+    }
+    if (manualControlId == null) return;
+    const key = event.key.toLowerCase();
+    if (['w', 'a', 's', 'd'].includes(key)) {
+      event.preventDefault();
+      if (!manualHeldKeys.has(key)) { manualHeldKeys.add(key); sendManualInput(); }
+      return;
+    }
+    if (key === 'e') {
+      event.preventDefault();
+      if (!event.repeat) {
+        if (primaryIsHealing()) { manualHealing = true; sendManualInput(); }
+        else queueManualAttack('1');
+      }
+      return;
+    }
+    if (key === 'f') {
+      event.preventDefault();
+      if (!event.repeat && !manualDefending) { manualDefending = true; sendManualInput(); drawMap(); }
+      return;
+    }
+    if (/^[1-5]$/.test(key)) {
+      event.preventDefault();
+      if (!event.repeat) {
+        if (key === '1' && primaryIsHealing()) { manualHealing = true; sendManualInput(); }
+        else queueManualAttack(key);
+      }
+    }
+  });
+  window.addEventListener('keyup', event => {
+    if (manualControlId == null) return;
+    const key = event.key.toLowerCase();
+    if (manualHeldKeys.delete(key) && ['w', 'a', 's', 'd'].includes(key)) sendManualInput();
+    if (['e', '1'].includes(key) && manualHealing) { manualHealing = false; sendManualInput(); drawMap(); }
+    if (key === 'f' && manualDefending) { manualDefending = false; sendManualInput(); drawMap(); }
+  });
+  window.addEventListener('blur', clearManualInput);
+  $('inspector').addEventListener('change', event => {
+    const target = event.target.closest('[data-magic-person]');
+    const person = target && getPerson(Number(target.dataset.magicPerson));
+    if (!person) return;
+    const command = magicInspectorCommand(target, person);
+    if (command) session.dispatch(command).catch(error => console.error('[Magias]', error));
   });
 
 
@@ -3229,69 +4013,28 @@ export function mountGame() {
     const button = e.target.closest('[data-kingdom]');
     if (button) { setKingdomPanel(false); openSelection({ kind: 'kingdom', id: Number(button.dataset.kingdom) }); }
   });
-  $('inspector').addEventListener('click', event => {
-    const inspectStructure = event.target.closest('[data-inspect-structure]');
-    if (inspectStructure) { openSelection({ kind: 'structure', id: Number(inspectStructure.dataset.inspectStructure) }); return; }
-    const inspectKingdom = event.target.closest('[data-inspect-kingdom]');
-    if (inspectKingdom) { openSelection({ kind: 'kingdom', id: Number(inspectKingdom.dataset.inspectKingdom) }); return; }
-    const button = event.target.closest('[data-kingdom-command], [data-structure-command]');
-    if (!button) return;
-    if (button.dataset.structureCommand === 'attack-installation') {
-      session.dispatch({ type: 'attack-installation', kingdomId: Number(button.dataset.kingdomId), structureId: Number(button.dataset.structureId) }).then(result => {
-        if (result?.ok) gameAudio.play('war_call', `war-call:installation:${button.dataset.kingdomId}:${button.dataset.structureId}:${Date.now()}`, world.kingdoms.find(item => item.id === Number(button.dataset.kingdomId)));
-        selection = { kind: 'kingdom', id: Number(button.dataset.kingdomId) };
-        kingdomActionNotice = result?.ok ? 'O rei ordenou o ataque à instalação. A tropa será mobilizada com suprimentos para o cerco.' : result?.reason || 'Não foi possível ordenar o ataque.';
-        render();
-      }).catch(error => { if (!isResetCancellation(error)) { kingdomActionNotice = error.message; render(); } });
-      return;
-    }
-    if (button.dataset.structureCommand === 'capture-tower') {
-      session.dispatch({ type: 'capture-tower', kingdomId: Number(button.dataset.kingdomId), towerId: Number(button.dataset.towerId) }).then(result => {
-        if (result?.ok) gameAudio.play('war_call', `war-call:capture:${button.dataset.kingdomId}:${button.dataset.towerId}:${Date.now()}`, world.kingdoms.find(item => item.id === Number(button.dataset.kingdomId)));
-        selection = { kind: 'kingdom', id: Number(button.dataset.kingdomId) };
-        kingdomActionNotice = result?.ok ? 'O rei ordenou a captura. A tropa será mobilizada com suprimentos para tomar a torre.' : result?.reason || 'Não foi possível ordenar a captura.';
-        render();
-      }).catch(error => { if (!isResetCancellation(error)) { kingdomActionNotice = error.message; render(); } });
-      return;
-    }
-    if (button.dataset.structureCommand === 'destroy-tower') {
-      const kingdomId = Number(button.dataset.kingdomId), towerId = Number(button.dataset.towerId);
-      session.dispatch({ type: 'destroy-tower', kingdomId, towerId }).then(result => {
-        selection = { kind: 'kingdom', id: kingdomId };
-        kingdomActionNotice = result && result.ok
-          ? 'Torre destruída. O domínio encolheu em ' + fmt(result.territoryTilesLost) + ' células.'
-          : result && result.reason || 'A torre não pôde ser destruída.';
-        render();
-      }).catch(error => {
-        if (isResetCancellation(error)) return;
-        kingdomActionNotice = 'A ordem falhou: ' + error.message;
-        render();
-      });
-      return;
-    }
-    const kingdomId = Number(button.dataset.kingdomId);
-    const command = button.dataset.kingdomCommand;
-    const request = command.startsWith('recruit')
-      ? { type: 'recruit-soldier', kingdomId, militaryClass: button.dataset.militaryClass || 'lanceiro' }
-      : { type: 'kingdom-structure', kingdomId, building: command };
-    session.dispatch(request).then(result => {
-      if (!result || !result.ok) kingdomActionNotice = result && result.reason || 'A ordem não foi concluída.';
-      else if (command.startsWith('recruit')) kingdomActionNotice = result.pending
-        ? result.person.name + ' começou treinamento; o tesouro pagou alimento, madeira e ouro. Pronto no dia ' + result.readyDay + '.'
-        : result.person.name + ' foi recrutado como lanceiro. O tesouro pagou alimento, madeira e ouro.';
-      else kingdomActionNotice = ('Construção iniciada: ' + structureDisplayName(command) + '.')
-        + ' Os recursos foram debitados. Trabalho necessário: ' + result.structure.required + ' dias no local.';
-      render();
-    }).catch(error => {
-      if (isResetCancellation(error)) return;
-      kingdomActionNotice = 'A ordem falhou: ' + error.message;
-      render();
-    });
-  });
-
   let lastAnimationFrame = 0;
+  let magicAccumulator = 0, magicTickPending = false, lastMagicFrame = 0, magicGeneration = 0;
   function frame(now) {
     const profile = renderDiagnostics.profiler.beginFrame(now);
+    if (!session.paused && world && magicHasActivity(world)) {
+      magicAccumulator += Math.min(100, now - (lastMagicFrame || now)) * session.speed;
+      if (!magicTickPending && magicAccumulator >= 100) {
+        const elapsedMs = Math.min(1000, magicAccumulator);
+        const generation = magicGeneration;
+        magicAccumulator -= elapsedMs; magicTickPending = true;
+        session.dispatch({ type: 'magic-tick', elapsedMs })
+          .catch(error => { if (!isResetCancellation(error)) console.error('[Magias]', error); })
+          .finally(() => { if (generation === magicGeneration) magicTickPending = false; });
+      }
+    } else magicAccumulator = 0;
+    lastMagicFrame = now;
+    const manualTickInterval = manualHealing && !manualHeldKeys.size && !manualDefending ? 200 : 50;
+    if (manualControlId != null && now - lastManualTick >= manualTickInterval) {
+      const dt = Math.min(.1, (now - (lastManualTick || now - 50)) / 1000);
+      lastManualTick = now;
+      if (!session.paused) sendManualInput(dt);
+    }
     if (lastAnimationFrame && !session.paused) animationTime += Math.min(100, now - lastAnimationFrame) * session.speed;
     lastAnimationFrame = now;
     gameAudio.update(animationTime, session.speed, session.paused);

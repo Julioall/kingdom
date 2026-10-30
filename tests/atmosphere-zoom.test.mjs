@@ -3,6 +3,14 @@ import assert from 'node:assert/strict';
 import { atmosphereZoomProfile, cloudOpacityAtZoom, cloudShadowOpacity, createCloudSystem } from '../src/ui/cloud-system.js';
 import { mapCamera } from '../src/ui/map-camera.js';
 
+test('cloud bodies skip all canvas work at 200% and above', () => {
+  const system = createCloudSystem([], 42);
+  const context = new Proxy({}, { get() { throw new Error('Hidden atmosphere must not draw'); } });
+  for (const zoom of [2, 3, 10]) {
+    system.drawAtmosphere(context, null, 800, 600, null, zoom);
+  }
+});
+
 test('fog and foreground clouds thin between 50% and 75%, and disappear at 100%', () => {
   const high = atmosphereZoomProfile(.5);
   const middle = atmosphereZoomProfile(.75);

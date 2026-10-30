@@ -11,6 +11,8 @@ import { initializeKingdoms, INITIAL_MILITARY_ROSTER, INITIAL_POPULATION_PER_KIN
 import { recruitKingdomSoldier } from '../kingdoms/commands.js';
 import { updateMilitaryCommand } from '../kingdoms/military.js';
 import { generateIslandTerrain } from './island-terrain.js';
+import { seedAdditionalMinerals, relocateSettlementMinerals, reduceInitialMineralSites } from './mineral-distribution.js';
+import { clearWildVegetationNearCorrals } from '../ecology/corral-clearance.js';
 
 const MIN_INITIAL_ADULT_WORKERS_PER_KINGDOM = 9;
 
@@ -36,6 +38,7 @@ export function createWorld(seed) {
     const w = {
       seed: cleanSeed, width: WIDTH, height: HEIGHT, day: 0, year: 1, season: 0, rngState: cleanSeed,
       nextId: 1, tiles: [], regions: [], animals: [], people: [], communities: [], kingdoms: [], structures: [], settlements: [], logs: [], loot: [], lake: null, lakes: [],
+      trainingDummyStates: {},
       market: { gold: 240, food: 110, feed: 64, wood: 90, stone: 72, sheep: 4, transactions: 0 },
       socialLinks: {}, communityRelations: {}, events: [], deaths: 0, births: 0, rainEvents: 0,
       strategicAI: { enabled: false, requests: [], pendingByKingdom: {}, nextDecisionDays: {}, nextRequestSequence: 1, enqueuedDay: -1, enqueuedToday: 0, decisions: 0, failures: 0 },
@@ -43,11 +46,12 @@ export function createWorld(seed) {
       kingdomRelations: {}, borderIncidents: 0, wars: [], campaigns: [], territoryClaims: [], treaties: [],
       deathsByCause: { starvation: 0, dehydration: 0, age: 0, injury: 0, combat: 0, predation: 0, harvest: 0, invasion: 0 },
       birthsByKind: { people: 0, animals: 0 },
-      harvests: { hunting: 0, fishing: 0, plantFoodBiomass: 0, cultivatedFoodBiomass: 0 },
+      harvests: { hunting: 0, fishing: 0, livestock: 0, livestockMeat: 0, plantFoodBiomass: 0, cultivatedFoodBiomass: 0 },
       ecologyFlows: {
         humanFoodRegrowth: 0, humanFoodNaturalLoss: 0,
         humanFoodSettlementLoss: 0, humanFoodEcologicalLoss: 0,
-        humanFoodCultivatedRegrowth: 0, humanFoodCultivationSeeded: 0
+        humanFoodCultivatedRegrowth: 0, humanFoodCultivationSeeded: 0,
+        livestockFeedConsumed: 0
       },
       lastWeatherEvent: -999
     };
@@ -81,6 +85,9 @@ export function createWorld(seed) {
         goldOre: !water && hash01(cleanSeed + 53, x, y)
           < (spatialNoise(cleanSeed + 67, x, y, 12) > .66 ? .025 : .0005)
           ? 1 + hash01(cleanSeed + 59, x, y) * 2.5 : 0,
+        // Allocated after trees are seeded; the distribution pass creates sparse,
+        // richer veins relative to gold sites and tree-site abundance.
+        copperOre: 0, silverOre: 0, ironOre: 0,
         surfaceWaterMm: water ? 24 : 0, plants, shade: 0, temperatureC: 18,
         rainfallMm: 0, waterDist, lakeId: waterKind === 'lake' ? lakes.reduce((best, lake, lakeId) =>
           Math.hypot(x - lake.x, y - lake.y) < best.distance ? { distance: Math.hypot(x - lake.x, y - lake.y), lakeId } : best,
@@ -94,8 +101,12 @@ export function createWorld(seed) {
       id, temperatureC: 18, rainfallMm: 0, humidity: .55, weather: 'stable', dryDays: 0, meanMoisture: .4
     }));
     seedPlants(w);
+    reduceInitialMineralSites(w);
     seedAnimals(w, { sheep: 24 });
     initializeKingdoms(w);
+    clearWildVegetationNearCorrals(w);
+    seedAdditionalMinerals(w);
+    relocateSettlementMinerals(w);
     addIndividuals(w, INITIAL_POPULATION_PER_KINGDOM * w.kingdoms.length, true);
     ensureInitialMilitaryRecruitmentPool(w);
     for (const kingdom of w.kingdoms) {

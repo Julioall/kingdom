@@ -1,15 +1,33 @@
 import { initializeTowerHealth, TOWER_HEALTH } from './fortifications.js';
 import { log } from '../core/events.js';
 import { enlistSoldier } from './service.js';
-import { recruitKingdomSoldier, buildKingdomStructure } from './commands.js';
+import { recruitKingdomSoldier, buildKingdomStructure, findMilitaryCenterWithVacancy } from './commands.js';
 import { assignHome, INITIAL_MILITARY_ROSTER } from './initialization.js';
+import { militaryClassSource } from './military-sources.js';
+
+function pauseRecruitment(world, person, order, day, reason) {
+  if (order.progressionStatus === 'paused' && order.pauseReason === reason) return;
+  order.progressionStatus = 'paused';
+  order.pauseReason = reason;
+  order.pausedDay = day;
+  log(world, 'O treinamento de ' + person.name + ' foi pausado: ' + reason + '. O custo já pago e o progresso são preservados.', day);
+}
+
+function resumeRecruitment(world, person, order, day) {
+  if (order.progressionStatus !== 'paused') return;
+  order.progressionStatus = 'resumed';
+  order.resumedDay = day;
+  log(world, 'O treinamento de ' + person.name + ' retomou no dia ' + day + '; o mérito e o custo já registrados foram preservados.', day);
+  delete order.pauseReason;
+}
 
 export function advanceKingdomProjects(world, day) {
   // The king funds specialist training from the same treasury and adult population as manual recruitment.
   if (day >= 24 && day % 12 === 0) for (const kingdom of world.kingdoms) {
     for (const { school, militaryClass, count: target } of INITIAL_MILITARY_ROSTER) {
-      if (!world.structures.some(s => s.kingdomId === kingdom.id && s.type === school && s.complete)) {
-        if (!world.structures.some(s => s.kingdomId === kingdom.id && s.type === school && s.kingdomProject && !s.complete))
+      if (!militaryClassSource(world, kingdom.id, militaryClass)) {
+        if (!world.structures.some(s => s.kingdomId === kingdom.id && s.type === school && s.kingdomProject
+            && !s.complete && s.destroyedDay == null && s.integrity > 0))
           buildKingdomStructure(world, kingdom.id, school);
         continue;
       }
@@ -39,15 +57,21 @@ export function advanceKingdomProjects(world, day) {
     structure.builtDay = day;
     structure.constructionStatus = 'obra concluída';
     structure.completedWorkerIds = (structure.workerIds || []).slice();
-    for (const id of [...(structure.workerIds || []), ...(structure.escortIds || [])]) {
+    const assignedIds = new Set([...(structure.workerIds || []), ...(structure.escortIds || []),
+      ...world.people.filter(p => p.constructionProjectId === structure.id).map(p => p.id)]);
+    for (const id of assignedIds) {
       const person = world.people.find(p => p.id === id && p.alive);
       if (!person) continue;
       if (person.state === 'escoltando trabalhadores da torre') person.state = 'escolta concluída; retomando serviço';
-      else if (person.state === 'construindo ' + structure.type) person.state = 'obra concluída; retomando atividades';
+      else if (person.state === 'construindo ' + structure.type || person.constructionProjectId === structure.id)
+        person.state = 'obra concluída; retomando atividades';
       person.constructionProjectId = null; person.constructionStallDays = 0;
       person.constructionWorkPosition = null;
+      person.constructionThreatState = null;
+      person.constructionRiskPending = null;
     }
     structure.workerIds = []; structure.escortIds = [];
+    structure.constructionWorkerIds = []; structure.constructionWorkerLastSeen = {};
     const kingdom = world.kingdoms.find(item => item.id === structure.kingdomId);
     log(world, 'O reino ' + (kingdom && kingdom.name || 'desconhecido') + ' concluiu '
       + (structure.frontierOutpost ? 'um posto de fronteira' : structure.type === 'casa' ? 'uma casa' : structure.type === 'torre' ? 'uma torre' : structure.type === 'monasterio' ? 'um monastério' : structure.type === 'arquearia' ? 'uma arquearia' : 'um centro militar')
@@ -86,10 +110,26 @@ export function advanceKingdomProjects(world, day) {
 
   for (const person of world.people) {
     const order = person.recruitmentOrder;
-    if (!person.alive || !order || day < order.readyDay) continue;
-    const center = world.structures.find(structure => structure.id === order.militaryCenterId
-      && structure.complete && structure.type === 'centro_militar');
-    if (!center || (center.soldierIds || []).includes(person.id)) {
+    if (!order) continue;
+    if (!person.alive) {
+      delete person.recruitmentOrder;
+      continue;
+    }
+    if (day < order.readyDay) continue;
+    const source = militaryClassSource(world, order.kingdomId, order.militaryClass);
+    if (!source) {
+      pauseRecruitment(world, person, order, day,
+        'a última fonte operacional da classe ' + order.militaryClass + ' foi destruída');
+      continue;
+    }
+    const center = findMilitaryCenterWithVacancy(world, order.kingdomId, person.id);
+    if (!center) {
+      pauseRecruitment(world, person, order, day, 'não há centro militar operacional com vaga');
+      continue;
+    }
+    resumeRecruitment(world, person, order, day);
+    order.militaryCenterId = center.id;
+    if ((center.soldierIds || []).includes(person.id)) {
       delete person.recruitmentOrder;
       continue;
     }

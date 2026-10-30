@@ -1,6 +1,16 @@
 export const SOURCE_TILE_PIXELS = 64;
 export const spriteScale = (tileSize, factor = 1) => tileSize / SOURCE_TILE_PIXELS * factor;
 
+export function followCameraPan(width, height, zoom, position, tileSize, logicalSize = 1024) {
+  const scale = Math.min(width, height) / logicalSize * zoom;
+  const maxX = Math.max(0, (logicalSize * scale - width) / 2);
+  const maxY = Math.max(0, (logicalSize * scale - height) / 2);
+  return {
+    x: Math.max(-maxX, Math.min(maxX, scale * (logicalSize / 2 - (position.x + .5) * tileSize))),
+    y: Math.max(-maxY, Math.min(maxY, scale * (logicalSize / 2 - (position.y + .5) * tileSize)))
+  };
+}
+
 export const BUILDING_FEET = Object.freeze({ castle: 249, barracks: 245, tower: 230,
   house1: 173, house2: 178, house3: 172, farmhouse: 168, archery: 240, monastery: 310 });
 

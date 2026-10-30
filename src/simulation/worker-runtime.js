@@ -4,12 +4,21 @@ import { createWorldSnapshot } from './render-snapshot.js';
 import { SIMULATION_PROTOCOL_VERSION } from './protocol-version.js';
 
 const MAX_ADVANCE_DAYS = 12;
+// Magic pulses do not resend brains, inventories or navigation histories.
+const MAGIC_PERSON_FIELDS = ['id', 'health', 'alive', 'mana', 'magicEffects', 'magicCast', 'magicCooldowns',
+  'magicTimeMs', 'playerHealing', 'lastHealingSequence', 'lastHealing', 'lastHealingCast',
+  'state', 'militaryAnimation', 'militaryAnimationDay', 'militaryFacingX', 'militaryFacingY',
+  'lastAttackSequence', 'lastAttackedDay', 'deathDay', 'deathCause', 'deathDetails',
+  'combatStunnedUntilMs', 'combatDisarmedUntilDay', 'combatDisarmedById', 'combatLaunch',
+  'playerFlurryUntil', 'playerDefending'];
+const magicPersonUpdate = person => Object.fromEntries(MAGIC_PERSON_FIELDS.map(key => [key, person[key]]));
 
 export function createSimulationWorkerRuntime({ includeDailySnapshots = false, createWorldImpl = engine.createWorld } = {}) {
   let world = null;
   let epoch = -1;
   let revision = 0;
   let paused = false;
+  let lastMagicEventsSequence = -1;
 
   function envelope(request, type, body = {}) {
     return {
@@ -45,6 +54,8 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
         if (request.epoch <= epoch) throw new Error('Época de inicialização inválida.');
         if (!request.config || request.config.scenario !== 'kingdom') throw new Error('Cenário não implementado.');
         world = createWorldImpl(request.seed);
+        lastMagicEventsSequence = -1;
+        world.magicExternalClock = true;
         epoch = request.epoch;
         world.simulationEpoch = epoch;
         paused = false;
@@ -55,6 +66,8 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
       if (request.type === 'reset') {
         if (request.epoch <= epoch) throw new Error('Época de reset inválida.');
         world = createWorldImpl(request.seed);
+        lastMagicEventsSequence = -1;
+        world.magicExternalClock = true;
         epoch = request.epoch;
         world.simulationEpoch = epoch;
         paused = false;
@@ -79,14 +92,42 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
           if (source !== 'clock' && source !== 'manual') throw new Error('Origem do avanço inválida.');
           if (paused && source === 'clock') throw new Error('A simulação está pausada.');
           for (let day = 0; day < request.days; day++) {
-            engine.stepDay(world, { includeSnapshot: includeDailySnapshots });
+            engine.stepDay(world, { includeSnapshot: includeDailySnapshots, advanceMagic: source === 'manual' });
           }
           revision++;
           return capture(request);
         }
         case 'dispatch': {
-          const result = dispatchCommand(world, request.command);
+          const command = request.command;
+          const actor = command?.type === 'player-action' || command?.type === 'player-input'
+            ? world.people.find(person => person.id === command.personId) : null;
+          const combatSequence = world.combatSequence;
+          const result = dispatchCommand(world, command);
+          if (command?.type === 'magic-tick') {
+            revision++;
+            const magicEvents = world.magicSequence !== lastMagicEventsSequence ? world.magicEvents || [] : undefined;
+            lastMagicEventsSequence = world.magicSequence;
+            return envelope(request, 'player-update', { people: (result.people || []).map(magicPersonUpdate),
+              magicTimeMs: world.magicTimeMs || 0, magicZones: world.magicZones || [],
+              magicEvents, magicStats: world.magicStats || {}, result: { ok: true } });
+          }
+          const newCombat = world.combatSequence !== combatSequence;
+          const nearby = actor && (command?.type === 'player-action' || newCombat) ? world.people.filter(person =>
+            Math.hypot(person.x - actor.x, person.y - actor.y) <= 24) : null;
           revision++;
+          if (command?.type === 'player-input') {
+            return envelope(request, 'player-update', {
+              ...(newCombat ? { people: nearby || [], combatEvents: world.combatEvents || [],
+                trainingDummyStates: world.trainingDummyStates || {}, loot: world.loot || [] }
+                : { person: world.people.find(person => person.id === command.personId) || null }), result
+            });
+          }
+          if (command?.type === 'player-action') {
+            return envelope(request, 'player-update', { people: nearby || [],
+              combatEvents: world.combatEvents || [], loot: world.loot || [],
+              trainingDummyStates: world.trainingDummyStates || {},
+              events: world.events || [], logs: world.logs || [], result });
+          }
           return capture(request, { result });
         }
         case 'set-kingdom-ai': {

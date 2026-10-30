@@ -3,6 +3,7 @@ import { PLANTS } from '../../config/ecosystem.js';
 import { collidesWithStructureAt, hitboxesOverlap, mineralHitbox, npcHitbox, resourceCollisionIndex, structureHitbox, treeHitbox, worldCollisionIndex } from '../physics/hitboxes.js';
 import { cellAt } from '../world/spatial.js';
 import { invalidateNavigation } from '../individuals/navigation-cache.js';
+import { corralFenceRadius } from '../ecology/herd.js';
 
 export const MAX_CONSTRUCTION_WORKERS = 2;
 
@@ -64,7 +65,7 @@ function findWorkPositions(world, structure, person) {
   // Include the unfinished building's final footprint even before its first
   // construction point, when the normal collision index still omits it.
   const worksiteHitbox = structureHitbox({ ...structure, complete: true });
-  const corralRadius = structure.type === 'curral' ? Math.max(2, Math.round(structure.radius || 3.5)) : 0;
+  const corralRadius = structure.type === 'curral' ? corralFenceRadius(structure) : 0;
   const preferredPairs = structure.type === 'torre' ? [
     [[0, 1], [2, 1]], [[0, 1], [-2, 1]], ...PREFERRED_WORK_PAIRS
   ] : corralRadius ? [
@@ -160,7 +161,7 @@ export function claimConstructionWorkstation(world, structure, person) {
 
 export function constructionContactPoint(structure) {
   if (structure.type === 'curral') {
-    return { x: structure.x, y: structure.y + Math.max(2, Math.round(structure.radius || 3.5)) };
+    return { x: structure.x, y: structure.y + corralFenceRadius(structure) };
   }
   return { x: structure.x, y: structure.y + 1 };
 }

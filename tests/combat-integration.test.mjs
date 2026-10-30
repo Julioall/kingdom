@@ -76,6 +76,22 @@ test('exhausted soldiers cannot create attacks; area healing spends mana once an
   assert.deepEqual(castAreaHealing(world, cleric, [actor], 1), []);
 });
 
+test('ground attack against a fortification stops at an intervening rock without damage', () => {
+  const { world, tower, actor } = siegeFixture();
+  actor.militaryClass = 'guerreiro';
+  Object.assign(actor, { x: tower.x - 2, y: tower.y, stamina: 100, lastMilitaryAttackDay: -Infinity });
+  const blockerX = Math.round(tower.x - 1), blockerY = Math.round(tower.y);
+  world.tiles[blockerY * world.width + blockerX].terrain = 'rock';
+  const initialHealth = tower.health;
+
+  assert.equal(attackStructure(world, actor, tower, 1), 0);
+  assert.equal(tower.health, initialHealth);
+  assert.equal(actor.combatAction.result.kind, 'obstructed');
+  assert.equal(actor.combatAction.result.obstruction.terrain, 'rock');
+  assert.equal(actor.lastAttackSequence || 0, 0);
+  assert.equal(actor.lastMilitaryAttackDay, 1, 'a blocked attempt still obeys its attack cooldown');
+});
+
 test('projectile presentation stops at actual interception height and skips obsolete batched events', () => {
   const actor = { id: 1, kingdomId: 1, x: 0, y: 0, militaryClass: 'arqueiro', alive: true };
   const intended = { id: 2, kingdomId: 2, x: 8, y: 0, towerMounted: true, alive: true };
@@ -85,8 +101,8 @@ test('projectile presentation stops at actual interception height and skips obso
   resolveCombatAction(world, actor, action, [intended, interceptor], () => 10);
   assert.equal(action.result.targetId, 3); assert.ok(action.result.contactElevation < .65);
   const effects = createActivityEffects(); effects.observe(world, 0);
-  const arrow = effects.active(500).find(e => e.projectile);
-  assert.equal(arrow.targetY, -action.result.contactElevation);
+  const arrow = effects.active(action.windupMs).find(e => e.projectile);
+  assert.equal(arrow.targetY, action.result.point.y - action.result.contactElevation);
   const caughtUp = createActivityEffects(); world.day = 5; caughtUp.observe(world, 1000);
   assert.deepEqual(caughtUp.active(2000), []);
 });

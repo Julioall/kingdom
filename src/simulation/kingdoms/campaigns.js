@@ -1,23 +1,28 @@
 import { towerDutyOrder, performTowerDuty } from './tower-archers.js';
 import { clearMilitaryCommand } from './military-identity.js';
 import { advanceTowerCapture } from './tower-capture.js';
+import { SPELLS, equippedSpells, MAGIC_TACTICS } from '../magic/catalog.js';
 import { initializeTowerHealth, campaignTower, attackTower, towerBattlePosition, destroyTowerInWorld } from './fortifications.js';
 import { fightTacticalRound, updateMilitaryCommand, tacticalDestination, militaryMerit, selectHealingTarget,
   combatEngagementRange, MILITARY_CLASSES, battlefieldOpponents } from './military.js';
 import { frontierWorkOrder, performFrontierWork, prepareFrontierConflicts, FRONTIER_RECOVERY_DAYS } from './frontier-conflicts.js';
-import { DAILY_FOOD_NEED, FOOD_RESERVE_PER_UNIT } from '../../config/ecosystem.js';
+import { DAILY_FOOD_NEED, FOOD_DAYS_PER_UNIT } from '../../config/ecosystem.js';
+import { formatWholeMeasure } from '../../config/whole-measures.js';
 import { clamp, distance } from '../core/math.js';
 import { rand } from '../core/random.js';
 import { log } from '../core/events.js';
 import { cellAt } from '../world/spatial.js';
 import { moveOne, reachableAreaAround } from '../individuals/movement.js';
 import { changePersonHealth, killPerson } from '../individuals/lifecycle.js';
-import { communityFoodStock, spendInventory, spendResource, transferInventory, transferStoreResourceToAccount } from '../economy/inventories.js';
-import { kingdomFoodDemand } from '../economy/food-policy.js';
+import { addFoodReserve, communityFoodStock, spendInventory, spendResource, transferInventory, transferStoreResourceToAccount } from '../economy/inventories.js';
+import { registerFoodAuditCampaignSide, withFoodAuditOperation } from '../economy/food-audit-ledger.js';
+import { MILITARY_CIVILIAN_RESERVE_DAYS, militaryCivilianFoodFloor } from '../economy/food-policy.js';
 import { kingdomRelation, recomputeKingdomTerritories } from './territories.js';
 import {
   AI_DECISION_CONTRACT_VERSION, validateDecisionAction, validateDecisionResult
 } from '../../ai/contracts.js';
+import { stripAbsoluteCalendarFields } from '../../ai/observations.js';
+import { observedKingdomDirection } from '../../ai/medieval-voice.js';
 import {
   createFormation, formationSlot, measureFormation, recordFormationBlockedMove,
   setFormationDestination, setFormationState, setFormationType
@@ -25,7 +30,6 @@ import {
 
 const ACTIVE_STATES = new Set(['mobilizing', 'marching', 'engaged', 'withdrawing']);
 const CAMPAIGN_RATION_DAYS = 18;
-const CAMPAIGN_CIVILIAN_RESERVE_DAYS = 2;
 const RESUPPLY_INTERVAL = 7;
 const TARGET_RADIUS = 11;
 const CEASEFIRE_DAYS = 30;
@@ -59,11 +63,11 @@ function kingdomById(world, id) {
 function campaignRationBudget(world, kingdom, troopIds) {
   const troops = troopIds.map(id => world.people.find(person => person.id === id && person.alive)).filter(Boolean);
   const community = world.communities.find(item => item.id === kingdom.communityId && !item.dissolved);
-  const civilianReserve = kingdomFoodDemand(world, kingdom).dailyFoodNeed * CAMPAIGN_CIVILIAN_RESERVE_DAYS;
+  const civilianReserve = militaryCivilianFoodFloor(world, kingdom);
   const communitySurplus = Math.max(0, communityFoodStock(community) - civilianReserve);
   const treasuryFood = Math.max(0, Number(kingdom.treasury?.stock?.food) || 0);
   const personalRations = troops.reduce((sum, person) => sum + Math.max(0, Number(person.foodReserve) || 0), 0);
-  return personalRations + (treasuryFood + communitySurplus) * FOOD_RESERVE_PER_UNIT;
+  return personalRations + (treasuryFood + communitySurplus) * FOOD_DAYS_PER_UNIT;
 }
 
 function homePosition(world, kingdomId) {
@@ -163,7 +167,7 @@ function campaignSupplyLedger() {
     resupply: { food: 0, wood: 0, gold: 0 },
     resupplySources: { food: { treasury: 0, community: 0 } },
     rationConsumptionFood: 0,
-    personalReserveRationPoints: 0,
+    personalReserveRationDays: 0,
     battleEquipmentLoss: { wood: 0, gold: 0 },
     returned: { food: 0, wood: 0, gold: 0 }
   };
@@ -205,9 +209,10 @@ function fundSide(world, campaignId, kingdomId, role, troopIds) {
     lastResupplyDay: -RESUPPLY_INTERVAL
   };
   if (!kingdom) return side;
+  registerFoodAuditCampaignSide(side);
   const count = troopIds.length;
   side.supplyLedger.deployment.food = transferInventory(kingdom.treasury, side.supply, 'food',
-    count * CAMPAIGN_RATION_DAYS / FOOD_RESERVE_PER_UNIT, 'campaign-deployment');
+    count * CAMPAIGN_RATION_DAYS / FOOD_DAYS_PER_UNIT, 'campaign-deployment');
   side.supplyLedger.deployment.wood = transferInventory(kingdom.treasury, side.supply, 'wood', count * 2, 'campaign-deployment');
   side.supplyLedger.deployment.gold = transferInventory(kingdom.treasury, side.supply, 'gold', count, 'campaign-deployment');
   side.lastResupplyDay = -RESUPPLY_INTERVAL;
@@ -370,11 +375,21 @@ export function prepareKingdomCampaigns(world, day = world.day + 1) {
     }
     if (campaign.status === 'withdrawing') {
       for (const side of [campaign.attacker, campaign.defender]) {
-        const fieldRationPoints = Math.max(0, Number(side.supply.stock.food) || 0) * FOOD_RESERVE_PER_UNIT;
+        const returnedIds = [];
+        const fieldRationDays = Math.max(0, Number(side.supply.stock.food) || 0) * FOOD_DAYS_PER_UNIT;
         for (const id of side.troopIds.slice()) {
-          const person = world.people.find(item => item.id === id && item.alive);
-          if (!person || person.campaignReturnedHome || !side.home || distance(person, side.home) <= 2.2
-              || fieldRationPoints + .001 >= DAILY_FOOD_NEED
+          const person = world.people.find(item => item.id === id && item.alive
+            && item.role === 'soldier' && item.campaignId === campaign.id);
+          if (!person) continue;
+          if (person.campaignReturnedHome || side.home && distance(person, side.home) <= 2.2) {
+            releaseCampaignTroop(world, side, person, true);
+            person.militaryReturningHome = false;
+            person.campaignReturnedHome = false;
+            person.fieldCommand = null;
+            returnedIds.push(person.id);
+            continue;
+          }
+          if (!side.home || fieldRationDays + .001 >= DAILY_FOOD_NEED
               || (Number(person.foodReserve) || 0) > DAILY_FOOD_NEED * 2) continue;
           const remainingReserve = Number((person.foodReserve || 0).toFixed(2));
           const kingdom = releaseCampaignTroop(world, side, person, true);
@@ -383,8 +398,12 @@ export function prepareKingdomCampaigns(world, day = world.day + 1) {
             + (kingdom && kingdom.name || 'seu reino') + ' antes de esgotar a reserva: a campanha não tinha '
             + 'uma ração diária disponível; foi liberado para buscar alimento.',
           { kingdomId: side.kingdomId, personId: person.id, reason: 'withdrawal-out-of-rations',
-            remainingReserve, fieldRationPoints: Number(fieldRationPoints.toFixed(2)) });
+            remainingReserve, fieldRationDays: Number(fieldRationDays.toFixed(2)) });
         }
+        if (returnedIds.length) recordCampaignEvent(world, campaign, day, 'returned-to-garrison',
+          returnedIds.length === 1 ? 'Um soldado regressou e retomou o serviço na guarnição.'
+            : returnedIds.length + ' soldados regressaram e retomaram o serviço na guarnição.',
+          { kingdomId: side.kingdomId, personIds: returnedIds });
       }
     }
     if (day >= campaign.readyDay && campaign.status === 'mobilizing') {
@@ -505,17 +524,17 @@ function resupplySide(world, campaign, side, day) {
   side.supplyLedger.resupply ||= { food: 0, wood: 0, gold: 0 };
   side.supplyLedger.resupplySources ||= {};
   side.supplyLedger.resupplySources.food ||= { treasury: 0, community: 0 };
-  const foodTarget = troops.length * CAMPAIGN_RATION_DAYS / FOOD_RESERVE_PER_UNIT;
+  const foodTarget = troops.length * CAMPAIGN_RATION_DAYS / FOOD_DAYS_PER_UNIT;
   const before = side.supply.stock.food;
   const foodGap = Math.max(0, foodTarget - before);
   const treasuryFood = transferInventory(kingdom.treasury, side.supply, 'food', foodGap, 'campaign-resupply');
   side.supplyLedger.resupply.food += treasuryFood;
   side.supplyLedger.resupplySources.food.treasury += treasuryFood;
   let communityFood = 0;
-  const civilianReserveDays = CAMPAIGN_CIVILIAN_RESERVE_DAYS;
+  const civilianReserveDays = MILITARY_CIVILIAN_RESERVE_DAYS;
   const community = world.communities.find(item => item.id === kingdom.communityId && !item.dissolved);
   if (community) {
-    const civilianReserve = kingdomFoodDemand(world, kingdom).dailyFoodNeed * civilianReserveDays;
+    const civilianReserve = militaryCivilianFoodFloor(world, kingdom);
     const protectedSurplus = Math.max(0, communityFoodStock(community) - civilianReserve);
     communityFood = transferStoreResourceToAccount(community, side.supply, 'food',
       Math.min(Math.max(0, foodGap - treasuryFood), protectedSurplus), 'campaign-resupply');
@@ -529,7 +548,7 @@ function resupplySide(world, campaign, side, day) {
   side.lastResupplyDay = day;
   const received = side.supply.stock.food - before;
   if (received > .01) recordCampaignEvent(world, campaign, day, 'resupply', kingdom.name + ' entregou '
-    + received.toFixed(1) + ' unidades de alimento à linha de abastecimento.', {
+    + formatWholeMeasure(received) + ' unidades de alimento à linha de abastecimento.', {
       sources: { treasuryFood, communityFood, civilianReserveDays }
     });
 }
@@ -553,6 +572,7 @@ function campaignAssignmentFor(world, person) {
 }
 
 export function campaignOrderFor(world, person) {
+  if (person.playerControlled) return null;
   const towerOrder = towerDutyOrder(world, person);
   if (towerOrder) return towerOrder;
   const assignment = campaignAssignmentFor(world, person);
@@ -591,7 +611,8 @@ export function campaignOrderFor(world, person) {
   const deployed = !withdrawing && campaign.status !== 'mobilizing' && (side.formation?.deployed || atFront);
   // Nearby threats take priority over parade slots, even if reinforcements
   // or the opposing formation have not finished deploying.
-  const comboTargetId = person.combatCombo?.lastDay === world.day - 1 && person.combatCombo.count < 3
+  const comboMaximum = person.militaryClass === 'guerreiro' ? 4 : 3;
+  const comboTargetId = person.combatCombo?.lastDay === world.day - 1 && person.combatCombo.count < comboMaximum
     ? person.combatCombo.targetId : null;
   const openingTargetId = person.combatOpening?.expiresDay > world.day ? person.combatOpening.targetId : null;
   const preferredTargetId = openingTargetId ?? comboTargetId ?? side.fieldCommand?.targetEnemyId;
@@ -620,6 +641,7 @@ export function campaignOrderFor(world, person) {
 }
 
 export function performCampaignOrder(world, person, order) {
+  if (person.playerControlled) return false;
   if (!order) return false;
   if (order.fieldCommandPost) {
     if (distance(person, order.target) > 3) moveOne(world, person, order.target, false, { arrivalRadius: 3 });
@@ -844,8 +866,9 @@ function recordGeneralEvent(world, campaign, event) {
 
 function generalSideKey(campaignId, kingdomId) { return String(campaignId) + ':' + String(kingdomId); }
 
-function generalAllowedActions(campaign) {
+function generalAllowedActions(campaign, hasPriests = false) {
   const actions = ['advance', 'hold_position'];
+  if (hasPriests) actions.push('magic_recovery', 'magic_protection', 'magic_offense', 'magic_disruption');
   if (campaign.status !== 'withdrawing') actions.push('withdraw');
   return actions;
 }
@@ -853,7 +876,7 @@ function generalAllowedActions(campaign) {
 function generalObservedFacts(world, campaign, side, day) {
   const troops = livingSideTroops(world, side);
   const nearby = nearbyTroops(world, side, campaign.target);
-  const dailyFood = troops.length * DAILY_FOOD_NEED / FOOD_RESERVE_PER_UNIT;
+  const dailyFood = troops.length * DAILY_FOOD_NEED / FOOD_DAYS_PER_UNIT;
   const kingdom = kingdomById(world, side.kingdomId);
   const opponentId = campaign.attackerId === side.kingdomId ? campaign.defenderId : campaign.attackerId;
   const opponentSide = campaignSide(campaign, opponentId);
@@ -862,16 +885,23 @@ function generalObservedFacts(world, campaign, side, day) {
     kingdom: { id: side.kingdomId, name: kingdom?.name || 'reino' },
     campaign: {
       id: campaign.id, status: campaign.status, startedDay: campaign.startedDay,
-      target: { ...campaign.target }, cause: campaign.cause, battleCount: campaign.battleCount,
+      target: { ...campaign.target, directionFromKingdom: observedKingdomDirection(campaign.target, kingdom) }, cause: campaign.cause, battleCount: campaign.battleCount,
       lastBattleDay: campaign.lastBattleDay
     },
     side: {
+      magicSupport: troops.filter(person => person.militaryClass === 'monge').map(person => ({
+        id: person.id, mana: Math.round(person.mana ?? 200), casting: person.magicCast?.spellId || null,
+        spells: equippedSpells(person).map(id => ({ id, name: SPELLS[id].name, mana: SPELLS[id].mana })) })),
+      woundedTroops: troops.filter(person => person.health < 75).length,
+      magicallyDebuffedTroops: troops.filter(person => person.magicEffects?.some(effect =>
+        ['weakness', 'slow', 'exhaustion', 'curse', 'poison'].includes(effect.id))).length,
+      magicTactic: side.magicOrders?.policy || 'balanced',
       role: side.role, troopCount: troops.length, troopsAtObjective: nearby.length,
-      foodStock: Number((side.supply.stock.food || 0).toFixed(2)),
-      estimatedRationDays: dailyFood > 0 ? Number(((side.supply.stock.food || 0) / dailyFood).toFixed(1)) : 0,
-      woodStock: Number((side.supply.stock.wood || 0).toFixed(2)),
-      goldStock: Number((side.supply.stock.gold || 0).toFixed(2)),
-      morale: Number((side.morale || 0).toFixed(1)), shortageDays: side.supplyShortageDays || 0,
+      foodStock: Math.round(side.supply.stock.food || 0),
+      estimatedRationDays: dailyFood > 0 ? Math.round((side.supply.stock.food || 0) / dailyFood) : 0,
+      woodStock: Math.round(side.supply.stock.wood || 0),
+      goldStock: Math.round(side.supply.stock.gold || 0),
+      morale: Math.round(side.morale || 0), shortageDays: side.supplyShortageDays || 0,
       stalledDays: side.stallDays || 0, order: side.aiOrder?.action || 'advance',
       orderVersion: side.orderVersion || 0,
       formation: side.formation ? { type: side.formation.type, state: side.formation.state,
@@ -879,7 +909,7 @@ function generalObservedFacts(world, campaign, side, day) {
     },
     opponent: opponentSide ? {
       role: opponentSide.role, troopCount: livingSideTroops(world, opponentSide).length,
-      morale: Number((opponentSide.morale || 0).toFixed(1)),
+      morale: Math.round(opponentSide.morale || 0),
       troopsAtObjective: nearbyTroops(world, opponentSide, campaign.target).length
     } : null,
     evidence: campaign.evidence?.[side.role] || null
@@ -900,8 +930,9 @@ export function queueCampaignGeneralAiRequests(world, day = world.day + 1) {
       const urgent = side.supplyShortageDays >= 3 || side.morale <= 45 || side.stallDays > 0;
       const interval = urgent ? GENERAL_URGENT_REVIEW_INTERVAL : GENERAL_REVIEW_INTERVAL;
       if (side.nextGeneralReviewDay != null && day < side.nextGeneralReviewDay) continue;
-      const allowedActions = generalAllowedActions(campaign);
-      const observedFacts = generalObservedFacts(world, campaign, side, day);
+      const allowedActions = generalAllowedActions(campaign,
+        livingSideTroops(world, side).some(person => person.militaryClass === 'monge'));
+      const observedFacts = stripAbsoluteCalendarFields(generalObservedFacts(world, campaign, side, day));
       const requestId = 'general:' + campaign.id + ':' + side.kingdomId + ':' + state.nextRequestSequence++;
       const reportDay = Math.max(0, Math.floor(day));
       const request = {
@@ -989,6 +1020,19 @@ export function applyCampaignGeneralAiDecision(world, request, decision, metadat
   const day = world.day;
   const reason = String(decision.reason || '').replace(/[<>\u0000-\u001f]/g, ' ').trim().slice(0, 180);
   side.orderVersion = (side.orderVersion || 0) + 1;
+  const magicPolicy = action.startsWith('magic_') ? MAGIC_TACTICS[action.slice(6)] : null;
+  if (magicPolicy) {
+    side.magicOrders = { ...magicPolicy, policy: action.slice(6) };
+    delete state.pendingBySide[key];
+    side.nextGeneralReviewDay = day + GENERAL_REVIEW_INTERVAL;
+    recordGeneralEvent(world, campaign, { type: 'applied', requestId: request.requestId,
+      kingdomId: side.kingdomId, role: 'general', decision,
+      effect: { kind: 'magic-support-order', policy: side.magicOrders.policy, orderVersion: side.orderVersion } });
+    recordCampaignEvent(world, campaign, day, 'general-magic-order',
+      'O general priorizou apoio mágico: ' + magicPolicy.label + '. ' + reason,
+      { kingdomId: side.kingdomId, action, requestId: request.requestId });
+    return true;
+  }
   side.aiOrder = {
     action, reason, confidence: decision.confidence, requestId: request.requestId,
     provider: metadata.provider || 'ollama', model: metadata.model || null,
@@ -1055,27 +1099,31 @@ export function setCampaignGeneralAiEnabled(world, enabled) {
   return false;
 }
 
-export function drawCampaignRation(world, person, pointsNeeded = DAILY_FOOD_NEED) {
+export function drawCampaignRation(world, person, daysNeeded = DAILY_FOOD_NEED) {
   const assignment = campaignAssignmentFor(world, person);
-  if (!assignment || pointsNeeded <= 0) return 0;
+  if (!assignment || daysNeeded <= 0) return 0;
   const account = assignment.side.supply.stock;
   const reserveRoom = Math.max(0, 100 - person.foodReserve);
-  const resourceNeed = Math.min(pointsNeeded, reserveRoom) / FOOD_RESERVE_PER_UNIT;
-  const used = Math.min(account.food || 0, resourceNeed);
-  if (used <= .001 || !spendResource(account, { food: used })) return 0;
-  assignment.side.rationsConsumed = (assignment.side.rationsConsumed || 0) + used;
-  assignment.side.supplyLedger ||= campaignSupplyLedger();
-  assignment.side.supplyLedger.rationConsumptionFood += used;
-  return Math.min(pointsNeeded, used * FOOD_RESERVE_PER_UNIT);
+  const resourceNeed = Math.min(daysNeeded, reserveRoom) / FOOD_DAYS_PER_UNIT;
+  return withFoodAuditOperation({ kind: 'campaign-ration-transfer', category: 'campaign-ration', resource: 'foodReserve',
+    sourceAccount: account, sourceResource: 'food', destinationAccount: person, destinationResource: 'foodReserve',
+    amount: Math.min(daysNeeded, reserveRoom), actor: person }, () => {
+    const used = Math.min(account.food || 0, resourceNeed);
+    if (used <= .001 || !spendResource(account, { food: used }, 'campaign-ration')) return 0;
+    assignment.side.rationsConsumed = (assignment.side.rationsConsumed || 0) + used;
+    assignment.side.supplyLedger ||= campaignSupplyLedger();
+    assignment.side.supplyLedger.rationConsumptionFood += used;
+    return addFoodReserve(person, Math.min(daysNeeded, used * FOOD_DAYS_PER_UNIT), 'campaign-ration');
+  });
 }
 
-export function recordCampaignPersonalRation(world, person, points) {
-  if (!person || person.campaignId == null || !Number.isFinite(points) || points <= .001) return 0;
+export function recordCampaignPersonalRation(world, person, days) {
+  if (!person || person.campaignId == null || !Number.isFinite(days) || days <= .001) return 0;
   const assignment = campaignAssignmentFor(world, person);
   if (!assignment) return 0;
   assignment.side.supplyLedger ||= campaignSupplyLedger();
-  assignment.side.supplyLedger.personalReserveRationPoints += points;
-  return points;
+  assignment.side.supplyLedger.personalReserveRationDays += days;
+  return days;
 }
 
 function nearbyTroops(world, side, target) {
@@ -1148,8 +1196,8 @@ function applyBattleLosses(world, campaign, losingSide, winningSide, losingTroop
   const message = winner.name + ' venceu o confronto de campanha contra ' + loser.name + ' em '
     + campaign.target.x + ',' + campaign.target.y + '; ' + casualties + ' soldados morreram, '
     + (losingTroops.length - casualties) + ' permaneceram na formação após a troca de ataques; a coesão de ' + loser.name + ' caiu; equipamento consumido: '
-    + Number(woodSpent.toFixed(2)).toString().replace('.', ',') + ' madeira e '
-    + Number(goldSpent.toFixed(2)).toString().replace('.', ',') + ' ouro.';
+    + formatWholeMeasure(woodSpent) + ' madeira e '
+    + formatWholeMeasure(goldSpent) + ' ouro.';
   recordCampaignEvent(world, campaign, day, 'battle', message, {
     winnerId: winningSide.kingdomId, loserId: losingSide.kingdomId, casualties,
     survivingLosses: losingTroops.length - casualties, equipmentCosts: { wood: woodSpent, gold: goldSpent },
@@ -1309,7 +1357,7 @@ function maybeDesert(world, campaign, side, day) {
 }
 
 function hasFoodForAnotherDay(side, troops) {
-  const fieldRations = Math.max(0, Number(side.supply.stock.food) || 0) * FOOD_RESERVE_PER_UNIT;
+  const fieldRations = Math.max(0, Number(side.supply.stock.food) || 0) * FOOD_DAYS_PER_UNIT;
   const fieldRationsPerTroop = fieldRations / troops.length;
   return troops.every(person => Math.max(0, Number.isFinite(person.foodReserve) ? person.foodReserve : 0)
     + fieldRationsPerTroop + .001 >= DAILY_FOOD_NEED);
@@ -1334,18 +1382,18 @@ function finishCampaign(world, campaign, day) {
       mobilizedTroops: side.mobilizedTroopCount ?? side.troopIds.length,
       fieldFoodDeployed: ledger.deployment.food + ledger.resupply.food,
       fieldFoodConsumed: ledger.rationConsumptionFood,
-      personalReserveRationPoints: ledger.personalReserveRationPoints,
+      personalReserveRationDays: ledger.personalReserveRationDays,
       fieldFoodReturned: ledger.returned.food,
       equipmentLost: { ...ledger.battleEquipmentLoss }
     });
   }
   campaign.status = 'complete';
   campaign.completedDay = day;
-  const amount = value => Number((value || 0).toFixed(2)).toString().replace('.', ',');
+  const amount = value => formatWholeMeasure(value);
   const summary = supplyCosts.map(cost => {
     const kingdom = kingdomById(world, cost.kingdomId);
     return (kingdom?.name || 'Reino') + ': ' + amount(cost.fieldFoodConsumed) + ' unidades de ração de campo, '
-      + amount(cost.personalReserveRationPoints) + ' pontos das reservas pessoais, equipamento perdido '
+      + amount(cost.personalReserveRationDays) + ' dias das reservas pessoais, equipamento perdido '
       + amount(cost.equipmentLost.wood) + ' madeira e ' + amount(cost.equipmentLost.gold) + ' ouro.';
   }).join(' ');
   recordCampaignEvent(world, campaign, day, 'return', 'As forças sobreviventes regressaram; os suprimentos não consumidos voltaram aos tesouros. '
@@ -1598,7 +1646,7 @@ export function maintainKingdomFortifications(world, day = world.day + 1) {
     if (!Array.isArray(kingdom.fortificationMaintenance.history)) kingdom.fortificationMaintenance.history = [];
     kingdom.fortificationMaintenance.history.push(ledger);
     if (kingdom.fortificationMaintenance.history.length > 24) kingdom.fortificationMaintenance.history.shift();
-    const amountText = amount => Number(amount.toFixed(2)).toString().replace('.', ',');
+    const amountText = amount => formatWholeMeasure(amount);
     const paidText = amountText(ledger.paidCost.wood) + ' madeira e ' + amountText(ledger.paidCost.stone) + ' pedra';
     const deferredText = amountText(ledger.deferredCost.wood) + ' madeira e ' + amountText(ledger.deferredCost.stone) + ' pedra';
     const integrityText = ledger.integrityLost > 0

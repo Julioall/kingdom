@@ -1,15 +1,43 @@
-import { COMMUNITY_FORMS, FOOD_RESERVE_PER_UNIT, HEIGHT, HUMAN_NAMES, PEOPLE_ACTIONS, PEOPLE_INPUTS, RULER_HIDDEN_NEURONS, WIDTH } from '../../config/ecosystem.js';
+import { COMMUNITY_FORMS, DAILY_FOOD_NEED, FOOD_DAYS_PER_UNIT, HEIGHT, HUMAN_NAMES, PEOPLE_ACTIONS, PEOPLE_INPUTS, RULER_HIDDEN_NEURONS, WIDTH } from '../../config/ecosystem.js';
+import { formatWholeMeasure } from '../../config/whole-measures.js';
 import { rand } from '../core/random.js';
+import { magicModifiers } from '../magic/effects.js';
 import { createBrain, ensureBrainSize } from '../../controllers/individual/neural.js';
 import { randomHabitatCell } from '../world/generation.js';
 import { clamp, distance } from '../core/math.js';
 import { cellAt } from '../world/spatial.js';
 import { log } from '../core/events.js';
 import { activeCommunity, getSocialLink } from '../society/communities.js';
-import { addFoodReserve, communityFoodStock, consumeFoodReserve, transferFoodReserve, withdrawCommunityFood } from '../economy/inventories.js';
+import { addFoodReserve, communityFoodStock, consumeFoodReserve, transferCommunityFoodToReserve, transferFoodReserve } from '../economy/inventories.js';
 import { assignHome } from '../kingdoms/initialization.js';
 import { moveOne } from './movement.js';
 import { consumePersonEnergy } from './energy.js';
+import { abandonSocialIntentionsForPerson } from '../society/social-evidence.js';
+import { releaseSeedCargo } from '../economy/seed-cargo.js';
+import { collidesWithWorldAt } from '../physics/hitboxes.js';
+
+const DEPENDENT_STARVATION_HEALTH_LOSS_PER_POINT = .035;
+const SHELTER_RESIDENT_CAPACITY = 13;
+
+function birthResidence(world, kingdomId, communityId, location) {
+    const dwellings = (world.structures || []).filter(structure => {
+      if (!['abrigo', 'casa'].includes(structure.type) || structure.complete !== true
+        || structure.destroyedDay != null || (structure.integrity != null && structure.integrity <= 0)
+        || (structure.health != null && structure.health <= 0)) return false;
+      return structure.type === 'casa'
+        ? kingdomId != null && structure.kingdomId === kingdomId
+        : communityId != null && structure.communityId === communityId;
+    }).map(structure => {
+      const capacity = Number.isFinite(structure.capacity) ? structure.capacity : SHELTER_RESIDENT_CAPACITY;
+      const occupants = (structure.residentIds || []).filter(id => world.people.some(person =>
+        person.id === id && person.alive && person.homeId === structure.id));
+      structure.residentIds = occupants;
+      return { structure, occupants, capacity };
+    }).filter(home => home.occupants.length < home.capacity);
+    dwellings.sort((a, b) => distance(a.structure, location) - distance(b.structure, location)
+      || a.structure.id - b.structure.id);
+    return dwellings[0] || null;
+  }
 
 function availablePersonSpawn(w, x, y) {
   const origin = cellAt(w, Math.round(x), Math.round(y));
@@ -51,7 +79,11 @@ export function makePerson(w, x, y, newborn) {
       lastSafeX: x, lastSafeY: y, territoryExposure: null, territoryAwareness: null, territoryWarnings: {},
       moveCooldown: 0, buildCooldown: 0, birthCooldown: newborn ? 280 : Math.floor(rand(w) * 70),
       health: newborn ? 82 : 82 + rand(w) * 18, injury: 0, carriedFood: 0, carriedFruit: 0, carriedMeat: 0, carriedMaterial: 0,
-      carriedWood: 0, carriedStone: 0, carriedFeed: 0, carriedGold: 0, headingX: (rand(w) - .5) * 2, headingY: (rand(w) - .5) * 2,
+      carriedWood: 0, carriedStone: 0, carriedFeed: 0, carriedGold: 0,
+      carriedCopper: 0, carriedSilver: 0, carriedIron: 0,
+      carriedSeeds: 0, carriedCommunitySeeds: 0, seedCargoCommunityId: null,
+      seedCargoPurpose: null, seedCargoFieldId: null,
+      personalWallet: { stock: { gold: 0 } }, headingX: (rand(w) - .5) * 2, headingY: (rand(w) - .5) * 2,
       leadingSheepId: null, prestige: 0, loyalty: .8, assignment: null, dissatisfactionDays: 0,
       sensoryMemory: { actors: {}, water: [] }, perception: null,
       personalMemory: [], strategicPlan: null, strategicRequestPending: null, nextStrategicDecisionDay: (id * 19) % 60 + 1, nextUrgentStrategicDecisionDay: 1,
@@ -65,7 +97,7 @@ export function makePerson(w, x, y, newborn) {
 
 export function addIndividuals(w, count, initial) {
     const added = [];
-    let arrivalFoodReservePoints = 0;
+    let arrivalFoodReserveDays = 0;
     for (let n = 0; n < count; n++) {
       const wanderingTile = initial ? null : randomHabitatCell(w, false);
       const kingdom = w.kingdoms && w.kingdoms.length
@@ -79,7 +111,7 @@ export function addIndividuals(w, count, initial) {
       let cell = cellAt(w, x, y);
       if (!cell || cell.terrain === 'water' || cell.terrain === 'rock') { x = t.x; y = t.y; }
       const person = makePerson(w, x, y, false);
-      if (!initial) arrivalFoodReservePoints += person.foodReserve;
+      if (!initial) arrivalFoodReserveDays += person.foodReserve;
       if (kingdom) {
         person.kingdomId = kingdom.id;
         person.communityId = kingdom.communityId || null;
@@ -96,6 +128,15 @@ export function addIndividuals(w, count, initial) {
       if (ruler) {
         kingdom.rulerId = ruler.id;
         ruler.role = 'ruler';
+        // The ruler starts in the central square, outside the castle footprint.
+        const plaza = [];
+        for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
+          const x = kingdom.x + dx, y = kingdom.y + dy;
+          if (cellAt(w, x, y)?.terrain === 'land' && !collidesWithWorldAt(w, ruler, x, y))
+            plaza.push({ x, y, distance: dx * dx + dy * dy });
+        }
+        plaza.sort((a, b) => a.distance - b.distance || b.y - a.y || a.x - b.x);
+        if (plaza.length) { ruler.x = plaza[0].x; ruler.y = plaza[0].y; }
         ensureBrainSize(w, ruler, RULER_HIDDEN_NEURONS);
       }
       const group = w.communities.find(item => item.id === kingdom.communityId);
@@ -110,16 +151,20 @@ export function addIndividuals(w, count, initial) {
       }
     }
     if (!initial && added.length) log(w, added.length + ' indivíduos chegaram ao mundo trazendo '
-      + arrivalFoodReservePoints.toFixed(1) + ' pontos de reserva alimentar de fora do mapa e foram associados ao reino e à moradia mais próximos.');
+      + formatWholeMeasure(arrivalFoodReserveDays) + ' dias de reserva alimentar de fora do mapa e foram associados ao reino e à moradia mais próximos.');
     return added;
   }
 
 export function killPerson(w, person, cause) {
     if (!person.alive) return;
+    // Preserve both personally gathered and commissioned seeds at the exact
+    // death location. The old owner may recover community cargo by walking there.
+    releaseSeedCargo(w, person, { reason: 'death', includePersonal: true });
     person.alive = false; w.deaths++;
     person.deathKingdomId = person.kingdomId;
     person.deathDay = w.day + 1;
     person.deathCause = cause;
+    abandonSocialIntentionsForPerson(w, person, 'owner_dead');
     const recentHealth = summarizeRecentHealth(person, person.deathDay);
     person.deathDetails = {
       day: person.deathDay,
@@ -143,8 +188,8 @@ export function killPerson(w, person, cause) {
     const group = person.communityId && w.communities.find(item => item.id === person.communityId);
     if (group) group.memberIds = group.memberIds.filter(id => id !== person.id);
     if (person.homeId) {
-      const home = w.structures.find(s => s.id === person.homeId && s.type === 'casa');
-      if (home) home.residentIds = home.residentIds.filter(id => id !== person.id);
+      const home = w.structures.find(s => s.id === person.homeId && ['casa', 'abrigo'].includes(s.type));
+      if (home) home.residentIds = (home.residentIds || []).filter(id => id !== person.id);
     }
     w.deathsByCause[cause] = (w.deathsByCause[cause] || 0) + 1;
     const tile = cellAt(w, person.x, person.y);
@@ -157,17 +202,17 @@ export function killPerson(w, person, cause) {
       care: 'cuidado dependente', recovery: 'recuperação geral'
     };
     const recentLosses = Object.entries(recentHealth.losses)
-      .map(([source, amount]) => (healthLabels[source] || source) + ' ' + amount.toFixed(2)).join(', ');
+      .map(([source, amount]) => (healthLabels[source] || source) + ' ' + formatWholeMeasure(amount)).join(', ');
     const recentRecovery = Object.entries(recentHealth.recovery)
-      .map(([source, amount]) => (healthLabels[source] || source) + ' ' + amount.toFixed(2)).join(', ');
+      .map(([source, amount]) => (healthLabels[source] || source) + ' ' + formatWholeMeasure(amount)).join(', ');
     const recentHealthText = [
       recentLosses ? 'perdas de saúde nos últimos 30 dias: ' + recentLosses : '',
       recentRecovery ? 'recuperação de saúde no período: ' + recentRecovery : ''
     ].filter(Boolean).join('; ');
     log(w, person.name + ' morreu por ' + (labels[cause] || cause) + '. Valores observados no óbito: reserva alimentar '
-      + conditions.foodReserve.toFixed(1) + '/100; água ' + conditions.hydration.toFixed(1) + '%; saúde '
-      + conditions.health.toFixed(1) + '%; ferimentos ' + conditions.injury.toFixed(1) + '; idade '
-      + (conditions.ageDays / 365).toFixed(1) + ' anos; alimento carregado ' + conditions.carriedFood.toFixed(1)
+      + formatWholeMeasure(conditions.foodReserve) + '/100; água ' + formatWholeMeasure(conditions.hydration) + '%; saúde '
+      + formatWholeMeasure(conditions.health) + '%; ferimentos ' + formatWholeMeasure(conditions.injury) + '; idade '
+      + formatWholeMeasure(conditions.ageDays / 365) + ' anos; alimento carregado ' + formatWholeMeasure(conditions.carriedFood)
       + (recentHealthText ? '; ' + recentHealthText : '')
       + '. A perda afeta seu reino e sua família; a matéria retorna ao solo.');
   }
@@ -188,7 +233,13 @@ function summarizeRecentHealth(person, deathDay) {
 
 export function changePersonHealth(w, person, delta, source) {
   if (!Number.isFinite(delta) || delta === 0) return 0;
-  if (delta < 0 && ['battle', 'raid', 'resource-conflict', 'invasion', 'combat'].includes(source)) {
+  if (person.magicEffects?.length || w.magicZones?.length) {
+    const modifiers = magicModifiers(person, w);
+    if (delta > 0) delta *= modifiers.healing;
+    else if (['battle', 'raid', 'resource-conflict', 'invasion', 'combat', 'magic-poison'].includes(source))
+      delta *= modifiers.incoming;
+  }
+  if (delta < 0 && ['battle', 'raid', 'resource-conflict', 'invasion', 'combat', 'magic-poison'].includes(source)) {
     person.lastAttackSequence = (person.lastAttackSequence || 0) + 1;
     person.lastAttackedDay = w.day + 1;
   }
@@ -245,12 +296,12 @@ export function updateDependent(w, child) {
     const nearbyAdults = communityAdults.filter(person => distance(person, child) <= 6);
     const familyCaregiver = family.filter(person => distance(person, child) <= 6)
       .sort((a, b) => b.foodReserve - a.foodReserve || distance(a, child) - distance(b, child))[0];
-    const nearbyFedAdult = nearbyAdults.filter(person => !familyIds.has(person.id) && person.foodReserve >= .42)
+    const nearbyFedAdult = nearbyAdults.filter(person => !familyIds.has(person.id) && person.foodReserve >= DAILY_FOOD_NEED)
       .sort((a, b) => distance(a, child) - distance(b, child) || b.foodReserve - a.foodReserve)[0];
     const distantFedAdult = communityAdults.filter(person => !familyIds.has(person.id) && person.campaignId == null
-      && person.foodReserve >= .42)
+      && person.foodReserve >= DAILY_FOOD_NEED)
       .sort((a, b) => distance(a, child) - distance(b, child) || b.foodReserve - a.foodReserve)[0];
-    let caregiver = familyCaregiver && familyCaregiver.foodReserve >= .42 ? familyCaregiver
+    let caregiver = familyCaregiver && familyCaregiver.foodReserve >= DAILY_FOOD_NEED ? familyCaregiver
       : nearbyFedAdult || distantFedAdult || familyCaregiver
       || nearbyAdults.sort((a, b) => distance(a, child) - distance(b, child))[0]
       || family.sort((a, b) => distance(a, child) - distance(b, child))[0] || null;
@@ -260,27 +311,30 @@ export function updateDependent(w, child) {
     }
     if (caregiver) child.guardianId = caregiver.id;
     const community = activeCommunity(w, child);
-    const careFoodNeed = caregiver && distance(caregiver, child) <= 6 ? .42 : .32;
-    consumeFoodReserve(child, careFoodNeed, 'dependent-consumption');
-    const sharedFood = community ? Math.min(careFoodNeed, communityFoodStock(community) * FOOD_RESERVE_PER_UNIT,
+    const careFoodNeed = DAILY_FOOD_NEED;
+    const consumedFood = consumeFoodReserve(child, careFoodNeed, 'dependent-consumption');
+    let foodProvided = consumedFood;
+      const sharedFood = community ? Math.min(careFoodNeed, communityFoodStock(community) * FOOD_DAYS_PER_UNIT,
       Math.max(0, 100 - child.foodReserve)) : 0;
     if (sharedFood > .001) {
-      withdrawCommunityFood(w, community, sharedFood / FOOD_RESERVE_PER_UNIT, 'dependent-food-issue');
-      addFoodReserve(child, sharedFood, 'dependent-community-meal');
-      child.sharedMeals = (child.sharedMeals || 0) + sharedFood / FOOD_RESERVE_PER_UNIT;
+      const transfer = transferCommunityFoodToReserve(w, community, child, sharedFood / FOOD_DAYS_PER_UNIT,
+        'dependent-food-issue', 'dependent-community-meal');
+      foodProvided += transfer.reserveAdded;
+      child.sharedMeals = (child.sharedMeals || 0) + transfer.nutrition;
     }
-    const unmetNeed = Math.max(0, careFoodNeed - sharedFood);
+    const unmetNeed = Math.max(0, careFoodNeed - (foodProvided - consumedFood));
     if (caregiver && distance(caregiver, child) <= 6) {
       child.guardianId = caregiver.id;
       consumePersonEnergy(caregiver, .1);
       const caregiverOffer = Math.min(unmetNeed, Math.max(0, 100 - child.foodReserve));
       const caregiverContribution = transferFoodReserve(caregiver, child, caregiverOffer, 'dependent-care-transfer');
+      foodProvided += caregiverContribution;
       caregiver.skills.care = clamp(caregiver.skills.care + .0003, 0, 1);
       if (caregiverContribution > .001 && !familyIds.has(caregiver.id)) {
-        const amount = caregiverContribution.toFixed(2);
-        child.lastLesson = 'Recebeu ' + amount + ' pontos de alimento de ' + caregiver.name + ' para o cuidado diário.';
+        const amount = formatWholeMeasure(caregiverContribution);
+        child.lastLesson = 'Recebeu ' + amount + ' dias de alimento de ' + caregiver.name + ' para o cuidado diário.';
         log(w, caregiver.name + ' apoiou ' + child.name + ' e transferiu ' + amount
-          + ' pontos de alimento de sua reserva para o cuidado diário.');
+          + ' dias de alimento de sua reserva para o cuidado diário.');
       }
       child.hydration = clamp(child.hydration + .4, 0, 100);
       changePersonHealth(w, child, .035, 'care');
@@ -290,7 +344,10 @@ export function updateDependent(w, child) {
       changePersonHealth(w, child, -.14, 'care');
       child.state = 'sem cuidador próximo';
     }
-    if (child.health <= 0 || child.foodReserve <= .1 || child.hydration <= .1) {
+    const unmetFood = Math.max(0, careFoodNeed - foodProvided);
+    if (unmetFood > .001) changePersonHealth(w, child,
+      -(unmetFood / careFoodNeed) * 10 * DEPENDENT_STARVATION_HEALTH_LOSS_PER_POINT, 'starvation');
+    if (child.health <= .1 || child.hydration <= .1) {
       killPerson(w, child, child.hydration <= .1 ? 'dehydration' : 'starvation');
     }
   }
@@ -305,11 +362,49 @@ export function reproducePeople(w) {
       if (!link || link.trust < .2) continue;
       if (p.communityId !== q.communityId && p.communityId !== null && q.communityId !== null) continue;
       const score = link.trust + Math.min(p.energy, q.energy) * .002 + Math.min(p.foodReserve, q.foodReserve) * .003;
-      candidates.push({ p, q, score });
+      const kingdomId = p.kingdomId === q.kingdomId ? p.kingdomId : (p.kingdomId ?? q.kingdomId);
+      const relatedCommunityId = p.communityId === q.communityId ? p.communityId : (p.communityId ?? q.communityId);
+      const communityId = w.kingdoms.find(kingdom => kingdom.id === kingdomId)?.communityId
+        ?? relatedCommunityId ?? null;
+      candidates.push({ p, q, score, kingdomId, communityId, location: {
+        x: (p.x + q.x) / 2, y: (p.y + q.y) / 2
+      } });
     }
     candidates.sort((a, b) => b.score - a.score || a.p.id - b.p.id);
     if (!candidates.length) return;
-    const { p, q } = candidates[0];
+    const selected = candidates.find(candidate => {
+      candidate.residence = birthResidence(w, candidate.kingdomId, candidate.communityId, candidate.location);
+      return candidate.residence;
+    });
+    if (!selected) {
+      // Log a blocked housing gate once per owner, rather than every monthly tick.
+      const reported = new Set();
+      for (const candidate of candidates) {
+        const key = candidate.kingdomId == null
+          ? 'community:' + (candidate.communityId ?? 'unaffiliated')
+          : 'kingdom:' + candidate.kingdomId;
+        if (reported.has(key)) continue;
+        reported.add(key);
+        const gates = w.birthHousingGate || (w.birthHousingGate = {});
+        if (gates[key] === true) continue;
+        gates[key] = true;
+        const owner = candidate.kingdomId == null
+          ? 'na comunidade ' + (candidate.communityId ?? 'sem vínculo')
+          : 'no reino ' + candidate.kingdomId;
+        log(w, 'Nascimento adiado ' + owner + ': não existe moradia operacional com vaga.');
+      }
+      return;
+    }
+    const { p, q, kingdomId, communityId, residence } = selected;
+    const housingKey = kingdomId == null
+      ? 'community:' + (communityId ?? 'unaffiliated') : 'kingdom:' + kingdomId;
+    if (w.birthHousingGate?.[housingKey] === true) {
+      delete w.birthHousingGate[housingKey];
+      if (!Object.keys(w.birthHousingGate).length) delete w.birthHousingGate;
+      log(w, 'Nascimento retomado ' + (kingdomId == null
+        ? 'na comunidade ' + (communityId ?? 'sem vínculo') : 'no reino ' + kingdomId)
+        + ': moradia operacional com vaga voltou a estar disponível.');
+    }
     p.birthCooldown = q.birthCooldown = 280;
     consumePersonEnergy(p, 11); consumePersonEnergy(q, 8);
     p.hydration = Math.max(0, p.hydration - 2); q.hydration = Math.max(0, q.hydration - 2);
@@ -317,19 +412,20 @@ export function reproducePeople(w) {
     transferFoodReserve(p, baby, 7, 'birth-provisions');
     transferFoodReserve(q, baby, 5, 'birth-provisions');
     baby.parents = [p.id, q.id]; baby.guardianId = p.id;
-    baby.kingdomId = p.kingdomId === q.kingdomId ? p.kingdomId : (p.kingdomId ?? q.kingdomId);
+    baby.kingdomId = kingdomId;
     baby.birthKingdomId = baby.kingdomId;
-    baby.communityId = baby.kingdomId == null ? null : w.kingdoms.find(kingdom => kingdom.id === baby.kingdomId)?.communityId || null;
+    baby.communityId = communityId;
     if (baby.kingdomId !== null) {
       const kingdom = w.kingdoms.find(k => k.id === baby.kingdomId);
-      if (kingdom) assignHome(w, kingdom, baby);
       if (kingdom && !kingdom.memberIds.includes(baby.id)) kingdom.memberIds.push(baby.id);
     }
+    baby.homeId = residence.structure.id;
+    residence.structure.residentIds.push(baby.id);
     w.people.push(baby);
     const c = activeCommunity(w, p);
     if (c && baby.communityId === c.id) c.memberIds.push(baby.id);
     w.births++; w.birthsByKind.people++;
     const link = getSocialLink(w, p, q); link.trust = clamp(link.trust + .08, 0, 1);
-    log(w, 'Nasceu ' + baby.name + '; ' + p.name + ' transferiu 7 pontos e ' + q.name
-      + ' transferiu 5 pontos de suas reservas para financiar os 12 pontos da reserva inicial.');
+    log(w, 'Nasceu ' + baby.name + '; ' + p.name + ' transferiu 7 dias e ' + q.name
+      + ' transferiu 5 dias de suas reservas para financiar os 12 dias da reserva inicial.');
   }

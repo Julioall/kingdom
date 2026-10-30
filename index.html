@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#d9d5bd">
 <meta name="description" content="Simulação de reinos, territórios, ecologia, moradores e decisões emergentes.">
+<link rel="icon" type="image/png" href="/assets/kingdom-ui/kingdom-emblem.png">
 <title>Kingdom — Reinos Vivos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,7 +13,10 @@
 <link rel="stylesheet" href="/assets/kingdom-ui/hud.css">
 <style>.loading-screen{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;background:#17231b}.loading-screen[hidden]{display:none!important}.loading-card{width:min(100%,900px);padding:24px;text-align:center}.loading-emblem{display:block;width:min(100%,780px);height:auto;margin:0 auto}</style>
 <script>
-  window.FORJA_ASSETS = new Proxy({}, { get: (_, file) => '/assets/kingdom-ui/' + file });
+  const forjaAssetExtension = '%MODE%' === 'production' ? 'webp' : 'png';
+  window.FORJA_ASSETS = new Proxy({}, {
+    get: (_, file) => '/assets/kingdom-ui/' + String(file).replace(/\.png$/i, `.${forjaAssetExtension}`),
+  });
   window.FORJA_ASSET_BASE = '/assets/kingdom-ui/';
 </script>
 <script src="/assets/kingdom-ui/hud.js"></script>
@@ -46,20 +50,15 @@
         <img class="brand-emblem" src="/assets/kingdom-ui/kingdom-emblem.png" alt="">
       </picture>
     </a>
-    <div class="world-metrics" aria-label="Recursos e população globais">
-      <span class="metric resource-metric" title="Alimento nos tesouros, mercados e reservas comunitárias. Carne convertida em valor alimentar; não inclui reservas pessoais."><img src="/assets/kingdom-ui/icon-04.png" alt=""><span>Comida<b id="globalFood">0</b></span></span>
-      <span class="metric resource-metric" title="Ouro nos tesouros, mercados, comunidades e com moradores vivos"><img src="/assets/kingdom-ui/icon-03.png" alt=""><span>Riqueza<b id="globalGold">0</b></span></span>
-      <span class="metric resource-metric" title="Pessoas vivas"><img src="/assets/kingdom-ui/icon-11.png" alt=""><span>Pessoas<b id="peopleCount">0</b></span></span>
-      <span class="metric resource-metric" title="Nascimentos humanos desde o início"><span class="stat-symbol" aria-hidden="true">✦</span><span>Nascimentos<b id="birthCount">0</b></span></span>
-      <span class="metric resource-metric" title="Mortes humanas desde o início"><span class="stat-symbol" aria-hidden="true">†</span><span>Mortes<b id="deathCount">0</b></span></span>
-      <span class="metric date-metric" title="Dia dentro do ano; cada ano tem 365 dias">DIA <b id="day">0</b> · ANO <b id="year">1</b><span id="season" class="season-label">PRIMAVERA</span></span>
+    <div class="world-metrics" aria-label="Calendário do mundo">
+      <span class="metric date-metric" title="Dia dentro do ano; cada ano tem 365 dias"><span class="calendar-date">DIA <b id="day">0</b> · ANO <b id="year">1</b></span><span id="season" class="season-label">PRIMAVERA</span></span>
     </div>
     <nav class="controls" aria-label="Controles do mundo">
       <button id="toggle" aria-label="Pausar ou retomar">Ⅱ <span>Pausar</span></button>
       <button id="step" hidden aria-label="Avançar um dia">＋</button>
       <button id="speedCycle" class="speed-cycle" type="button" aria-label="Velocidade da simulação: 1×" title="Acelerar para 2×">1×</button>
       <button id="audioToggle" type="button" aria-pressed="false" aria-label="Silenciar todos os sons" title="Silenciar todos os sons">🔊</button>
-      <button id="settingsToggle" type="button" aria-controls="settingsTray" aria-expanded="false" title="Configurações do jogo">⚙</button>
+      <button id="settingsToggle" type="button" aria-label="Abrir configurações do jogo" aria-controls="settingsTray" aria-expanded="false" title="Configurações do jogo">⚙</button>
     </nav>
   </header>
 
@@ -74,16 +73,9 @@
     </aside>
 
     <nav class="world-rail" aria-label="Painéis do reino">
-      <button id="kingdomsToggle" type="button" aria-controls="leftPanel" aria-expanded="false" title="Reinos e ecologia"><span aria-hidden="true">♜</span><small>Reinos</small></button>
-      <button hidden id="environmentToggle" type="button" aria-controls="mapTags" aria-expanded="false" title="Condições do mundo"><span aria-hidden="true">☼</span><small>Mundo</small></button>
-      <button id="journalToggle" type="button" aria-controls="journal" aria-expanded="false" title="Crônicas"><span aria-hidden="true">☷</span><small>Crônicas</small></button>
+      <button id="kingdomsToggle" type="button" aria-label="Reinos" aria-controls="leftPanel" aria-expanded="false" title="Reinos e ecologia"><span class="rail-caption" aria-hidden="true"><span>♜</span><small class="rail-title">Reinos</small></span></button>
+      <button id="journalToggle" type="button" aria-label="Crônicas" aria-controls="journal" aria-expanded="false" title="Crônicas"><span class="rail-caption" aria-hidden="true"><span>☷</span><small class="rail-title">Crônicas</small></span></button>
     </nav>
-
-    <div class="map-tags" id="mapTags" aria-live="polite">
-      <span class="map-tag">AR <b id="temperature">18 °C</b></span>
-      <span class="map-tag">CHUVA <b id="rainfall">0 mm</b></span>
-      <span class="map-tag pressure" id="foodPressureTag" title="Pessoas com reserva alimentar abaixo de 30%" hidden>RESERVAS BAIXAS <b id="foodRiskCount">0</b></span>
-    </div>
 
         <div class="map-zoom" role="group" aria-label="Controles de zoom do mapa">
           <button id="mapZoomOut" type="button" aria-label="Afastar mapa" title="Afastar mapa">−</button>
@@ -95,7 +87,6 @@
     <aside class="utility-drawer" id="settingsTray" aria-label="Navegação e ajustes do mapa" hidden>
       <div class="panel-heading utility-heading">
         <div><small>CONFIGURAÇÃO</small><h2>Ajustes do jogo</h2></div>
-        <button class="icon-button" id="settingsClose" aria-label="Fechar ajustes">×</button>
       </div>
       <div class="utility-content">
         <div class="map-caption"><span id="mapDimensions">128 × 128 CÉLULAS · 10 m POR LADO</span><span id="cameraPosition">MAPA INTEIRO</span><span>SEMENTE <b id="seedLabel">42</b></span></div>
@@ -113,6 +104,11 @@
           <input id="seedInput" type="number" min="1" max="4294967295" placeholder="Aleatória" aria-label="Semente opcional do novo mundo">
           <button id="restart" title="Gerar outro mundo com esta semente">Criar mundo</button>
         </div>
+        <section class="block" aria-label="Ferramentas de colisão">
+          <div class="block-title"><h3>Colisões</h3><span>Depuração</span></div>
+          <p class="quiet">Exibe as hitboxes de personagens, minérios, árvores e construções, além do espaço usado para evitar outros personagens.</p>
+          <button id="hitboxToggle" type="button" aria-pressed="false">Mostrar hitboxes</button>
+        </section>
         <section class="block audio-block" aria-label="Controles de áudio">
           <div class="block-title"><h3>Áudio</h3><span id="audioState">ligado</span></div>
           <label for="musicVolume">Música <output id="musicVolumeValue" for="musicVolume">65%</output></label>
@@ -123,18 +119,21 @@
         </section>
         <section class="block local-ai-block" aria-label="Inteligência artificial estratégica local">
           <div class="block-title"><h3>Inteligência artificial</h3><span id="localAiState">desligada</span></div>
-          <p class="quiet">A IA local propõe ordens para reis e generais. Inicie o Ollama e prepare os modelos com <code>npm run ai:prepare -- --check</code>. Os moradores continuam com suas redes individuais.</p>
+          <p class="quiet">A IA propõe ordens para reis e generais dentro deste navegador. Na primeira ativação, os arquivos quantizados são baixados e guardados neste navegador. Não precisa de Ollama; a inferência usa WebGPU ou CPU/WASM. Os moradores continuam com suas redes individuais.</p>
           <button id="localAiToggle" type="button">Ativar IA local</button>
           <progress id="localAiProgress" max="1" value="0" aria-label="Progresso do carregamento do modelo" hidden></progress>
-          <p id="localAiStatus" class="quiet" aria-live="polite">Ao ativar, a IA local orienta reis e generais. Regras determinísticas continuam como contingência.</p>
+          <p id="localAiStatus" class="quiet" aria-live="polite">Ao ativar, o navegador prepara o modelo e orienta reis e generais. Regras determinísticas continuam como contingência.</p>
+          <div class="local-ai-history">
+            <h4>Histórico breve de decisões do modelo</h4>
+            <ol id="localAiHistoryList"><li class="quiet">Nenhuma decisão registrada nesta partida.</li></ol>
+          </div>
         </section>
       </div>
     </aside>
 
-    <aside class="side-panel left-panel" id="leftPanel" aria-label="Reinos e moradores">
+    <aside class="side-panel left-panel" id="leftPanel" aria-label="Reinos e moradores" aria-hidden="true" inert>
       <div class="panel-heading">
         <div><small>SEUS POVOS</small><h2>Reinos</h2></div>
-        <button class="icon-button" id="leftClose" aria-label="Recolher painel">−</button>
       </div>
       <div class="panel-scroll">
         <section class="block">
@@ -157,10 +156,9 @@
       </div>
     </aside>
 
-    <aside class="side-panel right-panel" id="rightPanel" aria-label="Informações da seleção" aria-live="polite">
+    <aside class="side-panel right-panel" id="rightPanel" aria-label="Informações da seleção" aria-live="polite" aria-hidden="true" inert>
       <div class="panel-heading">
         <div><small id="inspectEyebrow">CAMPO DE OBSERVAÇÃO</small><h2 id="inspectTitle">Dois reinos em formação</h2></div>
-        <button class="icon-button" id="rightClose" aria-label="Fechar inspetor">×</button>
       </div>
       <div id="inspector" class="panel-scroll inspector">
         <p class="intro">Dois castelos ocupam o mapa. O domínio de cada reino começa ao redor do castelo e cresce com novas torres; as demais terras são comuns.</p>
@@ -173,7 +171,6 @@
     <aside class="journal-panel" id="journal" hidden>
       <div class="panel-heading">
         <div><small>ACONTECIMENTOS IMPORTANTES</small><h2>Crônicas</h2></div>
-        <button class="icon-button" id="journalClose" aria-label="Fechar crônica">×</button>
       </div>
       <div id="events" class="event-list"></div>
     </aside>

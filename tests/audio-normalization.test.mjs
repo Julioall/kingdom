@@ -93,5 +93,5 @@ test('all effects have finite measured corrections within peak and amplification
       checked++;
     }
   }
-  assert.equal(checked, 107);
+  assert.equal(checked, 133);
 });

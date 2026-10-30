@@ -1,13 +1,18 @@
 import { clamp, distance, hash01 } from '../core/math.js';
 import { communityFoodStock, spendStoreInventory } from '../economy/inventories.js';
+import { communitySeedSupply } from '../economy/seed-cargo.js';
 import { domesticatedSheep } from '../ecology/animals.js';
-import { canCommunityBuild, canRepairKingdomStructure, communityBuildingNeed, communityStructures, nextCommunityStructure } from '../settlements/construction.js';
+import { availableCommunityPen } from '../ecology/herd.js';
+import { canCommunityBuild, canRepairKingdomStructure, communityBuildingNeed, communityStructures, nextCommunityStructure,
+  FIELD_CONSTRUCTION_MIN_ENERGY, FIELD_CONSTRUCTION_MIN_FOOD_RESERVE, hasConstructionEnergy, hasConstructionFoodReserve } from '../settlements/construction.js';
 import { bestPeopleFoodCell } from '../individuals/actions.js';
 import { plantBiomass } from '../ecology/plants.js';
 import { localNameFeature } from './communities.js';
 import { log } from '../core/events.js';
 import { updateKingdomStrategies } from '../kingdoms/strategy.js';
-import { DAILY_FOOD_NEED, FOOD_RESERVE_PER_UNIT } from '../../config/ecosystem.js';
+import { FOOD_DAYS_PER_UNIT } from '../../config/ecosystem.js';
+import { COMMUNITY_FOOD_BUFFER_DAYS, CULTIVATED_FIELD_HARVEST_PER_WORKER, communityFoodBufferTarget, dailyFoodNeedForMembers, kingdomFoodDemand } from '../economy/food-policy.js';
+import { cultivatedFieldStandingBiomass } from '../ecology/plants.js';
 
 const COMMUNITY_WORK_ACTION_LABELS = Object.freeze({
   forage: 'buscar alimento', gather: 'reunir materiais', build: 'construir', rest: 'descansar',
@@ -55,7 +60,10 @@ export function communitySatisfaction(w, community) {
   }
 
 export function taskForCommunity(w, community, members) {
-    const size = members.length, foodPerMember = communityFoodStock(community) / Math.max(1, size);
+    const size = members.length;
+    const dailyFoodNeed = dailyFoodNeedForMembers(members).dailyFoodNeed;
+    const foodTarget = communityFoodBufferTarget(dailyFoodNeed);
+    const sharedFood = communityFoodStock(community);
     const herd = domesticatedSheep(w, community);
     const hasPen = w.structures.some(structure => structure.complete && structure.type === 'curral' && structure.communityId === community.id);
     const peopleNeedFood = members.some(person => person.foodReserve < 42);
@@ -64,17 +72,17 @@ export function taskForCommunity(w, community, members) {
     const activeFarm = structures.some(structure => structure.type === 'roça' && !structure.complete);
     const farmInvestmentReady = (activeFarm || (farmPlan && farmPlan.type === 'roça' && canCommunityBuild(w, community, size)))
       && members.some(person => person.role !== 'soldier' && person.ageDays >= 12 * 365
-        && person.hydration > 18 && person.energy > 27 && person.health > 28 && person.foodReserve > 16);
+        && person.hydration > 18 && person.energy > (activeFarm ? FIELD_CONSTRUCTION_MIN_ENERGY : 27) && person.health > 28
+        && person.foodReserve > (activeFarm ? FIELD_CONSTRUCTION_MIN_FOOD_RESERVE : 16));
     // Protect the people before investing labor in livestock or buildings. A common
     // reserve is a buffer; one safe worker may establish the first crop field while
     // the remaining residents continue collecting food for immediate needs.
-    if ((foodPerMember < 8 || peopleNeedFood) && !farmInvestmentReady) return {
+    if ((sharedFood < foodTarget || peopleNeedFood) && !farmInvestmentReady) return {
       action: 'forage', title: 'buscar alimento para o reino', skill: 'forage', priority: 'urgent'
     };
     if (farmInvestmentReady) return { action: 'build', title: 'construir uma roça e semear raízes', skill: 'build', goal: 'invest-in-cultivated-food' };
     if (hasPen && herd.length && (community.stores.feed || 0) < Math.max(8, herd.length * 5)) return { action: 'collect_feed', title: 'repor brotos para o rebanho', skill: 'care' };
-    const taggedHerdSize = w.animals.filter(animal => animal.alive && animal.speciesId === 'sheep' && animal.herdCommunityId === community.id).length;
-    const observedWildSheep = hasPen && taggedHerdSize < 4 && members.some(person => (person.perception && person.perception.animals || []).some(sighting => {
+    const observedWildSheep = !!availableCommunityPen(w, community.id) && members.some(person => (person.perception && person.perception.animals || []).some(sighting => {
       const sheep = w.animals.find(animal => animal.id === sighting.id && animal.alive);
       return sighting.speciesId === 'sheep' && sighting.visible && sighting.distance <= 5.5 && sheep && sheep.herdCommunityId === null && !sheep.beingLedBy;
     }));
@@ -141,18 +149,54 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
     const desired = desiredOverride || (useCommunityFallback ? taskForCommunity(w, community, members) : null);
     if (!desired || members.length < 2) return;
     const workers = community.isKingdomGroup ? members.filter(person => person.role !== 'soldier') : members;
+    const structures = communityStructures(w, community);
     const fields = desired.action === 'forage' ? w.structures.filter(s => s.communityId === community.id
-      && s.type === 'roça' && s.complete && s.destroyedDay == null && s.integrity !== 0) : [];
+      && s.type === 'roça' && s.complete && s.destroyedDay == null && s.integrity !== 0
+      && s.cropCycleState === 'ready' && (!(s.fieldTileIndices || []).length || cultivatedFieldStandingBiomass(w, s) > .01)) : [];
+    if (fields.length && desired.goal === 'secure-shared-food' && desired.source === 'kingdom-strategy') {
+      for (const person of workers) {
+        const assignment = person.assignment;
+        if (!assignment || assignment.action !== 'forage' || assignment.goal !== 'secure-shared-food'
+          || assignment.source !== 'kingdom-strategy' || assignment.expiresDay == null || assignment.expiresDay < w.day) continue;
+        const carriesFood = (person.carriedFood || 0) + (person.carriedFruit || 0) + (person.carriedMeat || 0) > .01;
+        if (carriesFood) continue;
+        const assignedField = fields.find(field => field.id === assignment.foodFieldId);
+        if (assignedField) continue;
+        assignment.foodFieldId = fields.slice()
+          .sort((a, b) => distance(person, a) - distance(person, b) || a.id - b.id)[0].id;
+      }
+    }
     const cropInvestment = desired.action === 'build' && desired.goal === 'invest-in-cultivated-food';
+    const cropReplant = desired.action === 'build' && desired.goal === 'replant-cultivated-food';
+    const replantField = cropReplant ? structures.filter(structure => structure.type === 'roça' && structure.complete
+      && structure.cropCycleState === 'spent' && structure.destroyedDay == null && structure.integrity !== 0
+      && communitySeedSupply(w, community.id, 'replant') > .01).sort((a, b) => a.id - b.id)[0] : null;
+    const fieldMaterialPreparation = desired.action === 'gather' && desired.goal === 'prepare-cultivated-field';
+    const activeFieldProject = structures.some(structure => structure.type === 'roça' && !structure.complete);
+    const fieldBuilderReserveFloor = fieldMaterialPreparation || cropInvestment && activeFieldProject
+      ? FIELD_CONSTRUCTION_MIN_FOOD_RESERVE : 14;
+    // Emergency food work must remain assignable after personal reserves run out;
+    // a mature field can be harvested straight into the shared stock.
+    const assignmentFoodReserveFloor = desired.action === 'forage' && desired.priority === 'urgent'
+      ? 0 : fieldBuilderReserveFloor;
+    const fieldBuildFoodFloor = cropInvestment && activeFieldProject ? FIELD_CONSTRUCTION_MIN_FOOD_RESERVE : 16;
+    const fieldBuildEnergyFloor = cropInvestment && activeFieldProject ? FIELD_CONSTRUCTION_MIN_ENERGY : 27;
     const foodWorkers = workers.filter(person => person.id !== leader.id && person.ageDays >= 12 * 365);
-    const harvestPerWorker = foodWorkers.length ? foodWorkers.reduce((sum, person) => sum + 1.8 + person.skills.forage * 3.2, 0) / foodWorkers.length : 1.8;
-    const foodCapacity = Math.min(foodWorkers.length, Math.max(1, Math.ceil(members.length * DAILY_FOOD_NEED
-      / (harvestPerWorker * FOOD_RESERVE_PER_UNIT))));
-    const capacity = desired.action === 'forage' && desired.priority === 'urgent' ? foodCapacity
+    const harvestPerWorker = fields.length ? CULTIVATED_FIELD_HARVEST_PER_WORKER
+      : foodWorkers.length ? foodWorkers.reduce((sum, person) => sum + 1.8 + person.skills.forage * 3.2, 0) / foodWorkers.length : 1.8;
+    const dailyNeed = dailyFoodNeedForMembers(members).dailyFoodNeed;
+    const fieldTeamSize = fields.length ? Math.ceil(Math.max(0,
+      (Number(fields[0].cropYieldTarget) || 0) - (Number(fields[0].cropHarvestedThisCycle) || 0))
+      / CULTIVATED_FIELD_HARVEST_PER_WORKER) : 0;
+    const foodCapacity = Math.min(foodWorkers.length, Math.max(1,
+      Math.ceil(dailyNeed / (harvestPerWorker * FOOD_DAYS_PER_UNIT)), fieldTeamSize));
+    const capacity = fieldMaterialPreparation ? 1
+      : desired.action === 'forage' && desired.priority === 'urgent' ? foodCapacity
       : cropInvestment || desired.goal === 'repair-damaged-structures' ? 1 : desired.priority === 'urgent'
       ? Math.min(5, Math.max(1, Math.ceil(workers.length / 3)))
       : Math.min(3, Math.max(1, Math.ceil(workers.length / 5)));
     const active = workers.filter(person => person.assignment && person.assignment.expiresDay >= w.day
+      && (desired.goal !== 'repair-damaged-structures' || person.assignment.goal === desired.goal)
       && !(desired.priority === 'urgent' && person.assignment.source === 'community-project'));
     let open = Math.max(0, capacity - active.length);
     const initialOpen = open;
@@ -162,22 +206,24 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
         if (person.ageDays < 12 * 365) return false;
         // Do not assign already depleted people to work that could be done by a
         // healthier member. If everyone is depleted, their own survival policy wins.
-        if (person.hydration < 24 || person.energy < 14 || person.health < 28 || person.foodReserve < 14) return false;
+        if (person.hydration < 24 || person.energy < 14 || person.health < 28 || person.foodReserve < assignmentFoodReserveFloor) return false;
         if (desired.action === 'forage') {
           return person.energy > 8 && (!!bestPeopleFoodCell(w, person, 5) || fields.length > 0);
         }
-        if (desired.action === 'build') return person.energy > 27 && person.hydration > 18 && person.foodReserve > 16
+        if (desired.action === 'build') return person.energy > fieldBuildEnergyFloor && person.hydration > 18 && person.foodReserve > fieldBuildFoodFloor
           // Governance runs after today's actions. Movement toward a site sets a
           // two-day cooldown, which ticks down before each next individual action.
-          && person.buildCooldown <= 2 && (desired.goal === 'repair-damaged-structures'
-            ? canRepairKingdomStructure(w, community) : canCommunityBuild(w, community, workers.length));
+          && person.buildCooldown <= 2 && (cropReplant ? !!replantField
+            : desired.goal === 'repair-damaged-structures'
+              ? canRepairKingdomStructure(w, community) : canCommunityBuild(w, community, workers.length));
         if (desired.action === 'trade') {
           const kingdom = w.kingdoms.find(item => item.id === community.kingdomId);
           const station = kingdom && w.structures.find(item => item.type === 'mercado' && item.kingdomId === kingdom.id);
           return !!station && distance(person, station) <= 16;
         }
         if (desired.action === 'collect_feed') return hasPen && person.energy > 12 && (person.perception && person.perception.resources || []).some(item => item.visible && (item.biomass.browse || 0) > 1);
-        if (desired.action === 'capture_sheep') return hasPen && !person.leadingSheepId && person.energy > 18
+        if (desired.action === 'capture_sheep') return !!availableCommunityPen(w, community.id, person)
+          && !person.leadingSheepId && person.energy > 18
           && (person.perception && person.perception.animals || []).some(sighting => sighting.speciesId === 'sheep' && sighting.visible && sighting.distance <= 5.5
             && w.animals.some(animal => animal.id === sighting.id && animal.alive && animal.herdCommunityId === null && !animal.beingLedBy));
         if (desired.action === 'gather') return person.energy > 12 && (person.perception && person.perception.resources || []).some(item => item.visible
@@ -185,6 +231,7 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
         return true;
       };
       const availableWorkers = workers.filter(person => person.id !== leader.id
+        && !person.playerControlled
         && !(person.assignment && person.assignment.expiresDay >= w.day));
       const sortByFit = (a, b) => (b.skills[desired.skill] || 0) + b.energy * .003
         - (a.skills[desired.skill] || 0) - a.energy * .003 || a.id - b.id;
@@ -196,6 +243,7 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
         priority: desired.priority || 'normal', pauseReason: null, lastPausedDay: null };
       if (fields.length) candidate.assignment.foodFieldId = fields.slice()
         .sort((a, b) => distance(candidate, a) - distance(candidate, b) || a.id - b.id)[0].id;
+      if (replantField) candidate.assignment.foodFieldId = replantField.id;
       community.assignments.push({ personId: candidate.id, action: desired.action, goal: desired.goal || null, assignedDay: w.day, status: 'delegada' });
       if (community.assignments.length > 16) community.assignments.shift();
       community.history.push(leader.name + ' delegou a ' + candidate.name + ' a tarefa: ' + desired.title + '.');
@@ -224,6 +272,53 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
     }
   }
 
+export function assignKingdomFoodSupportTasks(w, community, leader, members) {
+    if (!community?.isKingdomGroup || !leader || !Array.isArray(members) || members.length < 2) return 0;
+    const dailyFoodNeed = dailyFoodNeedForMembers(members).dailyFoodNeed;
+    const foodTarget = communityFoodBufferTarget(dailyFoodNeed);
+    const peopleNeedFood = members.some(person => person.foodReserve < 42);
+    if (communityFoodStock(community) >= foodTarget && !peopleNeedFood) return 0;
+    const before = members.filter(person => person.assignment?.source === 'kingdom-strategy'
+      && person.assignment.goal === 'secure-shared-food' && person.assignment.expiresDay >= w.day).length;
+    assignCommunityTasks(w, community, leader, members, {
+      action: 'forage', title: 'repor a reserva alimentar sem interromper a obra', skill: 'forage',
+      goal: 'secure-shared-food', priority: 'urgent', source: 'kingdom-strategy'
+    }, false);
+    const after = members.filter(person => person.assignment?.source === 'kingdom-strategy'
+      && person.assignment.goal === 'secure-shared-food' && person.assignment.expiresDay >= w.day).length;
+    return Math.max(0, after - before);
+  }
+
+export function assignKingdomFieldPreparationTasks(w, community, leader, members) {
+  if (!community?.isKingdomGroup || !leader || !Array.isArray(members) || members.length < 2) return 0;
+  const plan = nextCommunityStructure(w, community, members.length, communityStructures(w, community));
+  const needsMaterials = plan?.type === 'roça'
+    && ((community.stores.wood || 0) < plan.woodCost || (community.stores.stone || 0) < plan.stoneCost);
+  const activePreparers = members.filter(person => person.assignment?.goal === 'prepare-cultivated-field'
+    && person.assignment.expiresDay >= w.day);
+  if (!needsMaterials) {
+    for (const person of activePreparers) {
+      const carriesMaterials = (person.carriedWood || 0) + (person.carriedStone || 0) + (person.carriedMaterial || 0) > .01;
+      if (!carriesMaterials) person.assignment = null;
+    }
+    return 0;
+  }
+  if (activePreparers.length) {
+    for (const person of activePreparers) person.assignment.expiresDay = Math.max(person.assignment.expiresDay, w.day + 1);
+    return 0;
+  }
+
+  const before = members.filter(person => person.assignment?.goal === 'prepare-cultivated-field'
+    && person.assignment.expiresDay >= w.day).length;
+  assignCommunityTasks(w, community, leader, members, {
+    action: 'gather', title: 'reunir madeira e pedra para a primeira roça', skill: 'gather',
+    goal: 'prepare-cultivated-field', priority: 'normal', source: 'kingdom-strategy', expiresAfterDays: 8
+  }, false);
+  const after = members.filter(person => person.assignment?.goal === 'prepare-cultivated-field'
+    && person.assignment.expiresDay >= w.day).length;
+  return Math.max(0, after - before);
+}
+
 function recordProjectWorkStatus(w, project, status, reason, details = {}) {
   project.workStatus = {
     status,
@@ -251,8 +346,8 @@ function assignSafeOngoingBuilder(w, community, leader, members) {
   }
 
   const activeBuilder = projectAssignments.find(person => person.assignment.structureId === project.id
-    && person.assignment.expiresDay >= w.day && person.foodReserve >= 24
-    && person.hydration >= 22 && person.energy > 27 && person.health >= 28
+    && person.assignment.expiresDay >= w.day && hasConstructionFoodReserve(person, project)
+    && person.hydration >= 22 && hasConstructionEnergy(person, project) && person.health >= 28
     && !person.constructionRetreating && person.homeRestTargetId == null && !person.restingOutdoors);
   if (activeBuilder) {
     activeBuilder.assignment.expiresDay = w.day + 15;
@@ -290,8 +385,8 @@ function assignSafeOngoingBuilder(w, community, leader, members) {
   // Keep one worker on an existing project while the rest of the community
   // gathers food. Requiring a full food reserve here deadlocks the first
   // shelter and farm precisely when the kingdom needs cultivated food most.
-  const safeWorkers = nearbyWorkers.filter(person => person.foodReserve >= 24 && person.hydration >= 22
-    && person.energy > 27 && person.health >= 28 && !person.constructionRetreating
+  const safeWorkers = nearbyWorkers.filter(person => hasConstructionFoodReserve(person, project) && person.hydration >= 22
+    && hasConstructionEnergy(person, project) && person.health >= 28 && !person.constructionRetreating
     && person.homeRestTargetId == null && !person.restingOutdoors && person.buildCooldown <= 2);
   const candidate = safeWorkers
     .sort((a, b) => distance(a, project) - distance(b, project)
@@ -369,6 +464,18 @@ export function updateCommunityGovernance(w, kingdomPlanner) {
       ensureCommunityGovernanceState(community);
       const members = community.memberIds.map(id => w.people.find(person => person.id === id && person.alive)).filter(Boolean);
       if (!members.length) continue;
+      // Gathering, selling and delivering a real seed lot can span more than
+      // the default 21-day build order. Keep an active courier's assignment
+      // until the physical cargo reaches the farm rather than silently
+      // abandoning it and leaving every other builder awaiting that courier.
+      if (community.isKingdomGroup) for (const member of members) {
+        const assignment = member.assignment;
+        if (member.role !== 'soldier' && assignment?.action === 'build'
+            && ['invest-in-cultivated-food', 'replant-cultivated-food'].includes(assignment.goal)
+            && ((member.carriedSeeds || 0) > 0 || (member.carriedCommunitySeeds || 0) > 0)) {
+          assignment.expiresDay = Math.max(assignment.expiresDay, w.day + 3);
+        }
+      }
       for (const member of members) if (member.assignment && member.assignment.expiresDay < w.day) {
         const expired = (community.assignments || []).slice().reverse().find(item => item.personId === member.id && item.status === 'delegada');
         if (expired) expired.status = 'expirada';
@@ -379,8 +486,17 @@ export function updateCommunityGovernance(w, kingdomPlanner) {
         const leader = kingdom && members.find(person => person.id === kingdom.rulerId) || selectCommunityLeader(w, community, members);
         community.leaderId = leader.id;
         community.satisfaction = communitySatisfaction(w, community);
+        if (canRepairKingdomStructure(w, community)) {
+          assignCommunityTasks(w, community, leader, members, {
+            source: 'royal-repair', goal: 'repair-damaged-structures', action: 'build',
+            title: 'reparar estruturas por ordem do rei', skill: 'build', priority: 'urgent',
+            expiresAfterDays: 21
+          }, false);
+        }
+        assignKingdomFieldPreparationTasks(w, community, leader, members);
         if (w.day - community.lastGovernanceDay >= 8) {
           assignCommunityTasks(w, community, leader, members, kingdom && kingdom.strategy && kingdom.strategy.order, false);
+          assignKingdomFoodSupportTasks(w, community, leader, members);
           community.lastGovernanceDay = w.day;
         }
         assignSafeOngoingBuilder(w, community, leader, members);
@@ -435,9 +551,19 @@ export function completeCommunityTask(w, person, action, beforeState, afterState
         task.action = 'deliver'; return false;
       }
     } else if (task.action === 'capture_sheep' && action === 'capture_sheep' && person.leadingSheepId) { task.action = 'lead_sheep'; return false; }
-    else if (task.action === 'build' && action === 'build') succeeded = task.goal === 'repair-damaged-structures'
-      ? afterState.repairProgress > beforeState.repairProgress + .01
-      : afterState.buildProgress > beforeState.buildProgress;
+    else if (task.action === 'build' && action === 'build') {
+      const assignedProjectStillOpen = task.source === 'community-project' && (w.structures || []).some(structure =>
+        structure.id === task.structureId && !structure.complete && structure.destroyedDay == null && structure.integrity !== 0);
+      // Construction is a multi-day project. Progress on one day is not task
+      // completion: keep its reserved builder assigned until the structure is
+      // actually finished, or food support can reclaim that worker next tick.
+      if (assignedProjectStillOpen) return false;
+      succeeded = task.goal === 'replant-cultivated-food'
+        ? task.replantSowedDay === w.day
+        : task.goal === 'repair-damaged-structures'
+          ? afterState.repairProgress > beforeState.repairProgress + .01
+          : afterState.buildProgress > beforeState.buildProgress;
+    }
     else if (task.action === 'trade' && action === 'trade') succeeded = afterState.tradeCount > beforeState.tradeCount;
     else if (task.action === 'raid' && action === 'raid' && person.lastRaidSuccess) { task.action = 'deliver'; person.lastRaidSuccess = false; return false; }
     else if (task.action === 'deliver' && action === 'deliver') succeeded = afterState.food > beforeState.food + .02 || afterState.feed > beforeState.feed + .02
@@ -446,9 +572,17 @@ export function completeCommunityTask(w, person, action, beforeState, afterState
     if (!succeeded) return false;
     const community = w.communities.find(group => group.id === person.communityId && !group.dissolved);
     if (community && task.source === 'kingdom-strategy' && task.foodFieldId != null
-        && ['forage', 'deliver'].includes(task.action) && communityFoodStock(community) < community.memberIds.length * 2) {
-      task.action = 'forage'; task.supplyPhase = 'communal-collection';
-      return false;
+        && ['forage', 'deliver'].includes(task.action)) {
+      const kingdom = w.kingdoms.find(item => item.communityId === community.id);
+      const members = community.memberIds.map(id => w.people.find(person => person.id === id && person.alive)).filter(Boolean);
+      const dailyFoodNeed = kingdom ? kingdomFoodDemand(w, kingdom).dailyFoodNeed : dailyFoodNeedForMembers(members).dailyFoodNeed;
+      const field = task.foodFieldId == null ? null : (w.structures || []).find(structure => structure.id === task.foodFieldId
+        && structure.type === 'roça' && structure.communityId === community.id);
+      const fieldExhausted = field && field.cropCycleState === 'spent';
+      if (!fieldExhausted && communityFoodStock(community) < communityFoodBufferTarget(dailyFoodNeed, COMMUNITY_FOOD_BUFFER_DAYS)) {
+        task.action = 'forage'; task.supplyPhase = 'communal-collection';
+        return false;
+      }
     }
     const leader = community && w.people.find(member => member.id === community.leaderId && member.alive);
     person.prestige = (person.prestige || 0) + 1;

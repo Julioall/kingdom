@@ -1,11 +1,24 @@
 import { distance } from '../core/math.js';
 import { carriedResources, transferResource } from './inventories.js';
+import { withFoodAuditOperation } from './food-audit-ledger.js';
 import { moveOne } from '../individuals/movement.js';
 
 export const LOOT_CARGO = Object.freeze({ food: 'carriedFood', meat: 'carriedMeat', wood: 'carriedWood',
-  stone: 'carriedStone', gold: 'carriedGold', feed: 'carriedFeed' });
+  stone: 'carriedStone', gold: 'carriedGold', copper: 'carriedCopper',
+  silver: 'carriedSilver', iron: 'carriedIron', feed: 'carriedFeed' });
 
 export function dropStructureLoot(world, structure, day) {
+  if (!world || !structure) return null;
+  return withFoodAuditOperation({
+    kind: 'loot-transfer', category: 'structure-destruction', resource: 'food',
+    source: { type: 'destroyed-structure-and-owned-stores', structureId: structure.id, structureType: structure.type,
+      communityId: structure.communityId ?? null, kingdomId: structure.kingdomId ?? null },
+    destination: { type: 'loot-pile', sourceStructureId: structure.id },
+    destinationPosition: { x: structure.x, y: structure.y }
+  }, () => dropStructureLootCore(world, structure, day));
+}
+
+function dropStructureLootCore(world, structure, day) {
   if (structure.lootDroppedDay != null) return null;
   structure.lootDroppedDay = day;
   const resources = {}, seen = new Set();
@@ -46,22 +59,32 @@ export function dropStructureLoot(world, structure, day) {
 
 export function nearestLoot(world, person, radius = 7) {
   if (!person.alive || carriedResources(person) >= 24) return null;
-  return (world.loot || []).filter(p => p.available && Object.entries(p.resources).some(([resource, amount]) =>
-    amount > .001 && !(person.role === 'soldier' && resource === 'stone'))
+  return (world.loot || []).filter(p => p.available && !(p.mineralKind && person.role === 'soldier') && Object.entries(p.resources).some(([resource, amount]) =>
+    amount > (p.mineralKind ? 0 : .001) && !(person.role === 'soldier' && resource === 'stone'))
     && distance(person, p) <= radius).sort((a, b) => distance(person, a) - distance(person, b) || a.id - b.id)[0] || null;
 }
 
 export function collectLoot(world, person, pile) {
   if (!person.alive || !pile?.available) return 0;
+  if (pile.mineralKind && person.role === 'soldier') return 0;
   if (distance(person, pile) > 1.6) { moveOne(world, person, pile, false); person.state = 'indo recolher recursos derrubados'; return 0; }
   let capacity = Math.max(0, 24 - carriedResources(person)), collected = 0;
-  const order = person.foodReserve < 24 ? ['food', 'meat', 'gold', 'wood', 'stone', 'feed'] : ['gold', 'wood', 'stone', 'food', 'meat', 'feed'];
-  for (const resource of order) {
-    if (person.role === 'soldier' && resource === 'stone') continue;
-    const moved = transferResource(pile.resources, person, resource, Math.min(capacity, pile.resources[resource] || 0), LOOT_CARGO[resource]);
-    capacity -= moved; collected += moved;
+  const order = person.foodReserve < 24
+    ? ['food', 'meat', 'gold', 'silver', 'copper', 'iron', 'wood', 'stone', 'feed']
+    : ['gold', 'silver', 'copper', 'iron', 'wood', 'stone', 'food', 'meat', 'feed'];
+  const piles = pile.mineralKind
+    ? (world.loot || []).filter(item => item.available && item.mineralKind === pile.mineralKind && distance(person, item) <= 1.6)
+    : [pile];
+  for (const item of piles) {
+    for (const resource of order) {
+      if (person.role === 'soldier' && resource === 'stone') continue;
+      const moved = transferResource(item.resources, person, resource, Math.min(capacity, item.resources[resource] || 0), LOOT_CARGO[resource]);
+      capacity -= moved; collected += moved;
+    }
+    item.available = Object.values(item.resources).some(n => n > (item.mineralKind ? 0 : .001));
+    if (capacity <= 0) break;
   }
-  pile.available = Object.values(pile.resources).some(n => n > .001);
+  pile.available = Object.values(pile.resources).some(n => n > (pile.mineralKind ? 0 : .001));
   person.state = 'recolhendo recursos derrubados';
   person.lastLesson = 'Os recursos no chão não têm dono; qualquer pessoa pode recolher o que conseguir carregar.';
   return collected;

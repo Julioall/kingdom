@@ -1,4 +1,5 @@
 import { initializeTowerHealth } from './fortifications.js';
+import { hasBuildingResourceClearance } from '../world/building-clearance.js';
 import { spendInventory } from '../economy/inventories.js';
 import { recomputeKingdomTerritories, TERRITORY_RULES } from './territories.js';
 import { log } from '../core/events.js';
@@ -9,6 +10,7 @@ import { reachableAreaAround } from '../individuals/movement.js';
 import { invalidateNavigation } from '../individuals/navigation-cache.js';
 import { clamp, distance } from '../core/math.js';
 import { SITING_STRATEGIES, SITING_LABELS, selectRoyalBuildSite, commitRoyalBuildSite } from './royal-siting.js';
+import { isOperationalMilitarySource, militaryClassSource, militaryClassSourceType } from './military-sources.js';
 
 export const KINGDOM_BUILD_COSTS = Object.freeze({
   monasterio: Object.freeze({ wood: 30, stone: 28, gold: 15 }),
@@ -21,9 +23,27 @@ export const FRONTIER_OUTPOST_COST = Object.freeze({ wood: 10, stone: 4, gold: 2
 export const SOLDIER_COST = Object.freeze({ food: 10, wood: 8, gold: 3 });
 export const KINGDOM_PROJECT_TIMING = Object.freeze({ torre: 12, frontierOutpost: 8, centro_militar: 18, monasterio: 16, arquearia: 14, recruit: 6 });
 
+function centerHasVacancy(world, center, exceptPersonId = null) {
+  const assigned = new Set((center.soldierIds || []).filter(id => world.people.some(person => person.id === id
+    && person.id !== exceptPersonId && person.alive && person.role === 'soldier')));
+  for (const person of world.people) if (person.id !== exceptPersonId && person.alive
+      && person.role === 'soldier' && person.militaryCenterId === center.id) assigned.add(person.id);
+  const pending = world.people.filter(person => person.id !== exceptPersonId && person.alive
+    && person.recruitmentOrder?.militaryCenterId === center.id).length;
+  return assigned.size + pending < (Number.isFinite(center.capacity) ? center.capacity : 8);
+}
+
+export function findMilitaryCenterWithVacancy(world, kingdomId, exceptPersonId = null) {
+  return (world.structures || []).filter(structure => structure.kingdomId === kingdomId
+      && isOperationalMilitarySource(structure, 'centro_militar'))
+    .sort((a, b) => a.id - b.id)
+    .find(center => centerHasVacancy(world, center, exceptPersonId)) || null;
+}
+
 function canPlace(world, tile, kingdom, type) {
   if (!tile || tile.terrain !== 'land' || (tile.kingdomId != null && tile.kingdomId !== kingdom.id)) return false;
   if (tile.waterDist < 2.1) return false;
+  if (!hasBuildingResourceClearance(world, tile, type === 'torre' ? 2.1 : 2.7)) return false;
   if (tile.x < 2 || tile.y < 2 || tile.x >= world.width - 2 || tile.y >= world.height - 2) return false;
   if (isTreeAnchor(world, tile)) return false;
   if (type === 'torre' && ((tile.stoneDeposit || 0) > .7 || (tile.goldOre || 0) > .05)) return false;
@@ -168,14 +188,10 @@ export function recruitKingdomSoldier(world, kingdomId, options = {}) {
   if (!kingdom) return { ok: false, reason: 'Reino não encontrado.' };
   const militaryClass = options.militaryClass || 'lanceiro';
   if (!['guerreiro', 'lanceiro', 'arqueiro', 'monge'].includes(militaryClass)) return { ok: false, reason: 'Classe militar inválida.' };
-  const school = militaryClass === 'arqueiro' ? 'arquearia' : militaryClass === 'monge' ? 'monasterio' : null;
-  if (school && !world.structures.some(s => s.kingdomId === kingdomId && s.type === school && s.complete))
-    return { ok: false, reason: 'Construa ' + school + ' para treinar esta classe.' };
-  const centers = (kingdom.militaryCenterIds || []).map(id => world.structures.find(structure => structure.id === id && structure.complete)).filter(Boolean);
-  const center = centers.find(item => {
-    const pending = world.people.filter(person => person.alive && person.recruitmentOrder?.militaryCenterId === item.id).length;
-    return (item.soldierIds || []).filter(id => world.people.some(p => p.id === id && p.alive && p.role === 'soldier')).length + pending < (item.capacity || 8);
-  });
+  const sourceType = militaryClassSourceType(militaryClass);
+  if (!militaryClassSource(world, kingdomId, militaryClass))
+    return { ok: false, reason: 'Construa ou reconstrua uma fonte operacional (' + sourceType + ') para esta classe.' };
+  const center = findMilitaryCenterWithVacancy(world, kingdomId);
   if (!center) return { ok: false, reason: 'É necessário um centro militar com vagas disponíveis.' };
   const recruit = kingdom.memberIds.map(id => world.people.find(person => person.id === id && person.alive))
     .filter(person => person && person.role === 'resident' && person.ageDays >= 15 * 365
@@ -193,7 +209,7 @@ export function recruitKingdomSoldier(world, kingdomId, options = {}) {
   const startedDay = Number.isInteger(options.startedDay) ? options.startedDay : world.day;
   recruit.recruitmentOrder = {
     kingdomId: kingdom.id, militaryCenterId: center.id, militaryClass,
-    startedDay, readyDay: startedDay + KINGDOM_PROJECT_TIMING.recruit
+    sourceType, startedDay, readyDay: startedDay + KINGDOM_PROJECT_TIMING.recruit
   };
   log(world, kingdom.name + ' iniciou o treinamento de ' + recruit.name + '; alimento, madeira e ouro foram debitados. '
     + 'O treinamento leva ' + KINGDOM_PROJECT_TIMING.recruit + ' dias.', startedDay);

@@ -19,6 +19,58 @@ function fixture(weapon = 'guerreiro', x = 1.5) {
   return { actor, target, world, action, resolve, count: () => count };
 }
 
+function aimInEightDirections(attack, angle, targetDistance) {
+  const center = 64;
+  attack.world.tiles = Array.from({ length: attack.world.width * attack.world.height }, (_, i) => ({
+    i, x: i % attack.world.width, y: Math.floor(i / attack.world.width), terrain: 'land',
+    slope: 0, plants: []
+  }));
+  attack.actor.x = center; attack.actor.y = center;
+  attack.target.x = center + Math.cos(angle) * targetDistance;
+  attack.target.y = center + Math.sin(angle) * targetDistance;
+  attack.action.origin = { x: attack.actor.x, y: attack.actor.y };
+  attack.action.aim = { x: attack.target.x, y: attack.target.y };
+  attack.action.angle = angle;
+}
+
+for (const weapon of ['guerreiro', 'lanceiro', 'arqueiro']) {
+  test(`${weapon}: confirmed contact is consistent in eight world directions`, () => {
+    const radius = weapon === 'guerreiro' ? 1.4 : weapon === 'lanceiro' ? 2.5 : 6.2;
+    for (let direction = 0; direction < 8; direction++) {
+      const angle = direction * Math.PI / 4;
+      const f = fixture(weapon, radius);
+      aimInEightDirections(f, angle, radius);
+      const result = f.resolve();
+      assert.equal(result.kind, 'body', `${weapon}, direction ${direction}`);
+      assert.equal(result.targetId, f.target.id);
+      assert.equal(result.hitbox.shape, 'circle');
+      assert.ok(Number.isFinite(result.point.x) && Number.isFinite(result.point.y));
+      assert.deepEqual(f.action.timing, { windupStartMs: 0, releaseMs: f.action.windupMs,
+        activeEndMs: f.action.windupMs + f.action.activeMs, contactMs: result.atMs,
+        recoveryStartMs: f.action.windupMs + f.action.activeMs, completionMs: f.action.durationMs });
+      assert.equal(f.world.combatEvents.at(-1).result.targetId, f.target.id);
+    }
+  });
+}
+
+for (const weapon of ['guerreiro', 'lanceiro', 'arqueiro']) {
+  test(`${weapon}: a low attack cannot pass through rock or damage the target behind it`, () => {
+    const radius = weapon === 'guerreiro' ? 1.4 : weapon === 'lanceiro' ? 2.5 : 6.2;
+    const f = fixture(weapon, radius);
+    aimInEightDirections(f, 0, radius);
+    const rock = f.world.tiles[64 * f.world.width + 65];
+    rock.terrain = 'rock';
+
+    const result = f.resolve();
+
+    assert.equal(result.kind, 'obstructed');
+    assert.equal(result.obstruction.terrain, 'rock');
+    assert.equal(f.target.health, 100);
+    assert.equal(f.count(), 0);
+    assert.deepEqual(f.action.hitTargets, []);
+  });
+}
+
 test('phases, confirmed damage, independent IDs and idempotent resolution', () => {
   const f = fixture();
   assert.deepEqual([199, 200, 300, 400].map(t => combatActionPhase(f.action, t)), ['windup', 'active', 'recovery', 'complete']);
@@ -29,6 +81,13 @@ test('phases, confirmed damage, independent IDs and idempotent resolution', () =
   assert.equal(f.world.combatEvents.length, 1); assert.deepEqual(f.action.hitTargets, [2]);
   assert.ok(Object.values(hit.point).every(Number.isFinite));
   assert.ok(Math.abs(Math.hypot(hit.normal.x, hit.normal.y) - 1) < 1e-8);
+});
+
+test('manual archer target lock preserves the hovered character as the shot aim', () => {
+  const { actor, target, world } = fixture('arqueiro', 7);
+  const aim = { x: target.x, y: target.y + .2 };
+  const action = createCombatAction(world, actor, target, 1, { aim, reach: 8, targetLock: true });
+  assert.deepEqual(action.aim, aim);
 });
 
 for (const weapon of ['guerreiro', 'lanceiro', 'arqueiro']) {
@@ -42,9 +101,12 @@ for (const weapon of ['guerreiro', 'lanceiro', 'arqueiro']) {
     assert.equal(none.resolve().kind, 'body');
   });
   test(`${weapon}: misses outside range and after lateral dodge`, () => {
-    assert.equal(fixture(weapon, 20).resolve().kind, 'miss');
+    const outOfRange = fixture(weapon, 20);
+    assert.equal(outOfRange.resolve().kind, 'miss');
+    assert.equal(outOfRange.count(), 0, 'a visual or range miss cannot call the damage function');
     const f = fixture(weapon, weapon === 'arqueiro' ? 8 : 2);
     assert.equal(f.resolve({ beforeStep: t => { f.target.y = Math.min(2, t / f.action.windupMs * 2); } }).kind, 'miss');
+    assert.equal(f.count(), 0, 'a target that moved out of the swept contact volume receives no damage');
   });
 }
 
@@ -65,17 +127,48 @@ test('sword chooses the earliest angular contact, rather than the closest body l
 
 test('projectile hits the first enemy along the flight and never an ally or sheltered person', () => {
   const f = fixture('arqueiro', 8);
-  const intercepted = { ...f.target, id: 3, x: 4 };
+  // Put the interceptor late enough in the descent that the arcing arrow can reach a ground target.
+  const intercepted = { ...f.target, id: 3, x: f.action.aim.x * .85, y: f.action.aim.y * .85 };
   const ally = { ...intercepted, id: 4, x: 2, kingdomId: 1 };
   const resting = { ...intercepted, id: 5, x: 3, restingStructureId: 10 };
   const hit = f.resolve({}, [f.target, ally, resting, intercepted]);
-  assert.equal(hit.targetId, 3); assert.ok(hit.atMs > 500 && hit.atMs < 940);
+  assert.equal(hit.targetId, 3);
+  assert.ok(hit.atMs > f.action.windupMs && hit.atMs < f.action.windupMs + f.action.flightMs);
 });
 
 test('ground melee misses the tower platform, arrows reach the platform', () => {
   const f = fixture(); f.target.towerMounted = true; assert.equal(f.resolve().kind, 'miss');
   const arrow = fixture('arqueiro', 8); arrow.target.towerMounted = true; arrow.action.targetElevation = 3;
   assert.equal(arrow.resolve().kind, 'body');
+});
+
+test('tower arrow elevation clears a low rock screen and still resolves its aimed platform contact', () => {
+  const f = fixture('arqueiro', 6.2);
+  aimInEightDirections(f, 0, 6.2);
+  f.actor.towerMounted = true; f.target.towerMounted = true;
+  f.action.sourceElevation = 3; f.action.targetElevation = 3;
+  f.world.tiles[64 * f.world.width + 66].terrain = 'rock';
+
+  const result = f.resolve();
+
+  assert.equal(result.kind, 'body');
+  assert.equal(result.targetId, f.target.id);
+  assert.ok(Math.abs(result.contactElevation - 3) <= .65,
+    'the projectile should contact within the tower platform hitbox height');
+});
+
+test('melee contact uses the physical building footprint as line-of-sight obstruction', () => {
+  const f = fixture('lanceiro', 2.5);
+  aimInEightDirections(f, 0, 2.5);
+  f.world.structures.push({ id: 90, type: 'casa', x: 65, y: 64.75746727747703,
+    complete: true, builtDay: 1, integrity: 1, kingdomId: 1 });
+
+  const result = f.resolve();
+
+  assert.equal(result.kind, 'obstructed');
+  assert.equal(result.obstruction.kind, 'structure');
+  assert.equal(result.obstruction.structureId, 90);
+  assert.equal(f.count(), 0);
 });
 
 test('descending arrows cannot hit a body while still above it, even across a substep', () => {
@@ -104,7 +197,7 @@ test('earliest sword contact remains consistent through rotations and reversed c
 test('death cancels preparation, but death immediately after arrow release does not cancel the flight', () => {
   const f = fixture(); f.actor.alive = false; assert.equal(f.resolve().kind, 'cancelled'); assert.equal(f.count(), 0);
   const arrow = fixture('arqueiro', 8);
-  assert.equal(arrow.resolve({ beforeStep: t => { if (t > 500) arrow.actor.alive = false; } }).kind, 'body');
+  assert.equal(arrow.resolve({ beforeStep: t => { if (t > arrow.action.windupMs) arrow.actor.alive = false; } }).kind, 'body');
 });
 
 test('history is bounded and bodies already dead cannot receive another contact', () => {
@@ -116,6 +209,10 @@ test('history is bounded and bodies already dead cannot receive another contact'
 
 test('tactical attack counts one impact and pays stamina once despite repeated rounds', () => {
   const f = fixture(); f.actor.towerMounted = true; f.target.towerMounted = true;
+  // Test a damaging basic attack explicitly; shield charge is now push-only.
+  f.actor.playerControlled = true; f.target.playerControlled = true;
+  f.actor.playerCommand = { actionKey: '1', aimX: f.target.x, aimY: f.target.y,
+    targetId: f.target.id, expiresDay: 1 };
   f.world.day = 0; f.world.combatSequence = 0;
   fightTacticalRound(f.world, [f.actor], [f.target], 1);
   assert.ok(f.target.health < 100); assert.equal(f.target.lastAttackSequence, 1);
@@ -137,11 +234,28 @@ test('siege applies contact damage, cooldown and allegiance restrictions', () =>
 test('effects wait for release/contact, expire, and do not replay on redraw or reset', () => {
   const f = fixture('arqueiro', 8); f.resolve(); const effects = createActivityEffects();
   effects.observe(f.world, 1000);
-  assert.equal(effects.active(1499).length, 0);
-  assert.equal(effects.active(1500).filter(e => e.projectile).length, 1);
-  effects.observe(f.world, 1600); assert.equal(effects.active(1600).filter(e => e.projectile).length, 1);
-  assert.equal(effects.active(1000 + f.action.result.atMs).filter(e => !e.projectile).length, 1);
+  const releaseAt = 1000 + f.action.windupMs;
+  assert.equal(effects.active(releaseAt - 1).filter(e => e.projectile).length, 0);
+  assert.equal(effects.active(releaseAt).filter(e => e.projectile).length, 1);
+  effects.observe(f.world, releaseAt + 100);
+  assert.equal(effects.active(releaseAt + 100).filter(e => e.projectile).length, 1);
+  assert.equal(effects.active(1000 + f.action.result.atMs).filter(e => !e.projectile && !e.blood).length, 1);
+  assert.equal(effects.active(1000 + f.action.result.atMs).filter(e => e.blood).length, 1);
   effects.observe(f.world, 2000, true); assert.equal(effects.active(2000).length, 0);
+});
+
+test('body impact presentation is anchored to the confirmed contact point and simulated contact time', () => {
+  const f = fixture('guerreiro');
+  f.resolve();
+  const effects = createActivityEffects();
+  effects.observe(f.world, 1000);
+
+  const impact = effects.active(1000 + f.action.result.atMs).find(effect => !effect.projectile);
+
+  assert.ok(impact);
+  assert.equal(impact.startedAt, 1000 + f.action.result.atMs);
+  assert.equal(impact.x, f.action.result.point.x);
+  assert.equal(impact.y, f.action.result.point.y - f.action.result.contactElevation);
 });
 
 test('movement must use snapshot arrival time even while the animation clock pauses or accelerates', () => {

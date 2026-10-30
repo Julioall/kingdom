@@ -1,22 +1,13 @@
 import { clamp } from '../core/math.js';
+import { initialSettlementCenters, LAKE_BUILDING_CLEARANCE } from './building-clearance.js';
 
-const CONTINENT_COAST = [
-  { y: .8, cx: 17.7, halfWidth: .7 },
-  { y: 2, cx: 17.9, halfWidth: 2.4 },
-  { y: 4.5, cx: 18.3, halfWidth: 4.8 },
-  { y: 7.5, cx: 18.7, halfWidth: 7.4 },
-  { y: 10.5, cx: 19.2, halfWidth: 8.7 },
-  { y: 13.5, cx: 18.8, halfWidth: 8.9 },
-  { y: 16.5, cx: 18.1, halfWidth: 8.2 },
-  { y: 19.5, cx: 17.3, halfWidth: 7.2 },
-  { y: 22, cx: 16.8, halfWidth: 5.7 },
-  { y: 24, cx: 16.2, halfWidth: 3.6 },
-  { y: 25.3, cx: 16, halfWidth: .7 }
-];
-const CONTINENT_WIDTH_SCALE = 1.18;
 const AUTOTILE_HILL = { cx: 18.8, cy: 12.2, rx: 2.8, ry: 4.1 };
-const FRESHWATER_LAKES = [
-  { x: 18, y: 12.5, r: .68 }, { x: 18.2, y: 18, r: .68 }
+const TERRAIN_HILLS = [
+  AUTOTILE_HILL,
+  { cx: 12.2, cy: 9, rx: 2.2, ry: 2.7 },
+  { cx: 23.8, cy: 17, rx: 2.2, ry: 2.7 },
+  { cx: 12.8, cy: 17.5, rx: 2.4, ry: 2.5 },
+  { cx: 23.2, cy: 8.5, rx: 2.4, ry: 2.5 }
 ];
 
 function autoHash(x, y, seed = 0) {
@@ -43,26 +34,37 @@ function noise(x, y, seed) {
 
 function terrainIndex(x, y, width) { return y * width + x; }
 
-function coastAt(y) {
-  for (let index = 0; index < CONTINENT_COAST.length - 1; index++) {
-    const north = CONTINENT_COAST[index], south = CONTINENT_COAST[index + 1];
-    if (y < north.y || y > south.y) continue;
-    const t = smooth((y - north.y) / (south.y - north.y));
-    return {
-      cx: north.cx + (south.cx - north.cx) * t,
-      halfWidth: (north.halfWidth + (south.halfWidth - north.halfWidth) * t) * CONTINENT_WIDTH_SCALE
-    };
-  }
-  return null;
+function squareLandBounds(width, height) {
+  const side = Math.floor(Math.min(width, height) * (6 / 7));
+  const left = Math.floor((width - side) / 2), top = Math.floor((height - side) / 2);
+  return { left, top, right: left + side - 1, bottom: top + side - 1, side };
 }
 
-function calculateCoastScore(x, y, seed) {
-  const coast = coastAt(y);
-  if (!coast) return { score: -Infinity, shape: -Infinity, variant: 0 };
-  const shape = 1 - Math.abs(x - coast.cx) / coast.halfWidth;
-  const jitter = (noise(x * 1.1, y * 1.1, seed) - .5) * .43;
-  const variant = y < 6.5 ? 4 : y < 13 ? 0 : y < 19.5 ? 2 : 3;
-  return { score: shape + jitter, shape, variant };
+function generateLakes(width, height, seed, bounds) {
+  const factorX = width / 36, factorY = height / 26;
+  const scale = Math.min(factorX, factorY);
+  const centers = initialSettlementCenters(width, height);
+  const target = 1 + Math.floor(autoHash(47, 71, seed) * 4);
+  const candidates = [];
+  for (let y = bounds.top + 4; y < bounds.bottom - 4; y += 3) {
+    for (let x = bounds.left + 4; x < bounds.right - 4; x += 3) {
+      const r = (.45 + autoHash(x, y, seed + 503) * .55) * scale;
+      if (x - r - 4 < bounds.left || x + r + 4 > bounds.right
+        || y - r - 4 < bounds.top || y + r + 4 > bounds.bottom) continue;
+      if (centers.some(center => Math.hypot(x - center.x, y - center.y) < 30 + LAKE_BUILDING_CLEARANCE + r)) continue;
+      candidates.push({ x, y, r, rx: r, ry: r * (.65 + autoHash(x, y, seed + 509) * .35),
+        rank: autoHash(x, y, seed + 521) });
+    }
+  }
+  candidates.sort((a, b) => b.rank - a.rank || a.y - b.y || a.x - b.x);
+  const lakes = [];
+  for (const candidate of candidates) {
+    if (lakes.some(lake => Math.hypot(lake.x - candidate.x, lake.y - candidate.y) < lake.r + candidate.r + 10)) continue;
+    const { rank, ...lake } = candidate;
+    lakes.push(lake);
+    if (lakes.length === target) break;
+  }
+  return lakes;
 }
 
 function floodWaterDistance(width, height, water) {
@@ -114,7 +116,7 @@ function markRamps(width, height, elevationLevel, waterKind, seed) {
       .map(candidate => ({ ...candidate, rank: autoHash(candidate.x, candidate.y, seed + targetLevel * 313) }))
       .sort((a, b) => b.rank - a.rank || a.y - b.y || a.x - b.x);
     const picked = [];
-    const targetCount = 8;
+    const targetCount = 24;
     while (picked.length < targetCount && candidates.length) {
       let bestIndex = -1, bestScore = -Infinity;
       for (let index = 0; index < candidates.length; index++) {
@@ -140,7 +142,7 @@ function markRamps(width, height, elevationLevel, waterKind, seed) {
   return { rampSide, rampLevel, rampSegment, ramps: selected };
 }
 
-/** Generate a deterministic, Greenland-shaped landmass with one hill layer and ramp markers. */
+/** Generate a fixed square island with freshwater lakes, hills and ramps. */
 export function generateIslandTerrain(width, height, seed) {
   const cleanSeed = (Number(seed) >>> 0) || 1;
   const count = width * height;
@@ -149,39 +151,33 @@ export function generateIslandTerrain(width, height, seed) {
   const autoTileVariant = new Uint8Array(count);
   const heightM = new Float32Array(count);
   const factorX = width / 36, factorY = height / 26;
-  const lakes = FRESHWATER_LAKES.map(lake => ({
-    x: lake.x * factorX,
-    y: lake.y * factorY,
-    r: lake.r * Math.min(factorX, factorY)
-  }));
+  const bounds = squareLandBounds(width, height);
+  const lakes = generateLakes(width, height, cleanSeed, bounds);
 
   for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
     const index = terrainIndex(x, y, width);
     const u = x / factorX, v = y / factorY;
-    const coast = calculateCoastScore(u, v, cleanSeed);
-    const inLake = coast.score > .055 && lakes.some((lake, lakeIndex) => {
+    const insideSquare = x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom;
+    if (!insideSquare) { waterKind[index] = 'ocean'; continue; }
+    const inLake = lakes.some((lake, lakeIndex) => {
       const centerX = lake.x, centerY = lake.y;
       const edgeVariation = (autoHash(cleanSeed + 337 + lakeIndex, x, y) - .5) * .22;
-      return Math.hypot(x - centerX, y - centerY) < lake.r + edgeVariation;
+      return Math.hypot((x - centerX) / lake.rx, (y - centerY) / lake.ry) < 1 + edgeVariation;
     });
-    const isLand = coast.score > .055 && !inLake;
-    if (!isLand) {
-      waterKind[index] = inLake ? 'lake' : 'ocean';
-      continue;
-    }
-    autoTileVariant[index] = coast.variant;
-    const hill = 1 - Math.hypot(
-      (u - AUTOTILE_HILL.cx) / AUTOTILE_HILL.rx,
-      (v - AUTOTILE_HILL.cy) / AUTOTILE_HILL.ry
-    );
-    // AutoTile's configured hill ellipse, raised slightly at the cutoff so it
-    // remains a single compact plateau instead of a wide band of obstacles.
+    if (inLake) { waterKind[index] = 'lake'; continue; }
+    autoTileVariant[index] = v < 6.5 ? 4 : v < 13 ? 0 : v < 19.5 ? 2 : 3;
+    const hill = Math.max(...TERRAIN_HILLS.map(area => 1 - Math.hypot(
+      (u - area.cx) / area.rx, (v - area.cy) / area.ry
+    )));
+    // Keep the separate plateaus compact, leaving lowland corridors between them.
     const level = hill + (noise(u, v, cleanSeed + 58) - .5) * .26 > .34 ? 1 : 0;
     elevationLevel[index] = level;
     const reliefNoise = noise(u * .42, v * .42, cleanSeed + 127) - .5;
+    const squareInterior = Math.min(x - bounds.left, bounds.right - x, y - bounds.top, bounds.bottom - y)
+      / Math.max(1, bounds.side / 2);
     heightM[index] = level === 0
-      ? 68 + Math.max(0, coast.shape) * 34 + reliefNoise * 18
-      : 410 + Math.max(0, coast.shape) * 70 + reliefNoise * 24;
+      ? 68 + clamp(squareInterior, 0, 1) * 34 + reliefNoise * 18
+      : 410 + clamp(squareInterior, 0, 1) * 70 + reliefNoise * 24;
   }
 
   const waterDistance = floodWaterDistance(width, height, waterKind);
@@ -217,7 +213,10 @@ export function canTraverseElevation(from, to) {
   const lower = fromLevel < toLevel ? from : to;
   const higher = fromLevel < toLevel ? to : from;
   const expectedDx = lower.rampSide === 1 ? 1 : lower.rampSide === 2 ? -1 : 0;
-  return lower.rampSegment === 1 && lower.rampLevel === higher.elevationLevel
+  // A rendered ramp occupies two adjacent rows; either segment must allow
+  // crossing, otherwise its lower half behaves like an invisible cliff.
+  return (lower.rampSegment === 1 || lower.rampSegment === 2)
+    && lower.rampLevel === higher.elevationLevel
     && dx * (fromLevel < toLevel ? 1 : -1) === expectedDx
     && higher.x - lower.x === expectedDx;
 }

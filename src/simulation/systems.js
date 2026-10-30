@@ -13,11 +13,14 @@ import { killPerson } from './individuals/lifecycle.js';
 import { updateRoadWear } from './world/roads.js';
 import { maintainKingdomFortifications, prepareKingdomCampaigns, resolveKingdomCampaigns } from './kingdoms/campaigns.js';
 import { advanceKingdomProjects } from './kingdoms/projects.js';
-import { updateClericHealing, fightBattlefieldSkirmishes } from './kingdoms/military.js';
+import { updateClericHealing, fightBattlefieldSkirmishes, respondToLocalThreats } from './kingdoms/military.js';
 import { payMilitarySalaries } from './kingdoms/service.js';
 import { observeMilitaryFrontiers } from './kingdoms/frontier-intelligence.js';
 import { recordRoyalSitingOutcomes } from './kingdoms/royal-siting.js';
 import { recordKingdomFrontierOutcomes, updateKingdomFrontierExpansion } from './kingdoms/frontier.js';
+import { advanceSocialCommitmentDeadlines } from './society/social-evidence.js';
+import { recoverTrainingDummyHealth } from './world/training-dummies.js';
+import { advanceMagic } from './magic/system.js';
 
 const DAYS_PER_MARKET_CYCLE = 30;
 const DAYS_PER_WORLD_REPORT = 30;
@@ -122,6 +125,8 @@ function resolveEndOfDayConsequences(world, day) {
 
 export function stepDay(world, options = null) {
   const nextDay = world.day + 1;
+  if (!world.magicExternalClock || options?.advanceMagic) advanceMagic(world, 1000);
+  recoverTrainingDummyHealth(world, nextDay);
 
   // 1. Weather and ecology establish the conditions for the day.
   const weather = updateEnvironment(world, nextDay);
@@ -141,12 +146,14 @@ export function stepDay(world, options = null) {
   fightBattlefieldSkirmishes(world, nextDay);
   resolveKingdomCampaigns(world, nextDay);
   defendTowers(world, nextDay);
+  respondToLocalThreats(world, nextDay);
 
   // 5. Loose materials decay; market prices and fortification upkeep refresh monthly.
   updateResourcesAndMarkets(world, nextDay);
 
   // 6. Border incidents use the new date and territory after today's actions.
   advanceCalendar(world, nextDay);
+  advanceSocialCommitmentDeadlines(world);
   advanceKingdomProjects(world, nextDay);
   resolveEndOfDayConsequences(world, nextDay);
 

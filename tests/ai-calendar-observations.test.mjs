@@ -1,0 +1,497 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import engine from '../src/simulation/engine.js';
+import { DAILY_FOOD_NEED, FOOD_DAYS_PER_UNIT, PLANTS } from '../src/config/ecosystem.js';
+import { stripAbsoluteCalendarFields } from '../src/ai/observations.js';
+import {
+  kingdomStrategyChoices, observeKingdomStrategy, planKingdomStrategy, queueKingdomStrategicAiRequests,
+  setStrategicAiEnabled, updateKingdomStrategies
+} from '../src/simulation/kingdoms/strategy.js';
+import { queueCampaignGeneralAiRequests } from '../src/simulation/kingdoms/campaigns.js';
+import { buildKingdomStrategySystemPrompt } from '../src/ai/kingdom-strategy-prompt.js';
+import { assignCommunityTasks, assignKingdomFoodSupportTasks, completeCommunityTask } from '../src/simulation/society/governance.js';
+import { communityFoodBufferDays, communityFoodBufferTarget, foodUnitsPerDay } from '../src/simulation/economy/food-policy.js';
+
+test('absolute date keys are removed recursively while relative durations remain', () => {
+  const source = {
+    day: 91,
+    calendar: { year: 1, season: 0, dayOfSeason: 91, daysInSeason: 91 },
+    campaign: {
+      startedDay: 80,
+      lastBattleDay: 90,
+      evidence: [{ incidentDay: 88, reportDate: 'year-one-spring', location: { x: 4, y: 7 } }]
+    },
+    side: { shortageDays: 4, stalledDays: 2, ageDays: 600 }
+  };
+
+  assert.deepEqual(stripAbsoluteCalendarFields(source), {
+    campaign: { evidence: [{ location: { x: 4, y: 7 } }] },
+    side: { shortageDays: 4, stalledDays: 2, ageDays: 600 }
+  });
+});
+
+function strategicRequest(day, prepare = null) {
+  const world = engine.createWorld(42);
+  world.day = day;
+  const kingdom = world.kingdoms[0];
+  const community = world.communities.find(item => item.id === kingdom.communityId);
+  prepare?.({ world, kingdom, community });
+  setStrategicAiEnabled(world, true);
+  world.strategicAI.nextDecisionDays[String(kingdom.id)] = day;
+
+  const rawReport = observeKingdomStrategy(world, kingdom.id);
+  assert.equal(queueKingdomStrategicAiRequests(world), 1);
+  const request = world.strategicAI.requests.find(item => item.kingdomId === kingdom.id);
+  return { world, kingdom, community, rawReport, request };
+}
+
+test('kingdom strategy prompt is season-invariant but request expiry metadata stays internal', () => {
+  const spring = strategicRequest(91);
+  const summer = strategicRequest(92);
+
+  assert.notEqual(spring.rawReport.calendar.season, summer.rawReport.calendar.season);
+  assert.equal(spring.request.reportDay, 91);
+  assert.equal(summer.request.reportDay, 92);
+  assert.equal(spring.request.expiresDay, 139);
+  assert.equal(summer.request.expiresDay, 140);
+  assert.deepEqual(spring.request.context, summer.request.context);
+  assert.deepEqual(spring.request.context, spring.request.observedFacts);
+  assert.equal(Object.hasOwn(spring.request.context.report, 'day'), false);
+  assert.equal(Object.hasOwn(spring.request.context.report, 'calendar'), false);
+  assert.ok(spring.request.context.decisionGuidance.some(rule => rule.includes('Roça')));
+  assert.ok(spring.request.context.decisionGuidance.some(rule => rule.includes('uma unidade de comida representa um dia de alimento')));
+  assert.ok(spring.request.context.decisionGuidance.some(rule => rule.includes('uma porção alimenta uma ovelha por um dia')));
+  assert.equal(spring.request.context.report.community.foodInfrastructure.completedCorrals, 1);
+  assert.equal(spring.request.context.report.community.foodInfrastructure.sheepCapacity, 35);
+  assert.equal(spring.rawReport.community.foodBufferTargetDays, 180);
+  assert.equal(spring.rawReport.community.foodBufferTarget,
+    communityFoodBufferTarget(spring.rawReport.community.dailyFoodNeed));
+  assert.equal(spring.request.context.report.community.foodBufferDays, spring.rawReport.community.foodBufferDays);
+});
+
+test('food stock and personal reserves use person-days with a demand-based six-month buffer', () => {
+  const dailyPersonDays = 50 * DAILY_FOOD_NEED;
+  const dailyFoodUnits = foodUnitsPerDay(dailyPersonDays);
+  const target = communityFoodBufferTarget(dailyPersonDays);
+
+  assert.equal(dailyFoodUnits, dailyPersonDays / FOOD_DAYS_PER_UNIT);
+  assert.equal(dailyFoodUnits, 50);
+  assert.equal(target, 9_000);
+  assert.ok(target > 300, 'the target has useful slack above the observed 300-unit failure threshold');
+  assert.equal(communityFoodBufferDays(300, dailyPersonDays), 300 / dailyFoodUnits);
+  assert.ok(Math.abs(communityFoodBufferDays(target, dailyPersonDays) - 180) < .001);
+  assert.equal(communityFoodBufferDays(1_000, DAILY_FOOD_NEED), 1_000,
+    'one thousand food units provide one thousand adult-days');
+});
+
+test('kingdom forage policy stops repeating once the observed six-month buffer is reached', () => {
+  const { rawReport } = strategicRequest(91);
+  rawReport.community.marketFoodTradeable = false;
+  rawReport.community.foodBufferDays = 179.99;
+  assert.ok(kingdomStrategyChoices(rawReport).some(choice => choice.id === 'forage_for_food'));
+
+  rawReport.community.foodBufferDays = 180;
+  assert.ok(!kingdomStrategyChoices(rawReport).some(choice => choice.id === 'forage_for_food'));
+});
+
+test('kingdom AI keeps feasible food-production options available during a shortage', () => {
+  const { rawReport } = strategicRequest(91);
+  rawReport.community.foodPerResident = 1;
+  rawReport.community.sharedFood = 400;
+  rawReport.community.dailyFoodNeed = 50;
+  rawReport.community.foodBufferDays = 8;
+  rawReport.community.marketFoodTradeable = false;
+  rawReport.community.constructionReady = true;
+  rawReport.community.safeBuilderAvailable = true;
+  rawReport.community.foodInfrastructure.nextBuildType = 'roça';
+  rawReport.community.foodInfrastructure.nextBuildReady = true;
+  rawReport.community.foodInfrastructure.openPenSlots = 35;
+  rawReport.community.foodInfrastructure.visibleWildSheepCount = 2;
+
+  const ids = kingdomStrategyChoices(rawReport).map(choice => choice.id);
+  assert.ok(ids.includes('forage_for_food'), 'immediate food remains an option');
+  assert.ok(ids.includes('build_food_field'), 'the ruler can invest in a feasible food field despite the shortage');
+  assert.ok(ids.includes('capture_sheep'), 'capture is offered only with visible sheep and free pen capacity');
+
+  rawReport.community.foodInfrastructure.openPenSlots = 0;
+  assert.ok(!kingdomStrategyChoices(rawReport).some(choice => choice.id === 'capture_sheep'));
+});
+
+test('king receives aggregate crop production and active/blocked royal order status', () => {
+  const cropIndex = PLANTS.findIndex(plant => plant.id === 'cultivated-root');
+  const { rawReport, request } = strategicRequest(91, ({ world, kingdom, community }) => {
+    const fieldTile = world.tiles.find(tile => tile.terrain === 'land' && tile.cropFieldId == null);
+    const field = { id: 99001, type: 'roça', communityId: community.id, complete: true,
+      fieldTileIndices: [fieldTile.i], cropHarvested: 18 };
+    fieldTile.cropFieldId = field.id;
+    fieldTile.plants.fill(0);
+    fieldTile.plants[cropIndex] = 6;
+    world.structures.push(field);
+    const worker = world.people.find(person => person.alive && person.communityId === community.id
+      && person.role !== 'soldier' && person.id !== kingdom.rulerId && !person.assignment);
+    worker.assignment = { source: 'kingdom-strategy', communityId: community.id, action: 'forage',
+      goal: 'secure-shared-food', assignedDay: 88, expiresDay: 100,
+      supplyPhase: 'communal-delivery', pauseReason: 'rota lenta' };
+    kingdom.strategy = { lastOutcome: { status: 'blocked', day: 88, goal: 'secure-shared-food',
+      action: 'forage', reason: 'A carga ainda não chegou à reserva comum.' },
+    history: [{ status: 'blocked', day: 88, goal: 'secure-shared-food', action: 'forage', reason: 'entrega pendente' }] };
+  });
+
+  const food = rawReport.community.foodInfrastructure;
+  assert.equal(food.completedFields, 1);
+  assert.equal(food.plantedFieldCount, 1);
+  assert.equal(food.standingCropBiomass, 6);
+  assert.equal(food.harvestableCropPotential, 6);
+  assert.equal(food.harvestedCropToDate, 18);
+  assert.deepEqual(rawReport.community.activeRoyalOrders, [{
+    goal: 'secure-shared-food', action: 'forage', workers: 1, pausedWorkers: 1,
+    longestActiveDays: 3, phases: ['communal-delivery']
+  }]);
+  assert.equal(rawReport.community.lastRoyalOutcome.status, 'blocked');
+  assert.equal(rawReport.community.lastRoyalOutcome.daysAgo, 3);
+  assert.equal(request.context.report.community.foodInfrastructure.standingCropBiomass, 6);
+  assert.equal(request.context.report.community.lastRoyalOutcome.status, 'blocked');
+  assert.equal('personId' in request.context.report.community.activeRoyalOrders[0], false);
+});
+
+test('king sees the seed reserve and chooses to replant a spent field before food enters emergency', () => {
+  const cropIndex = PLANTS.findIndex(plant => plant.id === 'cultivated-root');
+  const { rawReport, request } = strategicRequest(91, ({ world, community }) => {
+    community.stores.food = 10_000;
+    community.stores.seeds = 8;
+    const tiles = world.tiles.filter(tile => tile.terrain === 'land' && tile.cropFieldId == null).slice(0, 24);
+    const field = { id: 99002, type: 'roça', communityId: community.id, complete: true,
+      fieldTileIndices: tiles.map(tile => tile.i), cropSeededBiomass: 8, cropYieldTarget: 10_000,
+      cropHarvestedThisCycle: 10_000, cropCycleState: 'spent' };
+    for (const tile of tiles) {
+      tile.cropFieldId = field.id;
+      tile.plants[cropIndex] = 0;
+    }
+    world.structures.push(field);
+  });
+
+  assert.equal(rawReport.community.foodInfrastructure.seedStock, 8);
+  assert.equal(rawReport.community.foodInfrastructure.replantReady, true);
+  assert.ok(rawReport.community.foodBufferDays > 1);
+  assert.equal(planKingdomStrategy(rawReport).goal, 'replant-cultivated-food');
+  assert.ok(kingdomStrategyChoices(rawReport).some(choice => choice.id === 'replant_cultivated_field'));
+  assert.equal(request.context.report.community.foodInfrastructure.seedStock, 8);
+
+  rawReport.community.foodInfrastructure.seedStock = 0;
+  rawReport.community.foodInfrastructure.replantReady = false;
+  assert.ok(!kingdomStrategyChoices(rawReport).some(choice => choice.id === 'replant_cultivated_field'));
+});
+
+test('king completes a ready roça before buying small food batches while the reserve covers more than two days', () => {
+  const { rawReport } = strategicRequest(91);
+  Object.assign(rawReport.community, {
+    sharedFood: 4_000,
+    dailyFoodNeed: 50,
+    foodBufferDays: 80,
+    marketFoodTradeable: true,
+    constructionReady: true,
+    safeBuilderAvailable: true,
+    activeCropProject: true,
+    buildPlan: { type: 'ongoing', woodCost: 0, stoneCost: 0, foodCost: 0 }
+  });
+  Object.assign(rawReport.community.foodInfrastructure, {
+    activeFieldProject: true,
+    nextBuildType: 'roça',
+    nextBuildReady: true,
+    replantReady: false
+  });
+
+  assert.equal(planKingdomStrategy(rawReport).goal, 'invest-in-cultivated-food');
+  const choices = kingdomStrategyChoices(rawReport);
+  assert.ok(choices.some(choice => choice.id === 'build_food_field'));
+  assert.ok(!choices.some(choice => choice.id === 'trade_for_food'), 'trade cannot displace a ready crop project');
+});
+
+test('an old market plan is refused immediately when a ready crop project can continue', () => {
+  const world = engine.createWorld(42);
+  world.day = 200;
+  const kingdom = world.kingdoms[0];
+  const community = world.communities.find(item => item.id === kingdom.communityId);
+  community.stores.food = 4_000;
+  community.stores.gold = 10;
+  kingdom.treasury.stock.food = 0;
+  kingdom.market.stock.food = 42;
+  const worker = world.people.find(person => person.alive && person.communityId === community.id
+    && person.role !== 'soldier' && person.ageDays >= 12 * 365 && person.id !== community.leaderId);
+  Object.assign(worker, { foodReserve: 50, energy: 80, hydration: 80, health: 100, assignment: null });
+  world.structures.push({ id: 99003, type: 'roça', communityId: community.id, x: worker.x + 1, y: worker.y,
+    complete: false, progress: 30, required: 34, destroyedDay: null, integrity: 1, workerIds: [] });
+  setStrategicAiEnabled(world, true);
+  kingdom.strategy = { goal: 'trade-for-shared-food', action: 'trade', evaluatedDay: world.day - 1,
+    aiPlan: { goal: 'trade-for-shared-food', action: 'trade', priority: 'normal', garrisonMode: 'standby',
+      reason: 'ordem antiga', expiresDay: world.day + 12 } };
+
+  updateKingdomStrategies(world);
+
+  assert.equal(kingdom.strategy.goal, 'invest-in-cultivated-food');
+  assert.equal(kingdom.strategy.action, 'build');
+  assert.match(kingdom.strategy.lastOutcome.reason, /replantio ou uma roça pronta/i);
+});
+
+test('king uses immediate food options at a two-day reserve even when planting is ready', () => {
+  const { rawReport } = strategicRequest(91);
+  Object.assign(rawReport.community, {
+    sharedFood: 100,
+    dailyFoodNeed: 50,
+    foodBufferDays: 2,
+    marketFoodTradeable: true,
+    constructionReady: true,
+    safeBuilderAvailable: true,
+    activeCropProject: true,
+    buildPlan: { type: 'ongoing', woodCost: 0, stoneCost: 0, foodCost: 0 }
+  });
+  Object.assign(rawReport.community.foodInfrastructure, {
+    activeFieldProject: true,
+    nextBuildType: 'roça',
+    nextBuildReady: true,
+    replantReady: true
+  });
+
+  assert.equal(planKingdomStrategy(rawReport).goal, 'trade-for-shared-food');
+  const choices = kingdomStrategyChoices(rawReport);
+  assert.ok(choices.some(choice => choice.id === 'trade_for_food'));
+  assert.ok(!choices.some(choice => choice.id === 'replant_cultivated_field'));
+  assert.ok(!choices.some(choice => choice.id === 'build_food_field'), 'new field work waits until immediate food is secured');
+});
+
+test('kingdom model prompt explains farm, corral, and blocked-order constraints', () => {
+  const prompt = buildKingdomStrategySystemPrompt(['forage_for_food', 'build_food_field', 'capture_sheep']);
+  assert.match(prompt, /biomassa em pé e colheita histórica não são estoque/i);
+  assert.match(prompt, /até 35 ovelhas/i);
+  assert.match(prompt, /tarefa bloqueada/i);
+  assert.match(prompt, /buffer de 180 dias/i);
+  assert.match(prompt, /retira o lote inteiro/i);
+  assert.match(prompt, /continuidade da roça/i);
+  assert.match(prompt, /compras pequenas não substituem a conclusão da roça/i);
+  assert.match(prompt, /replantar a área existente/i);
+  assert.match(prompt, /forage_for_food, build_food_field, capture_sheep/);
+});
+
+test('kingdom sheep choice can delegate the existing capture-and-lead pawn task', () => {
+  const world = engine.createWorld(42);
+  const kingdom = world.kingdoms[0];
+  const community = world.communities.find(item => item.id === kingdom.communityId);
+  const members = community.memberIds.map(id => world.people.find(person => person.id === id && person.alive)).filter(Boolean);
+  const leader = members.find(person => person.id === community.leaderId);
+  const worker = members.find(person => person.role !== 'soldier' && person.id !== leader.id
+    && person.ageDays >= 12 * 365 && !person.assignment);
+  const sheep = world.animals.find(animal => animal.alive && animal.speciesId === 'sheep'
+    && animal.herdCommunityId == null && !animal.beingLedBy);
+  assert.ok(worker && sheep, 'the seed supplies a resident and a wild sheep');
+  worker.perception ||= {};
+  worker.perception.animals = [{ id: sheep.id, speciesId: 'sheep', visible: true, distance: 2 }];
+
+  assignCommunityTasks(world, community, leader, members, {
+    action: 'capture_sheep', title: 'conduzir ovelha ao curral', skill: 'care',
+    goal: 'expand-managed-herd', source: 'kingdom-strategy'
+  }, false);
+
+  assert.equal(worker.assignment?.action, 'capture_sheep');
+  assert.equal(worker.assignment?.source, 'kingdom-strategy');
+});
+
+test('one royal field assignment stays active until the shared stock reaches its per-resident target', () => {
+  const leader = { id: 1, alive: true, name: 'Rei', prestige: 0 };
+  const worker = { id: 2, alive: true, name: 'Aru', communityId: 3, prestige: 0, assignment: {
+    action: 'deliver', title: 'entregar lote da roça', goal: 'secure-shared-food', foodFieldId: 7,
+    source: 'kingdom-strategy', communityId: 3, expiresDay: 9
+  } };
+  const community = { id: 3, kingdomId: 4, leaderId: 1, memberIds: Array.from({ length: 50 }, (_, index) => index + 1), stores: { food: 24 },
+    history: [], assignments: [{ personId: 2, status: 'delegada' }] };
+  const kingdom = { id: 4, name: 'Valedouro', strategy: { history: [] } };
+  const world = { day: 2, people: [leader, worker], communities: [community], kingdoms: [kingdom], events: [] };
+
+  assert.equal(completeCommunityTask(world, worker, 'deliver',
+    { food: 0, feed: 0, wood: 0, stone: 0, gold: 0 },
+    { food: 24, feed: 0, wood: 0, stone: 0, gold: 0 }), false);
+  assert.equal(worker.assignment.action, 'forage');
+  assert.equal(community.assignments[0].status, 'delegada');
+
+  community.stores.food = 400;
+  assert.equal(completeCommunityTask(world, worker, 'deliver',
+    { food: 24, feed: 0, wood: 0, stone: 0, gold: 0 },
+    { food: 100, feed: 0, wood: 0, stone: 0, gold: 0 }), true);
+  assert.equal(worker.assignment, null);
+  assert.equal(community.assignments[0].status, 'concluída');
+  assert.equal(kingdom.strategy.lastOutcome.status, 'completed');
+});
+
+test('a funded construction assignment persists across daily progress until its building is complete', () => {
+  const leader = { id: 1, alive: true, name: 'Rei', prestige: 0 };
+  const worker = { id: 2, alive: true, name: 'Aru', communityId: 3, prestige: 0, assignment: {
+    action: 'build', title: 'concluir a roça', goal: 'complete-funded-project', structureId: 7,
+    source: 'community-project', communityId: 3, expiresDay: 20
+  } };
+  const community = { id: 3, leaderId: 1, history: [], assignments: [{ personId: 2, status: 'delegada' }] };
+  const field = { id: 7, type: 'roça', communityId: 3, complete: false, progress: 10, required: 34 };
+  const world = { day: 5, people: [leader, worker], communities: [community], structures: [field], events: [] };
+
+  assert.equal(completeCommunityTask(world, worker, 'build', { buildProgress: 10 }, { buildProgress: 11 }), false,
+    'one day of construction is progress, not completion of the multi-day task');
+  assert.equal(worker.assignment?.goal, 'complete-funded-project');
+  assert.equal(community.assignments[0].status, 'delegada');
+  assert.equal(worker.prestige, 0);
+
+  field.complete = true;
+  field.progress = 34;
+  assert.equal(completeCommunityTask(world, worker, 'build', { buildProgress: 33 }, { buildProgress: 34 }), true,
+    'the assignment completes when the structure itself is complete');
+  assert.equal(worker.assignment, null);
+  assert.equal(community.assignments[0].status, 'concluída');
+  assert.equal(worker.prestige, 1);
+});
+
+test('a standard field batch sizes harvest assignments for 49, 50, and 51 residents', () => {
+  for (const population of [49, 50, 51]) {
+    const leader = { id: 1, alive: true, name: 'Rei', communityId: 3, ageDays: 40 * 365 };
+    const members = [leader, ...Array.from({ length: population - 1 }, (_, index) => ({
+      id: index + 2, alive: true, name: 'Morador ' + (index + 2), communityId: 3,
+      ageDays: 30 * 365, hydration: 100, energy: 100, health: 100, foodReserve: 100,
+      skills: { forage: .5 }
+    }))];
+    const community = { id: 3, kingdomId: 4, isKingdomGroup: true, leaderId: leader.id,
+      memberIds: members.map(person => person.id), assignments: [], history: [], stores: { food: 0 } };
+    const field = { id: 7, type: 'roça', complete: true, communityId: 3, cropCycleState: 'ready', cropYieldTarget: 10_000 };
+    members[1].assignment = { action: 'forage', title: 'colher a roça', goal: 'secure-shared-food',
+      source: 'kingdom-strategy', priority: 'urgent', communityId: 3, assignedDay: -2, expiresDay: 9, foodFieldId: 7 };
+    const world = { day: 1, people: members, structures: [field], communities: [community], kingdoms: [] };
+
+    assignCommunityTasks(world, community, leader, members, {
+      action: 'forage', title: 'colher a roça', skill: 'forage', goal: 'secure-shared-food',
+      priority: 'urgent', source: 'kingdom-strategy'
+    }, false);
+
+    const assigned = members.filter(person => person.assignment?.goal === 'secure-shared-food');
+    assert.equal(assigned.length, 4, population + ' moradores should assign a four-worker team to harvest the standard field batch');
+    assert.equal(members[1].assignment.assignedDay, -2, 'an active pawn order is retained instead of duplicated');
+    assert.equal(community.assignments.some(record => record.personId === members[1].id), false);
+    assert.ok(assigned.length * 2_500 >= 10_000, 'the assigned harvest team can clear one standard field batch');
+  }
+});
+
+test('food support assigns harvesters alongside a separate active field builder', () => {
+  const members = Array.from({ length: 50 }, (_, index) => ({
+    id: index + 1, alive: true, communityId: 3, ageDays: 30 * 365, role: 'resident',
+    hydration: 100, energy: 100, health: 100, foodReserve: 80, skills: { forage: .5 }
+  }));
+  const leader = members[0];
+  const builder = members[1];
+  builder.assignment = { source: 'kingdom-strategy', goal: 'invest-in-cultivated-food', action: 'build',
+    communityId: 3, expiresDay: 8 };
+  const community = { id: 3, kingdomId: 4, isKingdomGroup: true, leaderId: leader.id,
+    memberIds: members.map(person => person.id), assignments: [], history: [], stores: { food: 0 } };
+  const field = { id: 7, type: 'roça', complete: true, communityId: 3, cropCycleState: 'ready', cropYieldTarget: 10_000 };
+  const world = { day: 1, people: members, structures: [field], communities: [community], kingdoms: [] };
+
+  const addedFoodWorkers = assignKingdomFoodSupportTasks(world, community, leader, members);
+  const foodWorkers = members.filter(person => person.assignment?.goal === 'secure-shared-food');
+
+  assert.equal(addedFoodWorkers, 3, 'the four-worker harvest team reserves one slot for the active builder');
+  assert.equal(foodWorkers.length, 3);
+  assert.equal(builder.assignment.goal, 'invest-in-cultivated-food');
+  assert.ok(foodWorkers.every(person => person.assignment.foodFieldId === field.id));
+  assert.equal(assignKingdomFoodSupportTasks(world, community, leader, members), 0,
+    'a second support pass does not duplicate active food assignments');
+});
+
+test('urgent food support can assign ready-field harvesters after personal reserves are empty', () => {
+  const members = Array.from({ length: 50 }, (_, index) => ({
+    id: index + 1, alive: true, communityId: 3, ageDays: 30 * 365, role: 'resident',
+    hydration: 100, energy: 50, health: 80, foodReserve: 0, skills: { forage: .5 }
+  }));
+  const leader = members[0];
+  const community = { id: 3, kingdomId: 4, isKingdomGroup: true, leaderId: leader.id,
+    memberIds: members.map(person => person.id), assignments: [], history: [], stores: { food: 0 } };
+  const field = { id: 7, type: 'roça', complete: true, communityId: 3, cropCycleState: 'ready', cropYieldTarget: 10_000 };
+  const world = { day: 1, people: members, structures: [field], communities: [community], kingdoms: [] };
+
+  const addedFoodWorkers = assignKingdomFoodSupportTasks(world, community, leader, members);
+  const assigned = members.filter(person => person.assignment?.goal === 'secure-shared-food');
+
+  assert.equal(addedFoodWorkers, 4);
+  assert.ok(assigned.every(person => person.foodReserve === 0 && person.assignment.foodFieldId === field.id),
+    'low reserves do not block urgent harvesting of food that is already ripe and reachable');
+});
+
+test('food support redirects an existing forager to a newly ready field after their current load is delivered', () => {
+  for (const carried of [false, true]) {
+    const leader = { id: 1, alive: true, communityId: 3, ageDays: 40 * 365, foodReserve: 80, skills: { forage: .5 } };
+    const worker = { id: 2, alive: true, communityId: 3, ageDays: 30 * 365, role: 'resident',
+      hydration: 100, energy: 100, health: 100, foodReserve: 80, skills: { forage: .5 },
+      carriedFood: carried ? 3 : 0, carriedFruit: 0, carriedMeat: 0,
+      assignment: { source: 'kingdom-strategy', action: 'forage', goal: 'secure-shared-food',
+        communityId: 3, assignedDay: -2, expiresDay: 9 } };
+    const members = [leader, worker];
+    const community = { id: 3, kingdomId: 4, isKingdomGroup: true, leaderId: leader.id,
+      memberIds: members.map(person => person.id), assignments: [], history: [], stores: { food: 0 } };
+    const field = { id: 7, type: 'roça', complete: true, communityId: 3, cropCycleState: 'ready', cropYieldTarget: 10_000 };
+    const world = { day: 1, people: members, structures: [field], communities: [community], kingdoms: [] };
+
+    assignKingdomFoodSupportTasks(world, community, leader, members);
+
+    assert.equal(worker.assignment.foodFieldId, carried ? undefined : field.id,
+      carried ? 'a worker finishes delivering existing food before changing harvest target'
+        : 'a forager waiting on wild food is redirected to the mature crop');
+  }
+});
+
+function generalRequest(day) {
+  const world = engine.createWorld(42);
+  world.day = day;
+  const [attacker, defender] = world.kingdoms;
+  const campaignId = 99001;
+  const target = { x: defender.x, y: defender.y, ownerId: defender.id };
+  const makeSide = (kingdom, role) => {
+    const soldier = world.people.find(person => person.alive && person.role === 'soldier'
+      && person.kingdomId === kingdom.id);
+    assert.ok(soldier, 'seed 42 supplies a soldier for each kingdom');
+    soldier.campaignId = campaignId;
+    return {
+      campaignId, kingdomId: kingdom.id, role, troopIds: [soldier.id],
+      supply: { stock: { food: 35, wood: 8, gold: 4 } },
+      supplyShortageDays: 4, stallDays: 2, morale: 72,
+      aiOrder: { action: 'advance' }, orderVersion: 3, nextGeneralReviewDay: null,
+      formation: { type: 'line', state: 'moving', metrics: { cohesion: .8, outsideSlots: 0 } }
+    };
+  };
+  const campaign = {
+    id: campaignId, attackerId: attacker.id, defenderId: defender.id, target,
+    status: 'marching', startedDay: day - 8, lastBattleDay: day - 1, battleCount: 1,
+    attacker: makeSide(attacker, 'attacker'), defender: makeSide(defender, 'defender'),
+    evidence: {
+      attacker: { incidentDay: day - 10, reportDay: day - 9, source: 'patrulha', location: target },
+      defender: { incidentDay: day - 10, reportDay: day - 8, source: 'guarnição', location: target }
+    }
+  };
+  world.campaigns = [campaign];
+  world.strategicAI = { enabled: true };
+
+  assert.equal(queueCampaignGeneralAiRequests(world, day), 2);
+  return world.campaignGeneralAi.requests;
+}
+
+test('campaign general prompts omit absolute dates and retain relative supply/stall durations', () => {
+  const springRequests = generalRequest(91);
+  const summerRequests = generalRequest(92);
+  assert.equal(springRequests.length, 2);
+  assert.equal(summerRequests.length, 2);
+  for (let index = 0; index < 2; index++) {
+    const spring = springRequests[index];
+    const summer = summerRequests[index];
+    assert.equal(spring.reportDay, 91);
+    assert.equal(summer.reportDay, 92);
+    assert.deepEqual(spring.context, summer.context);
+    assert.deepEqual(spring.context, spring.observedFacts);
+    assert.equal(Object.hasOwn(spring.observedFacts, 'day'), false);
+    assert.equal(Object.hasOwn(spring.observedFacts.campaign, 'startedDay'), false);
+    assert.equal(Object.hasOwn(spring.observedFacts.campaign, 'lastBattleDay'), false);
+    assert.equal(Object.hasOwn(spring.observedFacts.evidence, 'incidentDay'), false);
+    assert.equal(spring.observedFacts.side.shortageDays, 4);
+    assert.equal(spring.observedFacts.side.stalledDays, 2);
+  }
+});

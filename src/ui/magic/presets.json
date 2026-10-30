@@ -1,0 +1,147 @@
+{
+  "curse_runtime": {
+    "schema": "KingdomDebuffVFX/1",
+    "config": {
+      "kind": "curse",
+      "duration": 5.0,
+      "ringRadius": 50,
+      "flatten": 0.53,
+      "ringCount": 2,
+      "ringThickness": 2,
+      "ringSegments": 10,
+      "rotateSelection": true,
+      "rotationSpeed": 0.35,
+      "groundParticles": true,
+      "auraParticles": true,
+      "groundCount": 22,
+      "auraCount": 15,
+      "particleSpeed": 1.2,
+      "auraHeight": 52,
+      "particleOpacity": 0.78,
+      "particleMotion": "rise",
+      "unifyParticles": true,
+      "particleShape": "dot",
+      "colors": {
+        "main": "#9679ad",
+        "highlight": "#ceb2d5",
+        "shadow": "#5a496c"
+      }
+    }
+  },
+  "poison_runtime": {
+    "schema": "KingdomDebuffVFX/1",
+    "config": {
+      "kind": "poison",
+      "duration": 5.0,
+      "ringRadius": 50,
+      "flatten": 0.53,
+      "ringCount": 2,
+      "ringThickness": 2,
+      "ringSegments": 10,
+      "rotateSelection": true,
+      "rotationSpeed": 0.35,
+      "groundParticles": true,
+      "auraParticles": true,
+      "groundCount": 22,
+      "auraCount": 15,
+      "particleSpeed": 1.2,
+      "auraHeight": 52,
+      "particleOpacity": 0.78,
+      "particleMotion": "rise",
+      "unifyParticles": true,
+      "particleShape": "dot",
+      "colors": {
+        "main": "#6c9e79",
+        "highlight": "#c5d5a1",
+        "shadow": "#3e5f51"
+      }
+    }
+  },
+  "slow_runtime": {
+    "schema": "KingdomDebuffVFX/1",
+    "config": {
+      "kind": "slow",
+      "duration": 5.0,
+      "ringRadius": 50,
+      "flatten": 0.53,
+      "ringCount": 2,
+      "ringThickness": 2,
+      "ringSegments": 10,
+      "rotateSelection": true,
+      "rotationSpeed": 0.35,
+      "groundParticles": true,
+      "auraParticles": true,
+      "groundCount": 22,
+      "auraCount": 15,
+      "particleSpeed": 1.2,
+      "auraHeight": 52,
+      "particleOpacity": 0.78,
+      "particleMotion": "rise",
+      "unifyParticles": true,
+      "particleShape": "dot",
+      "colors": {
+        "main": "#83a7bc",
+        "highlight": "#c0d3e0",
+        "shadow": "#4c7185"
+      }
+    }
+  },
+  "stun_runtime": {
+    "schema": "KingdomDebuffVFX/1",
+    "config": {
+      "kind": "stun",
+      "duration": 5.0,
+      "ringRadius": 50,
+      "flatten": 0.53,
+      "ringCount": 2,
+      "ringThickness": 2,
+      "ringSegments": 10,
+      "rotateSelection": true,
+      "rotationSpeed": 0.35,
+      "groundParticles": true,
+      "auraParticles": true,
+      "groundCount": 22,
+      "auraCount": 15,
+      "particleSpeed": 1.2,
+      "auraHeight": 52,
+      "particleOpacity": 0.78,
+      "particleMotion": "rise",
+      "unifyParticles": true,
+      "particleShape": "dot",
+      "colors": {
+        "main": "#cfac5a",
+        "highlight": "#efe0b0",
+        "shadow": "#80734d"
+      }
+    }
+  },
+  "weaken_runtime": {
+    "schema": "KingdomDebuffVFX/1",
+    "config": {
+      "kind": "weaken",
+      "duration": 5.0,
+      "ringRadius": 50,
+      "flatten": 0.53,
+      "ringCount": 2,
+      "ringThickness": 2,
+      "ringSegments": 10,
+      "rotateSelection": true,
+      "rotationSpeed": 0.35,
+      "groundParticles": true,
+      "auraParticles": true,
+      "groundCount": 22,
+      "auraCount": 15,
+      "particleSpeed": 1.2,
+      "auraHeight": 52,
+      "particleOpacity": 0.78,
+      "particleMotion": "rise",
+      "unifyParticles": true,
+      "particleShape": "dot",
+      "colors": {
+        "main": "#b79a78",
+        "highlight": "#d8c4a0",
+        "shadow": "#705c67"
+      }
+    }
+  }
+}

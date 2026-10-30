@@ -72,7 +72,6 @@ export function snapshot(w) {
     const people = w.people.filter(p => p.alive);
     const soldiers = people.filter(person => person.role === 'soldier');
     const meanFoodReserve = people.length ? people.reduce((sum, p) => sum + p.foodReserve, 0) / people.length : 0;
-    const foodRiskPeople = people.filter(p => p.foodReserve < 30).length;
     const criticalFoodPeople = people.filter(p => p.foodReserve < 12).length;
     const propertyCount = groups.reduce((sum, community) => sum + (community.properties || []).length, 0);
     const activeCampaigns = (w.campaigns || []).filter(campaign => ['mobilizing', 'marching', 'engaged', 'withdrawing'].includes(campaign.status));
@@ -125,9 +124,8 @@ export function snapshot(w) {
       harvests: Object.assign({}, w.harvests), goodHuntingCells, goodFishingCells,
       ecologyFlows: Object.assign({}, w.ecologyFlows),
       plantBiomass, edibleBiomass, humanFoodBiomass, plantCover: plantCover / w.tiles.length, plantCounts,
-      meanFoodReserve, foodRiskPeople, criticalFoodPeople,
+      meanFoodReserve, criticalFoodPeople,
       soilMoisture: cells ? soilWater / cells : 0,
-      rainfallMm: w.regions.reduce((s, r) => s + r.rainfallMm, 0) / w.regions.length,
       dryRegions: w.regions.filter(r => r.dryDays > 16).length,
       speciesPlants: Object.values(plantCounts).filter(n => n > 0).length,
       speciesAnimals: Object.values(animalCounts).filter(n => n > 0).length
@@ -143,6 +141,9 @@ export function inspectTile(w, x, y) {
       roadWear: Math.round((t.roadWear || 0) * 10) / 10,
       soilCapacityMm: t.soilCapacityMm, mineralNitrogenGPerM2: Math.round(t.mineralNitrogenGPerM2 * 100) / 100,
       stoneDeposit: Math.round((t.stoneDeposit || 0) * 10) / 10, goldOre: Math.round((t.goldOre || 0) * 10) / 10,
+      copperOre: Math.round((t.copperOre || 0) * 10) / 10,
+      silverOre: Math.round((t.silverOre || 0) * 10) / 10,
+      ironOre: Math.round((t.ironOre || 0) * 10) / 10,
       stump: !!(t.stump && t.stump.untilDay >= w.day),
       looseTreeResource: Math.round((w.logs || []).filter(item => item.available && Math.round(item.x) === x && Math.round(item.y) === y).reduce((sum, item) => sum + item.amount, 0) * 10) / 10,
       huntingSuitability: Math.round((t.huntingSuitability || 0) * 100) / 100,

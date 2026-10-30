@@ -1,35 +1,55 @@
 export const AI_MODEL_MANIFEST_VERSION = 1;
 
 /**
- * Model choices are project decisions. Runtime installation details remain
- * unknown until Ollama reports the locally installed model digest and format.
+ * The browser loads this pinned ONNX model on demand and caches it in the
+ * browser. Ollama is not required for strategic decisions.
  */
 export const AI_MODEL_MANIFEST = Object.freeze({
   version: AI_MODEL_MANIFEST_VERSION,
   decisionContractVersion: 1,
-  provider: 'ollama',
+  provider: 'transformers-js-browser',
+  browser: Object.freeze({
+    modelId: 'onnx-community/Qwen3.5-0.8B-ONNX-OPT',
+    revision: '9a4c21d8f724176b0a7edaaed36303044451886e',
+    generationApi: 'qwen3_5',
+    contextTokens: 4096,
+    dtype: Object.freeze({
+      embed_tokens: 'fp16',
+      decoder_model_merged: 'q4f16',
+      vision_encoder: 'fp16'
+    }),
+    // The pinned repository also ships q4 graphs with float32 activations for WASM.
+    fallbackDtype: Object.freeze({ embed_tokens: 'q4', decoder_model_merged: 'q4', vision_encoder: 'q4' }),
+    approximateDownloadBytes: 1170000000,
+    devicePreference: 'webgpu',
+    inferenceTimeoutMs: 90000,
+    cpuInferenceTimeoutMs: 90000,
+    recoveryTimeoutMs: 120000
+  }),
   models: Object.freeze({
     king: Object.freeze({
       role: 'king',
-      model: 'qwen2.5:0.5b',
+      model: 'qwen3.5:0.8b',
+      think: false,
       contextTokens: 2048,
       outputTokenCandidates: Object.freeze([96, 192, 256]),
       selectedOutputTokens: 192,
       initialOutputTokens: 192,
       outputBudgetStatus: 'provisional',
-      quantization: null,
+      quantization: 'ONNX fp16 embeddings / q4f16 decoder / fp16 vision',
       installedDigest: null,
       status: 'experimental'
     }),
     general: Object.freeze({
       role: 'general',
-      model: 'smollm2:135m',
+      model: 'qwen3.5:0.8b',
+      think: false,
       contextTokens: 2048,
       outputTokenCandidates: Object.freeze([96, 192, 256]),
       selectedOutputTokens: 192,
       initialOutputTokens: 192,
       outputBudgetStatus: 'provisional',
-      quantization: null,
+      quantization: 'ONNX fp16 embeddings / q4f16 decoder / fp16 vision',
       installedDigest: null,
       status: 'experimental'
     })

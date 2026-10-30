@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "issue": "JUL-182",
+  "baselineCommit": "1a7cd6ee4f36688e18c4c0362a72c34e07a69500",
+  "status": "preregistered-no-weights-tuned",
+  "preregisteredAt": "2026-10-26",
+  "world": {
+    "tileTypes": ["land", "rock", "water"],
+    "seasonsAffectGameplay": false,
+    "biomesAdded": false,
+    "daysPerScenario": 30,
+    "identicalSetupPerAction": true,
+    "replayDeterminismRequired": true
+  },
+  "seedPlan": {
+    "calibration": [182001, 182002, 182003, 182004, 182005, 182006, 182007, 182008, 182009, 182010, 182011, 182012],
+    "holdout": [182101, 182102, 182103, 182104, 182105, 182106, 182107, 182108, 182109, 182110, 182111, 182112],
+    "holdoutMayNotTuneWeights": true
+  },
+  "actions": [
+    { "id": "line", "status": "existing" },
+    { "id": "column", "status": "existing" },
+    { "id": "shield_wall", "status": "candidate" },
+    { "id": "spear_line", "status": "candidate" },
+    { "id": "wedge", "status": "candidate" },
+    { "id": "protect_ranged", "status": "candidate" },
+    { "id": "skirmish", "status": "candidate" },
+    { "id": "circle", "status": "candidate" },
+    { "id": "reserve", "status": "candidate_order" },
+    { "id": "flank", "status": "campaign_order_dependency_JUL_183" },
+    { "id": "dispersed_march", "status": "disabled_without_observed_area_or_congestion_benefit" }
+  ],
+  "metrics": [
+    { "id": "objective_success", "unit": "boolean", "direction": "maximize", "definition": "Hold, reach, defend, or withdraw according to the scenario objective before day limit." },
+    { "id": "survival_fraction", "unit": "fraction", "direction": "maximize", "definition": "Alive deployed allies divided by initially deployed allies at scenario end." },
+    { "id": "casualty_fraction", "unit": "fraction", "direction": "minimize", "definition": "Allied deaths divided by initially deployed allies." },
+    { "id": "enemy_damage_per_supply", "unit": "damage_per_food_unit", "direction": "maximize", "definition": "Enemy health lost divided by food debited from field stores; report zero-spend separately." },
+    { "id": "allied_damage_per_supply", "unit": "damage_per_food_unit", "direction": "minimize", "definition": "Allied health lost divided by food debited from field stores; report zero-spend separately." },
+    { "id": "days_to_objective", "unit": "days", "direction": "minimize", "definition": "Elapsed days until scenario objective first becomes true; censored at the limit." },
+    { "id": "route_distance", "unit": "world_cells", "direction": "minimize", "definition": "Total traveled distance for deployed group members before objective or time limit." },
+    { "id": "cohesion_auc", "unit": "normalized_cohesion_days", "direction": "maximize", "definition": "Area under daily formation cohesion from 0 to 1 through the scenario." },
+    { "id": "blocked_slot_days", "unit": "member_days", "direction": "minimize", "definition": "Sum of days a required formation slot cannot be reached." },
+    { "id": "withdrawal_success", "unit": "boolean", "direction": "maximize", "definition": "All living members with food reserve reach the documented home/retreat point by limit." },
+    { "id": "illegal_action_count", "unit": "count", "direction": "minimize", "definition": "Action chosen without passing the observation-only validity mask; must remain zero." },
+    { "id": "friendly_damage", "unit": "health_points", "direction": "minimize", "definition": "Health lost to allied attacks; expected zero." }
+  ],
+  "reporting": {
+    "perScenarioAndAction": ["median", "iqr", "bootstrap95PercentInterval", "seedValues"],
+    "preserveVectorMetrics": true,
+    "singleWeightedScore": false,
+    "selectionsMustBeFrozenBeforeHoldout": true
+  },
+  "scenarios": [
+    {
+      "id": "open-approach-under-arrows",
+      "terrain": "open-land-with-existing-rock-cover",
+      "routeWidthCells": 12,
+      "attacker": { "guerreiro": 4, "lanceiro": 2, "arqueiro": 2, "monge": 1 },
+      "defender": { "guerreiro": 2, "lanceiro": 2, "arqueiro": 4 },
+      "visibleObservations": ["enemy_archers", "rock_cover", "objective_distance", "ally_health", "route_width"],
+      "objective": "reach-and-hold-marker-for-3-days",
+      "candidateActions": ["line", "column", "shield_wall", "protect_ranged", "wedge", "skirmish"]
+    },
+    {
+      "id": "rock-choke-and-lancer-front",
+      "terrain": "land-corridor-between-existing-rock",
+      "routeWidthCells": 2,
+      "attacker": { "guerreiro": 4, "lanceiro": 4, "arqueiro": 2 },
+      "defender": { "guerreiro": 2, "lanceiro": 4, "arqueiro": 2 },
+      "visibleObservations": ["corridor_width", "blocked_slots", "enemy_lancers", "enemy_archers", "exit_distance"],
+      "objective": "pass-through-and-regroup-outside-corridor",
+      "candidateActions": ["line", "column", "spear_line", "shield_wall", "reserve"]
+    },
+    {
+      "id": "protect-ranged-support-from-infantry",
+      "terrain": "open-land-with-existing-tree-obstacles",
+      "routeWidthCells": 9,
+      "attacker": { "guerreiro": 3, "lanceiro": 2, "arqueiro": 3, "monge": 2 },
+      "defender": { "guerreiro": 5, "lanceiro": 2 },
+      "visibleObservations": ["enemy_melee_distance", "support_health", "ally_counts_by_class", "tree_obstacles", "line_of_sight"],
+      "objective": "keep-at-least-one-archer-and-monk-alive-for-10-days",
+      "candidateActions": ["line", "column", "shield_wall", "protect_ranged", "wedge"]
+    },
+    {
+      "id": "multi-bearing-threat-and-flank-route",
+      "terrain": "open-land-with-two-observed-rock-approaches",
+      "routeWidthCells": 8,
+      "attacker": { "guerreiro": 4, "lanceiro": 2, "arqueiro": 2 },
+      "defender": { "guerreiro": 3, "lanceiro": 2, "arqueiro": 3 },
+      "visibleObservations": ["visible_enemy_sectors", "scout_report_age", "report_confidence", "known_flank_route", "cohesion"],
+      "objective": "defend-marker-without-global-enemy-lookup",
+      "candidateActions": ["line", "column", "circle", "wedge", "flank", "reserve"]
+    },
+    {
+      "id": "reform-after-casualty-and-blocked-slot",
+      "terrain": "open-land-adjacent-to-rock-gate",
+      "routeWidthCells": 5,
+      "attacker": { "guerreiro": 3, "lanceiro": 3, "arqueiro": 2 },
+      "defender": { "guerreiro": 3, "lanceiro": 2, "arqueiro": 2 },
+      "visibleObservations": ["living_member_counts", "cohesion", "blocked_slots", "obstacle_route", "visible_enemy_front"],
+      "objective": "reform-after-one-scripted-casualty-and-reach-marker",
+      "candidateActions": ["line", "column", "shield_wall", "spear_line", "protect_ranged"]
+    },
+    {
+      "id": "covered-retreat-with-low-supply",
+      "terrain": "land-route-with-existing-rock-cover-and-one-choke",
+      "routeWidthCells": 3,
+      "attacker": { "guerreiro": 4, "lanceiro": 2, "arqueiro": 2, "monge": 1 },
+      "defender": { "guerreiro": 3, "lanceiro": 2, "arqueiro": 3 },
+      "visibleObservations": ["own_food_stock", "living_member_counts", "visible_enemy_distance", "known_home_route", "cohesion", "blocked_slots"],
+      "objective": "withdraw-living-members-to-known-home-without-supply-overdraft",
+      "candidateActions": ["column", "line", "reserve", "protect_ranged", "dispersed_march"]
+    }
+  ]
+}

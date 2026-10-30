@@ -1,5 +1,6 @@
 import { distance } from '../core/math.js';
 import { cellAt } from '../world/spatial.js';
+import { hasBuildingResourceClearance } from '../world/building-clearance.js';
 
 export function rearProjection(world, kingdom, point) {
   const enemy = world.kingdoms.find(k => k.id !== kingdom.id);
@@ -10,6 +11,7 @@ export function rearProjection(world, kingdom, point) {
 }
 
 export function safeCorralFootprint(world, tile) {
+  if (!hasBuildingResourceClearance(world, tile, 3.5, false)) return false;
   for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
     const cell = cellAt(world, tile.x + dx, tile.y + dy);
     if (!cell || cell.terrain !== 'land' || cell.elevationLevel !== tile.elevationLevel) return false;

@@ -6,7 +6,7 @@ import { invalidateNavigation } from '../individuals/navigation-cache.js';
 
 const CASTLE_RADIUS = 18;
 const TOWER_RADIUS = 13;
-const TERRITORY_AVOIDANCE_DAYS = 180;
+export const TERRITORY_AVOIDANCE_DAYS = 180;
 
 function structureRadius(structure) {
   if (structure.type === 'torre' && (structure.destroyedDay != null || structure.health === 0)) return 0;
@@ -126,9 +126,20 @@ export function markTerritoryStep(world, person, tile) {
     person.lastSafeX = tile.x;
     person.lastSafeY = tile.y;
     person.territoryExposure = null;
+    const activeWarning = Object.entries(person.territoryWarnings || {})
+      .filter(([, until]) => Number.isFinite(until) && until >= world.day)
+      .sort(([, a], [, b]) => b - a)[0] || null;
+    const warnedOwnerId = activeWarning ? Number(activeWarning[0]) : null;
+    const warnedOwner = warnedOwnerId == null ? null
+      : world.kingdoms.find(kingdom => kingdom.id === warnedOwnerId) || null;
     person.territoryAwareness = ownerId == null
-      ? { ownerId: null, name: 'terra comum', warning: false, day: world.day }
-      : { ownerId, name: world.kingdoms.find(kingdom => kingdom.id === ownerId)?.name || 'seu reino', warning: false, day: world.day };
+      ? { ownerId: null, name: 'terra comum', warning: !!activeWarning, caught: !!activeWarning, day: world.day,
+        ...(warnedOwner ? { threatOwnerId: warnedOwner.id, threatName: warnedOwner.name,
+          warningUntilDay: activeWarning[1] } : {}) }
+      : { ownerId, name: world.kingdoms.find(kingdom => kingdom.id === ownerId)?.name || 'seu reino',
+        warning: !!activeWarning, caught: !!activeWarning, day: world.day,
+        ...(warnedOwner ? { threatOwnerId: warnedOwner.id, threatName: warnedOwner.name,
+          warningUntilDay: activeWarning[1] } : {}) };
     return;
   }
 
@@ -136,8 +147,12 @@ export function markTerritoryStep(world, person, tile) {
   if (!person.territoryExposure || person.territoryExposure.ownerId !== ownerId) {
     person.territoryExposure = { ownerId, enteredDay: world.day, lastCheckDay: -1 };
   }
-  person.territoryAwareness = { ownerId, name: owner?.name || 'reino estrangeiro', warning: true, day: world.day };
-  person.lastLesson = 'Você entrou no território de ' + (owner?.name || 'outro reino') + '. A guarda pode abordar você; uma morte pode iniciar uma guerra.';
+  const previouslyCaught = Number(person.territoryWarnings?.[ownerId]) >= world.day;
+  person.territoryAwareness = { ownerId, name: owner?.name || 'reino estrangeiro', warning: true,
+    caught: previouslyCaught, day: world.day };
+  person.lastLesson = previouslyCaught
+    ? 'Você voltou ao território de ' + (owner?.name || 'outro reino') + ' após ser expulso; vigias podem detectar e atacar você novamente.'
+    : 'Você atravessou a fronteira e entrou no território de ' + (owner?.name || 'outro reino') + '. Pode coletar recursos, mas patrulhas e arqueiros de vigia poderão atacar você; há risco de morte ou guerra.';
 }
 
 export function canEnterForeignTerritory(world, person, tile) {
@@ -222,6 +237,7 @@ export function resolveBorderIncursions(world, killPerson) {
     person.territoryExposure = null;
     person.territoryAwareness = { ownerId: host.id, name: host.name, warning: true, caught: true, day: world.day };
     person.state = 'expulso do território de ' + host.name;
+    person.lastLesson = 'A guarda de ' + host.name + ' descobriu a incursão e causou ferimentos. Evite esse território e procure uma rota segura.';
     const warChance = Math.min(.45, relation.tension * .22);
     const warStarted = relation.status !== 'at-war' && world.day > (relation.ceasefireUntilDay ?? -1) && rand(world) < warChance;
     if (warStarted) {

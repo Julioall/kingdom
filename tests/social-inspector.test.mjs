@@ -1,0 +1,158 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { renderSocialInspectorSections } from '../src/ui/social-inspector.js';
+
+test('social inspector distinguishes observed facts, reported facts and personal interpretations', () => {
+  const person = {
+    id: 2,
+    socialMemories: [
+      { rootEventId: 'direct-aid', eventType: 'food_aid_transferred', eventDay: 20, acquiredDay: 20, source: 'direct' },
+      { rootEventId: 'reported-aid', eventType: 'food_aid_transferred', eventDay: 21, acquiredDay: 22,
+        source: 'reported', sourcePersonId: '10' }
+    ],
+    socialBeliefs: [{ topic: 'food_aid_reliability', aboutId: '10', evaluation: 1, certainty: .28,
+      supportingEventIds: ['direct-aid'], opposingEventIds: [] }]
+  };
+  const world = {
+    people: [person, { id: 10, name: 'Mira <A>' }],
+    kingdoms: [],
+    socialEvidence: { facts: [
+      { eventId: 'direct-aid', day: 20, outcome: { resource: 'food', amount: 3 } },
+      { eventId: 'reported-aid', day: 21, outcome: { resource: 'food', amount: 2 } }
+    ] }
+  };
+
+  const sections = renderSocialInspectorSections(person, world);
+
+  assert.match(sections.memorySection, /<h3>Fatos e relatos conhecidos<\/h3>/);
+  assert.match(sections.memorySection, /Observado diretamente/);
+  assert.match(sections.memorySection, /Relato recebido de Mira &lt;A&gt;/);
+  assert.match(sections.memorySection, /recebido no dia 22/);
+  assert.match(sections.beliefSection, /<h3>Interpretações pessoais<\/h3>/);
+  assert.match(sections.beliefSection, /Confiabilidade na ajuda alimentar sobre Mira &lt;A&gt;/);
+  assert.match(sections.beliefSection, /Avaliação 100% · certeza 28%/);
+});
+
+test('social inspector exposes plan progress, deadline, destination and route blocker', () => {
+  const person = {
+    id: 4, socialMemories: [], socialBeliefs: [],
+    socialIntentions: [{ type: 'prepare_migration', status: 'suspended', progress: 1, dueDay: 42,
+      destination: { x: 8, y: 11 }, steps: [{ action: 'select_viable_destination' }, { action: 'reach_destination' }],
+      blockers: ['route_infeasible'] }]
+  };
+  const sections = renderSocialInspectorSections(person, { people: [person], kingdoms: [], socialEvidence: { facts: [], commitments: [] } });
+
+  assert.match(sections.planSection, /Planos individuais/);
+  assert.match(sections.planSection, /preparar migração · suspenso/);
+  assert.match(sections.planSection, /1\/2 · prazo dia 42 · destino \(8, 11\)/);
+  assert.match(sections.planSection, /impedimento: rota inviável/);
+});
+
+test('social inspector keeps old open plans and all open commitments ahead of closed history', () => {
+  const person = { id: 4, socialIntentions: [
+    { type: 'seek_food_aid', status: 'active', progress: 1, steps: [{ action: 'approach_helper' }, { action: 'request_food' }] },
+    ...Array.from({ length: 5 }, () => ({ type: 'prepare_migration', status: 'abandoned',
+      terminationReason: 'deadline_expired', progress: 1, steps: [{ action: 'reach_destination' }] }))
+  ] };
+  const open = Array.from({ length: 5 }, () => ({ record: { parties: ['4', '2'],
+    object: 'food', status: 'accepted', quantity: 3, deliveredQuantity: 1 } }));
+  const closed = Array.from({ length: 5 }, () => ({ record: { parties: ['4', '2'],
+    object: 'gold', status: 'fulfilled', quantity: 2, deliveredQuantity: 2 } }));
+  const sections = renderSocialInspectorSections(person, {
+    socialEvidence: { facts: [], commitments: [...open, ...closed] }
+  });
+  assert.match(sections.planSection, /buscar ajuda alimentar · em andamento/);
+  assert.match(sections.planSection, /próximo passo: pedir alimento/);
+  assert.match(sections.planSection, /motivo: prazo vencido/);
+  assert.ok(sections.planSection.indexOf('buscar ajuda alimentar') < sections.planSection.indexOf('preparar migração'));
+  assert.equal((sections.intentionRows.match(/class="data-row"/g) || []).length, 4);
+  assert.equal((sections.commitmentRows.match(/alimento · aceito/g) || []).length, 5);
+  assert.doesNotMatch(sections.commitmentRows, /ouro/);
+  assert.equal(person.socialIntentions[0].status, 'active');
+});
+
+test('social inspector escapes a custom plan termination reason in known facts', () => {
+  const sections = renderSocialInspectorSections({ id: 1, socialMemories: [
+    { rootEventId: 'resolved', eventType: 'social_intention_resolved', source: 'direct', eventDay: 5 }
+  ] }, { socialEvidence: { facts: [{ eventId: 'resolved', type: 'social_intention_resolved', day: 5,
+    outcome: { status: 'abandoned', terminationReason: '<custom_reason>' } }] } });
+  assert.match(sections.memorySection, /motivo: &lt;custom reason&gt;/);
+  assert.doesNotMatch(sections.memorySection, /<custom/);
+});
+
+test('social inspector shows the confirmed outcome and observed position of a completed meeting', () => {
+  const person = {
+    id: 1,
+    socialMemories: [{ rootEventId: 'meeting-42', eventType: 'social_meeting', eventDay: 7, acquiredDay: 7, source: 'direct' }],
+    socialBeliefs: []
+  };
+  const world = {
+    people: [person, { id: 2, name: 'Ravi' }],
+    kingdoms: [],
+    socialEvidence: { facts: [{
+      eventId: 'meeting-42', type: 'social_meeting', day: 7, location: { x: 4.5, y: 6 },
+      outcome: { result: 'conversation_completed' }
+    }] }
+  };
+
+  const sections = renderSocialInspectorSections(person, world);
+
+  assert.match(sections.memorySection, /conversa presencial/);
+  assert.match(sections.memorySection, /resultado confirmado/);
+  assert.match(sections.memorySection, /posição \(4,5, 6\)/);
+});
+
+test('social inspector shows who reported a known water reference and its observed position', () => {
+  const person = {
+    id: 2,
+    socialMemories: [{ rootEventId: 'water-7', eventType: 'water_source_indicated', eventDay: 9, acquiredDay: 9,
+      source: 'reported', sourcePersonId: '1' }],
+    socialBeliefs: []
+  };
+  const world = {
+    people: [person, { id: 1, name: 'Lia' }],
+    kingdoms: [],
+    socialEvidence: { facts: [{
+      eventId: 'water-7', type: 'water_source_indicated', day: 9, location: { x: 10, y: 11 },
+      outcome: { resource: 'water', result: 'reference_received', source: 'lake' }
+    }] }
+  };
+
+  const sections = renderSocialInspectorSections(person, world);
+
+  assert.match(sections.memorySection, /Relato recebido de Lia/);
+  assert.match(sections.memorySection, /indicação de água/);
+  assert.match(sections.memorySection, /referência de água recebida/);
+  assert.match(sections.memorySection, /posição \(10, 11\)/);
+});
+
+test('social inspector shows the accepted or refused food request result', () => {
+  const person = {
+    id: 2,
+    socialMemories: [
+      { rootEventId: 'request-1', eventType: 'food_aid_requested', eventDay: 9, acquiredDay: 9, source: 'direct' },
+      { rootEventId: 'response-1', eventType: 'food_aid_request_resolved', eventDay: 9, acquiredDay: 9, source: 'direct' }
+    ],
+    socialBeliefs: []
+  };
+  const world = {
+    people: [person, { id: 1, name: 'Nara' }],
+    kingdoms: [],
+    socialEvidence: { facts: [
+      { eventId: 'request-1', type: 'food_aid_requested', day: 9, targetId: '1', outcome: { resource: 'food', result: 'request_made' } },
+      { eventId: 'response-1', type: 'food_aid_request_resolved', day: 9, targetId: '2',
+        outcome: { resource: 'food', result: 'accepted', amount: 2.5 } }
+    ] }
+  };
+
+  const sections = renderSocialInspectorSections(person, world);
+
+  assert.match(sections.memorySection, /pedido de alimento/);
+  assert.match(sections.memorySection, /resposta ao pedido de ajuda/);
+  assert.match(sections.memorySection, /pedido aceito/);
+  assert.match(sections.memorySection, /3 dias de alimento/);
+
+  world.socialEvidence.facts[1].outcome = { resource: 'food', result: 'refused', reason: 'no-transferable-surplus' };
+  const refused = renderSocialInspectorSections(person, world);
+  assert.match(refused.memorySection, /pedido recusado/);
+});

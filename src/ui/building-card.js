@@ -1,9 +1,10 @@
 import { corralSummary, resourceSummary } from './gameplay-data.js';
 import { towerVitality } from '../simulation/kingdoms/fortifications.js';
-import { PLANTS } from '../config/ecosystem.js';
+import { DOMESTIC_SHEEP_DAILY_FEED, MEAT_NUTRITIONAL_VALUE, PLANTS } from '../config/ecosystem.js';
+import { formatWholeMeasure } from './whole-measures.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const fmt = n => (Number(n) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+const fmt = formatWholeMeasure;
 export const row = (label, value) => `<div class="data-row"><span>${esc(label)}</span><b>${esc(value)}</b></div>`;
 const note = text => `<p class="quiet">${esc(text)}</p>`;
 
@@ -12,13 +13,19 @@ export function kingdomOverview(world, kingdom) {
   const incidents = Object.values(world.kingdomRelations || {}).filter(r => r.a === kingdom.id || r.b === kingdom.id)
     .reduce((sum, r) => sum + (r.borderIncidents || 0), 0);
   return '<h3>Sobrevivência e prosperidade</h3>' +
-    row('Comida disponível', fmt(data.food) + ' un. alimentares') + row('Riqueza total', fmt(data.gold) + ' ouro') +
-    row('População', data.people + ' pessoas') + row('Com pouca comida', data.hungry + ' pessoas') +
+    row('Comida nas contas do reino', fmt(data.food) + ' dias equivalentes') +
+    row('No estoque comunitário', fmt(data.foodByAccount.community) + ' dias equivalentes') +
+    row('No tesouro', fmt(data.foodByAccount.treasury) + ' dias equivalentes') +
+    row('No mercado local', fmt(data.foodByAccount.market) + ' dias equivalentes') +
+    row('Riqueza total', fmt(data.gold) + ' ouro') +
+    row('Cobre / prata', fmt(data.copper) + ' / ' + fmt(data.silver)) +
+    row('Ferro armazenado e carregado', fmt(data.iron)) +
+    row('Equivalência nominal', fmt(data.nominalCopper) + ' cobres') +
+    row('População', data.people + ' pessoas') + row('Reserva abaixo de 30 dias', data.hungry + ' pessoas') +
     row('Com pouca água / energia', data.thirsty + ' / ' + data.tired) + row('Sem moradia', data.homeless) +
     row('Satisfação do reino', Math.round(data.satisfaction * 100) + '%') +
     row('Nascimentos / mortes', data.births + ' / ' + data.deaths + ' · desde o início') +
-    row('Incidentes de fronteira', incidents) + note('Comida soma reservas comunitárias, tesouro e mercado. Riqueza inclui o ouro com moradores.') +
-    '<details class="gameplay-details"><summary>Construções do reino</summary><div class="building-picker">' + world.structures.filter(s => s.kingdomId === kingdom.id && s.destroyedDay == null).map(s => '<button type="button" data-inspect-structure="' + s.id + '">' + esc(({ centro_militar: 'Centro militar', monasterio: 'Convento', arquearia: 'Arquearia', roça: 'Roça' })[s.type] || s.type.charAt(0).toUpperCase() + s.type.slice(1)) + '</button>').join('') + '</div></details>';
+    row('Incidentes de fronteira', incidents);
 }
 
 export function buildingCard(world, s) {
@@ -35,26 +42,31 @@ export function buildingCard(world, s) {
   }
   if (s.type === 'curral') {
     const data = corralSummary(world, s);
-    html = row('Ovelhas no rebanho', data.sheep) + row('Ração disponível', fmt(data.feed) + ' un. · reserva compartilhada') +
-      row('Consumo previsto de ração', fmt(data.dailyFeed) + ' un./dia') +
+    html = row('Ovelhas neste curral', data.sheep + ' / ' + data.capacity) + row('Ração disponível', fmt(data.feed / DOMESTIC_SHEEP_DAILY_FEED) + ' porções · reserva compartilhada') +
+      row('Consumo previsto de ração', fmt(data.dailyRationPortions) + ' porções/dia') +
       row('Duração da ração', data.feedDays == null ? 'Sem rebanho' : fmt(data.feedDays) + ' dias') +
       row('Comida produzida', '0 un./dia') + note('O curral mantém e reproduz o rebanho. Ainda não existe produção de leite nem abate de ovelhas domesticadas.') +
       row('Nascimentos neste curral', data.births) + row('Último nascimento', data.lastBirthDay == null ? 'Nenhum registrado' : 'Dia ' + data.lastBirthDay) +
       row('Ovelhas aptas à reprodução', data.breedingReady) + note('Nascimentos dependem de alimentação, energia e parceiro próximo; não há data de parto agendada.');
   } else if (s.type === 'castelo' && kingdom) {
-    html = kingdomOverview(world, kingdom);
+    html = row('Reino', kingdom.name) +
+      row('Moradores vinculados', living.filter(person => person.kingdomId === kingdom.id).length) +
+      row('Madeira / pedra no tesouro', fmt(kingdom.treasury.stock.wood) + ' / ' + fmt(kingdom.treasury.stock.stone)) +
+      row('Integridade', Math.round((s.integrity ?? 1) * 100) + '%');
   } else if (s.type === 'casa' || s.type === 'abrigo') {
     const residents = living.filter(p => (s.residentIds || []).includes(p.id));
-    html = row('Moradores / vagas totais', residents.length + ' / ' + (s.capacity || 0)) +
+    const capacity = Number.isFinite(s.capacity) ? s.capacity : s.type === 'abrigo' ? 13 : 0;
+    html = row('Moradores / vagas totais', residents.length + ' / ' + capacity) +
       row('Descansando aqui', living.filter(p => p.restingStructureId === s.id).length) +
-      (s.type === 'abrigo' ? row('Frutos guardados', fmt(s.fruitStored)) + row('Carne guardada', fmt(s.meatStored)) : '') +
+      (s.type === 'abrigo' ? row('Frutos guardados', fmt(s.fruitStored) + ' dias de alimento') + row('Carne guardada', fmt(s.meatStored) + ' un. · ' + fmt(s.meatStored * MEAT_NUTRITIONAL_VALUE) + ' dias de alimento') +
+        note('Os frutos e a carne guardados aqui já fazem parte do estoque comunitário; o abrigo mostra a localização registrada, não comida adicional.') : '') +
       (residents.length ? row('Moradores', residents.map(p => p.name).join(' · ')) : '');
   } else if (s.type === 'roça') {
     const cropIndex = PLANTS.findIndex(p => p.id === 'cultivated-root');
     const tiles = (s.fieldTileIndices || []).map(i => world.tiles[i]).filter(Boolean);
-    html = row('Disponível para colher', fmt(tiles.reduce((n, t) => n + Math.max(0, (t.plants[cropIndex] || 0) - 1.2), 0)) + ' un.') +
-      row('Colheita acumulada', fmt(s.cropHarvested) + ' un.') + row('Área cultivada', tiles.length + ' células') +
-      row('Sementes em estoque', fmt(s.cropSeedStored) + ' un.') + note('A produção varia com o solo, água e trabalho; a colheita é acumulada desde o plantio.');
+    html = row('Comida potencial no campo', fmt(tiles.reduce((n, t) => n + Math.max(0, (t.plants[cropIndex] || 0) - 1.2), 0)) + ' dias de alimento potenciais') +
+      row('Colhido até hoje (histórico)', fmt(s.cropHarvested) + ' dias de alimento') + row('Área cultivada', tiles.length + ' células') +
+      row('Sementes reservadas para plantio', fmt(s.cropSeedStored) + ' un. físicas') + note('Uma unidade colhida representa um dia de alimento para um adulto. O potencial ainda está no campo, não no estoque; colhido até hoje é histórico, não inventário. Sementes são contadas à parte.');
   } else if (['centro_militar', 'arquearia', 'monasterio'].includes(s.type)) {
     const units = living.filter(p => p.kingdomId === s.kingdomId && p.role === 'soldier' &&
       (s.type === 'centro_militar' ? (s.soldierIds || []).includes(p.id) : p.militaryClass === (s.type === 'arquearia' ? 'arqueiro' : 'monge')));
@@ -68,12 +80,15 @@ export function buildingCard(world, s) {
       (s.captureProgressDays > 0 ? row('Captura inimiga', s.captureProgressDays + ' / 5 dias') : '');
   } else if (s.type === 'mercado' && kingdom) {
     const stock = kingdom.market.stock;
-    html = row('Comida à venda', fmt(stock.food)) + row('Ouro no mercado', fmt(stock.gold)) +
-      row('Preço da comida', fmt(kingdom.market.prices.food) + ' ouro/un.') +
+    html = row('Comida à venda', fmt(stock.food) + ' dias alimentares') +
+      row('Carne no estoque', fmt(stock.meat || 0) + ' un. · ' + fmt((stock.meat || 0) * MEAT_NUTRITIONAL_VALUE) + ' dias alimentares') + row('Ouro no mercado', fmt(stock.gold)) +
+      row('Preço da comida', fmt(kingdom.market.prices.food) + ' ouro/dia alimentar') +
       row('Madeira / pedra disponíveis', fmt(stock.wood) + ' / ' + fmt(stock.stone));
   } else if (community) {
-    html = row('Comida compartilhada', fmt(community.stores.food)) + row('Carne compartilhada', fmt(community.stores.meat)) +
-      row('Madeira / pedra', fmt(community.stores.wood) + ' / ' + fmt(community.stores.stone));
+    html = row('Comida compartilhada', fmt(community.stores.food) + ' dias alimentares') +
+      row('Carne compartilhada', fmt(community.stores.meat) + ' un. · ' + fmt(community.stores.meat * MEAT_NUTRITIONAL_VALUE) + ' dias de alimento') +
+      row('Madeira / pedra', fmt(community.stores.wood) + ' / ' + fmt(community.stores.stone)) +
+      note('Comida vegetal: 1 unidade = 1 pessoa-dia. Carne: 1 unidade física = 10 pessoa-dias. Os itens ficam em estoques separados; o total converte ambos para a reserva alimentar comum.');
   } else html = note('Nenhuma atividade produtiva registrada nesta construção.');
   if (s.maxHealth) {
     const life = towerVitality(s);

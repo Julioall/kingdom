@@ -12,13 +12,39 @@ const EFFECTS_MIX_GAIN = 10 ** (12 / 20);
 const MAX_PENDING_CUES = 512;
 const CUE_RETRY_MS = 80;
 const HARVESTING_MIN_INTERVAL_MS = 2200;
+const HARVESTING_SFX_GAIN = .26;
+const SWORD_ARMOR_HIT_OFFSET_MS = 180;
+// Linear playback multipliers: quieter weapon motion, stronger material contact.
+// Applied once when a combat cue is scheduled; this is not evaluated per frame.
+const COMBAT_SFX_LEVEL = Object.freeze({
+  swordSwing: .4,
+  swordSwingMiss: .2,
+  combatGrunt: .18,
+  spearSwing: .3,
+  spearSwingMiss: .15,
+  spearArmorImpact: .735,
+  bowDraw: .35,
+  arrowRelease: .48,
+  arrowFlight: .28,
+  bodyImpact: .66,
+  armorImpact: .98,
+  arrowArmorImpact: .84,
+  shieldImpact: .86,
+  weaponClash: .92,
+  arrowWoodImpact: .62,
+  fatalFall: .82,
+  structureImpact: .58,
+  structureMeleeImpact: .74,
+  structureCollapse: .9
+});
 const PRELOAD_EVENTS = Object.freeze([
-  'magic_heal', 'sword_slash', 'sword_clash', 'axe_slash', 'wood_impact', 'bow_draw',
-  'shield_impact', 'sword_armor_impact', 'character_hurt', 'character_body_impact', 'war_call', 'retreat_ordered',
+  'magic_heal', 'sword_slash', 'sword_swing_miss', 'sword_armor_swing_hit', 'combat_grunt',
+  'sword_clash', 'axe_slash', 'wood_impact', 'bow_draw',
+  'shield_impact', 'sword_armor_impact', 'character_hurt', 'character_body_impact', 'war_call', 'war_horn', 'retreat_ordered',
   'building_destroyed', 'building_melee_impact', 'hammer_build', 'mining', 'harvesting',
   'sheep_bleat', 'lamb_call_mother',
   'arrow_release', 'arrow_flight', 'arrow_impact', 'arrow_wood_impact', 'crossbow_fire', 'body_fall_fatal',
-  'spear_thrust', 'light_thud', 'magic_cast'
+  'light_thud', 'magic_cast'
 ]);
 
 function safeRead(storage, key) {
@@ -78,6 +104,8 @@ export function createGameAudio({ onStatus = () => {}, getPan = () => 0, getDist
   const priorActivities = new Map(), priorHealing = new Map(), priorOrders = new Map();
   const sheepBleatStates = new Map();
   const seenDestroyedStructures = new Set(), scheduledDestroyedStructures = new Set();
+  const seenWars = new Set();
+  const seenTowerAlarms = new Set();
   let lastCombatEvent = 0, lastSheepBleatAt = -Infinity, lastHarvestSoundAt = -Infinity;
   let nextAdultBleatVariant = 0, initialized = false;
   let windVoice = null, windPromise = null, windFailed = false;
@@ -343,7 +371,7 @@ export function createGameAudio({ onStatus = () => {}, getPan = () => 0, getDist
     if (!enabled || !unlocked || !context || context.state !== 'running') return false;
     if (activeVoices.size >= MAX_ACTIVE_VOICES) return 'busy';
     const familyVoices = activeByFamily.get(family) || 0;
-    const familyLimit = ['hammer_build', 'mining', 'harvesting', 'character_body_impact'].includes(family) ? 10
+    const familyLimit = ['hammer_build', 'mining', 'harvesting', 'character_body_impact', 'combat_grunt'].includes(family) ? 10
       : family === 'shield_impact' || family === 'character_hurt' ? 4 : 3;
     if (familyVoices >= familyLimit) return 'busy';
     const source = context.createBufferSource();
@@ -472,40 +500,79 @@ export function createGameAudio({ onStatus = () => {}, getPan = () => 0, getDist
       const contactAt = now + Math.max(windup, event.result?.atMs || windup);
       const contact = event.result?.point || event.aim || event.origin;
       const kind = event.result?.kind;
-      if (event.weapon === 'guerreiro') queue('sword_slash', key + ':swing', start + windup, event.origin);
-      else if (event.weapon === 'lanceiro') queue('spear_thrust', key + ':thrust', start + windup, event.origin);
+      const target = kind === 'body' ? (world.people || []).find(person => person.id === event.targetId) : null;
+      const isMilitaryTarget = target?.role === 'soldier' || Boolean(target?.militaryClass);
+      const meleeArmorHit = ['guerreiro', 'lanceiro'].includes(event.weapon) && kind === 'body' && isMilitaryTarget;
+      if (['guerreiro', 'lanceiro'].includes(event.weapon) && stableHash(key + ':grunt-chance') % 5 === 0) {
+        queue('combat_grunt', key + ':grunt', start + windup * .55, event.origin,
+          { gain: COMBAT_SFX_LEVEL.combatGrunt });
+      }
+      if (event.weapon === 'guerreiro') {
+        const missed = kind === 'miss';
+        const swingEvent = missed ? 'sword_swing_miss' : meleeArmorHit ? 'sword_armor_swing_hit' : 'sword_slash';
+        const swingGain = missed ? COMBAT_SFX_LEVEL.swordSwingMiss
+          : meleeArmorHit ? COMBAT_SFX_LEVEL.armorImpact : COMBAT_SFX_LEVEL.swordSwing;
+        const swingAt = meleeArmorHit ? Math.max(start, contactAt - SWORD_ARMOR_HIT_OFFSET_MS) : start + windup;
+        queue(swingEvent, key + ':swing', swingAt, meleeArmorHit ? contact : event.origin, { gain: swingGain });
+      } else if (event.weapon === 'lanceiro') {
+        if (event.attackVariant === 'lance-flurry' && event.hitEvents?.length) {
+          event.hitEvents.forEach((hit, index) => {
+            const victim = (world.people || []).find(person => person.id === hit.targetId);
+            const armor = victim?.role === 'soldier' || Boolean(victim?.militaryClass);
+            queue(armor ? 'sword_armor_swing_hit' : 'sword_slash', key + ':flurry:' + index,
+              start + hit.atMs, hit.point, { gain: armor ? COMBAT_SFX_LEVEL.spearArmorImpact : COMBAT_SFX_LEVEL.spearSwing });
+          });
+        } else {
+          const missed = kind === 'miss';
+          const swingEvent = missed ? 'sword_swing_miss' : meleeArmorHit ? 'sword_armor_swing_hit' : 'sword_slash';
+          const swingGain = missed ? COMBAT_SFX_LEVEL.spearSwingMiss
+            : meleeArmorHit ? COMBAT_SFX_LEVEL.spearArmorImpact : COMBAT_SFX_LEVEL.spearSwing;
+          const swingAt = meleeArmorHit ? Math.max(start, contactAt - SWORD_ARMOR_HIT_OFFSET_MS) : start + windup;
+          queue(swingEvent, key + ':swing', swingAt, meleeArmorHit ? contact : event.origin, { gain: swingGain });
+        }
+      }
       else if (event.weapon === 'arqueiro') {
-        queue('bow_draw', key + ':draw', start, event.origin);
-        queue('arrow_release', key + ':release', start + windup, event.origin);
+        queue('bow_draw', key + ':draw', start, event.origin, { gain: COMBAT_SFX_LEVEL.bowDraw });
+        queue('arrow_release', key + ':release', start + windup, event.origin,
+          { gain: COMBAT_SFX_LEVEL.arrowRelease });
         const flight = Math.max(0, event.flightMs || 0);
         if (flight >= 350) queue('arrow_flight', key + ':flight', start + windup + Math.max(0, flight - 700), contact,
-          { rate: Math.min(2, 700 / flight), gain: .68 });
+          { rate: Math.min(2, 700 / flight), gain: COMBAT_SFX_LEVEL.arrowFlight });
       }
       if (!kind || kind === 'miss') continue;
       if (kind === 'parry') {
         const parrySound = event.result.blockKind === 'shield' ? 'shield_impact' : 'sword_clash';
-        queue(parrySound, key + ':parry', contactAt, contact, { gain: .98 });
-      } else if (kind === 'shield') queue('shield_impact', key + ':shield', contactAt, contact, { gain: .92 });
-      else if (kind === 'weapon-guard') queue('sword_clash', key + ':guard', contactAt, contact);
+        const gain = event.result.blockKind === 'shield' ? COMBAT_SFX_LEVEL.shieldImpact : COMBAT_SFX_LEVEL.weaponClash;
+        queue(parrySound, key + ':parry', contactAt, contact, { gain });
+      } else if (kind === 'shield') queue('shield_impact', key + ':shield', contactAt, contact,
+        { gain: COMBAT_SFX_LEVEL.shieldImpact });
+      else if (kind === 'weapon-guard') queue('sword_clash', key + ':guard', contactAt, contact,
+        { gain: COMBAT_SFX_LEVEL.weaponClash });
       else if (kind === 'body') {
-        const target = (world.people || []).find(person => person.id === event.targetId);
-        const isMilitaryTarget = target?.role === 'soldier' || Boolean(target?.militaryClass);
         const damageSound = event.weapon === 'arqueiro'
           ? (isMilitaryTarget ? 'crossbow_fire' : 'arrow_wood_impact')
           : (isMilitaryTarget ? 'sword_armor_impact' : 'character_body_impact');
-        queue(damageSound, key + ':damage:' + damageSound, contactAt, contact, { gain: .7 });
-        if (event.result.fatal) queue('body_fall_fatal', key + ':fatal', contactAt, contact, { gain: .96 });
+        const gain = event.weapon === 'arqueiro'
+          ? (isMilitaryTarget ? COMBAT_SFX_LEVEL.arrowArmorImpact : COMBAT_SFX_LEVEL.arrowWoodImpact)
+          : (isMilitaryTarget ? COMBAT_SFX_LEVEL.armorImpact : COMBAT_SFX_LEVEL.bodyImpact);
+        if (!meleeArmorHit) queue(damageSound, key + ':damage:' + damageSound, contactAt, contact, { gain });
+        if (event.result.fatal) queue('body_fall_fatal', key + ':fatal', contactAt, contact,
+          { gain: COMBAT_SFX_LEVEL.fatalFall });
       } else if (kind === 'structure') {
         const meleeStructureHit = event.result.damageApplied > 0 && ['guerreiro', 'lanceiro'].includes(event.weapon);
-        if (meleeStructureHit) queue('building_melee_impact', key + ':building-melee-impact', contactAt, contact, { gain: .68 });
+        if (meleeStructureHit) queue('building_melee_impact', key + ':building-melee-impact', contactAt, contact,
+          { gain: COMBAT_SFX_LEVEL.structureMeleeImpact });
         if (event.result.structureDestroyed) {
           scheduledDestroyedStructures.add(event.targetId);
           const collapseAt = contactAt + (meleeStructureHit ? 230 : 0);
-          queue('building_destroyed', key + ':building-destroyed', collapseAt, contact, { gain: .95 });
+          queue('building_destroyed', key + ':building-destroyed', collapseAt, contact,
+            { gain: COMBAT_SFX_LEVEL.structureCollapse });
         } else if (event.weapon === 'arqueiro') {
           const target = (world.structures || []).find(structure => structure.id === event.targetId);
-          queue(isWoodenStructure(target) ? 'arrow_wood_impact' : 'light_thud', key + ':arrow-structure', contactAt, contact, { gain: .62 });
-        } else if (!meleeStructureHit) queue('light_thud', key + ':structure', contactAt, contact, { gain: .62 });
+          queue(isWoodenStructure(target) ? 'arrow_wood_impact' : 'light_thud', key + ':arrow-structure', contactAt, contact,
+            { gain: isWoodenStructure(target) ? COMBAT_SFX_LEVEL.arrowWoodImpact : COMBAT_SFX_LEVEL.structureImpact });
+        } else if (!meleeStructureHit) queue('light_thud', key + ':structure', contactAt, contact,
+          { gain: COMBAT_SFX_LEVEL.structureImpact });
       }
     }
   }
@@ -517,6 +584,11 @@ export function createGameAudio({ onStatus = () => {}, getPan = () => 0, getDist
       priorActivities.clear(); priorHealing.clear(); priorOrders.clear();
       sheepBleatStates.clear(); lastSheepBleatAt = -Infinity; lastHarvestSoundAt = -Infinity; nextAdultBleatVariant = 0;
       seenDestroyedStructures.clear(); scheduledDestroyedStructures.clear();
+      seenWars.clear();
+      seenTowerAlarms.clear();
+      for (const kingdom of world.kingdoms || []) for (const report of kingdom.militaryIntel || []) {
+        if (report.kind === 'tower-intrusion' && report.id) seenTowerAlarms.add(report.id);
+      }
       lastCombatEvent = world.combatSequence || 0;
       for (const person of world.people || []) {
         priorActivities.set(person.id, activityKey(person.visualActivity, world.day));
@@ -525,6 +597,7 @@ export function createGameAudio({ onStatus = () => {}, getPan = () => 0, getDist
       for (const campaign of world.campaigns || []) for (const side of [campaign.attacker, campaign.defender]) {
         if (side) priorOrders.set(`${campaign.id}:${side.kingdomId}`, orderKey(side.aiOrder));
       }
+      for (const war of world.wars || []) seenWars.add(war.id ?? `${war.a}:${war.b}:${war.startedDay}`);
       for (const structure of world.structures || []) if (structure.destroyedDay != null) seenDestroyedStructures.add(structure.id);
       initialized = true;
       return;
@@ -532,6 +605,29 @@ export function createGameAudio({ onStatus = () => {}, getPan = () => 0, getDist
 
     observeCombat(world, now);
     observeSheep(world, now);
+    // Audible warnings use the tower's actual sighting event, not a generic war
+    // declaration. Snapshot resets seed the seen set so old alarms do not replay.
+    for (const kingdom of world.kingdoms || []) for (const report of kingdom.militaryIntel || []) {
+      if (report.kind !== 'tower-intrusion' || !report.id || seenTowerAlarms.has(report.id)) continue;
+      seenTowerAlarms.add(report.id);
+      const count = Math.min(3, Math.max(1, Math.trunc(report.alarmCount || 1)));
+      for (let call = 0; call < count; call++) {
+        queue('war_horn', `tower-alarm:${kingdom.id}:${report.id}:${call}`,
+          now + call * 850, report.location, { gain: .82 });
+      }
+    }
+    if (seenTowerAlarms.size > 512) {
+      const recent = [...seenTowerAlarms].slice(-256);
+      seenTowerAlarms.clear();
+      for (const id of recent) seenTowerAlarms.add(id);
+    }
+
+    for (const war of world.wars || []) {
+      const key = war.id ?? `${war.a}:${war.b}:${war.startedDay}`;
+      if (seenWars.has(key)) continue;
+      seenWars.add(key);
+      queue('war_call', `war:${key}`, now, null, { gain: .8 });
+    }
 
     let harvestCue = null;
     for (const person of world.people || []) {
@@ -567,7 +663,8 @@ export function createGameAudio({ onStatus = () => {}, getPan = () => 0, getDist
     }
     if (harvestCue && now - lastHarvestSoundAt >= HARVESTING_MIN_INTERVAL_MS * timelineSpeed) {
       const stagger = stableHash(harvestCue.id) % 420;
-      queue('harvesting', harvestCue.id + ':harvest', now + 120 + stagger, harvestCue.activity, { gain: .52 });
+      queue('harvesting', harvestCue.id + ':harvest', now + 120 + stagger, harvestCue.activity,
+        { gain: HARVESTING_SFX_GAIN });
       lastHarvestSoundAt = now;
     }
     for (const campaign of world.campaigns || []) for (const side of [campaign.attacker, campaign.defender]) {

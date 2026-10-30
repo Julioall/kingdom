@@ -2,9 +2,11 @@ import { clamp, hash01, spatialNoise } from '../core/math.js';
 import { PLANTS } from '../../config/ecosystem.js';
 import { cellAt } from '../world/spatial.js';
 import { spendResource } from '../economy/inventories.js';
-import { seasonIndex } from './climate.js';
 import { invalidateNavigation } from '../individuals/navigation-cache.js';
 import { isRoadTile, resourceUsePressure } from '../world/roads.js';
+import { CULTIVATED_FOOD_PER_SEED_UNIT } from '../economy/food-policy.js';
+import { recordFoodAuditBlocked, withFoodAuditOperation } from '../economy/food-audit-ledger.js';
+import { clearWildVegetationNearCorrals } from './corral-clearance.js';
 
 const RESOURCE_REGEN_INTERVAL_DAYS = 7;
 const RESOURCE_REGEN_FACTOR = .3;
@@ -25,6 +27,7 @@ export function plantSuitability(profile, tile, temperatureC, moisture) {
 
 export function seedPlants(w) {
     invalidateNavigation(w);
+    let initialWildSeedStock = 0;
     for (const t of w.tiles) {
       const moisture = clamp(t.soilWaterMm / t.soilCapacityMm, 0, 1);
       t.plantResourceMask = 0;
@@ -49,7 +52,16 @@ export function seedPlants(w) {
             && suitability > .13 && patchNoise > treeThreshold) t.plants[n] = 130 + patchNoise * 280;
         if (t.plants[n] > .01) t.plantResourceMask |= 1 << n;
       }
+      // Indigenous propagules of the cultivated-root wild ancestor are a
+      // separate, finite natural seed bank. This world-generation deposit is
+      // NOT a market or royal endowment, nor a conversion from berry food.
+      // Existing crops retain future seed lots from their accounted harvest.
+      t.wildSeedStock = t.terrain === 'land' && t.slope <= .65
+        && t.soilType !== 'sandy' && t.waterDist >= 3 && t.waterDist <= 20
+        && hash01(w.seed + 99617, t.x, t.y) >= .68 ? 3 : 0;
+      initialWildSeedStock += t.wildSeedStock;
     }
+    w.seedProvenance = { initialWildSeedStock, gathered: 0, sown: 0, history: [] };
   }
 
 export function canopyAt(t) {
@@ -62,6 +74,22 @@ export function plantBiomass(t, ids) {
     let sum = 0;
     for (const id of ids) { const i = PLANTS.findIndex(p => p.id === id); if (i >= 0) sum += t.plants[i]; }
     return sum;
+  }
+
+export function cultivatedFieldYieldTarget(seedMass, tileCount) {
+    const crop = PLANTS.find(plant => plant.id === 'cultivated-root');
+    if (!crop || !Number.isFinite(seedMass) || seedMass <= 0 || !Number.isFinite(tileCount) || tileCount <= 0) return 0;
+    return Math.min(seedMass * CULTIVATED_FOOD_PER_SEED_UNIT, tileCount * crop.max);
+  }
+
+export function cultivatedFieldStandingBiomass(w, structure) {
+    if (!w || !structure || structure.type !== 'roça') return 0;
+    const cropIndex = PLANTS.findIndex(plant => plant.id === 'cultivated-root');
+    if (cropIndex < 0) return 0;
+    return (structure.fieldTileIndices || []).reduce((sum, index) => {
+      const tile = w.tiles?.[index];
+      return sum + (tile?.cropFieldId === structure.id ? Math.max(0, Number(tile.plants?.[cropIndex]) || 0) : 0);
+    }, 0);
   }
 
 export function isTreeAnchor(w, tile) {
@@ -107,10 +135,10 @@ export function isBushAnchor(w, tile, plantId) {
     return true;
   }
 
-function spreadWildPlants(w, day) {
+function spreadWildPlants(w, day, corralClearance) {
     const seedlings = [];
     for (const tile of w.tiles) {
-      if (tile.cropFieldId != null || tile.terrain !== 'land') continue;
+      if (corralClearance.has(tile.i) || tile.cropFieldId != null || tile.terrain !== 'land') continue;
       const pressure = resourceUsePressure(tile);
       if (pressure > .28 || isRoadTile(tile)) continue;
       const moisture = clamp(tile.soilWaterMm / Math.max(1, tile.soilCapacityMm), 0, 1);
@@ -146,6 +174,7 @@ function spreadWildPlants(w, day) {
   }
 
 export function updatePlants(w, day) {
+    const { clearance: corralClearance } = clearWildVegetationNearCorrals(w);
     if (day % RESOURCE_REGEN_INTERVAL_DAYS !== 0) return;
     invalidateNavigation(w);
     w.ecologyFlows ||= {};
@@ -154,7 +183,27 @@ export function updatePlants(w, day) {
     w.ecologyFlows.humanFoodSettlementLoss ||= 0;
     w.ecologyFlows.humanFoodEcologicalLoss ||= 0;
     w.ecologyFlows.humanFoodCultivatedRegrowth ||= 0;
-    const season = seasonIndex(day);
+    const cropFields = new Map((w.structures || []).filter(structure => structure.type === 'roça'
+      && structure.complete && structure.destroyedDay == null && structure.integrity !== 0).map(structure => [structure.id, structure]));
+    const cropIndex = PLANTS.findIndex(plant => plant.id === 'cultivated-root');
+    for (const field of cropFields.values()) {
+      const tileCount = (field.fieldTileIndices || []).filter(index => w.tiles[index]?.cropFieldId === field.id).length;
+      const standing = cultivatedFieldStandingBiomass(w, field);
+      const seedMass = Math.max(0, Number(field.cropSeededBiomass) || Number(field.seedMass) || 0);
+      if (!Number.isFinite(field.cropYieldTarget) || field.cropYieldTarget <= 0) {
+        const legacyHarvested = Math.max(0, Number(field.cropHarvested) || 0);
+        field.cropYieldTarget = Math.max(cultivatedFieldYieldTarget(seedMass, tileCount), legacyHarvested + standing);
+      }
+      if (!Number.isFinite(field.cropGrowthGenerated)) {
+        field.cropGrowthGenerated = Math.min(field.cropYieldTarget, Math.max(seedMass, standing + (Number(field.cropHarvested) || 0)));
+      }
+      if (!Number.isFinite(field.cropHarvestedThisCycle)) field.cropHarvestedThisCycle = Math.max(0, Number(field.cropHarvested) || 0);
+      if (!field.cropCycleState) field.cropCycleState = field.cropGrowthGenerated >= field.cropYieldTarget - .01 ? 'ready' : 'growing';
+      if (field.cropCycleState === 'ready' && field.cropHarvestedThisCycle >= field.cropYieldTarget - .01 && standing <= .01) {
+        field.cropCycleState = 'spent';
+      }
+      field.cropTileCapacity = tileCount ? field.cropYieldTarget / tileCount : 0;
+    }
     for (const t of w.tiles) {
       for (let i = 0; i < PLANTS.length; i++) {
         const p = PLANTS[i];
@@ -164,16 +213,19 @@ export function updatePlants(w, day) {
             ? t.terrain !== 'water' : p.habitat === 'shore'
               ? t.soilType !== 'riparian' : t.terrain !== 'land') continue;
         const b = t.plants[i];
+        const cropField = p.cultivatedOnly ? cropFields.get(t.cropFieldId) : null;
+        if (p.cultivatedOnly && (!cropField || cropField.cropCycleState !== 'growing')) continue;
         if (p.id === 'broadleaf' || p.id === 'conifer') {
           const blockedByStructure = b < 150 && (w.structures || []).some(structure =>
             Math.abs(t.x - structure.x) <= (structure.radius || 1.5)
             && Math.abs(t.y - structure.y) <= (structure.radius || 1.5));
           if (b < 150 && (isRoadTile(t) || blockedByStructure)) continue;
         }
-        const capacity = p.max;
+        const capacity = p.cultivatedOnly ? Math.min(p.max, cropField.cropTileCapacity) : p.max;
+        const cropBudget = p.cultivatedOnly ? Math.max(0, cropField.cropYieldTarget - cropField.cropGrowthGenerated) : Infinity;
         const recoveryInLowUseAreas = p.cultivatedOnly ? 1 : 1 + (1 - resourceUsePressure(t)) * .45;
-        const actual = Math.min(Math.max(0, capacity - b), p.growth * RESOURCE_REGEN_FACTOR
-          * RESOURCE_REGEN_INTERVAL_DAYS * (p.seasonalGrowth?.[season] ?? 1)
+        const actual = Math.min(cropBudget, Math.max(0, capacity - b), p.growth * RESOURCE_REGEN_FACTOR
+          * RESOURCE_REGEN_INTERVAL_DAYS
           * Math.max(0, 1 - b / capacity) * recoveryInLowUseAreas);
         if (actual <= 0) continue;
         if (p.foodFor === 'people') {
@@ -181,9 +233,36 @@ export function updatePlants(w, day) {
           if (p.cultivatedOnly && t.cropFieldId != null) w.ecologyFlows.humanFoodCultivatedRegrowth += actual;
         }
         t.plants[i] = b + actual;
+        if (p.cultivatedOnly) {
+          cropField.cropGrowthGenerated += actual;
+          if (cropField.cropGrowthGenerated >= cropField.cropYieldTarget - .01) cropField.cropCycleState = 'ready';
+        }
       }
     }
-    spreadWildPlants(w, day);
+    for (const field of cropFields.values()) {
+      if (field.cropCycleState !== 'growing'
+          || field.cropGrowthGenerated < field.cropYieldTarget - Math.max(1, field.cropYieldTarget * .01)) continue;
+      let remaining = Math.max(0, field.cropYieldTarget - field.cropGrowthGenerated);
+      for (const index of field.fieldTileIndices || []) {
+        if (remaining <= .001) break;
+        const tile = w.tiles[index];
+        if (!tile || tile.cropFieldId !== field.id) continue;
+        const capacity = Math.min(PLANTS[cropIndex].max, field.cropTileCapacity);
+        const amount = Math.min(remaining, Math.max(0, capacity - tile.plants[cropIndex]));
+        if (amount <= 0) continue;
+        tile.plants[cropIndex] += amount;
+        tile.plantResourceMask |= 1 << cropIndex;
+        field.cropGrowthGenerated += amount;
+        remaining -= amount;
+        w.ecologyFlows.humanFoodRegrowth += amount;
+        w.ecologyFlows.humanFoodCultivatedRegrowth += amount;
+      }
+      if (field.cropGrowthGenerated >= field.cropYieldTarget - .01) {
+        field.cropGrowthGenerated = field.cropYieldTarget;
+        field.cropCycleState = 'ready';
+      }
+    }
+    spreadWildPlants(w, day, corralClearance);
   }
 
 export function eatPlants(w, tile, diet, amount) {
@@ -200,35 +279,28 @@ export function eatPlants(w, tile, diet, amount) {
     return eaten;
   }
 
-export function collectCommunityFieldSeeds(w, structure) {
-    if (!w || !structure || structure.type !== 'roça') return 0;
-    const seedMass = Math.max(0, Number(structure.seedMass) || 0);
-    const berryIndex = PLANTS.findIndex(plant => plant.id === 'berry');
-    const tiles = (structure.fieldTileIndices || []).map(index => w.tiles[index]).filter(Boolean)
-      .sort((a, b) => b.plants[berryIndex] - a.plants[berryIndex] || a.i - b.i);
-    if (!seedMass || berryIndex < 0 || tiles.reduce((sum, tile) => sum + tile.plants[berryIndex], 0) + .001 < seedMass) return 0;
-    let remaining = seedMass;
-    for (const tile of tiles) {
-      const take = Math.min(remaining, tile.plants[berryIndex]);
-      tile.plants[berryIndex] -= take;
-      remaining -= take;
-      if (remaining <= .001) break;
-    }
-    structure.cropSeedStored = seedMass;
-    w.ecologyFlows.humanFoodCultivationSeeded = (w.ecologyFlows.humanFoodCultivationSeeded || 0) + seedMass;
-    return seedMass;
-  }
 
 export function sowCommunityField(w, structure) {
     if (!w || !structure || structure.type !== 'roça') return 0;
     const cropIndex = PLANTS.findIndex(plant => plant.id === 'cultivated-root');
     if (cropIndex < 0) return 0;
+    if (structure.cropCycleState !== 'spent' && cultivatedFieldStandingBiomass(w, structure) > .01) return 0;
     const tiles = (structure.fieldTileIndices || []).map(index => w.tiles[index])
-      .filter(tile => tile && tile.terrain === 'land' && tile.cropFieldId == null);
+      .filter(tile => tile && tile.terrain === 'land' && (tile.cropFieldId == null || tile.cropFieldId === structure.id));
     if (!tiles.length) return 0;
     const seedMass = Math.max(0, Number(structure.cropSeedStored) || 0);
-    if (!seedMass) return 0;
-    const perTile = seedMass / tiles.length;
+    return withFoodAuditOperation({
+      kind: 'planting', category: 'field-seed-to-standing-crop', resource: 'seeds', amount: seedMass,
+      sourceAccount: structure, sourceResource: 'cropSeedStored',
+      source: { type: 'field-seed-stock', structureId: structure.id },
+      destination: { type: 'standing-cultivated-root-biomass', structureId: structure.id, tileCount: tiles.length },
+      destinationPosition: { x: structure.x, y: structure.y }
+    }, () => {
+      if (!seedMass) {
+        recordFoodAuditBlocked('field-has-no-seeds', { resource: 'seeds', requested: 1, available: 0 });
+        return 0;
+      }
+      const perTile = seedMass / tiles.length;
     for (const tile of tiles) {
       tile.cropFieldId = structure.id;
       tile.plants.fill(0);
@@ -241,10 +313,27 @@ export function sowCommunityField(w, structure) {
     }
     structure.fieldTileIndices = tiles.map(tile => tile.i);
     structure.cropSeedStored = 0;
+    // This is the irreversible inventory-to-crop conversion. A seed lot
+    // cannot simultaneously remain in the warehouse after planting.
+    w.seedProvenance ||= { initialWildSeedStock: null, gathered: 0, sown: 0, history: [] };
+    w.seedProvenance.sown += seedMass;
+    w.seedProvenance.history.push({ day: w.day, kind: 'field-sowing',
+      fieldId: structure.id, communityId: structure.communityId, quantity: seedMass });
+    if (w.seedProvenance.history.length > 120) w.seedProvenance.history.shift();
+    w.ecologyFlows.humanFoodCultivationSeeded =
+      (w.ecologyFlows.humanFoodCultivationSeeded || 0) + seedMass;
     structure.cropSeededBiomass = seedMass;
+    structure.cropYieldTarget = cultivatedFieldYieldTarget(seedMass, tiles.length);
+    structure.cropGrowthGenerated = seedMass;
+    structure.cropHarvestedThisCycle = 0;
+    structure.cropCycleState = 'growing';
+    structure.cropCycleStartedDay = w.day;
+    structure.cropSowCount = (Number(structure.cropSowCount) || 0) + 1;
+    structure.cropTileCapacity = structure.cropYieldTarget / tiles.length;
     structure.cropHarvested = structure.cropHarvested || 0;
     invalidateNavigation(w);
-    return seedMass;
+      return seedMass;
+    });
   }
 
 export function decompose(w) {

@@ -1,20 +1,56 @@
 import { rearProjection, safeCorralFootprint } from '../kingdoms/rear-sites.js';
+import { hasBuildingResourceClearance } from '../world/building-clearance.js';
 import { initializeStructureHealth } from '../kingdoms/fortifications.js';
 import { clamp, distance, hash01 } from '../core/math.js';
-import { communityFoodStock, consumeFoodReserve, spendInventory, spendStoreInventory, withdrawCommunityFood } from '../economy/inventories.js';
+import { communityFoodStock, consumeFoodReserve, spendInventory, spendStoreInventory, transferResource, withdrawCommunityFood } from '../economy/inventories.js';
+import { recordFoodAuditBlocked, withFoodAuditOperation } from '../economy/food-audit-ledger.js';
 import { cellAt, cellsWithin } from '../world/spatial.js';
-import { collectCommunityFieldSeeds, plantBiomass, sowCommunityField } from '../ecology/plants.js';
+import { plantBiomass, sowCommunityField } from '../ecology/plants.js';
 import { PLANTS } from '../../config/ecosystem.js';
+import { formatWholeMeasure } from '../../config/whole-measures.js';
 import { localNameFeature } from '../society/communities.js';
 import { log } from '../core/events.js';
 import { moveOne, reachableAreaAround } from '../individuals/movement.js';
 import { hitboxesOverlap, structureHitbox, worldCollisionIndex } from '../physics/hitboxes.js';
 import { consumePersonEnergy } from '../individuals/energy.js';
 import { claimConstructionWorkstation, clearConstructionWorkpointResources, constructionContactPoint, constructionWorkpointReachable, constructionWorkPositions } from './construction-workstations.js';
+import { communityNeedsAdditionalPen } from '../ecology/herd.js';
+import { clearWildVegetationNearCorrals } from '../ecology/corral-clearance.js';
+import { purchaseFieldSeedsForConstruction } from '../economy/trade.js';
+import { recoverSeedCargo, SEED_COURIER_CAPACITY } from '../economy/seed-cargo.js';
 
 const COMMUNITY_BUILDING_TYPES = new Set(['abrigo', 'roça', 'curral', 'posto de coleta', 'acampamento']);
 const KINGDOM_REPAIR_COST = Object.freeze({ wood: 3, stone: 2 });
 const CONSTRUCTION_OBSTACLE_NAMES = Object.freeze({ tree: 'árvore', stone: 'pedra', gold: 'minério de ouro' });
+export const FIELD_CONSTRUCTION_MIN_FOOD_RESERVE = 8;
+export const FIELD_CONSTRUCTION_MIN_ENERGY = 24;
+
+export function isFoodFieldConstructionAssignment(world, assignment) {
+  if (!assignment || assignment.action !== 'build') return false;
+  if (['invest-in-cultivated-food', 'replant-cultivated-food'].includes(assignment.goal)) return true;
+  const structure = (world.structures || []).find(item => item.id === assignment.structureId);
+  return structure?.type === 'roça' && !structure.complete;
+}
+
+export function canWorkOnFoodFieldWithReserve(person, assignment, world) {
+  return isFoodFieldConstructionAssignment(world, assignment)
+    && person.foodReserve > FIELD_CONSTRUCTION_MIN_FOOD_RESERVE;
+}
+
+export function canGatherFoodFieldMaterialsWithReserve(person, assignment) {
+  return assignment?.action === 'gather' && assignment.goal === 'prepare-cultivated-field'
+    && person.foodReserve > FIELD_CONSTRUCTION_MIN_FOOD_RESERVE;
+}
+
+export function hasConstructionFoodReserve(person, structure) {
+  return structure?.type === 'roça'
+    ? person.foodReserve > FIELD_CONSTRUCTION_MIN_FOOD_RESERVE
+    : person.foodReserve >= 24;
+}
+
+export function hasConstructionEnergy(person, structure) {
+  return person.energy > (structure?.type === 'roça' ? FIELD_CONSTRUCTION_MIN_ENERGY : 27);
+}
 
 function constructionObstacleDescription(kinds) {
   return kinds.map(kind => CONSTRUCTION_OBSTACLE_NAMES[kind] || 'recurso').join(' e ');
@@ -117,15 +153,21 @@ export function canCommunityBuild(w, community, size) {
     const limit = size >= 12 ? 5 : size >= 8 ? 4 : size >= 6 ? 3 : size >= 3 ? 1 : 0;
     const completed = structures.filter(s => s.complete && COMMUNITY_BUILDING_TYPES.has(s.type)).length;
     const plan = nextCommunityStructure(w, community, size, structures);
-    return completed < limit && plan && (community.stores.wood || 0) >= plan.woodCost
+    const capacityExpansion = plan?.type === 'curral' && communityNeedsAdditionalPen(w, community.id);
+    return (completed < limit || capacityExpansion) && plan && (community.stores.wood || 0) >= plan.woodCost
       && (community.stores.stone || 0) >= plan.stoneCost
       && communityFoodStock(community) >= plan.foodCost && w.day - community.lastBuildDay >= 24;
   }
 
 export function nextCommunityStructure(w, community, size, structures) {
+    if (structures.some(s => !s.complete)) return { type: 'ongoing', woodCost: 0, stoneCost: 0, foodCost: 0 };
+    if (community.isKingdomGroup && size >= 6 && !structures.some(s => s.type === 'roça')) {
+      return { type: 'roça', woodCost: 16, stoneCost: 6, foodCost: 0, seedMass: 8, required: 34 };
+    }
     if (!structures.some(s => s.type === 'abrigo')) return { type: 'abrigo', woodCost: 18, stoneCost: 8, foodCost: 0, required: 28 };
     if (size >= 6 && !structures.some(s => s.type === 'roça')) return { type: 'roça', woodCost: 16, stoneCost: 6, foodCost: 0, seedMass: 8, required: 34 };
     if (size >= 6 && !structures.some(s => s.type === 'curral')) return { type: 'curral', woodCost: 14, stoneCost: 5, foodCost: 0, required: 34 };
+    if (communityNeedsAdditionalPen(w, community.id)) return { type: 'curral', woodCost: 14, stoneCost: 5, foodCost: 0, required: 34 };
     if (!structures.some(s => s.type === 'posto de coleta')) return { type: 'posto de coleta', woodCost: 20, stoneCost: 12, foodCost: 1, required: 36 };
     if (size >= 12 && !structures.some(s => s.type === 'acampamento')) return { type: 'acampamento', woodCost: 24, stoneCost: 16, foodCost: 1, required: 44 };
     return null;
@@ -134,7 +176,8 @@ export function nextCommunityStructure(w, community, size, structures) {
 export function communityBuildUtility(w, community, size) {
     const active = communityStructures(w, community).some(s => !s.complete);
     const hasShelter = communityStructures(w, community).some(s => s.type === 'abrigo' && s.complete);
-    return clamp(.28 + size * .035 + (active ? .25 : 0) + (!hasShelter ? .44 : 0), .32, .92);
+    const needsPen = communityNeedsAdditionalPen(w, community.id);
+    return clamp(.28 + size * .035 + (active ? .25 : 0) + (!hasShelter ? .44 : 0) + (needsPen ? .3 : 0), .32, .98);
   }
 
 function overlapsSiteResources(w, hitbox, resourceIndex) {
@@ -178,8 +221,8 @@ export function chooseBuildSite(w, community, structures, builder = null) {
       if (!completed.length && centerDistance > 5) continue;
       if (completed.length) {
         const nearest = Math.min(...completed.map(s => distance(t, s)));
-        if (nearest < 6 || (nearest > (isFarm ? 12 : 17) && !ownedProperty)
-            || (centerDistance > (isFarm ? 12 : 22) && !ownedProperty)) continue;
+        if (nearest < 6 || (nearest > (isFarm ? 16 : 17) && !ownedProperty)
+            || (centerDistance > (isFarm ? 16 : 22) && !ownedProperty)) continue;
       }
       const localBiomass = cellsWithin(w, t.x, t.y, 2, q => q.terrain === 'land').reduce((sum, q) => sum + plantBiomass(q, ['grass', 'berry', 'broadleaf', 'conifer']), 0);
       if (localBiomass < 160) continue;
@@ -187,11 +230,17 @@ export function chooseBuildSite(w, community, structures, builder = null) {
       const spacingTarget = isFarm ? 7 : 9;
       const spacing = completed.length ? Math.min(...completed.map(s => Math.abs(distance(t, s) - spacingTarget))) : centerDistance;
       const noise = hash01(w.seed + community.id * 31, t.x, t.y) * .08;
+      // Prefer the same block rhythm as the initial residential district.
+      // This is a preference: terrain, resources and reachable workpoints still
+      // decide whether a plot is usable, including for fledgling communities.
+      const dx = t.x - community.x, dy = t.y - community.y;
+      const blockOffset = Math.abs(Math.abs(dx) - (13 + Math.round((Math.abs(dx) - 13) / 8) * 8))
+        + Math.abs(dy - (4 + Math.round((dy - 4) / 8) * 8));
+      const circulationPenalty = centerDistance > 6 && (Math.abs(dx) < 3 || Math.abs(dy) < 2) ? .5 : 0;
       const fieldTiles = nextType === 'roça' ? cellsWithin(w, t.x, t.y, 3.35, q => q.terrain === 'land'
         && q.slope <= .65 && q.soilType !== 'sandy' && q.waterDist <= 20 && q.cropFieldId == null) : null;
       if (fieldTiles && fieldTiles.length < 16) continue;
-      const fieldSeedBiomass = fieldTiles && fieldTiles.reduce((sum, q) => sum + plantBiomass(q, ['berry']), 0);
-      if (fieldTiles && fieldSeedBiomass + .001 < plan.seedMass) continue;
+      if (!hasBuildingResourceClearance(w, t, candidateRadius)) continue;
       const nearbyBrowse = cellsWithin(w, t.x, t.y, 3.5, q => q.terrain === 'land')
         .reduce((sum, q) => sum + plantBiomass(q, ['browse']), 0);
       const flockDistance = Math.min(...w.animals.filter(a => a.alive && a.speciesId === 'sheep').map(a => distance(a, t)), 22);
@@ -204,7 +253,8 @@ export function chooseBuildSite(w, community, structures, builder = null) {
         !constructionWorkpointReachable(w, builder, point, reachableWorkTiles)))) continue;
       const score = Math.log1p(localBiomass) * .24 + waterAccess * .12 - t.slope * 1.4 - spacing * .045 - centerDistance * .012
         + (ownedProperty ? .42 : 0) + (nextType === 'curral' ? Math.log1p(nearbyBrowse) * .19 - flockDistance * .045 : 0)
-        + (fieldTiles ? Math.min(1, fieldTiles.length / 25) * .61 + Math.min(1, fieldSeedBiomass / plan.seedMass) * .18 : 0) + noise;
+        + (fieldTiles ? Math.min(1, fieldTiles.length / 25) * .61 : 0) + noise
+        - blockOffset * .16 - circulationPenalty;
       if (score > bestScore) { best = { tile: t, fieldTileIndices: fieldTiles && fieldTiles.map(q => q.i), workPositions }; bestScore = score; }
     }
     if (!best) return null;
@@ -216,6 +266,8 @@ export function chooseBuildSite(w, community, structures, builder = null) {
       fieldTileIndices: best.fieldTileIndices || undefined,
       workPositions: best.workPositions || undefined,
       fruitStored: nextType === 'abrigo' ? 0 : undefined, meatStored: nextType === 'abrigo' ? 0 : undefined,
+      capacity: nextType === 'abrigo' ? 13 : undefined,
+      residentIds: nextType === 'abrigo' ? [] : undefined,
       radius: nextType === 'curral' ? 3.5 : undefined,
       complete: false, createdDay: w.day, builtDay: null, lastProgressDay: null
     };
@@ -251,8 +303,18 @@ export function workOnCommunityStructure(w, person, community, size) {
           || communityFoodStock(community) < structure.foodCost) {
         person.state = 'faltam recursos compartilhados'; person.buildCooldown = 8; return;
       }
-      if (structure.type === 'roça' && collectCommunityFieldSeeds(w, structure) < structure.seedMass) {
-        person.state = 'faltam sementes silvestres próximas'; person.buildCooldown = 8; return;
+      if (structure.type === 'roça' && (community.stores.seeds || 0) + (person.carriedCommunitySeeds || 0) + .001 < structure.seedMass) {
+        const status = purchaseFieldSeedsForConstruction(w, person, community);
+        if (status === 'purchased') person.state = 'sementes compradas; retornando à obra';
+        else if (status === 'sold') person.state = 'lote vendido; aguardando compra pelo reino';
+        else if (status === 'route-blocked') person.state = 'rota de extração ou comércio de sementes bloqueada';
+        else if (['gathered', 'approaching'].includes(status)) {
+          // Preserve the exact collecting / travel state set by the supplier.
+        } else if (status === 'no-source') person.state = 'sem sementes naturais acessíveis';
+        else if (status === 'no-funds') person.state = 'mercado sem moedas para pagar sementes';
+        else person.state = 'aguardando lote de sementes e financiamento';
+        person.buildCooldown = ['approaching', 'gathered', 'sold', 'purchased'].includes(status) ? 1 : 8;
+        return;
       }
       if (!spendStoreInventory(community, { wood: structure.woodCost, stone: structure.stoneCost }, 'construction-materials')) {
         person.state = 'faltam recursos compartilhados'; person.buildCooldown = 8; return;
@@ -260,6 +322,7 @@ export function workOnCommunityStructure(w, person, community, size) {
       withdrawCommunityFood(w, community, structure.foodCost, 'construction-food-cost');
       initializeStructureHealth(structure);
       w.structures.push(structure);
+      if (structure.type === 'curral') clearWildVegetationNearCorrals(w);
       const kingdom = w.kingdoms.find(item => item.id === community.kingdomId);
       if (kingdom) {
         kingdom.structureIds ||= [];
@@ -284,6 +347,30 @@ export function workOnCommunityStructure(w, person, community, size) {
     if (!workstation.arrived) {
       moveOne(w, person, cellAt(w, workstation.position.x, workstation.position.y), false);
       person.state = 'indo para o ponto de construção'; person.buildCooldown = 2; return;
+    }
+    if (structure.type === 'roça' && !(structure.cropSeedStored > .01)) {
+      // A resident delivers previously purchased seeds only after reaching a
+      // real construction workstation. Wild berries no longer finance sowing.
+      // Prefer the tracked courier cargo purchased at the market. Retained
+      // harvest seeds may also be delivered by a worker from community stores.
+      const fromCourier = Number.isSafeInteger(person.carriedCommunitySeeds)
+        && person.carriedCommunitySeeds >= structure.seedMass
+        && person.seedCargoCommunityId === community.id;
+      const source = fromCourier ? person : community.stores;
+      const sourceKey = fromCourier ? 'carriedCommunitySeeds' : 'seeds';
+      if (!Number.isFinite(source[sourceKey])
+          || source[sourceKey] + .001 < structure.seedMass) {
+        person.state = 'aguardando transporte de sementes até a roça';
+        person.buildCooldown = 3;
+        return;
+      }
+      const delivered = transferResource(source, structure,
+        sourceKey, structure.seedMass, 'cropSeedStored');
+      if (fromCourier && (person.carriedCommunitySeeds || 0) === 0) person.seedCargoCommunityId = null;
+      if (Math.abs(delivered - structure.seedMass) > .001)
+        throw new Error('Entrega de sementes à roça não conservou o lote reservado');
+      person.lastLesson = 'Transportou sementes existentes do estoque comunitário para o lote da roça.';
+      community.history.push('Entregou ' + delivered + ' unidades de sementes compradas ou retidas à roça.');
     }
     // Several residents can help, but an entire building cannot materialize
     // between two daily snapshots just because many workers chose it at once.
@@ -318,3 +405,127 @@ export function workOnCommunityStructure(w, person, community, size) {
       log(w, community.name + ' concluiu ' + structure.type + (structure.type === 'divisa' ? ' ao redor de sua área de ' + (structure.groundKind === 'hunting' ? 'caça' : 'pesca') + '; cruzar o limite custa mais energia.' : '; sua área de uso alcançou novos recursos.'));
     }
   }
+
+export function workOnReplantingField(w, person, community, fieldId = person?.assignment?.foodFieldId) {
+  if (!w || !person?.alive || !community?.stores || person.communityId !== community.id) return false;
+  const field = (w.structures || []).find(item => item.id === fieldId && item.type === 'roça'
+    && item.communityId === community.id && item.complete && item.destroyedDay == null && item.integrity !== 0);
+  if (!field || field.cropCycleState !== 'spent') {
+    person.state = !field ? 'roça para replantio indisponível' : 'ciclo anterior ainda em andamento';
+    return false;
+  }
+  const carried = person.carriedCommunitySeeds || 0;
+  if (carried > 0 && (person.seedCargoCommunityId !== community.id
+      || person.seedCargoPurpose !== 'replant' || person.seedCargoFieldId !== field.id)) {
+    person.state = 'carga de sementes pertence a outra encomenda';
+    return false;
+  }
+  const previousSeedMass = Math.max(0, Number(field.cropSeededBiomass) || Number(field.seedMass) || 0);
+  const availableSeeds = Math.max(0, Number(community.stores.seeds) || 0);
+  if (!(carried > 0)) {
+    // A dead or emigrated courier's parcel remains physically on the map.
+    // The replacement worker must retrieve it before visiting the field.
+    const recovered = recoverSeedCargo(w, person, community, 'replant', field.id);
+    if (recovered === 'approaching' || recovered === 'recovered') {
+      person.buildCooldown = 1;
+      return false;
+    }
+    if (recovered === 'route-blocked') {
+      person.state = 'rota de recuperação das sementes bloqueada';
+      person.buildCooldown = 3;
+      return false;
+    }
+    if (availableSeeds <= .01) {
+      person.state = 'aguardando sementes retidas ou carga recuperável';
+      return false;
+    }
+    // Shared inventory is represented physically at a live village or shelter.
+    // Replanting cannot withdraw it remotely from the middle of the field.
+    const stores = (w.structures || []).filter(s => s.communityId === community.id
+      && s.complete && s.destroyedDay == null && s.integrity !== 0
+      && ['vila', 'abrigo', 'posto de coleta'].includes(s.type))
+      .sort((a, b) => distance(person, a) - distance(person, b) || a.id - b.id);
+    const source = stores[0];
+    if (!source) { person.state = 'sem depósito físico para retirar sementes'; return false; }
+    if (distance(person, source) > 2.2) {
+      const moved = moveOne(w, person, cellAt(w, source.x, source.y), false);
+      person.state = moved ? 'indo buscar sementes retidas no depósito'
+        : 'rota do depósito de sementes bloqueada';
+      person.buildCooldown = moved ? 1 : 3;
+      return false;
+    }
+    const seedMass = Math.min(availableSeeds, previousSeedMass || availableSeeds, SEED_COURIER_CAPACITY);
+    if (seedMass <= .01) return false;
+    const movedSeeds = withFoodAuditOperation({
+      kind: 'seed-courier-pickup', category: 'field-replanting-seed-pickup', resource: 'seeds',
+      sourceAccount: community.stores, sourceResource: 'seeds',
+      destinationAccount: person, destinationResource: 'carriedCommunitySeeds',
+      amount: seedMass, actor: person, destinationPosition: { x: person.x, y: person.y }
+    }, () => transferResource(community.stores, person, 'seeds',
+      seedMass, 'carriedCommunitySeeds', SEED_COURIER_CAPACITY, 'field-replanting-seed-pickup'));
+    if (Math.abs(movedSeeds - seedMass) > .001) throw new Error('Lote do replantio não conservado ao retirar do depósito');
+    person.seedCargoCommunityId = community.id;
+    person.seedCargoPurpose = 'replant';
+    person.seedCargoFieldId = field.id;
+    person.state = 'retirando sementes retidas do depósito';
+    person.lastLesson = 'Carrega as sementes comunitárias retiradas fisicamente do depósito para a roça.';
+    person.buildCooldown = 1;
+
+    return false;
+  }
+  const cropTiles = (field.fieldTileIndices || []).map(index => w.tiles[index])
+    .filter(tile => tile && tile.cropFieldId === field.id && tile.terrain === 'land')
+    .sort((a, b) => distance(person, a) - distance(person, b) || a.i - b.i);
+  if (!cropTiles.length) { person.state = 'área da roça indisponível para replantio'; return false; }
+
+  const plantingTile = cropTiles.find(tile => distance(person, tile) <= 1.6);
+  if (!plantingTile) {
+    const moved = cropTiles.some(tile => moveOne(w, person, cellAt(w, tile.x, tile.y), false));
+    person.state = moved ? 'transportando sementes retidas para a roça' : 'rota da roça bloqueada para replantio';
+
+    person.buildCooldown = moved ? 1 : 3;
+    return false;
+  }
+  const seedMass = Math.min(carried, previousSeedMass || carried);
+  if (seedMass <= .01) return false;
+  const replantResult = withFoodAuditOperation({
+    kind: 'field-replant', category: 'worker-replanting', resource: 'seeds', amount: seedMass,
+    sourceAccount: person, sourceResource: 'carriedCommunitySeeds',
+    destinationAccount: field, destinationResource: 'cropSeedStored',
+    actor: person, destinationPosition: { x: field.x, y: field.y }
+  }, () => {
+    const movedSeeds = transferResource(person, field, 'carriedCommunitySeeds',
+      seedMass, 'cropSeedStored', Infinity, 'field-replanting-delivery');
+    if (Math.abs(movedSeeds - seedMass) > .001)
+      throw new Error('Entrega física ao talhão não conservou sementes');
+    const planted = sowCommunityField(w, field);
+    if (planted <= .01) {
+      recordFoodAuditBlocked('field-replanting-planting-failed', {
+        resource: 'seeds', requested: seedMass, available: movedSeeds, actorId: person.id
+      });
+      transferResource(field, person, 'cropSeedStored', movedSeeds, 'carriedCommunitySeeds',
+        SEED_COURIER_CAPACITY, 'return-unused-replant-seeds');
+      person.state = 'plantio bloqueado; sementes preservadas na carga';
+      return null;
+    }
+    return { movedSeeds, planted };
+  });
+  if (!replantResult) return false;
+  const { planted } = replantResult;
+  if (!(person.carriedCommunitySeeds > .01)) {
+    person.seedCargoCommunityId = null;
+    person.seedCargoPurpose = null;
+    person.seedCargoFieldId = null;
+  }
+
+  field.cropSeedsRetainedThisCycle = 0;
+  field.cropLastSowedDay = w.day;
+  if (person.assignment) person.assignment.replantSowedDay = w.day;
+  person.state = 'semeando a roça';
+  person.lastLesson = 'Levou sementes retidas desde o depósito, entregou o lote ao talhão e reiniciou o cultivo.';
+  community.history.push('Replantou a roça com ' + formatWholeMeasure(planted) + ' unidades de sementes transportadas do depósito.');
+  log(w, community.name + ' replantou uma roça com ' + formatWholeMeasure(planted)
+    + ' sementes entregues fisicamente; novo lote iniciado.', w.day + 1);
+
+  return true;
+}

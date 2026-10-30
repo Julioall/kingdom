@@ -1,6 +1,6 @@
 
 
-export const WIDTH = 128, HEIGHT = 128, CELL_AREA_M2 = 100, REGION_SIDE = 8;
+export const WIDTH = 112, HEIGHT = 112, CELL_AREA_M2 = 100, REGION_SIDE = 8;
 
 export const SEASONS = ['Primavera', 'Verão', 'Outono', 'Inverno'];
 
@@ -9,8 +9,8 @@ export const COLORS = ['#d47c51', '#718c56', '#647ca1', '#b2934f', '#8a6b91', '#
 export const PLANTS = [
     { id: 'grass', name: 'Gramíneas', guild: 'Herbácea', color: '#91a74e', water: [.12, .82], temp: [-4, 39], max: 140, growth: .24, edible: 1, canopy: 0, habitat: 'land' },
     { id: 'berry', name: 'Arbusto de frutos', guild: 'Lenhosa baixa', color: '#76854a', water: [.28, .92], temp: [2, 36], max: 180, growth: .22, edible: .78, canopy: .12, habitat: 'land', foodFor: 'people' },
-    { id: 'cultivated-root', name: 'Raízes cultivadas', guild: 'Cultivo comunitário', color: '#b4a353', water: [.18, .9], temp: [4, 36], max: 180, growth: 6, edible: 1, canopy: .04, habitat: 'land', foodFor: 'people', cultivatedOnly: true, rootReserve: 1.2, seasonalGrowth: [1.2, 1.15, .88, .52] },
-    { id: 'browse', name: 'Arbusto de brotos', guild: 'Lenhosa baixa', color: '#667d45', water: [.2, .86], temp: [-2, 38], max: 160, growth: .15, edible: .62, canopy: .16, habitat: 'land', foodFor: 'sheep', seasonalGrowth: [1.08, .22, .72, 1.22] },
+    { id: 'cultivated-root', name: 'Raízes cultivadas', guild: 'Cultivo comunitário', color: '#b4a353', water: [.18, .9], temp: [4, 36], max: 420, growth: 180, edible: 1, canopy: .04, habitat: 'land', foodFor: 'people', cultivatedOnly: true, rootReserve: 0 },
+    { id: 'browse', name: 'Arbusto de brotos', guild: 'Lenhosa baixa', color: '#667d45', water: [.2, .86], temp: [-2, 38], max: 160, growth: .1215, edible: .62, canopy: .16, habitat: 'land', foodFor: 'sheep' },
     { id: 'broadleaf', name: 'Árvore de folhas largas', guild: 'Lenhosa', color: '#557543', water: [.32, .88], temp: [1, 35], max: 1200, growth: .42, edible: .08, canopy: .52, habitat: 'land' },
     { id: 'conifer', name: 'Conífera', guild: 'Lenhosa', color: '#355f4c', water: [.18, .76], temp: [-9, 27], max: 1100, growth: .34, edible: .03, canopy: .46, habitat: 'land' },
     { id: 'reed', name: 'Juncos', guild: 'Herbácea', color: '#a4a24f', water: [.74, 1], temp: [4, 39], max: 360, growth: 1.3, edible: .18, canopy: .04, habitat: 'shore' },
@@ -28,10 +28,15 @@ export const SHEEP_ADULT_AGE_DAYS = 180;
 export const SHEEP_NEWBORN_MASS_RATIO = .24;
 export const SHEEP_JUVENILE_MIN_SCALE = .68;
 
-// A small daily ration sustains a domesticated sheep without making the flock
-// compete with people for the same edible plants.
+// Internal feed amount for one daily ration portion. Player and ruler-facing
+// values use whole portions: one portion feeds one sheep for one day.
 export const DOMESTIC_SHEEP_DAILY_FEED = .12;
+export const DOMESTIC_SHEEP_DAILY_RATION_PORTIONS = 1;
 export const DOMESTIC_SHEEP_ENERGY_PER_FEED = 8;
+
+export function feedRationPortions(internalFeedAmount) {
+  return Math.round((Number(internalFeedAmount) || 0) / DOMESTIC_SHEEP_DAILY_FEED * DOMESTIC_SHEEP_DAILY_RATION_PORTIONS);
+}
 
 export const HUMAN_NAMES = ['Aru', 'Bela', 'Caí', 'Dara', 'Eni', 'Iara', 'Jaci', 'Kai', 'Luma', 'Nilo', 'Oru', 'Tainá', 'Uira', 'Yara', 'Zuri', 'Ayo', 'Cora', 'Davi', 'Ema', 'Ivo', 'Lina', 'Mira', 'Noa', 'Ravi'];
 
@@ -47,8 +52,11 @@ export const ANIMAL_ACTIONS = ['feed', 'drink', 'hunt', 'rest', 'explore', 'flee
 
 export const PEOPLE_INPUTS = 18, HIDDEN_NEURONS = 9, RULER_HIDDEN_NEURONS = 50;
 
-export const FOOD_RESERVE_PER_UNIT = .72;
+// One stored food unit fills one person's reserve for one day.
+export const FOOD_DAYS_PER_UNIT = 1;
+export const COMMUNITY_FOOD_CARRY_CAPACITY = 24;
 
-export const DAILY_FOOD_NEED = .78;
+export const DAILY_FOOD_NEED = 1;
 
-export const MEAT_NUTRITIONAL_VALUE = 2.5;
+// A unit of meat is still a physical good, valued as ten person-days for food planning.
+export const MEAT_NUTRITIONAL_VALUE = 10;

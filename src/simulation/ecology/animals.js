@@ -13,6 +13,7 @@ import { drinkWater } from './hydrology.js';
 import { moveOne } from '../individuals/movement.js';
 import { log } from '../core/events.js';
 import { consumeStoreInventory } from '../economy/inventories.js';
+import { activeCommunityPens, assignedHerdPen, herdPenRadius, reconcileCommunityHerdPens } from './herd.js';
 
 export function seedAnimals(w, counts) {
     for (const p of ANIMALS) for (let i = 0; i < counts[p.id]; i++) {
@@ -35,7 +36,7 @@ export function makeAnimal(w, speciesId, x, y, newborn) {
       massKg: adultMassKg * (speciesId === 'sheep' && newborn ? SHEEP_NEWBORN_MASS_RATIO : 1),
       ...(speciesId === 'sheep' ? { adultMassKg } : {}),
       reproductionCooldown,
-      habituation: 0, herdCommunityId: null, aiEnabled: true, lastFedDay: -999, lastFeedAmount: 0, feedingEvents: 0, beingLedBy: null,
+      habituation: 0, herdCommunityId: null, herdPenId: null, aiEnabled: true, lastFedDay: -999, lastFeedAmount: 0, feedingEvents: 0, beingLedBy: null,
       sensoryMemory: { actors: {}, water: [] }, perception: null,
       brain: createBrain(w, ANIMAL_ACTIONS, 6, id), lastReward: 0,
       state: 'buscando alimento'
@@ -105,12 +106,12 @@ export function moveAwayFrom(w, animal, threat, aquatic) {
     if (!threat) return false;
     const choices = [];
     const pen = animal.speciesId === 'sheep' && animal.herdCommunityId !== null
-      ? w.structures.find(s => s.complete && s.type === 'curral' && s.communityId === animal.herdCommunityId) : null;
+      ? assignedHerdPen(w, animal) : null;
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       if (!dx && !dy) continue;
       const t = cellAt(w, animal.x + dx, animal.y + dy);
       if (t && (aquatic ? t.terrain === 'water' : t.terrain !== 'water' && t.terrain !== 'rock')
-          && (!pen || distance(t, pen) <= (pen.radius || 3.5))) choices.push(t);
+          && (!pen || distance(t, pen) <= herdPenRadius(pen))) choices.push(t);
     }
     choices.sort((a, b) => distance(b, threat) - distance(a, threat) + (a.slope - b.slope) * .08);
     if (!choices.length) return false;
@@ -161,7 +162,25 @@ function wildSheepForageTargets(w, animals) {
     return targets;
   }
 
+function communalSheepWalkTarget(w, animal, pen, penTiles, occupied) {
+  const options = penTiles.filter(tile => distance(tile, animal) > .5).map(tile => {
+    const crowding = occupied.get(tile.x + ',' + tile.y) || 0;
+    const browse = plantBiomass(tile, SHEEP_FORAGE);
+    const dailyPreference = hash01(w.seed + animal.id * 101 + w.day * 7919, tile.x + pen.id, tile.y);
+    const backtrackPenalty = tile.i === animal.herdPreviousPenTileIndex ? 1.2 : 0;
+    return { tile, score: browse * .004 - crowding * 1.25 - distance(tile, animal) * .2
+      + dailyPreference * 1.5 - backtrackPenalty };
+  }).sort((left, right) => right.score - left.score || left.tile.i - right.tile.i);
+  const top = options.slice(0, Math.min(4, options.length));
+  if (!top.length) return null;
+  const choice = Math.floor(hash01(w.seed + animal.id * 97 + w.day * 3571, pen.id, top.length) * top.length);
+  return top[choice].tile;
+}
+
 export function updateAnimals(w) {
+    const communityIds = new Set(w.animals.filter(animal => animal.alive && animal.speciesId === 'sheep'
+      && animal.herdCommunityId != null).map(animal => animal.herdCommunityId));
+    for (const communityId of communityIds) reconcileCommunityHerdPens(w, communityId);
     feedCommunalHerds(w);
     const living = w.animals.filter(a => a.alive).sort((a, b) => a.id - b.id);
     const wildSheepTargets = wildSheepForageTargets(w, living);
@@ -176,7 +195,14 @@ export function updateAnimals(w) {
       }
       if (a.beingLedBy) {
         const handler = w.people.find(person => person.id === a.beingLedBy && person.alive && person.leadingSheepId === a.id);
-        if (!handler) { a.beingLedBy = null; a.state = 'solta'; }
+        if (!handler) {
+          const previousHandler = w.people.find(person => person.id === a.beingLedBy);
+          if (previousHandler?.leadingSheepId === a.id) {
+            previousHandler.leadingSheepId = null;
+            previousHandler.leadingSheepPenId = null;
+          }
+          a.beingLedBy = null; a.herdPenId = null; a.state = 'solta';
+        }
         else { a.x = handler.x + .25; a.y = handler.y + .15; a.state = 'seguindo o condutor'; continue; }
       }
       if (a.speciesId === 'sheep' && a.herdCommunityId != null) {
@@ -187,11 +213,10 @@ export function updateAnimals(w) {
         const energyNeed = Math.max(0, upkeep - rationEnergy);
         let grazed = 0;
         let grazedOutsidePen = false;
-        const pen = w.structures.find(structure => structure.complete && structure.type === 'curral'
-          && structure.communityId === a.herdCommunityId);
+        const pen = assignedHerdPen(w, a);
         let candidates = [];
         if (pen) {
-          const penRadius = pen.radius || 3.5;
+          const penRadius = herdPenRadius(pen);
           const penTiles = cellsWithin(w, pen.x, pen.y, penRadius, tile => tile.terrain === 'land');
           const occupied = new Map();
           for (const sheep of w.animals) {
@@ -205,15 +230,16 @@ export function updateAnimals(w) {
                 - (occupied.get(tile.x + ',' + tile.y) || 0) * 5 + hash01(w.seed + a.id * 101, tile.x, tile.y) * 3;
               return score(right) - score(left);
             });
-          const destination = candidates[0] || penTiles.slice().sort((left, right) =>
-            distance(left, a) - distance(right, a)
-              + hash01(w.seed + a.id * 101, right.x, right.y) * 3
-              - hash01(w.seed + a.id * 101, left.x, left.y) * 3)[0];
-          if (destination) moveOne(w, a, destination, false);
+          const destination = communalSheepWalkTarget(w, a, pen, penTiles, occupied);
+          const previousTile = cellAt(w, Math.round(a.x), Math.round(a.y));
+          if (destination && moveOne(w, a, destination, false) && previousTile
+              && (a.x !== previousTile.x || a.y !== previousTile.y)) {
+            a.herdPreviousPenTileIndex = previousTile.i;
+          }
         }
         if (energyNeed > .001) {
           if (pen) {
-            const penRadius = pen.radius || 3.5;
+            const penRadius = herdPenRadius(pen);
             if (!candidates.length) {
               candidates = cellsWithin(w, pen.x, pen.y, penRadius + 2,
                 tile => tile.terrain === 'land' && distance(tile, pen) > penRadius
@@ -295,7 +321,7 @@ export function updateAnimals(w) {
         else a.state = 'buscando alimento';
       } else if (action === 'hunt') {
         if (prey && distance(a, prey) <= 1.4 && rand(w) < .48) {
-          prey.alive = false; w.deaths++; w.deathsByCause.predation++; a.energy = clamp(a.energy + 46, 0, 100);
+          recordAnimalDeath(w, prey, 'predation'); a.energy = clamp(a.energy + 46, 0, 100);
           const carcass = cellAt(w, prey.x, prey.y); carcass.detritusGPerM2 += species(prey.speciesId, ANIMALS).mass * 190;
           log(w, 'Uma raposa capturou uma lebre; a matéria retorna ao ciclo ecológico.');
           a.state = 'caçando';
@@ -317,16 +343,23 @@ export function updateAnimals(w) {
   }
 
 function resolveAnimalDeath(w, animal, profile) {
-    if (!animal.alive) return;
-    animal.alive = false; w.deaths++;
     const cause = animal.ageDays > profile.life ? 'age'
       : profile.water && animal.hydration <= .1 ? 'dehydration' : 'starvation';
-    animal.deathDay = w.day + 1;
-    animal.deathCause = cause;
-    w.deathsByCause[cause] = (w.deathsByCause[cause] || 0) + 1;
+    if (!recordAnimalDeath(w, animal, cause)) return;
     const remains = cellAt(w, animal.x, animal.y);
     if (remains) remains.detritusGPerM2 += profile.mass * 170;
     if (w.deaths % 5 === 0) log(w, 'A mortalidade animal depositou biomassa no estoque de detritos.');
+  }
+
+export function recordAnimalDeath(world, animal, cause) {
+    if (!world || !animal?.alive || !cause) return false;
+    animal.alive = false;
+    animal.deathDay = world.day + 1;
+    animal.deathCause = cause;
+    world.deaths = (world.deaths || 0) + 1;
+    world.deathsByCause ||= {};
+    world.deathsByCause[cause] = (world.deathsByCause[cause] || 0) + 1;
+    return true;
   }
 
 export function reproduceAnimals(w) {
@@ -354,13 +387,17 @@ export function reproduceAnimals(w) {
           offspring.herdCommunityId = a.herdCommunityId;
           offspring.aiEnabled = false;
           offspring.habituation = Math.min(a.habituation || 0, mate.habituation || 0);
-          const pen = w.structures.find(s => s.complete && s.destroyedDay == null && s.type === 'curral' && s.communityId === a.herdCommunityId);
+        }
+        w.animals.push(offspring); w.births++; w.birthsByKind.animals++;
+        if (id === 'sheep' && offspring.herdCommunityId != null) {
+          const assigned = reconcileCommunityHerdPens(w, offspring.herdCommunityId);
+          const penId = assigned.assignments.get(offspring.id);
+          const pen = assigned.pens.find(item => item.id === penId);
           if (pen) {
             pen.herdBirths = (pen.herdBirths || 0) + 1;
             pen.lastHerdBirthDay = w.day + 1;
           }
         }
-        w.animals.push(offspring); w.births++; w.birthsByKind.animals++;
         break;
       }
     }
@@ -368,9 +405,12 @@ export function reproduceAnimals(w) {
 
 export function communityHerd(w, community) {
     if (!community) return [];
-    const pen = w.structures.find(s => s.communityId === community.id && s.complete && s.type === 'curral');
-    return w.animals.filter(a => a.alive && a.speciesId === 'sheep' &&
-      (a.herdCommunityId === community.id || (pen && distance(a, pen) <= (pen.radius || 5)) || (!pen && distance(a, community) <= 5)));
+    const pens = activeCommunityPens(w, community.id);
+    return w.animals.filter(animal => animal.alive && animal.speciesId === 'sheep'
+      && (animal.herdCommunityId === community.id
+        || (pens.length
+          ? pens.some(pen => distance(animal, pen) <= herdPenRadius(pen))
+          : distance(animal, community) <= 5)));
   }
 
 export function domesticatedSheep(w, community) {
@@ -399,6 +439,8 @@ export function feedCommunalHerds(w) {
         animal.habituation = clamp((animal.habituation || 0) + .002, 0, 1);
         animal.lastFedDay = w.day; animal.feedingEvents = (animal.feedingEvents || 0) + 1;
       }
+      w.ecologyFlows ||= {};
+      w.ecologyFlows.livestockFeedConsumed = (w.ecologyFlows.livestockFeedConsumed || 0) + total;
       consumed += total;
     }
     return consumed;
