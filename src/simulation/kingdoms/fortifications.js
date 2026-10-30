@@ -1,4 +1,5 @@
 import { spendAttackStamina, recordArrow } from './combat-resources.js';
+import { magicModifiers } from '../magic/effects.js';
 import { captureMissionFor, TOWER_CAPTURE_RULES } from './tower-capture.js';
 import { dropStructureLoot } from '../economy/loot.js';
 import { distance } from '../core/math.js';
@@ -84,11 +85,11 @@ export function attackStructure(world, person, tower, day) {
     || day - (person.lastMilitaryAttackDay ?? -Infinity) < 2 || distance(person, tower) > attack.range) return 0;
   const capture = tower.type === 'torre' && captureMissionFor(world, person, tower);
   const damageLimit = capture ? Math.max(0, structureVitality(tower).health - structureVitality(tower).maxHealth * TOWER_CAPTURE_RULES.healthFraction) : Infinity;
-  if (damageLimit <= 0 || !spendAttackStamina(person, day)) return 0;
+  if (damageLimit <= 0 || !spendAttackStamina(person, day, { nowMs: world.magicTimeMs || 0 })) return 0;
   const action = createCombatAction(world, person, tower, day, { structure: true, reach: attack.range });
   recordArrow(person, tower, day, action);
   const contact = resolveCombatAction(world, person, action, [tower],
-    () => damageStructure(world, tower, Math.min(attack.damage, damageLimit), day, person.kingdomId));
+    () => damageStructure(world, tower, Math.min(attack.damage * magicModifiers(person, world).damage, damageLimit), day, person.kingdomId));
   const damage = contact.damageApplied || 0;
   // A miss still consumes the attack, preventing repeated free attempts this day.
   person.lastMilitaryAttackDay = day;

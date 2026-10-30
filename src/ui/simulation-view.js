@@ -5,7 +5,7 @@ import { inspectTile } from '../simulation/world/queries.js';
 import { calendarDate, seasonIndex } from '../simulation/ecology/climate.js';
 import { isTreeAnchor } from '../simulation/ecology/plants.js';
 import { corralGate } from '../simulation/individuals/movement.js';
-import { structureHitbox, structureInteractionPoint } from '../simulation/physics/hitboxes.js';
+import { npcHitbox, structureHitbox, structureInteractionPoint, worldCollisionIndex } from '../simulation/physics/hitboxes.js';
 import { KINGDOM_PROJECT_TIMING } from '../simulation/kingdoms/commands.js';
 import { militaryClassSource } from '../simulation/kingdoms/military-sources.js';
 
@@ -17,6 +17,6 @@ export default {
     Cosmos: { calendarDate, seasonIndex },
     Biosphere: { Botany: { isTreeAnchor } },
     SocietyExperiment: { corralGate },
-    Collision: { structureHitbox, structureInteractionPoint },
+    Collision: { npcHitbox, structureHitbox, structureInteractionPoint, worldCollisionIndex },
   },
 };

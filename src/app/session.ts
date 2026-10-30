@@ -21,6 +21,8 @@ export class GameSession {
   paused = false;
   speed = 1;
   revision = 0;
+  private receivedRevision = 0;
+  onPlayerUpdate: ((combat: boolean, personIds: number[], magic?: boolean) => void) | null = null;
   epoch = 1;
   ready: Promise<WorldView>;
   onUpdate: ((world: WorldView, stats: Record<string, unknown>, reset: boolean) => void) | null = null;
@@ -91,7 +93,7 @@ export class GameSession {
 
   async dispatch(command: WorldCommand): Promise<unknown> {
     const response = await this.send('dispatch', { command });
-    return response.type === 'snapshot' ? response.result : undefined;
+    return response.type === 'snapshot' || response.type === 'player-update' ? response.result : undefined;
   }
 
   async setKingdomAiEnabled(enabled: boolean): Promise<boolean> {
@@ -181,7 +183,23 @@ export class GameSession {
       pending.reject(error);
       return;
     }
-    if (response.revision < this.revision) {
+    if (response.revision < this.receivedRevision) {
+      pending.resolve(response);
+      return;
+    }
+    this.receivedRevision = response.revision;
+    if (response.type === 'player-update') {
+      if (this.world) {
+        const updates = response.people || (response.person ? [response.person] : []);
+        for (const update of updates) {
+          const person = this.world.people.find(person => person.id === update.id);
+          if (person) Object.assign(person, update);
+        }
+        for (const key of ['combatEvents', 'loot', 'trainingDummyStates', 'events', 'logs', 'magicTimeMs', 'magicZones', 'magicEvents', 'magicStats'] as const) {
+          if (response[key] !== undefined) (this.world as unknown as Record<string, unknown>)[key] = response[key];
+        }
+        this.onPlayerUpdate?.(!!response.people?.length, updates.map(person => person.id), response.magicTimeMs !== undefined);
+      }
       pending.resolve(response);
       return;
     }

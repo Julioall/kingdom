@@ -19,13 +19,22 @@ export function createMovementInterpolator() {
     if (lastDay === world.day) return;
     const resumed = discontinuityPending;
     discontinuityPending = false;
+    let stalledPoses = null;
     if (lastArrival !== null && !resumed) {
       // A snapshot can take several seconds when the simulation worker is busy.
       // Match that real interval so movement continues instead of finishing after
       // one nominal second and leaving every actor idle until the next response.
       const gap = now - lastArrival;
+      if (gap > cadence * 1.5) {
+        stalledPoses = new Map();
+        for (const [kind, agents] of [['person', world.people], ['animal', world.animals]]) {
+          for (const agent of agents || []) if (agent.alive)
+            stalledPoses.set(kind + ':' + agent.id, pose(kind, agent, now));
+        }
+      }
       if (gap > 0) cadence = gap;
     }
+    if (stalledPoses) playbackTime = now - cadence - 60;
     lastDay = world.day; lastArrival = now;
     const living = new Set();
     for (const [kind, agents] of [['person', world.people], ['animal', world.animals]]) {
@@ -35,6 +44,8 @@ export function createMovementInterpolator() {
         living.add(key);
         let actor = actors.get(key);
         if (!actor) { actor = { points: [], facingX: 1 }; actors.set(key, actor); }
+        const stalledPose = stalledPoses?.get(key);
+        if (stalledPose) actor.points = [{ x: stalledPose.x, y: stalledPose.y, time: playbackTime }];
         if (resumed && actor.points.length) {
           const previous = actor.points[actor.points.length - 1];
           actor.points = [{ ...previous, time: now - cadence }];
@@ -61,5 +72,15 @@ export function createMovementInterpolator() {
       dirX, dirY, facingX: actor.facingX
     };
   }
-  return { observe, pose, markDiscontinuity };
+  function snapActor(kind, agent, now) {
+    actors.set(kind + ':' + agent.id, { facingX: agent.militaryFacingX || 1,
+      points: [{ x: agent.x, y: agent.y, time: now - cadence - 60 }] });
+  }
+  function settleActor(kind, agent, from, now) {
+    const start = Math.max(playbackTime, now - cadence - 60);
+    actors.set(kind + ':' + agent.id, { facingX: agent.militaryFacingX || 1,
+      points: [{ x: from.x, y: from.y, time: start },
+        { x: agent.x, y: agent.y, time: start + Math.min(250, cadence) }] });
+  }
+  return { observe, pose, markDiscontinuity, snapActor, settleActor };
 }

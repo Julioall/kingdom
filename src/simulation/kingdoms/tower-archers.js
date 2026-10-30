@@ -15,7 +15,7 @@ function hasResourceBlockingEntry(world, tile) {
 }
 
 function eligible(person, tower) {
-  return person.alive && person.role === 'soldier' && person.militaryClass === 'arqueiro'
+  return !person.playerControlled && person.alive && person.role === 'soldier' && person.militaryClass === 'arqueiro'
     && person.militaryRank !== 'general'
     && person.kingdomId === tower.kingdomId && person.health >= 42 && (person.energy ?? 100) >= 24
     && (person.foodReserve ?? 100) >= 20 && (person.hydration ?? 100) >= 20;
@@ -30,7 +30,7 @@ function availableForTower(world, person, tower) {
 }
 
 function towerEntryTile(world, tower) {
-  const entry = structureInteractionPoint(tower) || { x: tower.x, y: tower.y + 1 };
+  const entry = tower.entryTile || structureInteractionPoint(tower) || { x: tower.x, y: tower.y + 1 };
   const tile = cellAt(world, entry.x, entry.y);
   if (tile?.terrain === 'land' && !isTreeAnchor(world, tile) && !hasResourceBlockingEntry(world, tile)) {
     return { x: tile.x, y: tile.y };
@@ -125,6 +125,7 @@ export function towerDutyOrder(world, person) {
 }
 
 export function performTowerDuty(world, person, order) {
+  if (person.playerControlled) return false;
   if (order.recovering) {
     person.towerMounted = false;
     person.towerEntryReady = false;
@@ -158,7 +159,7 @@ export function performTowerDuty(world, person, order) {
 
 export function defendTowers(world, day) {
   for (const archer of world.people) {
-    if (!archer.alive || !archer.towerMounted) continue;
+    if (archer.playerControlled || !archer.alive || !archer.towerMounted) continue;
     const tower = world.structures.find(t => t.id === archer.towerDutyId && t.destroyedDay == null);
     if (!tower || !tower.complete || tower.archerId !== archer.id
       || towerVitality(tower).health <= 0 || distance(archer, tower) > 1.25 || !eligible(archer, tower)) {

@@ -1,6 +1,8 @@
 import { PLANTS, SHEEP_ADULT_AGE_DAYS, SHEEP_JUVENILE_MIN_SCALE } from '../../config/ecosystem.js';
 import { isTreeAnchor } from '../ecology/plants.js';
 import { STRUCTURE_COLLISION_PROFILES } from './collision-profiles.js';
+import { dominantMetalKind } from '../../config/mineral-deposits.js';
+import { trainingDummiesForWorld } from '../world/training-dummies.js';
 
 // Collision masks live on the ground plane. Building artwork rises above
 // these footprints, so its full sprite rectangle must never block movement.
@@ -133,10 +135,9 @@ export function treeHitbox(world, tile) {
 // Large stone outcrops get a wider base; small deposits stay compact.
 export function mineralHitbox(tile) {
   if (!tile || tile.terrain === 'water' || tile.cropFieldId != null) return null;
-  const gold = Number(tile.goldOre) || 0, stone = Number(tile.stoneDeposit) || 0;
+  const stone = Number(tile.stoneDeposit) || 0;
   const collisionY = tile.y - .5;
-  const otherMetal = ['copper', 'silver', 'iron'].find(metal => (Number(tile[metal + 'Ore']) || 0) > .05);
-  const kind = gold > .05 ? 'gold' : otherMetal || (stone > .7 ? 'stone' : null);
+  const kind = dominantMetalKind(tile, true) || (stone > .7 ? 'stone' : null);
   if (!kind) return null;
   const halfSize = kind !== 'stone' ? .24 : stone >= 8 ? .3 : .23;
   return { shape: 'rectangle', x: tile.x, y: collisionY,
@@ -258,14 +259,14 @@ function segmentHitboxFraction(from, to, hitbox) {
 // still decide whether a low swing or projectile has a clear path. Sampling the
 // spatial indexes keeps this bounded to the cells crossed by the weapon.
 export function combatPathObstruction(world, from, to, {
-  sourceElevation = 0, targetElevation = sourceElevation, ignoreStructureId = null
+  sourceElevation = 0, targetElevation = sourceElevation, ignoreStructureId = null, collisionIndex = null
 } = {}) {
   if (!world || !from || !to || !Number.isFinite(from.x) || !Number.isFinite(from.y)
       || !Number.isFinite(to.x) || !Number.isFinite(to.y)) return null;
   const length = Math.hypot(to.x - from.x, to.y - from.y);
   if (length < 1e-8) return null;
   const steps = Math.max(2, Math.ceil(length * 4));
-  const index = worldCollisionIndex(world);
+  const index = collisionIndex || worldCollisionIndex(world);
   const candidates = new Set();
   let first = null;
   for (let step = 1; step < steps; step++) {
@@ -375,6 +376,7 @@ export function hitboxSurfaceDistance(a, b) {
 function hitboxSignature(hitboxes) {
   return hitboxes.map(hitbox => [hitbox.structureId, hitbox.x, hitbox.y,
     hitbox.shape, hitbox.halfWidth, hitbox.halfDepth, hitbox.radius, hitbox.resourceKind,
+    hitbox.entityId, hitbox.trainingDummyId,
     hitbox.points?.map(point => point.x + ',' + point.y).join(';')].join(':')).join('|');
 }
 
@@ -401,7 +403,11 @@ function spatialIndex(world, hitboxes, signature) {
 }
 
 export function structureCollisionIndex(world) {
-  const hitboxes = (world.structures || []).map(structureHitbox).filter(Boolean);
+  const buildingHitboxes = (world.structures || []).map(structureHitbox).filter(Boolean);
+  const trainingDummyHitboxes = trainingDummiesForWorld(world).map(dummy => ({
+    ...npcHitbox(dummy), structureId: dummy.id, trainingDummyId: dummy.id
+  }));
+  const hitboxes = [...buildingHitboxes, ...trainingDummyHitboxes];
   const signature = hitboxSignature(hitboxes);
   const cached = structureIndexCache.get(world);
   if (cached?.signature === signature && cached.width === world.width && cached.height === world.height) return cached;
@@ -460,10 +466,8 @@ export function collidesWithWorldAt(world, actor, x, y, index = worldCollisionIn
     || collidesWithIndexAt(actor, x, y, index?.resources);
 }
 
-function collidesWithIndexAtPosition(actor, x, y, index) {
-  if (!index || !Number.isFinite(x) || !Number.isFinite(y)) return false;
-  const body = actorHitbox(actor, x, y);
-  if (!body) return false;
+function hitboxesNearBody(body, index) {
+  if (!index || !body) return [];
   const minX = Math.max(0, Math.floor(body.x - body.radius));
   const maxX = Math.min(index.width - 1, Math.floor(body.x + body.radius));
   const minY = Math.max(0, Math.floor(body.y - body.radius));
@@ -472,10 +476,42 @@ function collidesWithIndexAtPosition(actor, x, y, index) {
   for (let tileY = minY; tileY <= maxY; tileY++) for (let tileX = minX; tileX <= maxX; tileX++) {
     for (const hitbox of index.byTile.get(tileY * index.width + tileX) || []) candidates.add(hitbox);
   }
-  return Array.from(candidates).some(hitbox => hitboxesOverlap(body, hitbox));
+  return Array.from(candidates);
+}
+
+function collidesWithIndexAtPosition(actor, x, y, index) {
+  if (!index || !Number.isFinite(x) || !Number.isFinite(y)) return false;
+  const body = actorHitbox(actor, x, y);
+  return hitboxesNearBody(body, index).some(hitbox => hitboxesOverlap(body, hitbox));
 }
 
 export function collidesWithWorldPositionAt(world, actor, x, y, index = worldCollisionIndex(world)) {
   return collidesWithIndexAtPosition(actor, x, y, index?.structures)
     || collidesWithIndexAtPosition(actor, x, y, index?.resources);
+}
+
+function signedClearance(body, obstacle) {
+  if (obstacle.shape === 'circle')
+    return Math.hypot(body.x - obstacle.x, body.y - obstacle.y) - body.radius - obstacle.radius;
+  const points = polygonPoints(obstacle);
+  let distanceSquared = Infinity;
+  for (let i = 0; i < points.length; i++)
+    distanceSquared = Math.min(distanceSquared, pointSegmentDistanceSquared(body, points[i], points[(i + 1) % points.length]));
+  const distance = Math.sqrt(distanceSquared);
+  return (pointInPolygon(body, points) ? -distance : distance) - body.radius;
+}
+
+// Existing overlaps may be left only by reducing penetration. New obstacles
+// still block, including a second obstacle encountered during the escape.
+export function worldMovementBlocked(world, actor, from, to, index = worldCollisionIndex(world)) {
+  const before = actorHitbox(actor, from.x, from.y), after = actorHitbox(actor, to.x, to.y);
+  if (!before || !after) return true;
+  for (const layer of [index.structures, index.resources]) {
+    for (const obstacle of hitboxesNearBody(after, layer)) {
+      if (!hitboxesOverlap(after, obstacle)) continue;
+      if (!hitboxesOverlap(before, obstacle)
+          || signedClearance(after, obstacle) <= signedClearance(before, obstacle) + 1e-7) return true;
+    }
+  }
+  return false;
 }

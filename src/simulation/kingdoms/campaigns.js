@@ -1,6 +1,7 @@
 import { towerDutyOrder, performTowerDuty } from './tower-archers.js';
 import { clearMilitaryCommand } from './military-identity.js';
 import { advanceTowerCapture } from './tower-capture.js';
+import { SPELLS, equippedSpells, MAGIC_TACTICS } from '../magic/catalog.js';
 import { initializeTowerHealth, campaignTower, attackTower, towerBattlePosition, destroyTowerInWorld } from './fortifications.js';
 import { fightTacticalRound, updateMilitaryCommand, tacticalDestination, militaryMerit, selectHealingTarget,
   combatEngagementRange, MILITARY_CLASSES, battlefieldOpponents } from './military.js';
@@ -571,6 +572,7 @@ function campaignAssignmentFor(world, person) {
 }
 
 export function campaignOrderFor(world, person) {
+  if (person.playerControlled) return null;
   const towerOrder = towerDutyOrder(world, person);
   if (towerOrder) return towerOrder;
   const assignment = campaignAssignmentFor(world, person);
@@ -609,7 +611,8 @@ export function campaignOrderFor(world, person) {
   const deployed = !withdrawing && campaign.status !== 'mobilizing' && (side.formation?.deployed || atFront);
   // Nearby threats take priority over parade slots, even if reinforcements
   // or the opposing formation have not finished deploying.
-  const comboTargetId = person.combatCombo?.lastDay === world.day - 1 && person.combatCombo.count < 3
+  const comboMaximum = person.militaryClass === 'guerreiro' ? 4 : 3;
+  const comboTargetId = person.combatCombo?.lastDay === world.day - 1 && person.combatCombo.count < comboMaximum
     ? person.combatCombo.targetId : null;
   const openingTargetId = person.combatOpening?.expiresDay > world.day ? person.combatOpening.targetId : null;
   const preferredTargetId = openingTargetId ?? comboTargetId ?? side.fieldCommand?.targetEnemyId;
@@ -638,6 +641,7 @@ export function campaignOrderFor(world, person) {
 }
 
 export function performCampaignOrder(world, person, order) {
+  if (person.playerControlled) return false;
   if (!order) return false;
   if (order.fieldCommandPost) {
     if (distance(person, order.target) > 3) moveOne(world, person, order.target, false, { arrivalRadius: 3 });
@@ -862,8 +866,9 @@ function recordGeneralEvent(world, campaign, event) {
 
 function generalSideKey(campaignId, kingdomId) { return String(campaignId) + ':' + String(kingdomId); }
 
-function generalAllowedActions(campaign) {
+function generalAllowedActions(campaign, hasPriests = false) {
   const actions = ['advance', 'hold_position'];
+  if (hasPriests) actions.push('magic_recovery', 'magic_protection', 'magic_offense', 'magic_disruption');
   if (campaign.status !== 'withdrawing') actions.push('withdraw');
   return actions;
 }
@@ -884,6 +889,13 @@ function generalObservedFacts(world, campaign, side, day) {
       lastBattleDay: campaign.lastBattleDay
     },
     side: {
+      magicSupport: troops.filter(person => person.militaryClass === 'monge').map(person => ({
+        id: person.id, mana: Math.round(person.mana ?? 200), casting: person.magicCast?.spellId || null,
+        spells: equippedSpells(person).map(id => ({ id, name: SPELLS[id].name, mana: SPELLS[id].mana })) })),
+      woundedTroops: troops.filter(person => person.health < 75).length,
+      magicallyDebuffedTroops: troops.filter(person => person.magicEffects?.some(effect =>
+        ['weakness', 'slow', 'exhaustion', 'curse', 'poison'].includes(effect.id))).length,
+      magicTactic: side.magicOrders?.policy || 'balanced',
       role: side.role, troopCount: troops.length, troopsAtObjective: nearby.length,
       foodStock: Math.round(side.supply.stock.food || 0),
       estimatedRationDays: dailyFood > 0 ? Math.round((side.supply.stock.food || 0) / dailyFood) : 0,
@@ -918,7 +930,8 @@ export function queueCampaignGeneralAiRequests(world, day = world.day + 1) {
       const urgent = side.supplyShortageDays >= 3 || side.morale <= 45 || side.stallDays > 0;
       const interval = urgent ? GENERAL_URGENT_REVIEW_INTERVAL : GENERAL_REVIEW_INTERVAL;
       if (side.nextGeneralReviewDay != null && day < side.nextGeneralReviewDay) continue;
-      const allowedActions = generalAllowedActions(campaign);
+      const allowedActions = generalAllowedActions(campaign,
+        livingSideTroops(world, side).some(person => person.militaryClass === 'monge'));
       const observedFacts = stripAbsoluteCalendarFields(generalObservedFacts(world, campaign, side, day));
       const requestId = 'general:' + campaign.id + ':' + side.kingdomId + ':' + state.nextRequestSequence++;
       const reportDay = Math.max(0, Math.floor(day));
@@ -1007,6 +1020,19 @@ export function applyCampaignGeneralAiDecision(world, request, decision, metadat
   const day = world.day;
   const reason = String(decision.reason || '').replace(/[<>\u0000-\u001f]/g, ' ').trim().slice(0, 180);
   side.orderVersion = (side.orderVersion || 0) + 1;
+  const magicPolicy = action.startsWith('magic_') ? MAGIC_TACTICS[action.slice(6)] : null;
+  if (magicPolicy) {
+    side.magicOrders = { ...magicPolicy, policy: action.slice(6) };
+    delete state.pendingBySide[key];
+    side.nextGeneralReviewDay = day + GENERAL_REVIEW_INTERVAL;
+    recordGeneralEvent(world, campaign, { type: 'applied', requestId: request.requestId,
+      kingdomId: side.kingdomId, role: 'general', decision,
+      effect: { kind: 'magic-support-order', policy: side.magicOrders.policy, orderVersion: side.orderVersion } });
+    recordCampaignEvent(world, campaign, day, 'general-magic-order',
+      'O general priorizou apoio mágico: ' + magicPolicy.label + '. ' + reason,
+      { kingdomId: side.kingdomId, action, requestId: request.requestId });
+    return true;
+  }
   side.aiOrder = {
     action, reason, confidence: decision.confidence, requestId: request.requestId,
     provider: metadata.provider || 'ollama', model: metadata.model || null,

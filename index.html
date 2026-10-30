@@ -104,6 +104,11 @@
           <input id="seedInput" type="number" min="1" max="4294967295" placeholder="Aleatória" aria-label="Semente opcional do novo mundo">
           <button id="restart" title="Gerar outro mundo com esta semente">Criar mundo</button>
         </div>
+        <section class="block" aria-label="Ferramentas de colisão">
+          <div class="block-title"><h3>Colisões</h3><span>Depuração</span></div>
+          <p class="quiet">Exibe as hitboxes de personagens, minérios, árvores e construções, além do espaço usado para evitar outros personagens.</p>
+          <button id="hitboxToggle" type="button" aria-pressed="false">Mostrar hitboxes</button>
+        </section>
         <section class="block audio-block" aria-label="Controles de áudio">
           <div class="block-title"><h3>Áudio</h3><span id="audioState">ligado</span></div>
           <label for="musicVolume">Música <output id="musicVolumeValue" for="musicVolume">65%</output></label>

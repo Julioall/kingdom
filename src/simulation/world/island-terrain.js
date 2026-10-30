@@ -2,6 +2,13 @@ import { clamp } from '../core/math.js';
 import { initialSettlementCenters, LAKE_BUILDING_CLEARANCE } from './building-clearance.js';
 
 const AUTOTILE_HILL = { cx: 18.8, cy: 12.2, rx: 2.8, ry: 4.1 };
+const TERRAIN_HILLS = [
+  AUTOTILE_HILL,
+  { cx: 12.2, cy: 9, rx: 2.2, ry: 2.7 },
+  { cx: 23.8, cy: 17, rx: 2.2, ry: 2.7 },
+  { cx: 12.8, cy: 17.5, rx: 2.4, ry: 2.5 },
+  { cx: 23.2, cy: 8.5, rx: 2.4, ry: 2.5 }
+];
 
 function autoHash(x, y, seed = 0) {
   let value = Math.imul(x + seed * 33 + 17, 374761393) + Math.imul(y + seed * 7 + 53, 668265263);
@@ -28,7 +35,7 @@ function noise(x, y, seed) {
 function terrainIndex(x, y, width) { return y * width + x; }
 
 function squareLandBounds(width, height) {
-  const side = Math.floor(Math.min(width, height) * .75);
+  const side = Math.floor(Math.min(width, height) * (6 / 7));
   const left = Math.floor((width - side) / 2), top = Math.floor((height - side) / 2);
   return { left, top, right: left + side - 1, bottom: top + side - 1, side };
 }
@@ -109,7 +116,7 @@ function markRamps(width, height, elevationLevel, waterKind, seed) {
       .map(candidate => ({ ...candidate, rank: autoHash(candidate.x, candidate.y, seed + targetLevel * 313) }))
       .sort((a, b) => b.rank - a.rank || a.y - b.y || a.x - b.x);
     const picked = [];
-    const targetCount = 8;
+    const targetCount = 24;
     while (picked.length < targetCount && candidates.length) {
       let bestIndex = -1, bestScore = -Infinity;
       for (let index = 0; index < candidates.length; index++) {
@@ -159,12 +166,10 @@ export function generateIslandTerrain(width, height, seed) {
     });
     if (inLake) { waterKind[index] = 'lake'; continue; }
     autoTileVariant[index] = v < 6.5 ? 4 : v < 13 ? 0 : v < 19.5 ? 2 : 3;
-    const hill = 1 - Math.hypot(
-      (u - AUTOTILE_HILL.cx) / AUTOTILE_HILL.rx,
-      (v - AUTOTILE_HILL.cy) / AUTOTILE_HILL.ry
-    );
-    // AutoTile's configured hill ellipse, raised slightly at the cutoff so it
-    // remains a single compact plateau instead of a wide band of obstacles.
+    const hill = Math.max(...TERRAIN_HILLS.map(area => 1 - Math.hypot(
+      (u - area.cx) / area.rx, (v - area.cy) / area.ry
+    )));
+    // Keep the separate plateaus compact, leaving lowland corridors between them.
     const level = hill + (noise(u, v, cleanSeed + 58) - .5) * .26 > .34 ? 1 : 0;
     elevationLevel[index] = level;
     const reliefNoise = noise(u * .42, v * .42, cleanSeed + 127) - .5;
@@ -208,7 +213,10 @@ export function canTraverseElevation(from, to) {
   const lower = fromLevel < toLevel ? from : to;
   const higher = fromLevel < toLevel ? to : from;
   const expectedDx = lower.rampSide === 1 ? 1 : lower.rampSide === 2 ? -1 : 0;
-  return lower.rampSegment === 1 && lower.rampLevel === higher.elevationLevel
+  // A rendered ramp occupies two adjacent rows; either segment must allow
+  // crossing, otherwise its lower half behaves like an invisible cliff.
+  return (lower.rampSegment === 1 || lower.rampSegment === 2)
+    && lower.rampLevel === higher.elevationLevel
     && dx * (fromLevel < toLevel ? 1 : -1) === expectedDx
     && higher.x - lower.x === expectedDx;
 }

@@ -1,0 +1,14 @@
+✔ guerreiro: charge throws every contacted body and blocks commands until recovery (26.0943ms)
+✔ lanceiro: charge throws every contacted body and blocks commands until recovery (5.6053ms)
+✔ shield dash limits distinct victims by earned level even inside a dense formation (190.2633ms)
+✔ airborne knockback sweeps solid obstacles and lands before water or walls (40.0387ms)
+✔ parry stun rejects movement and all manual actions for three simulated seconds (0.9204ms)
+✔ impact visual hops and lands without rotating the sprite sideways (0.5526ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2531.136

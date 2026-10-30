@@ -83,6 +83,13 @@ test('phases, confirmed damage, independent IDs and idempotent resolution', () =
   assert.ok(Math.abs(Math.hypot(hit.normal.x, hit.normal.y) - 1) < 1e-8);
 });
 
+test('manual archer target lock preserves the hovered character as the shot aim', () => {
+  const { actor, target, world } = fixture('arqueiro', 7);
+  const aim = { x: target.x, y: target.y + .2 };
+  const action = createCombatAction(world, actor, target, 1, { aim, reach: 8, targetLock: true });
+  assert.deepEqual(action.aim, aim);
+});
+
 for (const weapon of ['guerreiro', 'lanceiro', 'arqueiro']) {
   test(`${weapon}: front shield blocks, rear bypasses, inactive guard does not block`, () => {
     const front = fixture(weapon, weapon === 'arqueiro' ? 8 : 1.5);
@@ -120,11 +127,13 @@ test('sword chooses the earliest angular contact, rather than the closest body l
 
 test('projectile hits the first enemy along the flight and never an ally or sheltered person', () => {
   const f = fixture('arqueiro', 8);
-  const intercepted = { ...f.target, id: 3, x: 4 };
+  // Put the interceptor late enough in the descent that the arcing arrow can reach a ground target.
+  const intercepted = { ...f.target, id: 3, x: f.action.aim.x * .85, y: f.action.aim.y * .85 };
   const ally = { ...intercepted, id: 4, x: 2, kingdomId: 1 };
   const resting = { ...intercepted, id: 5, x: 3, restingStructureId: 10 };
   const hit = f.resolve({}, [f.target, ally, resting, intercepted]);
-  assert.equal(hit.targetId, 3); assert.ok(hit.atMs > 500 && hit.atMs < 940);
+  assert.equal(hit.targetId, 3);
+  assert.ok(hit.atMs > f.action.windupMs && hit.atMs < f.action.windupMs + f.action.flightMs);
 });
 
 test('ground melee misses the tower platform, arrows reach the platform', () => {
@@ -144,7 +153,8 @@ test('tower arrow elevation clears a low rock screen and still resolves its aime
 
   assert.equal(result.kind, 'body');
   assert.equal(result.targetId, f.target.id);
-  assert.equal(result.contactElevation, 3);
+  assert.ok(Math.abs(result.contactElevation - 3) <= .65,
+    'the projectile should contact within the tower platform hitbox height');
 });
 
 test('melee contact uses the physical building footprint as line-of-sight obstruction', () => {
@@ -187,7 +197,7 @@ test('earliest sword contact remains consistent through rotations and reversed c
 test('death cancels preparation, but death immediately after arrow release does not cancel the flight', () => {
   const f = fixture(); f.actor.alive = false; assert.equal(f.resolve().kind, 'cancelled'); assert.equal(f.count(), 0);
   const arrow = fixture('arqueiro', 8);
-  assert.equal(arrow.resolve({ beforeStep: t => { if (t > 500) arrow.actor.alive = false; } }).kind, 'body');
+  assert.equal(arrow.resolve({ beforeStep: t => { if (t > arrow.action.windupMs) arrow.actor.alive = false; } }).kind, 'body');
 });
 
 test('history is bounded and bodies already dead cannot receive another contact', () => {
@@ -199,6 +209,10 @@ test('history is bounded and bodies already dead cannot receive another contact'
 
 test('tactical attack counts one impact and pays stamina once despite repeated rounds', () => {
   const f = fixture(); f.actor.towerMounted = true; f.target.towerMounted = true;
+  // Test a damaging basic attack explicitly; shield charge is now push-only.
+  f.actor.playerControlled = true; f.target.playerControlled = true;
+  f.actor.playerCommand = { actionKey: '1', aimX: f.target.x, aimY: f.target.y,
+    targetId: f.target.id, expiresDay: 1 };
   f.world.day = 0; f.world.combatSequence = 0;
   fightTacticalRound(f.world, [f.actor], [f.target], 1);
   assert.ok(f.target.health < 100); assert.equal(f.target.lastAttackSequence, 1);
@@ -220,10 +234,13 @@ test('siege applies contact damage, cooldown and allegiance restrictions', () =>
 test('effects wait for release/contact, expire, and do not replay on redraw or reset', () => {
   const f = fixture('arqueiro', 8); f.resolve(); const effects = createActivityEffects();
   effects.observe(f.world, 1000);
-  assert.equal(effects.active(1499).length, 0);
-  assert.equal(effects.active(1500).filter(e => e.projectile).length, 1);
-  effects.observe(f.world, 1600); assert.equal(effects.active(1600).filter(e => e.projectile).length, 1);
-  assert.equal(effects.active(1000 + f.action.result.atMs).filter(e => !e.projectile).length, 1);
+  const releaseAt = 1000 + f.action.windupMs;
+  assert.equal(effects.active(releaseAt - 1).filter(e => e.projectile).length, 0);
+  assert.equal(effects.active(releaseAt).filter(e => e.projectile).length, 1);
+  effects.observe(f.world, releaseAt + 100);
+  assert.equal(effects.active(releaseAt + 100).filter(e => e.projectile).length, 1);
+  assert.equal(effects.active(1000 + f.action.result.atMs).filter(e => !e.projectile && !e.blood).length, 1);
+  assert.equal(effects.active(1000 + f.action.result.atMs).filter(e => e.blood).length, 1);
   effects.observe(f.world, 2000, true); assert.equal(effects.active(2000).length, 0);
 });
 

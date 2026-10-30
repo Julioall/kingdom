@@ -104,6 +104,7 @@ export function createGameAudio({ onStatus = () => {}, getPan = () => 0, getDist
   const priorActivities = new Map(), priorHealing = new Map(), priorOrders = new Map();
   const sheepBleatStates = new Map();
   const seenDestroyedStructures = new Set(), scheduledDestroyedStructures = new Set();
+  const seenWars = new Set();
   const seenTowerAlarms = new Set();
   let lastCombatEvent = 0, lastSheepBleatAt = -Infinity, lastHarvestSoundAt = -Infinity;
   let nextAdultBleatVariant = 0, initialized = false;
@@ -514,12 +515,21 @@ export function createGameAudio({ onStatus = () => {}, getPan = () => 0, getDist
         const swingAt = meleeArmorHit ? Math.max(start, contactAt - SWORD_ARMOR_HIT_OFFSET_MS) : start + windup;
         queue(swingEvent, key + ':swing', swingAt, meleeArmorHit ? contact : event.origin, { gain: swingGain });
       } else if (event.weapon === 'lanceiro') {
-        const missed = kind === 'miss';
-        const swingEvent = missed ? 'sword_swing_miss' : meleeArmorHit ? 'sword_armor_swing_hit' : 'sword_slash';
-        const swingGain = missed ? COMBAT_SFX_LEVEL.spearSwingMiss
-          : meleeArmorHit ? COMBAT_SFX_LEVEL.spearArmorImpact : COMBAT_SFX_LEVEL.spearSwing;
-        const swingAt = meleeArmorHit ? Math.max(start, contactAt - SWORD_ARMOR_HIT_OFFSET_MS) : start + windup;
-        queue(swingEvent, key + ':swing', swingAt, meleeArmorHit ? contact : event.origin, { gain: swingGain });
+        if (event.attackVariant === 'lance-flurry' && event.hitEvents?.length) {
+          event.hitEvents.forEach((hit, index) => {
+            const victim = (world.people || []).find(person => person.id === hit.targetId);
+            const armor = victim?.role === 'soldier' || Boolean(victim?.militaryClass);
+            queue(armor ? 'sword_armor_swing_hit' : 'sword_slash', key + ':flurry:' + index,
+              start + hit.atMs, hit.point, { gain: armor ? COMBAT_SFX_LEVEL.spearArmorImpact : COMBAT_SFX_LEVEL.spearSwing });
+          });
+        } else {
+          const missed = kind === 'miss';
+          const swingEvent = missed ? 'sword_swing_miss' : meleeArmorHit ? 'sword_armor_swing_hit' : 'sword_slash';
+          const swingGain = missed ? COMBAT_SFX_LEVEL.spearSwingMiss
+            : meleeArmorHit ? COMBAT_SFX_LEVEL.spearArmorImpact : COMBAT_SFX_LEVEL.spearSwing;
+          const swingAt = meleeArmorHit ? Math.max(start, contactAt - SWORD_ARMOR_HIT_OFFSET_MS) : start + windup;
+          queue(swingEvent, key + ':swing', swingAt, meleeArmorHit ? contact : event.origin, { gain: swingGain });
+        }
       }
       else if (event.weapon === 'arqueiro') {
         queue('bow_draw', key + ':draw', start, event.origin, { gain: COMBAT_SFX_LEVEL.bowDraw });
@@ -574,6 +584,7 @@ export function createGameAudio({ onStatus = () => {}, getPan = () => 0, getDist
       priorActivities.clear(); priorHealing.clear(); priorOrders.clear();
       sheepBleatStates.clear(); lastSheepBleatAt = -Infinity; lastHarvestSoundAt = -Infinity; nextAdultBleatVariant = 0;
       seenDestroyedStructures.clear(); scheduledDestroyedStructures.clear();
+      seenWars.clear();
       seenTowerAlarms.clear();
       for (const kingdom of world.kingdoms || []) for (const report of kingdom.militaryIntel || []) {
         if (report.kind === 'tower-intrusion' && report.id) seenTowerAlarms.add(report.id);
@@ -586,6 +597,7 @@ export function createGameAudio({ onStatus = () => {}, getPan = () => 0, getDist
       for (const campaign of world.campaigns || []) for (const side of [campaign.attacker, campaign.defender]) {
         if (side) priorOrders.set(`${campaign.id}:${side.kingdomId}`, orderKey(side.aiOrder));
       }
+      for (const war of world.wars || []) seenWars.add(war.id ?? `${war.a}:${war.b}:${war.startedDay}`);
       for (const structure of world.structures || []) if (structure.destroyedDay != null) seenDestroyedStructures.add(structure.id);
       initialized = true;
       return;
@@ -608,6 +620,13 @@ export function createGameAudio({ onStatus = () => {}, getPan = () => 0, getDist
       const recent = [...seenTowerAlarms].slice(-256);
       seenTowerAlarms.clear();
       for (const id of recent) seenTowerAlarms.add(id);
+    }
+
+    for (const war of world.wars || []) {
+      const key = war.id ?? `${war.a}:${war.b}:${war.startedDay}`;
+      if (seenWars.has(key)) continue;
+      seenWars.add(key);
+      queue('war_call', `war:${key}`, now, null, { gain: .8 });
     }
 
     let harvestCue = null;

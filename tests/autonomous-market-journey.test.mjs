@@ -10,7 +10,7 @@ function marketJourneyFixture() {
   const world = engine.createWorld(42);
   const kingdom = world.kingdoms[0];
   const community = world.communities.find(candidate => candidate.id === kingdom.communityId);
-  const person = world.people.find(candidate => candidate.alive && candidate.role !== 'soldier'
+  const person = world.people.find(candidate => candidate.alive && candidate.role !== 'soldier' && candidate.ageDays >= 18 * 365
     && candidate.kingdomId === kingdom.id);
   assert.ok(kingdom && community && person);
 
@@ -37,6 +37,8 @@ function marketJourneyFixture() {
 
   person.x = start.x;
   person.y = start.y;
+  person.headingX = 1;
+  person.headingY = 0;
   person.lastSafeX = start.x;
   person.lastSafeY = start.y;
   person.foodReserve = 58;

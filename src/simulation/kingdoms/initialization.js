@@ -11,7 +11,7 @@ import { kingdomFoodDemand } from '../economy/food-policy.js';
 import { isTreeAnchor } from '../ecology/plants.js';
 import { seedRoyalChangeReserve } from '../economy/royal-coin-exchange.js';
 import { initialSettlementCenters, hasBuildingResourceClearance } from '../world/building-clearance.js';
-import { settlementPlan, plannedBuildingSites } from './settlement-plan.js';
+import { settlementPlan, plannedBuildingSites, TOWER_OFFSETS } from './settlement-plan.js';
 
 const [northStart, southStart] = initialSettlementCenters(WIDTH, HEIGHT);
 
@@ -23,10 +23,12 @@ const KINGDOM_STARTS = [
 ];
 const INITIAL_KINGDOM_COUNT = 2;
 export const INITIAL_POPULATION_PER_KINGDOM = 48;
+const ARCHERS_PER_TOWER = 2;
 export const INITIAL_MILITARY_ROSTER = Object.freeze([
   { school: 'centro_militar', militaryClass: 'guerreiro', count: 13 },
   { school: 'centro_militar', militaryClass: 'lanceiro', count: 7 },
-  { school: 'arquearia', militaryClass: 'arqueiro', count: 5 },
+  // One archer can hold each tower while another is available for rotation/recovery.
+  { school: 'arquearia', militaryClass: 'arqueiro', count: TOWER_OFFSETS.length * ARCHERS_PER_TOWER },
   { school: 'monasterio', militaryClass: 'monge', count: 2 }
 ]);
 export const INITIAL_SOLDIERS_PER_KINGDOM = INITIAL_MILITARY_ROSTER.reduce((sum, entry) => sum + entry.count, 0);

@@ -1,6 +1,7 @@
 import { COMMUNITY_FORMS, DAILY_FOOD_NEED, FOOD_DAYS_PER_UNIT, HEIGHT, HUMAN_NAMES, PEOPLE_ACTIONS, PEOPLE_INPUTS, RULER_HIDDEN_NEURONS, WIDTH } from '../../config/ecosystem.js';
 import { formatWholeMeasure } from '../../config/whole-measures.js';
 import { rand } from '../core/random.js';
+import { magicModifiers } from '../magic/effects.js';
 import { createBrain, ensureBrainSize } from '../../controllers/individual/neural.js';
 import { randomHabitatCell } from '../world/generation.js';
 import { clamp, distance } from '../core/math.js';
@@ -232,7 +233,13 @@ function summarizeRecentHealth(person, deathDay) {
 
 export function changePersonHealth(w, person, delta, source) {
   if (!Number.isFinite(delta) || delta === 0) return 0;
-  if (delta < 0 && ['battle', 'raid', 'resource-conflict', 'invasion', 'combat'].includes(source)) {
+  if (person.magicEffects?.length || w.magicZones?.length) {
+    const modifiers = magicModifiers(person, w);
+    if (delta > 0) delta *= modifiers.healing;
+    else if (['battle', 'raid', 'resource-conflict', 'invasion', 'combat', 'magic-poison'].includes(source))
+      delta *= modifiers.incoming;
+  }
+  if (delta < 0 && ['battle', 'raid', 'resource-conflict', 'invasion', 'combat', 'magic-poison'].includes(source)) {
     person.lastAttackSequence = (person.lastAttackSequence || 0) + 1;
     person.lastAttackedDay = w.day + 1;
   }

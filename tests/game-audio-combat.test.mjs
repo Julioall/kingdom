@@ -13,6 +13,8 @@ const sourcePaths = {
   shield_impact: 'audio/mp3/combat/shield/effect_shield_impact_01.mp3',
   sword_clash: 'audio/mp3/combat/sword/effect_sword_clash_01.mp3',
   combat_grunt: 'audio/mp3/characters/grunts/effect_combat_grunt_01.mp3',
+  war_call: 'audio/mp3/signals/horn/effect_war_horn_call_01.mp3',
+  retreat_ordered: 'audio/mp3/signals/horn/effect_war_horn_retreat_01.mp3',
   war_horn: 'audio/mp3/combat/effect_war_horn_01.mp3',
 };
 
@@ -167,6 +169,48 @@ test('shield defense remains audible and deterministic melee effort adds a quiet
   assert.ok(gruntSource, 'one in five deterministic melee events should emit a grunt');
   assert.equal(gruntSource.destination.gain.value, .18);
   assert.equal(gruntSource.startedAt, .005, 'the grunt is scheduled before the later miss cue');
+});
+
+test('new wars and explicit general withdrawal orders play their mapped horns once', async () => {
+  const h = harness();
+  await h.audio.unlock();
+  await flush();
+  await flush();
+  const attacker = { kingdomId: 1, aiOrder: null };
+  const defender = { kingdomId: 2, aiOrder: null };
+  const world = { day: 1, people: [], animals: [], structures: [], wars: [], campaigns: [
+    { id: 12, attacker, defender }
+  ] };
+  h.audio.observe(world, 0, true);
+  world.day = 2;
+  world.wars.push({ id: 17, a: 1, b: 2, startedDay: 2, status: 'resolved' });
+  h.audio.observe(world, 1000);
+  h.audio.update(1000, 1, false);
+  await flush();
+  await flush();
+  const warHorn = h.contexts[0].sources.find(source => source.buffer?.path?.includes('effect_war_horn_call_01.mp3'));
+  assert.ok(warHorn, 'a newly recorded war should play the war call, even if the simulation advances before observation');
+
+  attacker.aiOrder = { action: 'withdraw', assignedDay: 2, version: 1 };
+  h.audio.observe(world, 1100);
+  h.audio.update(1100, 1, false);
+  await flush();
+  await flush();
+  const retreatHorn = h.contexts[0].sources.find(source => source.buffer?.path?.includes('effect_war_horn_retreat_01.mp3'));
+  assert.ok(retreatHorn, 'an explicit general withdrawal order should play the retreat horn');
+  assert.equal(h.contexts[0].sources.filter(source => source.buffer?.path?.includes('effect_war_horn_call_01.mp3')).length, 1);
+  assert.equal(h.contexts[0].sources.filter(source => source.buffer?.path?.includes('effect_war_horn_retreat_01.mp3')).length, 1);
+});
+
+test('war and retreat horn assets are mapped and included in the shipped manifest', async () => {
+  const root = new URL('../public/assets/sfx/', import.meta.url);
+  const manifest = JSON.parse(await readFile(new URL('manifest.json', root), 'utf8'));
+  for (const [event, id] of [['war_call', 'effect_war_horn_call_01'], ['retreat_ordered', 'effect_war_horn_retreat_01']]) {
+    assert.deepEqual(manifest.events[event], [id]);
+    const sound = manifest.sounds.find(item => item.id === id);
+    assert.ok(sound, id + ' should exist in the manifest');
+    await access(new URL(sound.files.mp3, root));
+  }
 });
 
 test('combat assets record their source, creator, license and ship every referenced MP3', async () => {

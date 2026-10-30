@@ -196,6 +196,7 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
       ? Math.min(5, Math.max(1, Math.ceil(workers.length / 3)))
       : Math.min(3, Math.max(1, Math.ceil(workers.length / 5)));
     const active = workers.filter(person => person.assignment && person.assignment.expiresDay >= w.day
+      && (desired.goal !== 'repair-damaged-structures' || person.assignment.goal === desired.goal)
       && !(desired.priority === 'urgent' && person.assignment.source === 'community-project'));
     let open = Math.max(0, capacity - active.length);
     const initialOpen = open;
@@ -230,6 +231,7 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
         return true;
       };
       const availableWorkers = workers.filter(person => person.id !== leader.id
+        && !person.playerControlled
         && !(person.assignment && person.assignment.expiresDay >= w.day));
       const sortByFit = (a, b) => (b.skills[desired.skill] || 0) + b.energy * .003
         - (a.skills[desired.skill] || 0) - a.energy * .003 || a.id - b.id;
@@ -484,6 +486,13 @@ export function updateCommunityGovernance(w, kingdomPlanner) {
         const leader = kingdom && members.find(person => person.id === kingdom.rulerId) || selectCommunityLeader(w, community, members);
         community.leaderId = leader.id;
         community.satisfaction = communitySatisfaction(w, community);
+        if (canRepairKingdomStructure(w, community)) {
+          assignCommunityTasks(w, community, leader, members, {
+            source: 'royal-repair', goal: 'repair-damaged-structures', action: 'build',
+            title: 'reparar estruturas por ordem do rei', skill: 'build', priority: 'urgent',
+            expiresAfterDays: 21
+          }, false);
+        }
         assignKingdomFieldPreparationTasks(w, community, leader, members);
         if (w.day - community.lastGovernanceDay >= 8) {
           assignCommunityTasks(w, community, leader, members, kingdom && kingdom.strategy && kingdom.strategy.order, false);

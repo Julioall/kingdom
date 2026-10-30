@@ -10,7 +10,7 @@ function borderForageFixture({ warned = false, foodReserve = 32 } = {}) {
   const world = engine.createWorld(42);
   const home = world.kingdoms[0];
   const host = world.kingdoms[1];
-  const person = world.people.find(candidate => candidate.alive && candidate.role !== 'soldier'
+  const person = world.people.find(candidate => candidate.alive && candidate.role !== 'soldier' && candidate.ageDays >= 18 * 365
     && candidate.kingdomId === home.id);
   assert.ok(person, 'seed 42 contains a civilian pawn in the home kingdom');
   const community = world.communities.find(candidate => candidate.id === person.communityId);
@@ -42,6 +42,8 @@ function borderForageFixture({ warned = false, foodReserve = 32 } = {}) {
   target.plants[berryIndex] = 180;
   person.x = 61;
   person.y = 64;
+  person.headingX = 1;
+  person.headingY = 0;
   person.kingdomId = home.id;
   person.foodReserve = foodReserve;
   person.hydration = 85;
