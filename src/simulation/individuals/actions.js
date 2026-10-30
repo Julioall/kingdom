@@ -1058,6 +1058,24 @@ function updatePeopleCore(w) {
         -(unmetFood / dailyFoodNeed) * 10 * STARVATION_HEALTH_LOSS_PER_POINT, 'starvation');
       if (p.hydration < 10) changePersonHealth(w, p, -.62, 'dehydration');
       if (p.injury > 0) changePersonHealth(w, p, -p.injury * .012, 'injury');
+      if (p.playerControlled) {
+        const input = p.playerInput || {};
+        if (Array.isArray(p.playerCommandQueue)) {
+          p.playerCommandQueue = p.playerCommandQueue.filter(command => command.expiresDay >= w.day);
+          p.playerCommand = p.playerCommandQueue[0] || null;
+        } else if (p.playerCommand?.expiresDay < w.day) p.playerCommand = null;
+        p.brain.pending = null;
+        if (p.militaryBrain) p.militaryBrain.pending = null;
+        p.state = input.defending ? 'de guarda (controle manual)' : 'sob controle do jogador';
+        p.lastLesson = 'Movimento e ações sob controle manual; Espaço devolve a autonomia.';
+        if (p.health <= .1 || p.ageDays >= 82 * 365) {
+          const cause = p.ageDays >= 82 * 365 ? 'age'
+            : p.injury > 4 && p.health < 15 ? 'injury'
+              : p.hydration < 5 ? 'dehydration' : 'starvation';
+          killPerson(w, p, cause);
+        }
+        continue;
+      }
       const local = cellAt(w, p.x, p.y);
       let food = bestPeopleFoodCell(w, p, 8);
       const currentAssignment = p.assignment && p.assignment.communityId === p.communityId && p.assignment.expiresDay >= w.day
@@ -1295,7 +1313,8 @@ function updatePeopleCore(w) {
           thirst: p.hydration < 40 && !!waterTarget, patrol: patrolDuty,
           training: !campaignOrder && trainingPairs.has(p.id) }) : null;
       const peacetimeSoldierAction = militaryAction;
-      const action = campaignOrder && campaignOrder.withdrawing && !homeRest && survivalAction !== 'drink'
+      const action = campaignOrder && (campaignOrder.withdrawing || campaignOrder.towerDuty)
+        && !homeRest && survivalAction !== 'drink'
         ? 'campaign'
         : returnToGarrison && peacetimeSoldierAction === 'return_garrison' ? peacetimeSoldierAction
         : survivalAction || carrierMaintenanceAction || (homeRest ? 'rest' : socialPlan ? socialPlan.action : peacetimeSoldier ? peacetimeSoldierAction : (droppedLoot && (!assignment || droppedLoot.mineralKind && assignment.action === 'gather') && !carryingGoods && p.energy >= 9

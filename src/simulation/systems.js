@@ -19,6 +19,8 @@ import { observeMilitaryFrontiers } from './kingdoms/frontier-intelligence.js';
 import { recordRoyalSitingOutcomes } from './kingdoms/royal-siting.js';
 import { recordKingdomFrontierOutcomes, updateKingdomFrontierExpansion } from './kingdoms/frontier.js';
 import { advanceSocialCommitmentDeadlines } from './society/social-evidence.js';
+import { recoverTrainingDummyHealth } from './world/training-dummies.js';
+import { advanceMagic } from './magic/system.js';
 
 const DAYS_PER_MARKET_CYCLE = 30;
 const DAYS_PER_WORLD_REPORT = 30;
@@ -123,6 +125,8 @@ function resolveEndOfDayConsequences(world, day) {
 
 export function stepDay(world, options = null) {
   const nextDay = world.day + 1;
+  if (!world.magicExternalClock || options?.advanceMagic) advanceMagic(world, 1000);
+  recoverTrainingDummyHealth(world, nextDay);
 
   // 1. Weather and ecology establish the conditions for the day.
   const weather = updateEnvironment(world, nextDay);

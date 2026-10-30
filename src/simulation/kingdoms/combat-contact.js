@@ -1,6 +1,7 @@
 // Combat geometry is independent from navigation footprints and the renderer.
 // Coordinates are in world cells; timings are simulated milliseconds.
-import { combatPathObstruction } from '../physics/hitboxes.js';
+import { combatPathObstruction, worldCollisionIndex } from '../physics/hitboxes.js';
+import { rand } from '../core/random.js';
 
 export const COMBAT_PROFILES = Object.freeze({
   guerreiro: { windup: 200, active: 100, recovery: 100, reach: 1.8, radius: .17, arc: 1.2 },
@@ -9,6 +10,11 @@ export const COMBAT_PROFILES = Object.freeze({
 });
 export const COMBAT_STEP_MS = 1000 / 30;
 export const BODY_RADIUS = .32;
+export const ARROW_RAIN_TIMING = Object.freeze({ ascentMs: 550, descentMs: 500, skyHeight: 7 });
+const BOW_DRAW_MIN_MS = 450;
+const BOW_DRAW_MAX_MS = 900;
+const BOW_ARC_BASE_HEIGHT = .45;
+const BOW_ARC_CHARGE_HEIGHT = 1.25;
 
 export function combatActionPhase(action, elapsed) {
   if (elapsed < action.windupMs) return 'windup';
@@ -41,28 +47,82 @@ export function createCombatAction(world, actor, target, day, options = {}) {
   if (!profile) return null;
   world.combatSequence = (world.combatSequence || 0) + 1;
   const origin = { x: actor.x, y: actor.y };
-  const aim = { x: target.x, y: target.y };
-  const angle = Math.atan2(aim.y - origin.y, aim.x - origin.x);
+  const aim = Number.isFinite(options.aim?.x) && Number.isFinite(options.aim?.y)
+    ? { x: options.aim.x, y: options.aim.y } : { x: target.x, y: target.y };
+  let angle = Math.atan2(aim.y - origin.y, aim.x - origin.x);
   const reach = options.reach ?? profile.reach;
   const aimDistance = Math.hypot(aim.x - origin.x, aim.y - origin.y);
   if (actor.militaryClass === 'arqueiro' && aimDistance > reach) {
     aim.x = origin.x + Math.cos(angle) * reach; aim.y = origin.y + Math.sin(angle) * reach;
   }
-  const flightMs = actor.militaryClass === 'arqueiro'
+  const shotDistance = Math.hypot(aim.x - origin.x, aim.y - origin.y);
+  const attackVariant = actor.militaryClass === 'arqueiro'
+    ? options.attackVariant || 'standard' : options.attackVariant || null;
+  const distanceCharge = actor.militaryClass === 'arqueiro'
+    ? Math.max(0, Math.min(1, shotDistance / Math.max(.1, reach))) : 0;
+  const bowCharge = attackVariant === 'charged' || attackVariant === 'rain' ? 1
+    : attackVariant === 'cone' ? .55 : distanceCharge;
+  const windupMs = attackVariant === 'shield-bash' ? 1000
+    : attackVariant === 'lance-charge' ? 180
+    : attackVariant === 'lance-flurry' ? 120
+    : attackVariant === 'charged' ? 5000
+    : attackVariant === 'rain' ? 1500
+      : attackVariant === 'cone' ? 750
+        : actor.militaryClass === 'arqueiro'
+          ? BOW_DRAW_MIN_MS + bowCharge * (BOW_DRAW_MAX_MS - BOW_DRAW_MIN_MS) : profile.windup;
+  const activeMs = attackVariant === 'shield-bash' ? 450
+    : attackVariant === 'lance-charge' ? 780
+      : attackVariant === 'lance-flurry' ? (options.flurryDurationMs ?? 5000) : profile.active;
+  const recoveryMs = attackVariant === 'shield-bash' ? 180
+    : attackVariant === 'lance-charge' ? 180
+      : attackVariant === 'lance-flurry' ? 180 : profile.recovery;
+  const rainDurationMs = attackVariant === 'rain' ? (options.rainDurationMs ?? 3000) : 0;
+  const arcHeight = attackVariant === 'charged' ? 0
+    : attackVariant === 'rain' ? 4.2
+      : attackVariant === 'cone' ? 0
+        : actor.militaryClass === 'arqueiro'
+          ? BOW_ARC_BASE_HEIGHT + bowCharge * BOW_ARC_CHARGE_HEIGHT : 0;
+  if (actor.militaryClass === 'arqueiro' && attackVariant === 'standard' && shotDistance > 0
+      && !options.targetLock) {
+    const spread = (rand(world) * 2 - 1) * shotDistance * .1;
+    const directionX = (aim.x - origin.x) / shotDistance;
+    const directionY = (aim.y - origin.y) / shotDistance;
+    aim.x -= directionY * spread;
+    aim.y += directionX * spread;
+    angle = Math.atan2(aim.y - origin.y, aim.x - origin.x);
+  }
+  const flightMs = attackVariant === 'rain' ? ARROW_RAIN_TIMING.ascentMs + ARROW_RAIN_TIMING.descentMs
+    : actor.militaryClass === 'arqueiro'
     ? Math.max(100, Math.min(850, Math.hypot(aim.x - origin.x, aim.y - origin.y) * 55)) : 0;
-  const durationMs = Math.max(profile.windup + profile.active + profile.recovery, profile.windup + flightMs);
+  const durationMs = Math.max(windupMs + activeMs + recoveryMs,
+    windupMs + flightMs, windupMs + rainDurationMs + flightMs + (options.areaRadius || 0) * 55);
   const action = { id: world.combatSequence, day, actorId: actor.id, targetId: target.id,
-    targetKind: options.structure ? 'structure' : 'person', weapon: actor.militaryClass,
-    comboIndex: Math.max(1, Math.min(3, Math.trunc(options.comboIndex || 1))),
+    targetKind: options.targetKind || (options.structure ? 'structure' : 'person'), weapon: actor.militaryClass, attackVariant,
+    manualControl: options.manualControl === true,
+    arrowCount: options.arrowCount, halfAngle: options.halfAngle,
+    rainDurationMs, areaRadius: options.areaRadius,
+    advanceDistance: options.advanceDistance, shieldOffset: options.shieldOffset, weaponOffset: options.weaponOffset,
+    strikeIntervalMs: options.strikeIntervalMs, thrustDurationMs: options.thrustDurationMs,
+    noContactTimeoutMs: options.noContactTimeoutMs,
+    animationSpeedMultiplier: options.animationSpeedMultiplier,
+    hitEvents: [], lastHitAtByTarget: {},
+    lastContactAtMs: attackVariant === 'lance-flurry' ? windupMs : null,
+    comboIndex: Math.max(1, Math.min(actor.militaryClass === 'guerreiro' ? 4 : 3,
+      Math.trunc(options.comboIndex || 1))),
     origin, aim, angle, sourceElevation: actor.towerMounted ? 3 : 0,
     targetElevation: target.towerMounted ? 3 : 0,
-    windupMs: profile.windup, activeMs: profile.active, recoveryMs: profile.recovery, flightMs,
+    bowCharge, arcHeight, windupMs, activeMs, recoveryMs, flightMs,
     durationMs,
-    geometry: { type: actor.militaryClass === 'arqueiro' ? 'projectile' : profile.arc ? 'swept-arc' : 'swept-segment',
-      reach, radius: profile.radius, arcRadians: profile.arc },
-    timing: { windupStartMs: 0, releaseMs: profile.windup,
-      activeEndMs: profile.windup + profile.active, contactMs: null,
-      recoveryStartMs: profile.windup + profile.active, completionMs: durationMs },
+    geometry: { type: attackVariant === 'shield-bash' ? 'shield-charge'
+      : attackVariant === 'lance-charge' ? 'spear-charge'
+        : attackVariant === 'lance-flurry' ? 'spear-flurry'
+      : actor.militaryClass === 'arqueiro' ? 'projectile' : profile.arc ? 'swept-arc' : 'swept-segment',
+      reach, radius: attackVariant === 'shield-bash' || attackVariant === 'lance-charge'
+        ? options.radius ?? profile.radius : profile.radius,
+      arcRadians: profile.arc },
+    timing: { windupStartMs: 0, releaseMs: windupMs,
+      activeEndMs: windupMs + activeMs, contactMs: null,
+      recoveryStartMs: windupMs + activeMs, completionMs: durationMs },
     reach, phase: 'windup', hitTargets: [], result: null };
   actor.combatAction = action;
   return action;
@@ -84,6 +144,29 @@ export function combatWeaponPoint(action, elapsed) {
     const t = Math.min(1, Math.max(0, (elapsed - action.windupMs) / action.flightMs));
     return { x: action.origin.x + (action.aim.x - action.origin.x) * t,
       y: action.origin.y + (action.aim.y - action.origin.y) * t };
+  }
+  if (action.attackVariant === 'shield-bash') {
+    const linearProgress = Math.min(1, Math.max(0, (elapsed - action.windupMs) / action.activeMs));
+    const progress = linearProgress * linearProgress;
+    const distance = (action.advanceDistance || 0) * progress + (action.shieldOffset || 0);
+    return { x: action.origin.x + Math.cos(action.angle) * distance,
+      y: action.origin.y + Math.sin(action.angle) * distance };
+  }
+  if (action.attackVariant === 'lance-charge') {
+    const progress = Math.min(1, Math.max(0, (elapsed - action.windupMs) / action.activeMs));
+    const distance = (action.weaponOffset || 0) + (action.advanceDistance || 0) * progress;
+    return { x: action.origin.x + Math.cos(action.angle) * distance,
+      y: action.origin.y + Math.sin(action.angle) * distance };
+  }
+  if (action.attackVariant === 'lance-flurry') {
+    const interval = Math.max(1, action.strikeIntervalMs || 700);
+    const thrust = Math.max(1, action.thrustDurationMs || 220);
+    const phase = Math.max(0, elapsed - action.windupMs) % interval;
+    const extension = phase <= thrust ? phase / thrust
+      : phase < thrust + 100 ? 1 - (phase - thrust) / 100 : 0;
+    const distance = action.reach * (.24 + extension * .76);
+    return { x: action.origin.x + Math.cos(action.angle) * distance,
+      y: action.origin.y + Math.sin(action.angle) * distance };
   }
   const profile = COMBAT_PROFILES[action.weapon];
   const t = Math.min(1, Math.max(0, (elapsed - action.windupMs) / action.activeMs));
@@ -125,7 +208,8 @@ function sweptBladeContact(action, fromMs, toMs, center, radius) {
 
 function projectileElevation(action, elapsed) {
   const progress = Math.max(0, Math.min(1, (elapsed - action.windupMs) / action.flightMs));
-  return action.sourceElevation + (action.targetElevation - action.sourceElevation) * progress;
+  return action.sourceElevation + (action.targetElevation - action.sourceElevation) * progress
+    + Math.sin(Math.PI * progress) * (action.arcHeight || 0);
 }
 
 function sweptContact(from, to, center, radius, fromHeight, toHeight, targetHeight) {
@@ -150,10 +234,17 @@ function sweptContact(from, to, center, radius, fromHeight, toHeight, targetHeig
 export function resolveCombatAction(world, actor, action, candidates, applyDamage, options = {}) {
   if (action.phase === 'complete') return action.result;
   const profile = COMBAT_PROFILES[action.weapon];
+  const weaponRadius = action.geometry.radius ?? profile.radius;
   let previous = combatWeaponPoint(action, action.windupMs);
-  const end = action.windupMs + (action.flightMs || action.activeMs);
+  let end = action.windupMs + (action.flightMs || action.activeMs);
   const structure = action.targetKind === 'structure';
-  for (let cursor = 0; cursor < end;) {
+  const aimedAtTrainingDummy = action.targetKind === 'training-dummy';
+  // Geometry is stable throughout one exchange; avoid rebuilding structure
+  // hitboxes and their signature for every projectile substep/contact.
+  let collisionIndex;
+  const obstruction = (from, to, settings) => combatPathObstruction(world, from, to,
+    { ...settings, collisionIndex: collisionIndex ||= worldCollisionIndex(world) });
+  for (let cursor = !options.beforeStep && actor.alive ? action.windupMs : 0; cursor < end;) {
     const start = cursor;
     // Split exactly at release, rather than drifting across it in floating point.
     const now = Math.min(end, start + COMBAT_STEP_MS, start < action.windupMs ? action.windupMs : Infinity);
@@ -168,37 +259,44 @@ export function resolveCombatAction(world, actor, action, candidates, applyDamag
       ? projectileElevation(action, Math.max(start, action.windupMs)) : action.sourceElevation;
     const currentHeight = action.weapon === 'arqueiro'
       ? projectileElevation(action, now) : action.sourceElevation;
-    const projectileObstruction = action.weapon === 'arqueiro' ? combatPathObstruction(world, previous, current, {
+    const projectileObstruction = action.weapon === 'arqueiro' && action.attackVariant !== 'rain' ? obstruction(previous, current, {
       sourceElevation: sourceHeight, targetElevation: currentHeight,
-      ignoreStructureId: structure ? action.targetId : null
+      ignoreStructureId: structure || aimedAtTrainingDummy ? action.targetId : null
     }) : null;
     const blockedContacts = [];
     for (const target of candidates) {
+      const trainingDummy = target.trainingDummy === true;
+      // The signal arrow goes upward; only the rain at the aimed area can hit.
+      if (action.attackVariant === 'rain') continue;
+      const alreadyHit = action.hitTargets.includes(target.id);
+      const canRepeatHit = action.attackVariant === 'lance-flurry';
+      const lastHitAt = action.lastHitAtByTarget?.[target.id];
       if ((structure ? target.destroyedDay != null : !target.alive || target.restingStructureId != null)
-        || target.kingdomId === actor.kingdomId || action.hitTargets.includes(target.id)) continue;
-      if (!structure && !isCombatTargetEligible(world, actor, target, action.day)) continue;
-      if (!structure && action.weapon !== 'arqueiro' && !!target.towerMounted !== !!actor.towerMounted) continue;
-      const radius = structure ? (options.targetRadius ?? .8) : BODY_RADIUS;
+        || target.kingdomId === actor.kingdomId && !trainingDummy || alreadyHit && !canRepeatHit) continue;
+      if (!structure && !trainingDummy && !isCombatTargetEligible(world, actor, target, action.day)) continue;
+      if (!structure && !trainingDummy && action.weapon !== 'arqueiro'
+          && !!target.towerMounted !== !!actor.towerMounted) continue;
+      const radius = structure ? (options.targetRadius ?? .8) : target.hitRadius ?? BODY_RADIUS;
       const fromHeight = sourceHeight;
       const toHeight = currentHeight;
-      const targetHeight = structure ? null : target.towerMounted ? 3 : 0;
+      const targetHeight = structure || trainingDummy ? null : target.towerMounted ? 3 : 0;
       const fx = target.militaryFacingX ?? 1, fy = target.militaryFacingY ?? 0, length = Math.hypot(fx, fy) || 1;
       const guardCenter = { x: target.x + fx / length * .42, y: target.y + fy / length * .42 };
-      const canGuard = !structure && options.guarding?.has(target.id) && frontGuard(target, action.origin)
+      const canGuard = !structure && !trainingDummy && options.guarding?.has(target.id) && frontGuard(target, action.origin)
         && (target.militaryClass === 'guerreiro' || target.militaryClass === 'lanceiro' && action.weapon !== 'arqueiro');
       const guardFraction = canGuard ? sweptContact(previous, current, guardCenter,
-        (target.militaryClass === 'guerreiro' ? .4 : .25) + profile.radius, fromHeight, toHeight, targetHeight) : null;
-      let fraction = sweptContact(previous, current, target, radius + profile.radius, fromHeight, toHeight, targetHeight);
+        (target.militaryClass === 'guerreiro' ? .4 : .25) + weaponRadius, fromHeight, toHeight, targetHeight) : null;
+      let fraction = sweptContact(previous, current, target, radius + weaponRadius, fromHeight, toHeight, targetHeight);
       let guarding = guardFraction != null && (fraction == null || guardFraction <= fraction);
       if (guarding) fraction = guardFraction;
       let point = fraction == null ? null : { x: previous.x + (current.x - previous.x) * fraction,
         y: previous.y + (current.y - previous.y) * fraction };
       let distanceFraction = fraction;
       // The sword blade occupies its length, while a spear only hits with its tip.
-      if (action.weapon === 'guerreiro') {
-        const blade = sweptBladeContact(action, Math.max(start, action.windupMs), now, target, radius + profile.radius);
+      if (action.weapon === 'guerreiro' && action.attackVariant !== 'shield-bash') {
+        const blade = sweptBladeContact(action, Math.max(start, action.windupMs), now, target, radius + weaponRadius);
         const shield = canGuard ? sweptBladeContact(action, Math.max(start, action.windupMs), now,
-          guardCenter, (target.militaryClass === 'guerreiro' ? .4 : .25) + profile.radius) : null;
+          guardCenter, (target.militaryClass === 'guerreiro' ? .4 : .25) + weaponRadius) : null;
         guarding = !!shield && (!blade || shield.fraction < blade.fraction
           || Math.abs(shield.fraction - blade.fraction) < 1e-9 && shield.distanceFraction <= blade.distanceFraction);
         const contact = guarding ? shield : blade;
@@ -207,14 +305,16 @@ export function resolveCombatAction(world, actor, action, candidates, applyDamag
         point = contact?.point ?? null;
       }
       if (fraction != null) {
-        const obstruction = action.weapon === 'arqueiro' ? null : combatPathObstruction(world, action.origin, point, {
+        const contactObstruction = action.weapon === 'arqueiro' ? null : obstruction(action.origin, point, {
           sourceElevation: action.sourceElevation, targetElevation: action.sourceElevation,
-          ignoreStructureId: structure ? target.id : null
+          ignoreStructureId: structure || trainingDummy ? target.id : null
         });
         const atMs = Math.max(start, action.windupMs)
           + (now - Math.max(start, action.windupMs)) * fraction;
-        if (obstruction) {
-          blockedContacts.push({ target, obstruction, atMs });
+        if (canRepeatHit && Number.isFinite(lastHitAt)
+            && atMs - lastHitAt < (action.strikeIntervalMs || 700) * .9) continue;
+        if (contactObstruction) {
+          blockedContacts.push({ target, obstruction: contactObstruction, atMs });
           continue;
         }
         hits.push({ target, fraction, distanceFraction, point, guarding, guardCenter });
@@ -230,6 +330,22 @@ export function resolveCombatAction(world, actor, action, candidates, applyDamag
         obstruction: projectileObstruction, hitbox: action.geometry };
       break;
     }
+    if (action.attackVariant === 'lance-flurry' && Number.isFinite(action.noContactTimeoutMs)) {
+      const noContactDeadline = action.lastContactAtMs + action.noContactTimeoutMs;
+      const firstHitAt = hits.length
+        ? Math.max(start, action.windupMs)
+          + (now - Math.max(start, action.windupMs)) * hits[0].fraction
+        : Infinity;
+      if (noContactDeadline <= now && firstHitAt > noContactDeadline) {
+        end = noContactDeadline;
+        action.activeMs = Math.max(0, end - action.windupMs);
+        action.durationMs = action.windupMs + action.activeMs + action.recoveryMs;
+        action.timing.activeEndMs = action.windupMs + action.activeMs;
+        action.timing.recoveryStartMs = action.timing.activeEndMs;
+        action.timing.completionMs = action.durationMs;
+        break;
+      }
+    }
     if (hits.length) {
       const { target, point, guarding, fraction, guardCenter } = hits[0];
       const atMs = Math.max(start, action.windupMs)
@@ -239,27 +355,37 @@ export function resolveCombatAction(world, actor, action, candidates, applyDamag
       const parried = guarding && action.weapon !== 'arqueiro'
         && options.parrying?.has(target.id) && Math.abs(atMs - parryAtMs) <= parryWindowMs;
       const normalLength = Math.hypot(point.x - target.x, point.y - target.y) || 1;
-      action.hitTargets.push(target.id);
+      if (!action.hitTargets.includes(target.id)) action.hitTargets.push(target.id);
       const blockKind = target.militaryClass === 'guerreiro' ? 'shield' : 'weapon-guard';
+      if (!structure) action.targetKind = target.trainingDummy ? 'training-dummy' : 'person';
       action.timing.contactMs = atMs;
       const targetContact = guarding ? guardCenter : { x: target.x, y: target.y };
-      action.result = { kind: structure ? 'structure' : parried ? 'parry' : guarding
+      action.result = { kind: structure ? 'structure' : target.trainingDummy ? 'training-dummy' : parried ? 'parry' : guarding
         ? blockKind : 'body', blockKind: guarding ? blockKind : null,
       targetId: target.id, atMs, point,
       targetPosition: targetContact,
       hitbox: { shape: structure ? 'structure-contact' : 'circle',
-        radius: structure ? (options.targetRadius ?? .8) + profile.radius
-          : guarding ? (target.militaryClass === 'guerreiro' ? .4 : .25) + profile.radius
-            : BODY_RADIUS + profile.radius },
+        radius: structure ? (options.targetRadius ?? .8) + weaponRadius
+          : guarding ? (target.militaryClass === 'guerreiro' ? .4 : .25) + weaponRadius
+            : (target.hitRadius ?? BODY_RADIUS) + weaponRadius },
       normal: { x: (point.x - target.x) / normalLength, y: (point.y - target.y) / normalLength },
       damageApplied: parried ? 0 : applyDamage(target, guarding), fatal: !structure && !target.alive,
       structureDestroyed: structure && target.destroyedDay != null };
       action.result.contactElevation = action.weapon === 'arqueiro'
         ? projectileElevation(action, action.result.atMs) : action.sourceElevation;
+      action.lastHitAtByTarget[target.id] = atMs;
+      if (action.attackVariant === 'lance-flurry') action.lastContactAtMs = atMs;
+      action.hitEvents.push({ targetId: target.id, atMs, point: { ...point }, kind: action.result.kind,
+        damageApplied: action.result.damageApplied,
+        ...(target.trainingDummy ? { health: target.health, maxHealth: target.maxHealth } : {}), guarding, parried });
       if (guarding) {
         target.militaryAnimation = 'defend'; target.militaryAnimationDay = action.day;
         target.combatDefense = { actionId: action.id, day: action.day, atMs: action.result.atMs,
           kind: action.result.kind, blockKind };
+      }
+      if (['shield-bash', 'lance-charge', 'lance-flurry'].includes(action.attackVariant) && !parried) {
+        previous = current;
+        continue;
       }
       break; // Single-target attacks; no cleave or friendly fire.
     }
@@ -274,7 +400,12 @@ export function resolveCombatAction(world, actor, action, candidates, applyDamag
     previous = current;
   }
   action.result ??= { kind: 'miss', atMs: end, hitbox: action.geometry };
+  if (action.weapon === 'arqueiro' && action.result.kind === 'miss') {
+    action.result.point = { ...action.aim };
+    action.result.contactElevation = 0;
+  }
   action.phase = 'complete';
+  action.endPosition = { x: actor.x, y: actor.y };
   // Keep bounded combat events for playback effects without changing entity IDs or RNG.
   world.combatEvents ??= [];
   world.combatEvents.push({ ...action, hitTargets: [...action.hitTargets] });

@@ -70,6 +70,7 @@ type ResponseEnvelope = {
 
 export type SimulationWorkerResponse = ResponseEnvelope & (
   | { type: 'snapshot'; snapshot: WorldSnapshot; result?: unknown }
+  | { type: 'player-update'; person?: WorldState['people'][number] | null; people?: WorldState['people']; combatEvents?: unknown[]; loot?: unknown[]; trainingDummyStates?: WorldState['trainingDummyStates']; events?: unknown[]; logs?: unknown[]; magicTimeMs?: number; magicZones?: unknown[]; magicEvents?: unknown[]; magicStats?: unknown; result?: unknown }
   | { type: 'ack'; result?: unknown }
   | { type: 'kingdom-ai-request'; request: KingdomAiDecisionRequest | null }
   | { type: 'query'; result: unknown }

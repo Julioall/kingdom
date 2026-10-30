@@ -6,7 +6,8 @@ export function cellAt(w, x, y) {
     // Actors and community centers can have fractional coordinates; resolve them to
     // the nearest tile before indexing the grid.
     const tileX = Math.round(x), tileY = Math.round(y);
-    return tileX < 0 || tileY < 0 || tileX >= WIDTH || tileY >= HEIGHT ? null : w.tiles[idx(tileX, tileY)];
+    const width = w.width ?? WIDTH, height = w.height ?? HEIGHT;
+    return tileX < 0 || tileY < 0 || tileX >= width || tileY >= height ? null : w.tiles[tileY * width + tileX];
   }
 
 export function riverX(y) { return 18 + .42 * y + 2.2 * Math.sin(y * .17); }

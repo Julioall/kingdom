@@ -8,7 +8,7 @@ import { medievalVoice, medievalObservations } from './medieval-voice.js';
 // Reserve room for the JSON envelope as well as a short Portuguese explanation.
 const MAX_NEW_TOKENS = 512;
 
-const GENERAL_SYSTEM_PROMPT = 'Você é o general de um reino simulado. Use somente os fatos observados da campanha. Uma unidade de alimento paga um dia para um soldado; os estoques e dias de ração são apresentados como números inteiros. Escolha exatamente um ID permitido. A simulação controla recursos, alvos e resultados; não invente informações nem emita ordens fora da lista. Responda com um único JSON contendo action, confidence e reason curta em português.';
+const GENERAL_SYSTEM_PROMPT = 'Você é o general de um reino simulado. Use somente os fatos observados da campanha. Uma unidade de alimento paga um dia para um soldado; os estoques e dias de ração são apresentados como números inteiros. Escolha exatamente um ID permitido. Ordens magic_recovery, magic_protection, magic_offense e magic_disruption apenas priorizam o apoio dos sacerdotes, preservando a manobra atual. A simulação controla recursos, alvos e resultados; não invente informações nem emita ordens fora da lista. Responda com um único JSON contendo action, confidence e reason curta em português.';
 let generator = null;
 let currentModel = null;
 let currentDevice = null;

@@ -27,6 +27,7 @@ function defenseFixture({ enemyRole = 'soldier', guardClass = 'lanceiro', distan
     if (!tile) continue;
     tile.terrain = 'land'; tile.kingdomId = home.id; tile.slope = 0;
     tile.elevationLevel = 0; tile.stoneDeposit = 0; tile.goldOre = 0;
+    tile.silverOre = 0; tile.copperOre = 0; tile.ironOre = 0;
     tile.plants?.fill(0);
   }
   invalidateNavigation(world);
@@ -83,6 +84,8 @@ test('projectile contact rejects a peaceful civilian even if a caller passes it 
 
 test('nearby soldiers intercept an invader on home territory without an active campaign', () => {
   const { world, guard, intruder } = defenseFixture();
+  // This checks interception/contact, independently of a randomly seeded dodge.
+  Object.assign(intruder, { playerControlled: true, militaryFacingX: 1, militaryFacingY: 0 });
   const before = intruder.health;
 
   const responses = respondToLocalThreats(world, world.day);

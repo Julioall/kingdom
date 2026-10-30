@@ -1,5 +1,6 @@
 import { cellAt } from '../world/spatial.js';
 import { distance } from '../core/math.js';
+import { magicModifiers } from '../magic/effects.js';
 import { carriedResources } from '../economy/inventories.js';
 import { isTreeAnchor } from '../ecology/plants.js';
 import { canEnterForeignTerritory, markTerritoryStep } from '../kingdoms/territories.js';
@@ -353,7 +354,15 @@ function persistentCongestionStep(w, agent, start, destination, canEnterFree, ca
 }
 
 export function moveOne(w, agent, target, aquatic, movementOptions = null) {
+    if (agent.playerControlled) return false;
+    if (agent.magicCast) return false;
     if (!target) return false;
+    if (agent.speciesId == null && !movementOptions?.passageYield && !movementOptions?.magicExtraStep) {
+      const speed = agent.magicEffects?.length ? magicModifiers(agent, w).speed : 1;
+      agent.magicStrideCredit = Math.min(2, (agent.magicStrideCredit || 0) + speed);
+      if (agent.magicStrideCredit < 1) return false;
+      agent.magicStrideCredit -= 1;
+    }
     movementOptions = { ...(movementOptions || {}), collisionIndex: worldCollisionIndex(w) };
     if (!movementOptions?.passageYield) respondToPassageRequest(w, agent);
     const currentTile = cellAt(w, Math.round(agent.x), Math.round(agent.y));
@@ -488,5 +497,9 @@ export function moveOne(w, agent, target, aquatic, movementOptions = null) {
       recordFootstep(next, agent, w.day);
     }
     rememberRouteArrival(agent, route.at(-1).i);
+    if (agent.speciesId == null && !movementOptions.magicExtraStep && agent.magicStrideCredit >= 1) {
+      agent.magicStrideCredit -= 1;
+      moveOne(w, agent, target, aquatic, { ...movementOptions, magicExtraStep: true });
+    }
     return true;
   }

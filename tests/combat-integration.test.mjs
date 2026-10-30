@@ -101,8 +101,8 @@ test('projectile presentation stops at actual interception height and skips obso
   resolveCombatAction(world, actor, action, [intended, interceptor], () => 10);
   assert.equal(action.result.targetId, 3); assert.ok(action.result.contactElevation < .65);
   const effects = createActivityEffects(); effects.observe(world, 0);
-  const arrow = effects.active(500).find(e => e.projectile);
-  assert.equal(arrow.targetY, -action.result.contactElevation);
+  const arrow = effects.active(action.windupMs).find(e => e.projectile);
+  assert.equal(arrow.targetY, action.result.point.y - action.result.contactElevation);
   const caughtUp = createActivityEffects(); world.day = 5; caughtUp.observe(world, 1000);
   assert.deepEqual(caughtUp.active(2000), []);
 });

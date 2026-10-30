@@ -38,6 +38,7 @@ export function createWorld(seed) {
     const w = {
       seed: cleanSeed, width: WIDTH, height: HEIGHT, day: 0, year: 1, season: 0, rngState: cleanSeed,
       nextId: 1, tiles: [], regions: [], animals: [], people: [], communities: [], kingdoms: [], structures: [], settlements: [], logs: [], loot: [], lake: null, lakes: [],
+      trainingDummyStates: {},
       market: { gold: 240, food: 110, feed: 64, wood: 90, stone: 72, sheep: 4, transactions: 0 },
       socialLinks: {}, communityRelations: {}, events: [], deaths: 0, births: 0, rainEvents: 0,
       strategicAI: { enabled: false, requests: [], pendingByKingdom: {}, nextDecisionDays: {}, nextRequestSequence: 1, enqueuedDay: -1, enqueuedToday: 0, decisions: 0, failures: 0 },

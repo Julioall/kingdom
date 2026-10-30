@@ -1,6 +1,6 @@
 
 
-export const WIDTH = 128, HEIGHT = 128, CELL_AREA_M2 = 100, REGION_SIDE = 8;
+export const WIDTH = 112, HEIGHT = 112, CELL_AREA_M2 = 100, REGION_SIDE = 8;
 
 export const SEASONS = ['Primavera', 'Verão', 'Outono', 'Inverno'];
 

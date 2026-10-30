@@ -222,7 +222,7 @@ test('critical thirst takes priority over food that is close by but separated by
   world.structures = [];
   for (const tile of world.tiles.filter(t => distance(t, soldier) < 9)) {
     Object.assign(tile, { terrain: 'land', waterKind: null, surfaceWaterMm: 0,
-      elevationLevel: 0, slope: 0, stoneDeposit: 0, goldOre: 0 });
+      elevationLevel: 0, slope: 0, stoneDeposit: 0, goldOre: 0, silverOre: 0, copperOre: 0, ironOre: 0 });
     tile.plants.fill(0);
   }
   invalidateNavigation(world);
@@ -243,6 +243,9 @@ test('critical thirst takes priority over food that is close by but separated by
   soldier.perception.resources = [{ x: crop.x, y: crop.y, distance: 2, terrain: 'land', slope: 0,
     biomass: { 'cultivated-root': 100 }, harvestableBiomass: { 'cultivated-root': 100 } }];
   const beforeWaterDistance = distance(soldier, water);
+  // updatePeople refreshes perception: seed actual water memory, not only its view.
+  soldier.headingX = 0; soldier.headingY = 0;
+  soldier.sensoryMemory.water = [{ x: water.x, y: water.y, source: 'lake', lastSeenDay: world.day }];
 
   assert.equal(bestPeopleFoodCell(world, soldier, 8), crop,
     'the food patch has a reachable interaction edge on its own side of the water barrier');

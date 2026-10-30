@@ -55,12 +55,19 @@ test('production Worker: determinism, real campaign contacts, pause, batching, r
     contacts = Math.max(contacts, world.combatSequence || 0);
     for (const event of world.combatEvents || []) {
       assert.equal(event.phase, 'complete'); assert.ok(Number.isFinite(event.result.atMs));
-      assert.ok(event.hitTargets.length <= 1);
+      const actor = world.people.find(person => person.id === event.actorId);
+      const maximumTargets = ['lance-charge', 'lance-flurry', 'shield-bash'].includes(event.attackVariant)
+        ? world.people.filter(person => person.kingdomId !== actor?.kingdomId).length
+        : event.weapon === 'arqueiro' && ['cone', 'rain'].includes(event.attackVariant)
+          ? event.arrowCount || (event.attackVariant === 'rain' ? 24 : 3) : 1;
+      assert.ok(event.hitTargets.length <= maximumTargets,
+        `${event.attackVariant || event.weapon} attack cannot hit more than ${maximumTargets} targets`);
+      assert.equal(new Set(event.hitTargets).size, event.hitTargets.length, 'one attack cannot record a target twice');
       if (event.result.damageApplied) assert.ok(event.result.damageApplied > 0);
     }
     for (const person of world.people) {
       assert.ok(Number.isFinite(person.health)); assert.ok(person.health >= 0 && person.health <= 100);
-      if (person.stamina != null) assert.ok(person.stamina >= 0 && person.stamina <= 100);
+      if (person.stamina != null) assert.ok(person.stamina >= 0 && person.stamina <= 400);
     }
   }
   assert.ok(seenCampaign); assert.ok(contacts > 0, 'real campaign must execute contact resolution');

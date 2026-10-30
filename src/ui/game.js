@@ -1,3 +1,8 @@
+import { dominantMetalKind } from '../config/mineral-deposits.js';
+import { dashPosition, dashGhosts, DASH_TRAIL_FADE_MS } from './dash-presentation.js';
+import { manualAttackProfile } from '../simulation/kingdoms/military.js';
+import { createCombatAction } from '../simulation/kingdoms/combat-contact.js';
+import { createManualMovementPrediction } from './manual-movement-prediction.js';
 import { resourceSummary } from './gameplay-data.js';
 import { formatWholeMeasure } from './whole-measures.js';
 import { buildingCard, kingdomOverview } from './building-card.js';
@@ -12,6 +17,11 @@ import LocalAI from '../ai/local-engine.js';
 import { readLocalAiPreference, writeLocalAiPreference } from '../ai/preference.js';
 import { DOMESTIC_SHEEP_DAILY_FEED, SHEEP_ADULT_AGE_DAYS, SHEEP_JUVENILE_MIN_SCALE } from '../config/ecosystem.js';
 import { isRoadTile, ROAD_RULES } from '../simulation/world/roads.js';
+import { trainingDummiesForWorld } from '../simulation/world/training-dummies.js';
+import { SPELLS, equippedSpells } from '../simulation/magic/catalog.js';
+import { magicHasActivity } from '../simulation/magic/system.js';
+import { createMagicPresentation } from './magic/presentation.js';
+import { renderMagicInspector, magicInspectorCommand } from './magic/inspector.js';
 import { isBushAnchor } from '../simulation/ecology/plants.js';
 import { CHARACTER_SPRITE_SCALE, MILITARY_SPRITES, militarySpritePose } from './military-sprites.js';
 import { createAnimationRenderer, getUnitAnimation, getAnimationFrame } from './animations.js';
@@ -21,11 +31,11 @@ import { musicGainAtZoom } from './music-audio.js';
 import { mapDecorationAt, MAP_DECORATION_SPRITES } from './map-decorations.js';
 import { MILITARY_PAY, GARRISON_RECOVERY } from '../simulation/kingdoms/service.js';
 import { MILITARY_SOURCE_LABELS } from '../simulation/kingdoms/military-sources.js';
-import { mapCamera, spriteScale, BUILDING_FEET, alignedTileRect, SOURCE_TILE_PIXELS } from './map-camera.js';
+import { mapCamera, followCameraPan, spriteScale, BUILDING_FEET, alignedTileRect, SOURCE_TILE_PIXELS } from './map-camera.js';
 import { structureDepthY } from './world-depth.js';
 import { createCloudSystem, atmosphereZoomProfile } from './cloud-system.js';
 import AtmosphericLayer from './atmospheric-layer.js';
-import DirtBrush from './dirt-brush.js';
+import DirtBrush, { SOIL_PALETTE } from './dirt-brush.js';
 import { createLoadingScreen } from './loading-screen.js';
 import { renderSocialInspectorSections } from './social-inspector.js';
 import { createRenderDiagnostics } from './render-profiler-panel.js';
@@ -42,7 +52,18 @@ import { CORRAL_VISUAL_SCALE, corralFenceRadius } from '../simulation/ecology/he
 
 const IMAGE_ASSET_EXTENSION = import.meta.env?.PROD ? 'webp' : 'png';
 const imageFileName = name => `${name}.${IMAGE_ASSET_EXTENSION}`;
+const lightenHexColor = (hex, amount) => {
+  const value = Number.parseInt(hex.slice(1), 16);
+  return '#' + [16, 8, 0].map(shift => {
+    const channel = value >> shift & 255;
+    return Math.round(channel + (255 - channel) * amount).toString(16).padStart(2, '0');
+  }).join('');
+};
+const PATH_SOIL_PALETTE = Object.freeze(Object.fromEntries(Object.entries(SOIL_PALETTE)
+  .map(([name, color]) => [name, lightenHexColor(color, .25)])));
 const RIBBON_PALETTE = Object.freeze({ blue: 'cyan', cyan: 'cyan', red: 'red', purple: 'purple', yellow: 'yellow', black: 'black' });
+const ARCHER_READY_FRAME_MS = 400;
+const ARCHER_RELEASE_FRAME_MS = 500;
 
 function setModalRibbon(panel, forjaUI, color) {
   if (!panel) return;
@@ -52,7 +73,7 @@ function setModalRibbon(panel, forjaUI, color) {
   const ribbonColor = RIBBON_PALETTE[color] || 'black';
   let ribbon = [...heading.children].find(child => child.classList.contains('panel-ribbon'));
   if (ribbon?.dataset.ribbonColor === ribbonColor) return;
-  const nextRibbon = forjaUI.ribbon(ribbonColor, '', 'panel-ribbon', 50);
+  const nextRibbon = forjaUI.ribbon(ribbonColor, '', 'panel-ribbon', 47);
   nextRibbon.dataset.ribbonColor = ribbonColor;
   nextRibbon.setAttribute('aria-hidden', 'true');
   nextRibbon.querySelector('.ribbon-text')?.remove();
@@ -113,6 +134,12 @@ export function mountGame() {
     setModalRibbon($('settingsTray'), forjaUI, 'black');
   }
   const canvas = $('world');
+  canvas.tabIndex = 0;
+  const parryStarSprite = trackedImage();
+  parryStarSprite.src = '/assets/kingdom-ui/' + imageFileName('parry-star');
+  const deathSprite = trackedImage();
+  deathSprite.addEventListener('load', () => { if (world) drawMap(); });
+  deathSprite.src = '/assets/tiny-swords/military/dead.png';
   const selectionFrameSprite = trackedImage();
   selectionFrameSprite.addEventListener('load', () => { if (world) drawMap(); });
   selectionFrameSprite.src = '/assets/kingdom-ui/Cursor_04.png';
@@ -131,22 +158,25 @@ export function mountGame() {
   ctx.imageSmoothingEnabled = false;
   groundCacheContext.imageSmoothingEnabled = false;
   const W = Sim.width, H = Sim.height, TILE = LOGICAL_SIZE / W, stage = canvas.parentElement;
+  const magicVfx = createMagicPresentation({ tileSize: TILE });
   const kingThoughts = createKingThoughts(stage);
   const terrainChunks = createTerrainChunkCache({ width: W, height: H, tileSize: TILE });
   const pixelTiles = createPixelTileCache();
-  let terrainSyncRevision = -1, terrainSyncFallback = null, assetRevision = 0, renderTimestamp = null;
+  let terrainSyncRevision = -1, terrainSyncFallback = null, assetRevision = 0, terrainAssetRevision = 0, renderTimestamp = null;
   const seasonNames = Sim.seasons;
   const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0] || 1;
   const requestedSeed = diagnosticQuery.get('seed');
   const sessionSeed = requestedSeed !== null && /^\d+$/.test(requestedSeed) && Number(requestedSeed) <= 0xffffffff
     ? Number(requestedSeed) : randomSeed();
-  const PATH_VISUAL_STRENGTH = 1.5; // 50% stronger footpath shading.
-  const PATH_EDGE_IRREGULARITY = 1; // DirtBrush maximum.
+  const PATH_TRAIL_OPACITY = .74;
+  const PATH_TRAIL_WIDTH = 8;
+  const PATH_EDGE_IRREGULARITY = .77;
   const trailCanvasScale = 1;
+  const trailBrushSize = PATH_TRAIL_WIDTH * trailCanvasScale;
   const trailCanvas = document.createElement('canvas');
   trailCanvas.width = trailCanvas.height = LOGICAL_SIZE * trailCanvasScale;
-  const dirtBrush = new DirtBrush({ canvas: trailCanvas, size: 5, irregularity: PATH_EDGE_IRREGULARITY,
-    seed: sessionSeed ^ 0x4d2b79f5, autoBind: false });
+  const dirtBrush = new DirtBrush({ canvas: trailCanvas, size: trailBrushSize, irregularity: PATH_EDGE_IRREGULARITY,
+    palette: PATH_SOIL_PALETTE, seed: sessionSeed ^ 0x4d2b79f5, autoBind: false });
   const trailLastPositionByPerson = new Map();
   const trailSegmentByPerson = new Map();
   const pendingPersonTrailPoints = new Map();
@@ -160,7 +190,127 @@ export function mountGame() {
 
   let world = null, rendered = false, localAI = null;
   let peopleById = new Map(), animalsById = new Map(), communitiesById = new Map(), kingdomsById = new Map(), structuresById = new Map();
-  let selection = null, showLeft = false, showRight = false, hoveredTerritoryStructureId = null, hoveredMapEntity = false;
+  let selection = null, showLeft = false, showRight = false, hoveredTerritoryStructureId = null, hoveredMapEntity = false, hoveredPersonId = null;
+  let manualControlId = null, manualAimWorld = null, manualDefending = false, manualHealing = false, lastManualInputKey = '';
+  const manualHeldKeys = new Set();
+  let manualAttackPreview = null, lastManualPointer = null;
+  const dashPresentations = new Map();
+  let lastDashEvent = 0;
+  let manualDispatchQueue = Promise.resolve();
+  const queueManualDispatch = command => {
+    manualDispatchQueue = manualDispatchQueue.then(() => session.dispatch(command)).catch(error => {
+      if (!isResetCancellation(error)) console.error('[Controle manual]', error);
+    });
+    return manualDispatchQueue;
+  };
+  const isEditableTarget = target => !!target?.closest?.('input, textarea, select, button, [contenteditable="true"]');
+  const currentManualPerson = () => manualControlId == null ? null : peopleById.get(manualControlId) || null;
+  const primaryIsHealing = () => {
+    const person = currentManualPerson();
+    return person?.militaryClass === 'monge' && SPELLS[equippedSpells(person)[0]]?.kind === 'heal';
+  };
+  const manualPrediction = createManualMovementPrediction();
+  let lastManualTick = 0;
+  function sendManualInput(dt = 0) {
+    const person = currentManualPerson();
+    if (!person || !world || dt && !person.playerControlled) return;
+    const moveX = Number(manualHeldKeys.has('d')) - Number(manualHeldKeys.has('a'));
+    const moveY = Number(manualHeldKeys.has('s')) - Number(manualHeldKeys.has('w'));
+    let aimX, aimY, aimBucket = '';
+    if (person.role === 'soldier' && manualAimWorld) {
+      aimX = Math.max(0, Math.min(W - .001, manualAimWorld.x));
+      aimY = Math.max(0, Math.min(H - .001, manualAimWorld.y));
+      const angle = Math.atan2(aimY - person.y, aimX - person.x);
+      aimBucket = Math.round(angle / (Math.PI / 16));
+    }
+    const healingTarget = hoveredPersonId == null ? null : getPerson(hoveredPersonId);
+    const healingTargetId = healingTarget?.kingdomId === person.kingdomId ? healingTarget.id : null;
+    const signature = [moveX, moveY, Number(manualDefending), Number(manualHealing), healingTargetId ?? '', aimBucket].join(':');
+    if (dt && ['shield-bash', 'lance-charge'].includes(manualAttackPreview?.action.attackVariant)) return;
+    if (!dt && signature === lastManualInputKey) return;
+    if (dt && !moveX && !moveY && !manualHealing && !(person.playerFlurryUntil > Date.now())) return;
+    lastManualInputKey = signature;
+    const command = { type: 'player-input', personId: person.id, moveX, moveY, dt,
+      defending: manualDefending, healing: manualHealing && person.militaryClass === 'monge',
+      healingTargetId: healingTargetId ?? undefined,
+      aimX, aimY };
+    if (dt) {
+      manualPrediction.predict(world, person, command);
+      session.dispatch(command).catch(error => { if (!isResetCancellation(error)) console.error('[Controle manual]', error); });
+    } else queueManualDispatch(command);
+  }
+  function updateManualAim(event, forceMouse = false, redraw = true) {
+    if (manualControlId == null || !forceMouse && event.pointerType !== 'mouse' || !world) return;
+    lastManualPointer = { clientX: event.clientX, clientY: event.clientY, pointerType: 'mouse' };
+    const rect = stage.getBoundingClientRect();
+    const point = currentMapCamera().toWorld(event.clientX - rect.left, event.clientY - rect.top);
+    const picked = pickEntity(point.x / TILE, point.y / TILE);
+    const targetPerson = picked?.kind === 'person' ? getPerson(picked.id) : null;
+    const nextAim = targetPerson && targetPerson.kingdomId !== currentManualPerson()?.kingdomId
+      ? { x: targetPerson.x, y: targetPerson.y }
+      : { x: Math.max(0, Math.min(W - .001, point.x / TILE)),
+        y: Math.max(0, Math.min(H - .001, point.y / TILE)) };
+    const visualChanged = !manualAimWorld || Math.hypot(nextAim.x - manualAimWorld.x, nextAim.y - manualAimWorld.y) > .06;
+    manualAimWorld = nextAim;
+    if (currentManualPerson()?.role === 'soldier') sendManualInput();
+    if (visualChanged && redraw) drawMap();
+  }
+  function queueManualAttack(actionKey) {
+    const person = currentManualPerson();
+    if (!person || person.role !== 'soldier' || !manualAimWorld) return;
+    let aimX = Math.max(0, Math.min(W - .001, manualAimWorld.x));
+    let aimY = Math.max(0, Math.min(H - .001, manualAimWorld.y));
+    const hoveredTargetPerson = hoveredPersonId == null ? null : getPerson(hoveredPersonId);
+    const target = hoveredTargetPerson?.alive
+      ? { kind: 'person', id: hoveredTargetPerson.id } : pickEntity(aimX, aimY);
+    const hoveredTarget = target?.kind === 'person' ? getPerson(target.id) : null;
+    const locksTarget = hoveredTarget && (person.militaryClass === 'monge'
+      || hoveredTarget.id !== person.id && hoveredTarget.kingdomId !== person.kingdomId);
+    if (locksTarget) { aimX = hoveredTarget.x; aimY = hoveredTarget.y; }
+    const profile = manualAttackProfile(person, actionKey);
+    const preview = profile && (target?.kind === 'training-dummy' || (person.stamina ?? 100) >= (profile.minStamina || 8))
+      && !(person.combatDisarmedUntilDay > world.day) ? {
+        personId: person.id, previousId: person.combatAction?.id, startedAt: animationTime,
+        action: createCombatAction({ combatSequence: 0, rngState: 42 }, { ...person },
+          { id: -1, x: aimX, y: aimY }, world.day,
+          { ...profile, reach: profile.range, aim: { x: aimX, y: aimY }, targetLock: !!locksTarget })
+      } : null;
+    manualAttackPreview = preview;
+    queueManualDispatch({ type: 'player-action', personId: person.id, actionKey,
+      aimX, aimY, targetId: target?.kind === 'training-dummy' ? target.id
+        : locksTarget ? hoveredTarget.id : undefined })
+      .finally(() => { if (manualAttackPreview === preview) manualAttackPreview = null; });
+  }
+  function toggleManualControl() {
+    if (!world) return;
+    manualPrediction.reset(); manualAttackPreview = null;
+    const selectedPerson = selection?.kind === 'person' ? getPerson(selection.id) : null;
+    if (manualControlId != null && (!selectedPerson || selectedPerson.id === manualControlId)) {
+      const previousId = manualControlId;
+      manualControlId = null; manualAimWorld = null; manualDefending = false; manualHealing = false;
+      manualHeldKeys.clear(); lastManualInputKey = '';
+      queueManualDispatch({ type: 'player-control', personId: previousId, enabled: false });
+    } else if (selectedPerson?.alive) {
+      manualControlId = selectedPerson.id; manualDefending = false; manualHealing = false;
+      mapZoom = Math.max(mapZoom, FIT_MAP_ZOOM);
+      showRight = false; $('rightPanel').classList.remove('is-open');
+      syncPanelAccess(); updateMapViewport();
+      manualHeldKeys.clear(); lastManualInputKey = '';
+      const facingX = selectedPerson.militaryFacingX || 1, facingY = selectedPerson.militaryFacingY || 0;
+      const length = Math.hypot(facingX, facingY) || 1;
+      manualAimWorld = { x: Math.max(0, Math.min(W - .001, selectedPerson.x + facingX / length * 4)),
+        y: Math.max(0, Math.min(H - .001, selectedPerson.y + facingY / length * 4)) };
+      queueManualDispatch({ type: 'player-control', personId: selectedPerson.id, enabled: true });
+    } else return;
+    sendManualInput();
+    renderInspector(); drawMap();
+  }
+  function clearManualInput() {
+    if (manualControlId == null) return;
+    manualHeldKeys.clear(); manualDefending = false; manualHealing = false;
+    lastManualInputKey = '';
+    sendManualInput();
+  }
   const syncPanelAccess = () => syncHudPanelAccess($('leftPanel'), $('rightPanel'), { leftOpen: showLeft, rightOpen: showRight });
   syncPanelAccess();
   const isResetCancellation = error => error && error.name === 'AbortError';
@@ -171,13 +321,20 @@ export function mountGame() {
     communitiesById = new Map(world.communities.map(community => [community.id, community]));
     kingdomsById = new Map(world.kingdoms.map(kingdom => [kingdom.id, kingdom]));
     structuresById = new Map(world.structures.map(structure => [structure.id, structure]));
+    if (manualControlId != null && !peopleById.get(manualControlId)?.alive) {
+      manualControlId = null; manualAimWorld = null; manualDefending = false; manualHealing = false;
+      manualHeldKeys.clear(); lastManualInputKey = '';
+    }
+    manualPrediction.reconcile(world, currentManualPerson());
     invalidateStaticDepthCache();
 
     movementInterpolator.observe(world, performance.now(), { reset, speed: session.speed });
     npcDamageBars.observe(world.people, performance.now(), reset);
     structureDamageBars.observe(world.structures.map(s => ({ id: s.id, alive: s.destroyedDay == null,
       lastAttackSequence: s.lastAttackSequence })), performance.now(), reset);
+    observeDashPresentations(world, animationTime, reset);
     activityEffects.observe(world, animationTime, reset);
+    magicVfx.sync(world, animationTime, reset);
     gameAudio.observe(world, animationTime, reset);
     for (const person of world.people) if (person.combatAction?.day === world.day) {
       actorAnimationClock.elapsed('combat:' + person.id, String(person.combatAction.id), animationTime);
@@ -190,12 +347,16 @@ export function mountGame() {
     actorAnimationClock.retain(new Set(world.people.filter(person => person.alive).flatMap(person => [person.id, 'shot:' + person.id, 'combat:' + person.id, 'defense:' + person.id])));
     for (const kingdom of world.kingdoms) ensureTinyPalette(kingdom.palette);
     if (reset) {
+      magicGeneration++; magicAccumulator = 0; magicTickPending = false; lastMagicFrame = 0;
       dirtBrush.clear();
       trailLastPositionByPerson.clear();
       trailSegmentByPerson.clear();
       pendingPersonTrailPoints.clear();
       lastTrailFlushAt = performance.now();
       selection = null;
+      manualPrediction.reset(); manualAttackPreview = null;
+      manualControlId = null; manualAimWorld = null; manualDefending = false;
+      manualHeldKeys.clear(); lastManualInputKey = '';
       showRight = false;
 
       $('rightPanel').classList.remove('is-open');
@@ -212,6 +373,38 @@ export function mountGame() {
       loadingScreen.markWorldReady();
     } else render('snapshot');
     if (localAI) localAI.pump();
+  };
+  session.onPlayerUpdate = (combat, personIds, magic = false) => {
+    if (!world) return;
+    magicVfx.sync(world, animationTime);
+    const controlled = currentManualPerson();
+    if (controlled?.militaryClass === 'monge' && !controlled.playerHealing) manualHealing = false;
+    if (personIds.includes(manualControlId)) manualPrediction.reconcile(world, currentManualPerson());
+    if (magic) {
+      npcDamageBars.observe(world.people, performance.now(), false);
+      activityEffects.observe(world, animationTime, false);
+      gameAudio.observe(world, animationTime, false);
+      return;
+    }
+    if (!combat) return;
+    invalidateStaticDepthCache();
+    if (selection?.kind === 'training-dummy') renderInspector();
+    let combatPresentationAt = animationTime;
+    const preview = manualAttackPreview;
+    if (preview && personIds.includes(preview.personId) && controlled?.combatAction
+        && controlled.combatAction.id !== preview.previousId) {
+      const prepared = Math.min(animationTime - preview.startedAt, preview.action.windupMs * .85);
+      combatPresentationAt -= prepared;
+      actorAnimationClock.startAt('combat:' + controlled.id, String(controlled.combatAction.id), animationTime - prepared);
+      manualAttackPreview = null;
+    }
+    npcDamageBars.observe(world.people, performance.now(), false);
+    observeDashPresentations(world, combatPresentationAt, false);
+    activityEffects.observe(world, combatPresentationAt, false);
+    gameAudio.observe(world, combatPresentationAt, false);
+    const person = currentManualPerson();
+    if (person?.combatAction?.day === world.day)
+      actorAnimationClock.elapsed('combat:' + person.id, String(person.combatAction.id), animationTime);
   };
   session.onError = error => {
     if (isResetCancellation(error)) return;
@@ -254,6 +447,7 @@ export function mountGame() {
   const COLLISION_CALIBRATION_STORAGE_KEY = 'kingdom-collision-calibration-v3';
   const LEGACY_COLLISION_CALIBRATION_STORAGE_KEY = 'kingdom-collision-calibration-v2';
   let mapZoom = MIN_MAP_ZOOM, mapPanX = 0, mapPanY = 0;
+  let showHitboxes = false;
 
   let mapTransform = [1, 0, 0, 1, 0, 0];
   let animationTime = 0, lastSpriteDraw = 0, lastAtmosphereUpdate = 0, assetRenderQueued = false, groundCacheKey = '', pendingClockDays = 0;
@@ -359,7 +553,7 @@ export function mountGame() {
   const tinyTerrainAtlases = [];
   for (let color = 1; color <= 5; color++) {
     const image = trackedImage();
-    image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
+    image.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(true); };
     image.src = 'assets/kingdom-autotile/' + imageFileName('Tilemap_color' + color);
     tinyTerrainAtlases.push(image);
   }
@@ -391,6 +585,8 @@ export function mountGame() {
   fogCanvas.style.opacity = String(atmosphereLayerOpacityForZoom(mapZoom));
   let atmosphericProfile = atmosphereProfileForZoom(mapZoom);
   function syncAtmosphereWithZoom() {
+    fogCanvas.hidden = mapZoom >= 2;
+    cloudSpritesCanvas.hidden = mapZoom >= 2;
     fogCanvas.style.opacity = String(atmosphereLayerOpacityForZoom(mapZoom));
     cloudSpritesCanvas.style.opacity = String(atmosphereZoomProfile(mapZoom).cloudLayerOpacity);
     const next = atmosphereProfileForZoom(mapZoom);
@@ -411,7 +607,7 @@ export function mountGame() {
   const showCropFieldGround = false;
   const cropFieldTexture = showCropFieldGround ? trackedImage() : null;
   if (cropFieldTexture) {
-    cropFieldTexture.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(); };
+    cropFieldTexture.onload = () => { if (visualPack === 'tiny-swords') queueAssetRender(true); };
     cropFieldTexture.src = 'assets/kingdom-autotile/rice-field-ground.png';
   }
   const riceGrowthWindTexture = trackedImage();
@@ -471,18 +667,45 @@ export function mountGame() {
     image.src = 'assets/tiny-swords/minerals/' + imageFileName(kind + '-stone-' + variant);
     tinyMineralSprites[kind][variant] = image;
   }
-  function queueAssetRender() {
+  let terrainAssetRenderQueued = false;
+  function queueAssetRender(terrain = false) {
+    terrainAssetRenderQueued ||= terrain === true;
     if (assetRenderQueued) return;
     assetRenderQueued = true;
     window.requestAnimationFrame(() => {
-      assetRenderQueued = false; groundCacheKey = ''; assetRevision++;
-      terrainChunks.invalidateAll(); invalidateStaticDepthCache();
+      assetRenderQueued = false; assetRevision++;
+      if (terrainAssetRenderQueued) {
+        terrainAssetRenderQueued = false; terrainAssetRevision++; groundCacheKey = '';
+        terrainChunks.invalidateAll();
+      }
+      invalidateStaticDepthCache();
       if (world) render();
     });
   }
+  let manualVisualPosition = null;
   function visualPose(kind, agent) {
     // Interpolation samples are stamped with real snapshot arrival times.
     const pose = movementInterpolator.pose(kind, agent, renderTimestamp ?? performance.now());
+    if (kind === 'person' && agent.playerControlled) {
+      const now = renderTimestamp ?? performance.now();
+      if (!manualVisualPosition || manualVisualPosition.id !== agent.id
+          || Math.hypot(agent.x - manualVisualPosition.x, agent.y - manualVisualPosition.y) > 5) {
+        manualVisualPosition = { id: agent.id, x: agent.x, y: agent.y, time: now };
+      }
+      const alpha = 1 - Math.exp(-Math.max(0, now - manualVisualPosition.time) / 35);
+      manualVisualPosition.x += (agent.x - manualVisualPosition.x) * alpha;
+      manualVisualPosition.y += (agent.y - manualVisualPosition.y) * alpha;
+      manualVisualPosition.time = now;
+      pose.x = manualVisualPosition.x; pose.y = manualVisualPosition.y;
+      pose.moving = manualHeldKeys.has('w') || manualHeldKeys.has('a') || manualHeldKeys.has('s') || manualHeldKeys.has('d');
+      pose.dirX = agent.militaryFacingX || 1; pose.dirY = agent.militaryFacingY || 0;
+    }
+    const action = kind === 'person' ? agent.combatAction : null;
+    if (action?.attackVariant === 'lance-flurry') {
+      const elapsed = actorAnimationClock.elapsed('combat:' + agent.id, String(action.id), animationTime);
+      if (elapsed < action.durationMs)
+        return { ...pose, moving: false, dirX: 0, dirY: 0 };
+    }
     if (kind !== 'person' || !agent.towerMounted) return pose;
     const tower = structuresById.get(agent.towerDutyId);
     return tower ? { ...pose, x: tower.x, y: tower.y - 3, moving: false }
@@ -490,7 +713,7 @@ export function mountGame() {
   }
   function updateIndividualTrails(now) {
     if (!world) return;
-    const visibleWear = ROAD_RULES.fastAt;
+    const visibleWear = ROAD_RULES.visibleAt;
     const minSampleDistance = 2.2;
     const maxSegmentDistance = TILE * 6;
     const maxPointSpacing = TILE * .2;
@@ -502,8 +725,8 @@ export function mountGame() {
         ? tile : null;
     };
     const isWalkableGround = point => !!wornGroundAt(point);
-    const pressureForWear = wear => .65 + Math.max(0, Math.min(1,
-      (wear - visibleWear) / (ROAD_RULES.maxWear - visibleWear))) * .55;
+    const pressureForWear = wear => .34 + Math.sqrt(Math.max(0, Math.min(1,
+      (wear - visibleWear) / (ROAD_RULES.maxWear - visibleWear)))) * .86;
     const queuePoints = (key, points) => {
       if (!points.length) return;
       let pending = pendingPersonTrailPoints.get(key);
@@ -526,7 +749,7 @@ export function mountGame() {
         if (trailLastPositionByPerson.has(id)) breakTrail(id);
         continue;
       }
-      const pose = visualPose('person', person);
+      const pose = combatDisplayPose(person, visualPose('person', person));
       if (!pose.moving) continue;
       const current = { x: (pose.x + .5) * TILE, y: (pose.y + 1) * TILE };
       if (!isWalkableGround(current)) {
@@ -572,7 +795,7 @@ export function mountGame() {
 
     if (now - lastTrailFlushAt >= 180 && pendingPersonTrailPoints.size) {
       dirtBrush.appendPaths(Array.from(pendingPersonTrailPoints, ([key, points]) => ({
-        key, points, options: { size: 5, irregularity: PATH_EDGE_IRREGULARITY }
+        key, points, options: { size: trailBrushSize, irregularity: PATH_EDGE_IRREGULARITY }
       })));
       pendingPersonTrailPoints.clear();
       lastTrailFlushAt = now;
@@ -699,11 +922,21 @@ export function mountGame() {
   }
   const tinyPalettes = ['blue', 'red', 'purple', 'yellow', 'black'];
   const loadedTinyPalettes = new Set();
+  const trainingDummySprites = Object.create(null);
+  const trainingDummyColorFiles = { blue: 'azul', red: 'vermelho', purple: 'purpura', yellow: 'amarelo', black: 'preto' };
   function ensureTinyPalette(palette) {
     if (!tinyPalettes.includes(palette) || loadedTinyPalettes.has(palette)) return;
     loadedTinyPalettes.add(palette);
+    trainingDummySprites[palette] = Object.create(null);
+    for (const pose of ['frontal', 'diagonal']) {
+      const image = trackedImage();
+      image.onload = () => queueAssetRender();
+      image.src = 'assets/training-dummies/boneco_treino_' + pose + '_' + trainingDummyColorFiles[palette] + '.png';
+      trainingDummySprites[palette][pose] = image;
+    }
     for (const action of ['idle', 'run', 'attack', 'arrow'])
       animationRenderer.load(getUnitAnimation('arqueiro', action, palette)).catch(error => console.warn(error));
+    animationRenderer.load(getUnitAnimation('guerreiro', 'attack-2', palette)).catch(error => console.warn(error));
     animationRenderer.load(getUnitAnimation('monge', 'heal-effect', palette)).catch(error => console.warn(error));
     tinyBuildingSprites[palette] = Object.create(null);
     for (const key of ['house1', 'house2', 'house3', 'castle', 'tower', 'barracks', 'archery', 'monastery', 'farmhouse']) {
@@ -817,41 +1050,102 @@ export function mountGame() {
 
   function militaryAnimationState(person, pose) {
     const palette = getKingdom(person.kingdomId)?.palette || 'blue';
-    const action = person.combatAction;
-    const contactElapsed = action ? actorAnimationClock.elapsed('combat:' + person.id, String(action.id), animationTime) : Infinity;
-    const attacking = action?.day === world.day && contactElapsed < action.durationMs;
+    const channelingHeal = (person.playerHealing === true || !!person.magicCast) && person.militaryClass === 'monge';
+    const preview = manualAttackPreview?.personId === person.id ? manualAttackPreview : null;
+    const action = preview?.action || presentedCombatAction(person);
+    const contactElapsed = preview ? Math.min(animationTime - preview.startedAt, action.windupMs * .85)
+      : action ? presentedCombatElapsed(person, action) : Infinity;
+    const extendedMeleeAction = ['shield-bash', 'lance-charge', 'lance-flurry'].includes(action?.attackVariant);
+    const attacking = (preview || action?.day === world.day || extendedMeleeAction) && contactElapsed < action.durationMs;
     const defense = person.combatDefense;
     const defenseElapsed = defense ? actorAnimationClock.elapsed('defense:' + person.id, String(defense.actionId), animationTime) : Infinity;
     const defending = defense?.day === world.day && defenseElapsed >= Math.max(0, defense.atMs - 100)
       && defenseElapsed < defense.atMs + 200;
+    const comboHoldingGuard = !attacking && person.militaryClass === 'guerreiro'
+      && person.combatCombo?.lastDay === world.day && person.combatCombo.count < 4;
     const preparingSpear = attacking && action.weapon === 'lanceiro' && contactElapsed < action.windupMs;
+    const repeatingLanceAttack = attacking && action.weapon === 'lanceiro'
+      && ['lance-charge', 'lance-flurry'].includes(action.attackVariant)
+      && contactElapsed >= action.windupMs && contactElapsed < action.windupMs + action.activeMs;
+    const shieldBashing = attacking && action.weapon === 'guerreiro' && action.attackVariant === 'shield-bash';
+    const bowPoseElapsed = attacking && action.weapon === 'arqueiro'
+      ? contactElapsed < action.windupMs
+        ? Math.min(contactElapsed, ARCHER_READY_FRAME_MS)
+        : ARCHER_RELEASE_FRAME_MS + contactElapsed - action.windupMs
+      : contactElapsed;
     const shotElapsed = actorAnimationClock.elapsed('shot:' + person.id, String(person.lastArrowSequence || 0), animationTime);
     const shooting = !action && person.militaryClass === 'arqueiro' && person.lastArrowSequence > 0 && shotElapsed < 800;
     const restingPerson = (action || defense) && ['attack', 'defend'].includes(person.militaryAnimation)
       ? { ...person, militaryAnimationDay: -1 } : person;
-    const animatedPerson = attacking || shooting ? { ...person, militaryAnimation: preparingSpear ? 'defend' : 'attack', militaryAnimationDay: world.day,
+    const animatedPerson = channelingHeal ? { ...person, militaryAnimation: 'heal', militaryAnimationDay: world.day }
+      : attacking || shooting ? { ...person,
+      militaryAnimation: preparingSpear || shieldBashing ? 'defend' : 'attack', militaryAnimationDay: world.day,
       militaryFacingX: action ? Math.cos(action.angle) : person.militaryFacingX,
       militaryFacingY: action ? Math.sin(action.angle) : person.militaryFacingY }
-      : defending ? { ...person, militaryAnimation: 'defend', militaryAnimationDay: world.day } : restingPerson;
+      : defending || comboHoldingGuard
+        ? { ...person, militaryAnimation: 'defend', militaryAnimationDay: world.day } : restingPerson;
     let sprite = militarySpritePose(animatedPerson, attacking || shooting ? { ...pose, moving: false, dirX: 0, dirY: 0 } : pose, world.day);
     let animation = getUnitAnimation(sprite.unit.folder.toLowerCase(), sprite.action, palette);
-    const battle = attacking || defending || shooting || animatedPerson.militaryAnimationDay === world.day;
+    const battle = attacking || defending || comboHoldingGuard || shooting || animatedPerson.militaryAnimationDay === world.day;
     const elapsedMs = attacking ? action.weapon === 'lanceiro' && !preparingSpear
-      ? contactElapsed - action.windupMs : contactElapsed : defending ? Math.max(0, defenseElapsed - defense.atMs + 100)
+      ? (contactElapsed - action.windupMs) * (action.animationSpeedMultiplier || 1)
+      : action.weapon === 'arqueiro' ? bowPoseElapsed : contactElapsed : defending ? Math.max(0, defenseElapsed - defense.atMs + 100)
       : shooting ? shotElapsed : actorAnimationClock.elapsed(person.id, animation.id + (battle ? ':' + world.day : ''), animationTime);
-    if (battle && getAnimationFrame(animation, elapsedMs, { loop: false }).done) {
+    if (battle && !channelingHeal && !repeatingLanceAttack && !comboHoldingGuard
+        && getAnimationFrame(animation, elapsedMs, { loop: false }).done) {
       sprite = militarySpritePose(restingPerson, pose, -1);
       animation = getUnitAnimation(sprite.unit.folder.toLowerCase(), sprite.action, palette);
     }
-    return { sprite, animation, elapsedMs, battle };
+    return { sprite, animation, elapsedMs, battle,
+      loop: channelingHeal || shieldBashing || repeatingLanceAttack || comboHoldingGuard || animation.loop };
   }
 
   function drawMilitaryPerson(person, x, y, pose) {
-    const { sprite, animation, elapsedMs, battle } = militaryAnimationState(person, pose);
-    return animationRenderer.draw(ctx, animation, x + TILE / 2, y + TILE,
-      { elapsedMs, scale: spriteScale(TILE, CHARACTER_SPRITE_SCALE), flipX: sprite.flip,
-        rotation: pose.rotation || 0,
-        loop: battle ? animation.loop : true });
+    const { sprite, animation, elapsedMs, battle, loop } = militaryAnimationState(person, pose);
+    const centerX = x + TILE / 2, baseY = y + TILE;
+    const scale = spriteScale(TILE, CHARACTER_SPRITE_SCALE);
+    const preview = manualAttackPreview?.personId === person.id ? manualAttackPreview : null;
+    const action = preview?.action || presentedCombatAction(person);
+    const actionElapsed = preview ? Math.min(animationTime - preview.startedAt, action.windupMs * .85)
+      : action ? presentedCombatElapsed(person, action) : Infinity;
+    let shieldLean = 0;
+    if (action?.attackVariant === 'shield-bash') {
+      const windupEnd = action.windupMs;
+      const dashEnd = windupEnd + action.activeMs;
+      const recovery = Math.max(1, action.recoveryMs);
+      shieldLean = actionElapsed < windupEnd ? actionElapsed / Math.max(1, windupEnd)
+        : actionElapsed < dashEnd ? 1
+          : Math.max(0, 1 - (actionElapsed - dashEnd) / recovery);
+      shieldLean = shieldLean * shieldLean * (3 - 2 * shieldLean);
+    }
+    const facingAngle = action?.angle ?? Math.atan2(person.militaryFacingY || 0, person.militaryFacingX || 1);
+    const leanDistance = TILE * .07 * shieldLean;
+    const drawCenterX = centerX + Math.cos(facingAngle) * leanDistance;
+    const drawBaseY = baseY + Math.sin(facingAngle) * leanDistance;
+    const leanRotation = Math.cos(facingAngle) * .085 * shieldLean;
+    if (action?.attackVariant === 'lance-flurry'
+        && actionElapsed >= action.windupMs && actionElapsed < action.windupMs + action.activeMs) {
+      const flurryElapsed = actionElapsed - action.windupMs;
+      const interval = Math.max(1, action.strikeIntervalMs || 233);
+      const strikeAge = flurryElapsed % interval;
+      const angle = action.angle || 0;
+      const backX = Math.cos(angle), backY = Math.sin(angle);
+      for (let echo = 1; echo <= 4; echo++) {
+        const age = strikeAge + echo * 45;
+        if (age >= 235) continue;
+        ctx.save();
+        ctx.globalAlpha *= .24 * (1 - age / 235);
+        animationRenderer.draw(ctx, animation,
+          centerX - backX * age / 235 * 3.5, baseY - backY * age / 235 * 3.5,
+          { elapsedMs: Math.max(0, elapsedMs - age * (action.animationSpeedMultiplier || 1)),
+            scale, flipX: sprite.flip, loop: true });
+        ctx.restore();
+      }
+    }
+    return animationRenderer.draw(ctx, animation, drawCenterX, drawBaseY,
+      { elapsedMs, scale, flipX: sprite.flip,
+        rotation: (pose.rotation || 0) + leanRotation,
+        loop: battle ? loop : true });
   }
 
   function drawTinySwordsPerson(person, x, y, child, pose) {
@@ -1076,8 +1370,8 @@ export function mountGame() {
 
   // Match AutoTile's paint order: the low ground stays visible, the south
   // facing wall occupies the tile below the raised edge, then ramp and top.
-  function drawTinyCliffFaces() {
-    for (const t of world.tiles) {
+  function drawTinyCliffFaces(bounds) {
+    for (const t of terrainTiles(bounds)) {
       if (!hasElevation(t.x, t.y) || hasElevation(t.x, t.y + 1)) continue;
       const lower = cell(t.x, t.y + 1);
       if (!lower) continue;
@@ -1091,8 +1385,8 @@ export function mountGame() {
     }
   }
 
-  function drawTinyElevationLayer() {
-    for (const t of world.tiles) {
+  function drawTinyElevationLayer(bounds) {
+    for (const t of terrainTiles(bounds)) {
       if (!hasElevation(t.x, t.y)) continue;
       const atlas = tinyTerrainAtlases[tinyTerrainPalette()];
       const coord = cliffTopCoord(t.x, t.y);
@@ -1100,8 +1394,8 @@ export function mountGame() {
     }
   }
 
-  function drawTinyRamps() {
-    for (const t of world.tiles) {
+  function drawTinyRamps(bounds) {
+    for (const t of terrainTiles(bounds)) {
       if (!isValidTinyRamp(t)) continue;
       const high = cell(t.x + (t.rampSide === 1 ? 1 : -1), t.y);
       const atlas = high && tinyTerrainAtlases[tinyTerrainPalette()];
@@ -1403,15 +1697,21 @@ export function mountGame() {
     ctx.save();
     for (const tile of terrainTiles(bounds)) {
       const wear = tile.roadWear || 0;
-      if (tile.terrain !== 'land' || tile.cropFieldId != null || !isRoadTile(tile, true)) continue;
-      const strength = Math.min(1, (wear - ROAD_RULES.fastAt) / (ROAD_RULES.maxWear - ROAD_RULES.fastAt));
-      const radius = .48 + Math.sqrt(strength) * .12;
-      const alpha = (.025 + strength * .05) * PATH_VISUAL_STRENGTH;
+      if (tile.terrain !== 'land' || tile.cropFieldId != null || !isRoadTile(tile)) continue;
+      const strength = Math.max(0, Math.min(1,
+        (wear - ROAD_RULES.visibleAt) / (ROAD_RULES.maxWear - ROAD_RULES.visibleAt)));
+      const maturity = Math.sqrt(strength);
+      const radius = .2 + maturity * .36;
+      const variation = autoTileHash(tile.x, tile.y, world.seed + 2587);
+      const darkVariation = Math.max(0, variation - .3) / .7 * maturity * .46;
+      const outerColor = mix(mix(rgb('#C79565'), rgb('#795033'), maturity), rgb('#493222'), darkVariation);
+      const innerColor = mix(mix(rgb('#D3A274'), rgb('#98643F'), maturity), rgb('#63432D'), darkVariation * .4);
+      const alpha = .09 + strength * .22;
       traceMudBlob(tile, radius, 781);
-      ctx.fillStyle = 'rgba(112, 83, 53, ' + alpha + ')';
+      ctx.fillStyle = 'rgba(' + outerColor.join(',') + ',' + alpha + ')';
       ctx.fill();
-      traceMudBlob(tile, radius * .58, 1781);
-      ctx.fillStyle = 'rgba(155, 119, 75, ' + (alpha * .28) + ')';
+      traceMudBlob(tile, radius * (.54 + variation * .06), 1781);
+      ctx.fillStyle = 'rgba(' + innerColor.join(',') + ',' + (alpha * (.28 + maturity * .18)) + ')';
       ctx.fill();
     }
     ctx.restore();
@@ -1511,11 +1811,60 @@ export function mountGame() {
         }
       }
     }
+    for (const dummy of trainingDummiesForWorld(world)) {
+      const tile = cell(Math.round(dummy.x), Math.round(dummy.y));
+      add('training-dummy', dummy.x, dummy.y, tile, 2.1, dummy.id,
+        { dummy, depthY: dummy.y });
+    }
     staticDepthItems = referenceRendering ? items : items.sort(compareDepth);
     staticDepthSpatialIndex = referenceRendering ? null : createStaticDepthSpatialIndex(staticDepthItems);
     staticDepthCacheWorld = world;
     staticDepthCacheDay = world.day;
     return staticDepthItems;
+  }
+
+  function observeDashPresentations(nextWorld, now, reset) {
+    if (reset) { dashPresentations.clear(); lastDashEvent = nextWorld.combatSequence || 0; return; }
+    for (const event of nextWorld.combatEvents || []) {
+      if (event.id <= lastDashEvent) continue;
+      lastDashEvent = event.id;
+      if (event.day !== nextWorld.day || !['shield-bash', 'lance-charge'].includes(event.attackVariant)
+          || event.result?.kind === 'cancelled') continue;
+      const durationMs = Math.max(event.durationMs, event.windupMs + event.activeMs + DASH_TRAIL_FADE_MS);
+      dashPresentations.set(event.actorId, { action: { ...event, durationMs }, startedAt: now });
+    }
+  }
+  function presentedCombatAction(person) {
+    return dashPresentations.get(person.id)?.action || person.combatAction;
+  }
+  function presentedCombatElapsed(person, action) {
+    const track = dashPresentations.get(person.id);
+    return track?.action.id === action.id ? Math.max(0, animationTime - track.startedAt)
+      : actorAnimationClock.elapsed('combat:' + person.id, String(action.id), animationTime);
+  }
+  function combatDisplayPose(person, pose) {
+    const action = presentedCombatAction(person);
+    if (!['shield-bash', 'lance-charge'].includes(action?.attackVariant)) return pose;
+    const elapsed = presentedCombatElapsed(person, action);
+    if (elapsed >= action.durationMs) return pose;
+    return { ...pose, ...dashPosition(action, elapsed), moving: elapsed >= action.windupMs,
+      dirX: Math.cos(action.angle), dirY: Math.sin(action.angle) };
+  }
+  function updateFollowCamera(now) {
+    for (const [id, track] of dashPresentations) {
+      if (animationTime - track.startedAt < track.action.durationMs) continue;
+      const person = getPerson(id);
+      if (person && !person.playerControlled) movementInterpolator.settleActor('person', person,
+        dashPosition(track.action, track.action.durationMs), now);
+      dashPresentations.delete(id);
+    }
+    const person = currentManualPerson();
+    if (!person) return;
+    const pose = combatDisplayPose(person, visualPose('person', person));
+    const pan = followCameraPan(stage.clientWidth, stage.clientHeight, mapZoom, pose, TILE, LOGICAL_SIZE);
+    const moved = Math.abs(mapPanX - pan.x) + Math.abs(mapPanY - pan.y) > .01;
+    mapPanX = pan.x; mapPanY = pan.y;
+    if (moved && lastManualPointer) updateManualAim(lastManualPointer, true, false);
   }
 
   function collectDepthItems(bounds) {
@@ -1541,9 +1890,9 @@ export function mountGame() {
     }
     for (const p of world.people) {
       if (!p.alive || p.restingStructureId != null) continue;
-      const pose = visualPose('person', p);
+      const pose = combatDisplayPose(p, visualPose('person', p));
       if (pose.x < bounds.minX || pose.x > bounds.maxX || pose.y < bounds.minY || pose.y > bounds.maxY) continue;
-      const tile = cell(Math.round(p.x), Math.round(p.y));
+      const tile = cell(Math.round(pose.x), Math.round(pose.y));
       add('person', pose.x, pose.y, tile, 4, p.id, { person: p, pose });
       if (p.towerMounted) {
         const tower = structuresById.get(p.towerDutyId);
@@ -1557,17 +1906,174 @@ export function mountGame() {
     for (const effect of activityEffects.active(animationTime)) {
       const recipient = effect.personId != null ? getPerson(effect.personId) : null;
       if (effect.personId != null && !recipient) continue;
-      const flight = effect.projectile ? Math.min(1, (animationTime - effect.startedAt) / effect.duration) : 0;
-      const position = recipient ? visualPose('person', recipient) : effect.projectile
-        ? { x: effect.x + (effect.targetX - effect.x) * flight, y: effect.y + (effect.targetY - effect.y) * flight } : effect;
+      const elapsed = animationTime - effect.startedAt;
+      const flightDuration = effect.flightDuration || effect.duration;
+      const flight = effect.projectile ? Math.min(1, Math.max(0, elapsed / flightDuration)) : 0;
+      const fallProgress = effect.projectile && effect.fallDuration
+        ? Math.min(1, Math.max(0, (elapsed - flightDuration) / effect.fallDuration)) : 0;
+      const arcEnd = effect.arcProgressEnd ?? 1;
+      const arcHeight = effect.arcHeight || 0;
+      const arcAtImpact = arcHeight * Math.sin(Math.PI * arcEnd);
+      const isDash = ['lance-dash', 'shield-dash'].includes(effect.animation);
+      const dashAction = isDash ? { origin: { x: effect.x, y: effect.y },
+        endPosition: { x: effect.endX, y: effect.endY }, activeMs: effect.activeDuration, windupMs: 0,
+        attackVariant: effect.animation === 'shield-dash' ? 'shield-bash' : 'lance-charge' } : null;
+      const position = isDash && Number.isFinite(effect.endX) && Number.isFinite(effect.endY)
+        ? dashPosition(dashAction, elapsed)
+        : recipient ? combatDisplayPose(recipient, visualPose('person', recipient)) : effect.projectile
+        ? elapsed < flightDuration
+          ? { x: effect.x + (effect.targetX - effect.x) * flight,
+            y: effect.y + (effect.targetY + arcAtImpact - effect.y) * flight
+              - arcHeight * Math.sin(Math.PI * flight * arcEnd) }
+          : { x: effect.targetX,
+            y: effect.targetY + ((effect.groundY ?? effect.targetY) - effect.targetY) * fallProgress }
+        : effect;
       if (position.x < bounds.minX || position.x > bounds.maxX || position.y < bounds.minY || position.y > bounds.maxY) continue;
-      add('effect', position.x, position.y, cell(Math.round(position.x), Math.round(position.y)), 5, effect.id, { effect });
-      if (effect.projectile || recipient?.towerMounted) items[items.length - 1].depth = Number.MAX_SAFE_INTEGER;
+      add('effect', position.x, position.y, cell(Math.round(position.x), Math.round(position.y)), 5, effect.id,
+        { effect, recipient, pose: recipient ? position : null });
+      if ((effect.projectile && elapsed < flightDuration) || recipient?.towerMounted)
+        items[items.length - 1].depth = Number.MAX_SAFE_INTEGER;
     }
     return referenceRendering ? items.sort(compareDepth) : mergeDepthItems(staticItems, items);
   }
 
+  function drawParryStars(effect, centerX, feetY, person, pose) {
+    if (!parryStarSprite.complete || !parryStarSprite.naturalWidth) return;
+    const elapsed = Math.max(0, animationTime - effect.startedAt);
+    const duration = effect.duration || 3000;
+    const anchorPixels = person?.militaryClass
+      ? militaryAnimationState(person, pose).animation.anchor.y : 64;
+    const headY = feetY - anchorPixels * spriteScale(TILE, CHARACTER_SPRITE_SCALE) + TILE * .38;
+    const crop = { x: 365, y: 366, width: 524, height: 525 };
+    const particleLife = 690;
+    const particleInterval = 220;
+    const particleCount = Math.ceil(duration / particleInterval);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    for (let index = 0; index < particleCount; index++) {
+      const age = elapsed - index * particleInterval;
+      if (age < 0 || age >= particleLife) continue;
+      const progress = age / particleLife;
+      const drift = Math.sin(index * 2.31) * TILE * .36 * progress;
+      const bob = Math.sin(progress * Math.PI * 2 + index) * TILE * .05;
+      const size = Math.max(2, Math.round(TILE * [.34, .28, .31][index % 3] * .375));
+      const alpha = Math.min(1, (1 - progress) * 1.35, Math.min(1, (duration - elapsed) / 180));
+      if (alpha <= 0) continue;
+      ctx.globalAlpha = alpha;
+      const x = Math.round(centerX + Math.sin(index * 1.71) * TILE * .18 + drift - size / 2);
+      const y = Math.round(headY - progress * TILE * .3 + bob - size / 2);
+      ctx.drawImage(parryStarSprite, crop.x, crop.y, crop.width, crop.height, x, y, size, size);
+    }
+    ctx.restore();
+  }
+
+  function drawCombatDash(effect, centerX, feetY, person = null, pose = null) {
+    if (!person) return;
+    const elapsed = Math.max(0, animationTime - effect.startedAt);
+    const shieldDash = effect.animation === 'shield-dash';
+    const action = { origin: { x: effect.x, y: effect.y }, endPosition: { x: effect.endX, y: effect.endY },
+      activeMs: effect.activeDuration || 780, windupMs: 0,
+      attackVariant: shieldDash ? 'shield-bash' : 'lance-charge' };
+    const angle = Math.atan2(effect.endY - effect.y, effect.endX - effect.x);
+    const ghostPose = { ...(pose || {}), moving: false, dirX: Math.cos(angle), dirY: Math.sin(angle) };
+    const ghostState = militaryAnimationState({ ...person, id: 'ghost:' + person.id,
+      combatAction: null, combatDefense: null, combatCombo: null,
+      militaryAnimation: shieldDash ? 'defend' : 'attack', militaryAnimationDay: world.day,
+      militaryFacingX: Math.cos(angle), militaryFacingY: Math.sin(angle) }, ghostPose);
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    for (const ghost of dashGhosts(action, elapsed)) {
+      ctx.globalAlpha = ghost.alpha;
+      animationRenderer.draw(ctx, ghostState.animation, (ghost.x + .5) * TILE, (ghost.y + 1) * TILE, {
+        elapsedMs: ghostState.elapsedMs, scale: spriteScale(TILE, CHARACTER_SPRITE_SCALE),
+        flipX: ghostState.sprite.flip, loop: true
+      });
+    }
+    ctx.restore();
+  }
+
+  function drawPersonDeath(effect, centerX, feetY) {
+    if (!deathSprite.complete || !deathSprite.naturalWidth) return;
+    const elapsed = Math.max(0, animationTime - effect.startedAt);
+    const frameSize = effect.pixels || 128;
+    const frameCount = effect.frameCount || 7;
+    const transformDuration = effect.transformDurationMs || 700;
+    const holdDuration = effect.skullHoldDurationMs || 10_000;
+    const disappearDuration = effect.disappearDurationMs || 700;
+    const scale = spriteScale(TILE, CHARACTER_SPRITE_SCALE);
+    const footAnchorY = 100;
+    let row = 0, frame = frameCount - 1;
+    if (elapsed < transformDuration) {
+      frame = Math.min(frameCount - 1, Math.floor(elapsed / transformDuration * frameCount));
+    } else if (elapsed >= transformDuration + holdDuration) {
+      row = 1;
+      const progress = Math.min(1, (elapsed - transformDuration - holdDuration) / disappearDuration);
+      frame = Math.min(frameCount - 1, Math.floor(progress * frameCount));
+    }
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(deathSprite, frame * frameSize, row * frameSize, frameSize, frameSize,
+      centerX - frameSize * scale / 2, feetY - footAnchorY * scale,
+      frameSize * scale, frameSize * scale);
+    ctx.restore();
+  }
+
+  function projectileRotation(effect, elapsed) {
+    const flightDuration = effect.flightDuration || effect.duration;
+    const flight = Math.min(1, Math.max(0, elapsed / flightDuration));
+    const arcEnd = effect.arcProgressEnd ?? 1;
+    const arcHeight = effect.arcHeight || 0;
+    const arcAtImpact = arcHeight * Math.sin(Math.PI * arcEnd);
+    const verticalTangent = effect.targetY + arcAtImpact - effect.y
+      - arcHeight * Math.PI * Math.cos(Math.PI * flight * arcEnd) * arcEnd;
+    return Math.atan2(verticalTangent, effect.targetX - effect.x);
+  }
+
+  function drawTrainingDummyDamage(effect) {
+    const elapsed = animationTime - effect.startedAt;
+    const duration = effect.duration || 1050;
+    const progress = Math.max(0, Math.min(1, elapsed / duration));
+    const centerX = (effect.x + .5) * TILE + Math.sin(effect.id * 2.3) * TILE * .12;
+    const baseY = (effect.y + 1) * TILE - TILE * 1.35;
+    const rise = TILE * 1.2 * (progress * (2 - progress));
+    const label = '−' + Math.max(1, Math.round(effect.damage || 0));
+    ctx.save();
+    ctx.globalAlpha *= Math.pow(1 - progress, .8);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold ' + Math.max(8, TILE * .62) + 'px MedievalSharp, Georgia, serif';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = Math.max(1.5, TILE * .12);
+    ctx.strokeStyle = '#30231c';
+    ctx.fillStyle = '#ffe1a0';
+    ctx.strokeText(label, centerX, baseY - rise);
+    ctx.fillText(label, centerX, baseY - rise);
+    ctx.restore();
+  }
+
+  function drawCombatDamageNumber(effect) {
+    const elapsed = animationTime - effect.startedAt;
+    const duration = effect.duration || 1050;
+    const progress = Math.max(0, Math.min(1, elapsed / duration));
+    const centerX = (effect.x + .5) * TILE;
+    const rise = TILE * .9 * (progress * (2 - progress));
+    const centerY = (effect.y - .55) * TILE - rise;
+    const label = '−' + Math.max(1, Math.round(effect.damage || 0));
+    ctx.save();
+    ctx.globalAlpha *= Math.pow(1 - progress, .8);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = 'bold ' + Math.max(10, 12 / mapZoom) + 'px monospace';
+    ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(2, 2 / mapZoom);
+    ctx.strokeStyle = '#34221f'; ctx.fillStyle = '#fff0a8';
+    ctx.strokeText(label, centerX, centerY); ctx.fillText(label, centerX, centerY);
+    ctx.restore();
+  }
+
   function drawDepthSortedWorld(bounds, profile = null) {
+    magicVfx.prepare(world, animationTime, bounds, id => {
+      const person = peopleById.get(id);
+      return person?.alive ? combatDisplayPose(person, visualPose('person', person)) : null;
+    });
+    magicVfx.drawGround(ctx);
     const items = collectDepthItems(bounds);
     profile?.mark('depthOrder');
     for (const item of items) {
@@ -1579,15 +2085,102 @@ export function mountGame() {
       else if (item.kind === 'log') drawLooseTreeLog(item);
       else if (item.kind === 'loot') drawLootPile(item.pile);
       else if (item.kind === 'corral') drawCorralSlice(item);
+      else if (item.kind === 'training-dummy') drawTrainingDummy(item.dummy);
       else if (item.kind === 'structure') drawStructure(item.structure);
       else if (item.kind === 'animal') drawAnimal(item.animal, item.pose);
       else if (item.kind === 'person') drawPerson(item.person, item.pose);
-      else if (item.kind === 'effect') animationRenderer.draw(ctx, item.effect.animation,
-        (item.x + .5) * TILE, (item.y + (item.effect.personId != null ? 1 : .5)) * TILE,
-        { elapsedMs: animationTime - item.effect.startedAt, scale: TILE / item.effect.pixels, rotation: item.effect.projectile ? Math.atan2(item.effect.targetY - item.effect.y, item.effect.targetX - item.effect.x) : 0 });
+      else if (item.kind === 'effect') {
+        if (item.effect.damageNumber) {
+          drawCombatDamageNumber(item.effect);
+        } else if (item.effect.trainingDummyDamage) {
+          drawTrainingDummyDamage(item.effect);
+        } else if (item.effect.deathAnimation) {
+          drawPersonDeath(item.effect, (item.x + .5) * TILE, (item.y + 1) * TILE);
+        } else if (item.effect.animation === 'parry-stars') {
+          drawParryStars(item.effect, (item.x + .5) * TILE, (item.y + 1) * TILE, item.recipient, item.pose);
+        } else if (['lance-dash', 'shield-dash'].includes(item.effect.animation)) {
+          drawCombatDash(item.effect, (item.x + .5) * TILE, (item.y + 1) * TILE,
+            item.recipient, item.pose);
+        } else {
+          const elapsed = animationTime - item.effect.startedAt;
+          const groundedAt = (item.effect.flightDuration || item.effect.duration) + (item.effect.fallDuration || 0);
+          const fadeStart = item.effect.duration - 360;
+          const landedAlpha = item.effect.projectile && elapsed > groundedAt && elapsed > fadeStart
+            ? Math.max(0, Math.min(1, (item.effect.duration - elapsed) / 360)) : 1;
+          ctx.save();
+          ctx.globalAlpha *= landedAlpha;
+          animationRenderer.draw(ctx, item.effect.animation,
+            (item.x + .5) * TILE, (item.y + (item.effect.personId != null ? 1 : .5)) * TILE,
+            { elapsedMs: elapsed, scale: TILE / item.effect.pixels,
+              rotation: item.effect.projectile ? projectileRotation(item.effect, elapsed) : 0 });
+          ctx.restore();
+        }
+      }
     }
+    magicVfx.drawAura(ctx);
+    if (showHitboxes) drawHitboxOverlay(bounds);
+    drawMovementBlockLabels(bounds);
     if (combatDebug) drawCombatDebugOverlay(bounds);
     profile?.mark('entities');
+  }
+
+  function drawHitboxOverlay(bounds) {
+    const collision = Sim.modules.Collision.worldCollisionIndex(world);
+    ctx.save();
+    ctx.lineWidth = Math.max(1, 1.5 / mapZoom);
+    // Show the physical character mask separately from the wider proximity
+    // spacing used by manual movement to avoid walking through other people.
+    for (const person of world.people || []) {
+      if (!person.alive || person.restingStructureId != null || person.towerMounted) continue;
+      const pose = visualPose('person', person);
+      const body = Sim.modules.Collision.npcHitbox(person, pose.x, pose.y);
+      if (body.x < bounds.minX - 1 || body.x > bounds.maxX + 1
+          || body.y < bounds.minY - 1 || body.y > bounds.maxY + 1) continue;
+      ctx.beginPath(); ctx.strokeStyle = '#72e6ff';
+      ctx.arc(body.x * TILE, body.y * TILE, body.radius * TILE, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.strokeStyle = '#ff7edb'; ctx.setLineDash([5 / mapZoom, 4 / mapZoom]);
+      ctx.arc(person.x * TILE, person.y * TILE, .42 * TILE, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    for (const [index, color] of [[collision.resources, '#ffcc55'], [collision.structures, '#ff5c6c']]) {
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color + '24';
+      for (const hitbox of index?.hitboxes || []) {
+        const radius = hitbox.shape === 'circle' ? hitbox.radius : 0;
+        if (hitbox.x + (hitbox.halfWidth || radius) < bounds.minX - 1
+            || hitbox.x - (hitbox.halfWidth || radius) > bounds.maxX + 1
+            || hitbox.y + (hitbox.halfDepth || radius) < bounds.minY - 1
+            || hitbox.y - (hitbox.halfDepth || radius) > bounds.maxY + 1) continue;
+        ctx.beginPath();
+        if (hitbox.shape === 'circle') {
+          ctx.arc(hitbox.x * TILE, hitbox.y * TILE, hitbox.radius * TILE, 0, Math.PI * 2);
+        } else {
+          ctx.rect((hitbox.x - hitbox.halfWidth) * TILE, (hitbox.y - hitbox.halfDepth) * TILE,
+            hitbox.halfWidth * 2 * TILE, hitbox.halfDepth * 2 * TILE);
+        }
+        ctx.fill(); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawMovementBlockLabels(bounds) {
+    const reasonLabels = { 'map-edge': 'limite do mapa', water: 'água', rock: 'rocha',
+      elevation: 'desnível', object: 'objeto/cenário', person: 'personagem', action: 'ação em andamento' };
+    ctx.save();
+    for (const person of world.people || []) {
+      if (!person.alive || !person.playerControlled || !person.playerMovementBlockedReason
+          || person.x < bounds.minX - 1 || person.x > bounds.maxX + 1
+          || person.y < bounds.minY - 1 || person.y > bounds.maxY + 1) continue;
+      const label = 'Bloqueio: ' + (reasonLabels[person.playerMovementBlockedReason] || 'outro');
+      ctx.font = `${Math.max(10, 12 / mapZoom)}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      const textX = (person.x + .5) * TILE, textY = person.y * TILE - 18 / mapZoom;
+      const width = ctx.measureText(label).width + 10 / mapZoom;
+      ctx.fillStyle = '#17231bea'; ctx.fillRect(textX - width / 2, textY - 20 / mapZoom, width, 22 / mapZoom);
+      ctx.fillStyle = '#fff0c4'; ctx.fillText(label, textX, textY - 4 / mapZoom);
+    }
+    ctx.restore();
   }
 
   function drawCombatDebugOverlay(bounds) {
@@ -1675,7 +2268,7 @@ export function mountGame() {
 
   function drawMineralDeposit(item) {
     const x = item.x * TILE, y = item.y * TILE;
-    const kind = MINERAL_SPRITE_KINDS.slice().sort((a, b) => (item[b] || 0) - (item[a] || 0))[0];
+    const kind = dominantMetalKind(item);
     const ore = item[kind] || 0;
     if (ore > .05) {
       const variant = mineralDepositVariant(kind, ore);
@@ -1909,10 +2502,14 @@ export function mountGame() {
     const spriteKey = structureSpriteKey(s);
     const top = s.type === 'curral' ? y - corralFenceRadius(s) * TILE
       : y + TILE - (BUILDING_FEET[spriteKey] || 150) * spriteScale(TILE);
-    const barHeight = 7, barY = (s.complete ? top - barHeight - 2 : y - barHeight - 2) + constructionBarOffset;
-    drawWorldHealthBar(x - 12, barY, 40, barHeight, ratio);
+    const barWidth = 20, barHeight = 3.5, barX = x - 2;
+    const barY = (s.complete ? top - barHeight - 2 : y - barHeight - 2) + constructionBarOffset;
+    drawWorldHealthBar(barX, barY, barWidth, barHeight, ratio);
     if (world.day - (s.lastAttackedDay ?? -Infinity) <= 1) {
-      ctx.strokeStyle = '#f6aa63'; ctx.lineWidth = 1; ctx.strokeRect(x - 13, barY - 1, 42, barHeight + 2);
+      ctx.save();
+      ctx.strokeStyle = '#f6aa63'; ctx.lineWidth = .5;
+      ctx.strokeRect(barX - .5, barY - .5, barWidth + 1, barHeight + 1);
+      ctx.restore();
     }
   }
 
@@ -1958,6 +2555,26 @@ export function mountGame() {
       if (s.maxHealth) drawStructureLife(s, x, y, !s.complete && foundationSpec ? 9 : 0);
   }
 
+  function drawTrainingDummy(dummy) {
+    const image = trainingDummySprites[dummy.palette]?.[dummy.pose];
+    if (!image?.complete || !image.naturalWidth) return false;
+    const size = TILE * 3 * (dummy.sizeScale ?? 1);
+    const centerX = (dummy.x + .5) * TILE, footY = (dummy.y + 1) * TILE;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    if (dummy.flipX) {
+      ctx.translate(centerX, 0);
+      ctx.scale(-1, 1);
+      ctx.translate(-centerX, 0);
+    }
+    ctx.drawImage(image, centerX - size / 2, footY - size, size, size);
+    ctx.restore();
+    const healthRatio = dummy.health / dummy.maxHealth;
+    const healthColor = healthRatio < .3 ? 'red' : healthRatio < .6 ? 'yellow' : 'green';
+    drawPersonStatusBar(centerX - 5.5, footY - size - 3, 11, 2, healthRatio, healthColor);
+    return true;
+  }
+
   function drawAnimal(a, pose) {
       const p = Sim.animals.find(s => s.id === a.speciesId), x = pose.x * TILE, y = pose.y * TILE;
       if (!p) return;
@@ -1987,6 +2604,10 @@ export function mountGame() {
 
   const npcDamageBars = createDamageBarTracker();
   const structureDamageBars = createDamageBarTracker();
+  function drawHoverEnergyCircle(centerX, centerY) {
+    magicVfx.drawIndicator(ctx, centerX, centerY, animationTime,
+      { color: '#c7776c', radius: TILE * .55, rotationSpeed: .23 });
+  }
   function drawPerson(p, pose) {
       const c = p.communityId ? getCommunity(p.communityId) : null;
       const militarySprite = MILITARY_SPRITES[p.militaryClass];
@@ -1995,6 +2616,7 @@ export function mountGame() {
           * spriteScale(TILE, CHARACTER_SPRITE_SCALE) : 0;
       const x = pose.x * TILE, y = pose.y * TILE + towerDrop, child = p.ageDays < 12 * 365;
       const scale = child ? .72 : 1, color = c ? c.color : ['#d9c28b', '#cfb585', '#e0c99b', '#c9b27f'][p.id % 4];
+      if (hoveredPersonId === p.id) drawHoverEnergyCircle(x + TILE / 2, y + TILE - .5);
       if (p.conflictRisk > .5) { ctx.strokeStyle = 'rgba(196,109,72,.52)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x + 8, y + 8, 7.5, 0, Math.PI * 2); ctx.stroke(); }
       if (!drawTinySwordsPerson(p, x, y, child, pose)) {
         ctx.save();
@@ -2016,23 +2638,6 @@ export function mountGame() {
       }
       drawCarriedMeat(p, x, y, pose);
       drawCarriedWood(p, x, y, pose);
-      const disarmed = p.role === 'soldier' && p.combatDisarmedUntilDay > world.day;
-      const opening = p.role === 'soldier' && p.combatOpening?.expiresDay > world.day;
-      if (disarmed || opening) {
-        const badgeX = x + TILE / 2, badgeY = y + 2;
-        ctx.save();
-        ctx.fillStyle = 'rgba(34,31,23,.92)';
-        ctx.beginPath(); ctx.arc(badgeX, badgeY, 4.5, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = disarmed ? '#f2ca73' : '#a9dfa7'; ctx.lineWidth = 1.25;
-        if (disarmed) {
-          ctx.beginPath(); ctx.moveTo(badgeX - 1.7, badgeY - 1.7); ctx.lineTo(badgeX + 1.7, badgeY + 1.7);
-          ctx.moveTo(badgeX + 1.7, badgeY - 1.7); ctx.lineTo(badgeX - 1.7, badgeY + 1.7); ctx.stroke();
-        } else {
-          ctx.beginPath(); ctx.moveTo(badgeX, badgeY - 2.4); ctx.lineTo(badgeX + 2.4, badgeY);
-          ctx.lineTo(badgeX, badgeY + 2.4); ctx.lineTo(badgeX - 2.4, badgeY); ctx.closePath(); ctx.fillStyle = '#a9dfa7'; ctx.fill();
-        }
-        ctx.restore();
-      }
       const now = performance.now();
       const isMonk = p.role === 'soldier' && p.militaryClass === 'monge';
       if (npcDamageBars.visible(p.id, now)) {
@@ -2040,9 +2645,9 @@ export function mountGame() {
         drawPersonStatusBar(x + 2.5, y - (isMonk ? 12 : 8), 11, 2, p.health / 100, ratio);
       }
       if (p.role === 'soldier' && (npcDamageBars.visible(p.id, now) || selection?.kind === 'person' && selection.id === p.id)) {
-        drawPersonStatusBar(x + 2.5, y - (isMonk ? 10 : 6), 11, 2, (p.stamina ?? 100) / 100, 'yellow');
+        drawPersonStatusBar(x + 2.5, y - (isMonk ? 10 : 6), 11, 2, (p.stamina ?? p.maxStamina ?? 200) / (p.maxStamina || 200), 'yellow');
         if (isMonk) {
-          drawPersonStatusBar(x + 2.5, y - 8, 11, 2, (p.mana ?? 100) / 100, 'blue');
+          drawPersonStatusBar(x + 2.5, y - 8, 11, 2, (p.mana ?? p.maxMana ?? 200) / (p.maxMana || 200), 'blue');
         }
       }
       drawLeaderBadge(p, x, y);
@@ -2051,6 +2656,14 @@ export function mountGame() {
 
   function drawSelection() {
     if (!selection) return;
+    if (selection.kind === 'person') {
+      const person = getPerson(selection.id);
+      if (person?.alive) {
+        const pose = combatDisplayPose(person, visualPose('person', person));
+        magicVfx.drawIndicator(ctx, (pose.x + .5) * TILE, (pose.y + 1) * TILE, animationTime);
+        return;
+      }
+    }
     const bounds = selectionBounds(selection);
     if (bounds) drawSelectionFrame(bounds);
   }
@@ -2076,10 +2689,17 @@ export function mountGame() {
       const broadleaf = tile.plants[plantIndex('broadleaf')], conifer = tile.plants[plantIndex('conifer')];
       return tinyTreeSpriteLayout(tile, broadleaf >= conifer ? 'broadleaf' : 'conifer', Math.max(broadleaf, conifer));
     }
+    if (item.kind === 'training-dummy') {
+      const dummy = trainingDummiesForWorld(world).find(entry => entry.id === item.id);
+      if (!dummy) return null;
+      const size = TILE * 3 * (dummy.sizeScale ?? 1);
+      return { x: (dummy.x + .5) * TILE - size / 2, y: (dummy.y + 1) * TILE - size,
+        width: size, height: size };
+    }
     if (item.kind === 'person') {
       const person = getPerson(item.id);
       if (!person || person.restingStructureId != null) return null;
-      const pose = visualPose('person', person);
+      const pose = combatDisplayPose(person, visualPose('person', person));
       const towerDrop = person.towerMounted
         ? ((MILITARY_SPRITES[person.militaryClass]?.foot || 0) * .625
           + (MILITARY_SPRITES[person.militaryClass]?.size || 0) * .1) * spriteScale(TILE, CHARACTER_SPRITE_SCALE) : 0;
@@ -2226,9 +2846,49 @@ export function mountGame() {
   }
 
   const oceanPatterns = new WeakMap();
+  const oceanBackdropCache = document.createElement('canvas');
+  const waterLayerCache = document.createElement('canvas');
+  let oceanBackdropKey = '', waterLayerKey = '';
+  function drawCachedWater(camera, view) {
+    const oceanKey = [camera.width, camera.height, camera.transform[0],
+      autoTileWaterBackground.naturalWidth, world.seed].join(':');
+    const period = Math.max(1, camera.transform[0] * TILE);
+    if (oceanBackdropKey !== oceanKey) {
+      oceanBackdropCache.width = camera.width + Math.ceil(period * 2);
+      oceanBackdropCache.height = camera.height + Math.ceil(period * 2);
+      drawOceanBackdrop(oceanBackdropCache.getContext('2d'),
+        { ...camera, transform: [camera.transform[0], 0, 0, camera.transform[3], 0, 0] });
+      oceanBackdropKey = oceanKey;
+    }
+    const viewKey = [oceanKey, ...camera.transform].join(':');
+    const key = [viewKey, Math.floor(animationTime / 110), world.day, assetRevision].join(':');
+    if (waterLayerKey !== key) {
+      if (waterLayerCache.width !== camera.width || waterLayerCache.height !== camera.height) {
+        waterLayerCache.width = camera.width; waterLayerCache.height = camera.height;
+      }
+      const previousContext = ctx;
+      try {
+        ctx = waterLayerCache.getContext('2d');
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        const offsetX = ((camera.transform[4] % period) + period) % period - period;
+        const offsetY = ((camera.transform[5] % period) + period) % period - period;
+        ctx.drawImage(oceanBackdropCache, offsetX, offsetY);
+        ctx.setTransform(...camera.transform);
+        ctx.imageSmoothingEnabled = false;
+        ctx.save();
+        ctx.beginPath(); ctx.rect(view.x, view.y, view.width, view.height); ctx.clip();
+        drawWaterRocks(view.bounds); drawTinyWaterFoam(view.bounds);
+        ctx.restore();
+      } finally { ctx = previousContext; }
+      waterLayerKey = key;
+    }
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(waterLayerCache, 0, 0); ctx.restore();
+  }
+
   function drawOceanBackdrop(context, camera) {
     context.fillStyle = '#16536e';
-    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillRect(0, 0, context.canvas.width, context.canvas.height);
     if (!autoTileWaterBackground.complete || !autoTileWaterBackground.naturalWidth) return;
     let pattern = referenceRendering ? null : oceanPatterns.get(context);
     if (!pattern) {
@@ -2243,7 +2903,7 @@ export function mountGame() {
       ]));
     }
     context.fillStyle = pattern;
-    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillRect(0, 0, context.canvas.width, context.canvas.height);
   }
 
 
@@ -2283,6 +2943,7 @@ export function mountGame() {
     if (!world) return;
     const profile = renderDiagnostics.profiler.beginDraw(source);
     renderTimestamp = performance.now();
+    updateFollowCamera(renderTimestamp);
     updateIndividualTrails(renderTimestamp);
     syncAtmosphereWithZoom();
     const displayContext = ctx;
@@ -2304,7 +2965,7 @@ export function mountGame() {
       terrainSyncRevision = session.revision; terrainSyncFallback = fallbackTerrain;
     }
     const transition = seasonalTerrainTransition(world.day);
-    const terrainStyle = [world.seed, visualPack, transition.season, transition.nextSeason, transition.alpha, assetRevision, fallbackTerrain].join(':');
+    const terrainStyle = [world.seed, visualPack, transition.season, transition.nextSeason, transition.alpha, terrainAssetRevision, fallbackTerrain].join(':');
     const nextGroundKey = [referenceRendering ? world.day : terrainChunks.revision, terrainStyle,
       camera.width, camera.height, ...camera.transform].join(':');
     const cacheRebuilt = groundCacheKey !== nextGroundKey;
@@ -2317,7 +2978,7 @@ export function mountGame() {
         ctx.setTransform(...camera.transform);
         ctx.imageSmoothingEnabled = false;
         profile?.mark('preparation');
-        drawGround(); profile?.mark('terrain');
+        drawGround(); drawTinyCliffFaces(); drawTinyElevationLayer(); drawTinyRamps(); profile?.mark('terrain');
         drawGroundPlants(); profile?.mark('plants');
         drawRoads(); profile?.mark('roads');
       } else {
@@ -2326,7 +2987,9 @@ export function mountGame() {
           const previousContext = ctx, previousTransform = mapTransform;
           try {
             ctx = chunkContext; mapTransform = transform;
-            drawGround(bounds); profile?.mark('terrain');
+            drawGround(bounds);
+            drawTinyCliffFaces(bounds); drawTinyElevationLayer(bounds); drawTinyRamps(bounds);
+            profile?.mark('terrain');
             drawGroundPlants(bounds); profile?.mark('plants');
             drawRoads(bounds); profile?.mark('roads');
           } finally { ctx = previousContext; mapTransform = previousTransform; }
@@ -2339,6 +3002,8 @@ export function mountGame() {
     ctx = displayContext;
     ctx.imageSmoothingEnabled = false;
     profile?.mark('preparation');
+    if (!referenceRendering) drawCachedWater(camera, view);
+    else {
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -2351,6 +3016,7 @@ export function mountGame() {
       drawTinyWaterFoam(view.bounds);
       ctx.restore();
     }
+    }
     profile?.mark('water');
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -2361,7 +3027,7 @@ export function mountGame() {
       ctx.save();
       ctx.beginPath(); ctx.rect(view.x, view.y, view.width, view.height); ctx.clip();
       ctx.imageSmoothingEnabled = true;
-      ctx.globalAlpha = .15;
+      ctx.globalAlpha = PATH_TRAIL_OPACITY;
       ctx.drawImage(trailCanvas, 0, 0, LOGICAL_SIZE, LOGICAL_SIZE);
       ctx.restore();
     }
@@ -2388,6 +3054,7 @@ export function mountGame() {
     }
     profile?.end({ cacheRebuilt, day: world.day, zoom: mapZoom,
       context: { renderer: 'canvas2d', atmosphereRenderer: atmosphericLayer.rendererType,
+        magic: magicVfx.stats(),
         referenceRendering, fixedEffects, terrainChunks: referenceRendering ? null : terrainChunks.stats(),
         pixelTiles: referenceRendering ? null : pixelTiles.stats(),
         seed: world.seed, day: world.day, season: world.stats.season, paused: session.paused, speed: session.speed,
@@ -2570,6 +3237,8 @@ export function mountGame() {
         return getKingdom(structure?.kingdomId)?.palette
           || (structure?.communityId != null ? communityPalette(structure.communityId) : 'black');
       }
+      if (selection.kind === 'training-dummy')
+        return trainingDummiesForWorld(world).find(item => item.id === selection.id)?.palette || 'black';
       if (selection.kind === 'person') return getKingdom(getPerson(selection.id)?.kingdomId)?.palette || 'black';
       if (selection.kind === 'community') return communityPalette(selection.id);
       if (selection.kind === 'animal') {
@@ -2599,6 +3268,18 @@ export function mountGame() {
       $('inspectEyebrow').textContent = 'CAMPO DE OBSERVAÇÃO';
       $('inspectTitle').textContent = 'Um ecossistema em formação';
       root.innerHTML = '<p class="intro">Selecione um organismo, construção ou reino para acompanhar suas condições.</p>';
+      return;
+    }
+    if (selection.kind === 'training-dummy') {
+      const dummy = trainingDummiesForWorld(world).find(item => item.id === selection.id);
+      if (!dummy) { selection = null; renderInspector(); return; }
+      const kingdom = getKingdom(dummy.kingdomId);
+      $('inspectEyebrow').textContent = 'TREINO MILITAR · ' + (kingdom?.name || 'REINO');
+      $('inspectTitle').textContent = 'Boneco de treino';
+      root.innerHTML = '<div class="data-row"><span>Função</span><b>alvo de prática</b></div>'
+        + '<div class="data-row"><span>Vida</span><b>' + fmt(dummy.health) + ' / ' + fmt(dummy.maxHealth) + '</b></div>'
+        + '<div class="data-row"><span>Resistência</span><b>permanece no lugar</b></div>'
+        + '<p class="quiet">Os ataques mostram o dano causado. O boneco bloqueia a passagem como um personagem.</p>';
       return;
     }
     if (selection.kind === 'kingdom') {
@@ -2640,9 +3321,26 @@ export function mountGame() {
       if (p.energy < GARRISON_RECOVERY.restEnergy) recoveryNeeds.push('energia até ' + GARRISON_RECOVERY.restEnergy + '%');
       if (p.health < GARRISON_RECOVERY.restHealth) recoveryNeeds.push('saúde até ' + GARRISON_RECOVERY.restHealth + '%');
       if (p.injury >= GARRISON_RECOVERY.restInjury) recoveryNeeds.push('tratar ferimentos');
+      const manualAttackHint = p.militaryClass === 'guerreiro'
+        ? 'Combo: 1 → 2 → 1 → 2 · 3 investida com escudo'
+        : p.militaryClass === 'lanceiro'
+          ? '1 estocada · 2 rajada de lanças · 3 investida de lança'
+          : p.militaryClass === 'arqueiro'
+            ? '1 tiro padrão · 2 chuva de flechas · 3 tiro em cunha · 4 tiro concentrado'
+            : p.militaryClass === 'monge' ? '1–5 usam as magias equipadas; segure E/1 quando a primeira for cura.'
+            : p.role === 'soldier' ? 'Esta classe não possui ataques manuais mapeados.' : 'Sem ataques para esta unidade.';
+      const isManualPerson = manualControlId === p.id || p.playerControlled;
+      const manualControlHint = p.role === 'soldier'
+        ? (isManualPerson ? 'WASD move · mouse mira · ' + (p.militaryClass === 'monge' ? 'segure E ou 1 para curar' : 'E: ataque básico · teclas numéricas: habilidades') + ' · segure F para defender · Espaço devolve a autonomia. ' + manualAttackHint
+          : 'Clique no personagem e pressione Espaço para controlar. Depois, WASD move · mouse mira · ' + (p.militaryClass === 'monge' ? 'segure E ou 1 para curar' : 'E ataca · teclas numéricas acionam habilidades') + ' · segure F para defender. ' + manualAttackHint)
+        : (isManualPerson ? 'WASD move · Espaço devolve a autonomia. Ataques e defesa manuais estão disponíveis para soldados.'
+          : 'Clique no personagem e pressione Espaço para controlar com WASD. Ataques e defesa manuais estão disponíveis para soldados.');
       $('inspectEyebrow').textContent = p.role === 'soldier' ? (p.militaryRank || p.militaryGrade || 'soldado').toUpperCase() + ' · ' + (kingdom ? kingdom.name.toUpperCase() : 'SEM REINO') : kingdom ? 'MORADOR · ' + kingdom.name.toUpperCase() : 'INDIVÍDUO · SEM REINO';
       $('inspectTitle').textContent = p.name;
       root.innerHTML = '<div class="data-row"><span>Estado atual</span><b>' + esc(p.state) + '</b></div>' +
+        '<div class="note-card"><b>' + (isManualPerson ? 'Controle manual ativo' : 'Controle do personagem') + '</b><span>'
+          + manualControlHint
+          + '</span></div>' +
         (p.recruitmentOrder ? '<div class="note-card"><b>Treinamento militar</b><span>' + (p.recruitmentOrder.progressionStatus === 'paused'
           ? 'Pausado: ' + esc(p.recruitmentOrder.pauseReason) + '. Custo e progresso preservados.'
           : 'Classe ' + esc(p.recruitmentOrder.militaryClass) + ' · conclusão prevista no dia ' + p.recruitmentOrder.readyDay + '.') + '</span></div>' : '') +
@@ -2653,14 +3351,17 @@ export function mountGame() {
         '<div class="data-row"><span>Idade aproximada</span><b>' + fmt(p.ageDays / 365, 1) + ' anos</b></div>' +
         '<div class="data-row"><span>Reserva alimentar (dias) / água</span><b>' + Math.round(p.foodReserve) + ' / ' + Math.round(p.hydration) + '%</b></div>' +
         (p.role === 'soldier' ? '<div class="data-row"><span>Vitalidade de combate</span><b>' + Math.round(p.health / 100 * (p.maxCombatHealth || 100)) + ' / ' + (p.maxCombatHealth || 100) + '</b></div>' : '') +
-        (p.role === 'soldier' ? '<div class="data-row"><span>Estamina</span><b>' + Math.round(p.stamina ?? 100) + ' / 100</b></div>' : '') +
+        (p.role === 'soldier' ? '<div class="data-row"><span>Estamina</span><b>' + Math.round(p.stamina ?? p.maxStamina ?? 200) + ' / ' + (p.maxStamina || 200) + '</b></div>' : '') +
         (p.role === 'soldier' && p.combatDisarmedUntilDay > world.day
           ? '<div class="data-row"><span>Estado de combate</span><b>Desarmado · volta a lutar no dia ' + p.combatDisarmedUntilDay + '</b></div>' : '') +
         (p.role === 'soldier' && p.combatOpening?.expiresDay > world.day
           ? '<div class="data-row"><span>Abertura de parry</span><b>Contra ' + esc(getPerson(p.combatOpening.targetId)?.name || 'oponente') + '</b></div>' : '') +
         (p.role === 'soldier' && p.combatCombo?.lastDay === world.day
-          ? '<div class="data-row"><span>Combo</span><b>' + p.combatCombo.count + ' / 3 golpes contra ' + esc(getPerson(p.combatCombo.targetId)?.name || 'oponente') + '</b></div>' : '') +
-        (p.militaryClass === 'monge' ? '<div class="data-row"><span>Mana · cura custa 30</span><b>' + Math.round(p.mana ?? 100) + ' / 100</b></div>' : '') +
+          ? '<div class="data-row"><span>Combo</span><b>' + p.combatCombo.count + ' / '
+            + (p.militaryClass === 'guerreiro' ? 4 : 3) + ' golpes contra '
+            + esc(getPerson(p.combatCombo.targetId)?.name || 'oponente') + '</b></div>' : '') +
+        (p.militaryClass === 'monge' ? '<div class="data-row"><span>Mana</span><b>' + Math.round(p.mana ?? p.maxMana ?? 200) + ' / ' + (p.maxMana || 200) + '</b></div>' : '') +
+        renderMagicInspector(p, world.magicTimeMs || 0) +
         (p.towerMounted ? '<div class="data-row"><span>Posto na torre</span><b>Alcance: 14 células</b></div>' : '') +
         '<div class="data-row"><span>Energia / saúde</span><b>' + Math.round(p.energy) + ' / ' + Math.round(p.health) + '%</b></div>' +
         '<div class="data-row"><span>Reino / moradia</span><b>' + esc(kingdom ? kingdom.name : 'sem reino') + ' · ' + esc(p.homeId ? 'moradia ' + p.homeId : 'sem moradia registrada') + '</b></div>' +
@@ -2839,6 +3540,11 @@ export function mountGame() {
     const looseLog = (world.logs || []).filter(item => item.available && item.amount > .01 && Math.hypot(item.x - x, item.y - y) < .72)
       .sort((u, v) => Math.hypot(u.x - x, u.y - y) - Math.hypot(v.x - x, v.y - y))[0];
     if (looseLog) return { kind: 'log', id: looseLog.id };
+    const trainingDummy = trainingDummiesForWorld(world).filter(dummy =>
+      Math.abs(dummy.x - x) <= 1.5 * (dummy.sizeScale ?? 1)
+        && y >= dummy.y + .5 - 3 * (dummy.sizeScale ?? 1) && y <= dummy.y + .5)
+      .sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0];
+    if (trainingDummy) return { kind: 'training-dummy', id: trainingDummy.id };
     const structure = world.structures.filter(s => s.type === 'divisa'
       ? Math.abs(Math.hypot(s.x - x, s.y - y) - (s.radius || 4)) < .85
       : s.type === 'curral' ? Math.abs(Math.max(Math.abs(s.x - x), Math.abs(s.y - y)) - corralFenceRadius(s)) < .85
@@ -2955,17 +3661,21 @@ export function mountGame() {
     }
   }
   function moveMapPointer(event) {
-
+    updateManualAim(event);
     if (!activeMapPointers.has(event.pointerId)) {
       if (event.pointerType === 'mouse' && world) {
         const rect = stage.getBoundingClientRect();
         const point = currentMapCamera().toWorld(event.clientX - rect.left, event.clientY - rect.top);
         const structure = territoryStructureAtMapPosition(point.x / TILE, point.y / TILE);
         const nextHoveredId = structure?.id ?? null;
-        const nextHoveringEntity = !!pickEntity(point.x / TILE, point.y / TILE);
-        if (nextHoveredId !== hoveredTerritoryStructureId || nextHoveringEntity !== hoveredMapEntity) {
+        const hoveredEntity = pickEntity(point.x / TILE, point.y / TILE);
+        const nextHoveredPersonId = hoveredEntity?.kind === 'person' ? hoveredEntity.id : null;
+        const nextHoveringEntity = !!hoveredEntity;
+        if (nextHoveredId !== hoveredTerritoryStructureId || nextHoveringEntity !== hoveredMapEntity
+            || nextHoveredPersonId !== hoveredPersonId) {
           hoveredTerritoryStructureId = nextHoveredId;
           hoveredMapEntity = nextHoveringEntity;
+          hoveredPersonId = nextHoveredPersonId;
           syncMapCursor();
           drawMap();
         } else syncMapCursor();
@@ -3030,9 +3740,10 @@ export function mountGame() {
   canvas.addEventListener('pointerdown', beginMapPointer);
   canvas.addEventListener('pointermove', moveMapPointer);
   canvas.addEventListener('pointerleave', () => {
-    if (hoveredTerritoryStructureId == null && !hoveredMapEntity) return;
+    if (hoveredTerritoryStructureId == null && !hoveredMapEntity && hoveredPersonId == null) return;
     hoveredTerritoryStructureId = null;
     hoveredMapEntity = false;
+    hoveredPersonId = null;
     setMapCursor('default');
     drawMap();
   });
@@ -3066,11 +3777,26 @@ export function mountGame() {
     if (!world) return;
 
     if (ignoreNextMapClick) { ignoreNextMapClick = false; return; }
+    canvas.focus({ preventScroll: true });
     const rect = stage.getBoundingClientRect();
     const point = currentMapCamera().toWorld(event.clientX - rect.left, event.clientY - rect.top);
     const mapX = point.x / TILE;
     const mapY = point.y / TILE;
-    if (mapX >= 0 && mapX < W && mapY >= 0 && mapY < H) openSelection(pickEntity(mapX, mapY));
+    if (mapX >= 0 && mapX < W && mapY >= 0 && mapY < H) {
+      if (manualControlId != null) {
+        updateManualAim(event, true);
+        const item = pickEntity(mapX, mapY);
+        const actor = currentManualPerson();
+        const clickedPerson = item?.kind === 'person' ? getPerson(item.id) : null;
+        if (clickedPerson && actor && clickedPerson.id !== actor.id
+            && clickedPerson.kingdomId === actor.kingdomId) {
+          openSelection(item);
+          return;
+        }
+        return;
+      }
+      openSelection(pickEntity(mapX, mapY));
+    }
   });
 
   function advanceWorld(days = 1, source = 'clock') {
@@ -3178,7 +3904,12 @@ export function mountGame() {
   };
   $('kingdomsToggle').addEventListener('click', () => setKingdomPanel(!showLeft));
   $('settingsToggle').addEventListener('click', () => setSettingsPanel($('settingsTray').hidden));
-  $('settingsClose').addEventListener('click', () => setSettingsPanel(false));
+  $('hitboxToggle').addEventListener('click', event => {
+    showHitboxes = !showHitboxes;
+    event.currentTarget.setAttribute('aria-pressed', String(showHitboxes));
+    event.currentTarget.textContent = showHitboxes ? 'Ocultar hitboxes' : 'Mostrar hitboxes';
+    drawMap();
+  });
   const setJournalPanel = open => {
     const panel = $('journal');
     if (open) { setKingdomPanel(false); setSettingsPanel(false); showRight = false; $('rightPanel').classList.remove('is-open'); }
@@ -3192,17 +3923,62 @@ export function mountGame() {
     if (showLeft && !$('leftPanel').contains(event.target)
       && !$('kingdomsToggle').contains(event.target)) setKingdomPanel(false);
   });
-  $('rightClose').addEventListener('click', () => {
-    showRight = false; $('rightPanel').classList.remove('is-open');
-    syncPanelAccess();
-  });
   window.addEventListener('keydown', event => {
-
-    if (event.key !== 'Escape') return;
-    setKingdomPanel(false); setSettingsPanel(false);
-    $('journal').hidden = true; $('journalToggle').setAttribute('aria-expanded', 'false');
-    showRight = false; $('rightPanel').classList.remove('is-open');
-    syncPanelAccess();
+    if (event.key === 'Escape') {
+      setKingdomPanel(false); setSettingsPanel(false);
+      $('journal').hidden = true; $('journalToggle').setAttribute('aria-expanded', 'false');
+      showRight = false; $('rightPanel').classList.remove('is-open');
+      syncPanelAccess();
+      return;
+    }
+    if (isEditableTarget(event.target)) return;
+    if (event.code === 'Space') {
+      event.preventDefault();
+      if (!event.repeat) toggleManualControl();
+      return;
+    }
+    if (manualControlId == null) return;
+    const key = event.key.toLowerCase();
+    if (['w', 'a', 's', 'd'].includes(key)) {
+      event.preventDefault();
+      if (!manualHeldKeys.has(key)) { manualHeldKeys.add(key); sendManualInput(); }
+      return;
+    }
+    if (key === 'e') {
+      event.preventDefault();
+      if (!event.repeat) {
+        if (primaryIsHealing()) { manualHealing = true; sendManualInput(); }
+        else queueManualAttack('1');
+      }
+      return;
+    }
+    if (key === 'f') {
+      event.preventDefault();
+      if (!event.repeat && !manualDefending) { manualDefending = true; sendManualInput(); drawMap(); }
+      return;
+    }
+    if (/^[1-5]$/.test(key)) {
+      event.preventDefault();
+      if (!event.repeat) {
+        if (key === '1' && primaryIsHealing()) { manualHealing = true; sendManualInput(); }
+        else queueManualAttack(key);
+      }
+    }
+  });
+  window.addEventListener('keyup', event => {
+    if (manualControlId == null) return;
+    const key = event.key.toLowerCase();
+    if (manualHeldKeys.delete(key) && ['w', 'a', 's', 'd'].includes(key)) sendManualInput();
+    if (['e', '1'].includes(key) && manualHealing) { manualHealing = false; sendManualInput(); drawMap(); }
+    if (key === 'f' && manualDefending) { manualDefending = false; sendManualInput(); drawMap(); }
+  });
+  window.addEventListener('blur', clearManualInput);
+  $('inspector').addEventListener('change', event => {
+    const target = event.target.closest('[data-magic-person]');
+    const person = target && getPerson(Number(target.dataset.magicPerson));
+    if (!person) return;
+    const command = magicInspectorCommand(target, person);
+    if (command) session.dispatch(command).catch(error => console.error('[Magias]', error));
   });
 
 
@@ -3211,8 +3987,27 @@ export function mountGame() {
     if (button) { setKingdomPanel(false); openSelection({ kind: 'kingdom', id: Number(button.dataset.kingdom) }); }
   });
   let lastAnimationFrame = 0;
+  let magicAccumulator = 0, magicTickPending = false, lastMagicFrame = 0, magicGeneration = 0;
   function frame(now) {
     const profile = renderDiagnostics.profiler.beginFrame(now);
+    if (!session.paused && world && magicHasActivity(world)) {
+      magicAccumulator += Math.min(100, now - (lastMagicFrame || now)) * session.speed;
+      if (!magicTickPending && magicAccumulator >= 100) {
+        const elapsedMs = Math.min(1000, magicAccumulator);
+        const generation = magicGeneration;
+        magicAccumulator -= elapsedMs; magicTickPending = true;
+        session.dispatch({ type: 'magic-tick', elapsedMs })
+          .catch(error => { if (!isResetCancellation(error)) console.error('[Magias]', error); })
+          .finally(() => { if (generation === magicGeneration) magicTickPending = false; });
+      }
+    } else magicAccumulator = 0;
+    lastMagicFrame = now;
+    const manualTickInterval = manualHealing && !manualHeldKeys.size && !manualDefending ? 200 : 50;
+    if (manualControlId != null && now - lastManualTick >= manualTickInterval) {
+      const dt = Math.min(.1, (now - (lastManualTick || now - 50)) / 1000);
+      lastManualTick = now;
+      if (!session.paused) sendManualInput(dt);
+    }
     if (lastAnimationFrame && !session.paused) animationTime += Math.min(100, now - lastAnimationFrame) * session.speed;
     lastAnimationFrame = now;
     gameAudio.update(animationTime, session.speed, session.paused);

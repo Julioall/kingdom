@@ -81,7 +81,9 @@ function decisionLabel(request, decision) {
   if (request.role === 'king') {
     return request.context?.choices?.find(choice => choice.id === action)?.label || String(action || 'ordem estratégica');
   }
-  const labels = { advance: 'avançar ao objetivo', hold_position: 'manter posição', withdraw: 'retirada ordenada' };
+  const labels = { advance: 'avançar ao objetivo', hold_position: 'manter posição', withdraw: 'retirada ordenada',
+    magic_recovery: 'priorizar cura e purificação', magic_protection: 'proteger a formação com magias',
+    magic_offense: 'preparar apoio mágico ofensivo', magic_disruption: 'enfraquecer o inimigo com magias' };
   return labels[action] || String(action || 'ordem militar');
 }
 
@@ -231,7 +233,7 @@ function decisionLabel(request, decision) {
         response = await engine.chat.completions.create({
           messages: [
             { role: 'system', content: (request.role === 'general'
-              ? 'Você é o general de um reino simulado. Use apenas os fatos observados da campanha deste lado. Uma unidade de alimento paga um dia para um soldado; os estoques e dias de ração são apresentados como números inteiros. Escolha exatamente um ID permitido: ' + request.candidateActions.join(', ') + '. A simulação controla recursos, alvos e resultados; não invente informações nem emita ordens fora da lista. Responda com um único JSON contendo action, confidence e reason curta em português.'
+              ? 'Você é o general de um reino simulado. Use apenas os fatos observados da campanha deste lado. Uma unidade de alimento paga um dia para um soldado; os estoques e dias de ração são apresentados como números inteiros. Escolha exatamente um ID permitido: ' + request.candidateActions.join(', ') + '. Ordens magic_recovery, magic_protection, magic_offense e magic_disruption apenas priorizam o apoio dos sacerdotes, preservando a manobra atual. A simulação controla recursos, alvos e resultados; não invente informações nem emita ordens fora da lista. Responda com um único JSON contendo action, confidence e reason curta em português.'
               : buildKingdomStrategySystemPrompt(request.candidateActions)) + ' ' + medievalVoice(request.role) },
             { role: 'user', content: JSON.stringify(medievalObservations(request.context)) }
           ],
