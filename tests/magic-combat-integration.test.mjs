@@ -10,7 +10,7 @@ import { queueCampaignGeneralAiRequests, pullCampaignGeneralAiRequest,
   applyCampaignGeneralAiDecision } from '../src/simulation/kingdoms/campaigns.js';
 
 function fixture(weapon = 'guerreiro') {
-  const actor = { id: 1, alive: true, role: 'soldier', militaryClass: weapon, kingdomId: 1,
+  const actor = { id: 1, alive: true, role: 'soldier', militaryClass: weapon, militaryLevel: 7, kingdomId: 1,
     x: 10, y: 10, health: 100, maxCombatHealth: 360, stamina: 400, maxStamina: 400,
     playerControlled: true, militaryTraining: 0 };
   const target = { ...actor, id: 2, kingdomId: 2, militaryClass: 'guerreiro', militaryFacingX: 1,

@@ -1,3 +1,4 @@
+import { zoneRecipients } from '../kingdoms/ability-progression.js';
 const clamp = (n, low, high) => Math.max(low, Math.min(high, n));
 export const MAGIC_EFFECTS = Object.freeze({
   regeneration: { category: 'buff', dispellable: true, periodic: true },
@@ -59,7 +60,8 @@ export function magicModifiers(person, world = null) {
   let sanctuary = 0;
   for (const zone of world?.magicZones || []) {
     if (zone.expiresAt > now && zone.kingdomId === person.kingdomId
-      && Math.hypot(person.x - zone.x, person.y - zone.y) <= zone.radius)
+      && Math.hypot(person.x - zone.x, person.y - zone.y) <= zone.radius
+      && zoneRecipients(world, zone).some(occupant => occupant.id === person.id))
       sanctuary = Math.max(sanctuary, zone.intensity);
   }
   return { stamina: clamp(stamina, .25, 2), speed: clamp(speed, .35, 1.5),

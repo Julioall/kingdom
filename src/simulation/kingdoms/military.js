@@ -18,6 +18,7 @@ import { damageTrainingDummy, trainingDummiesForWorld } from '../world/training-
 import { magicModifiers } from '../magic/effects.js';
 import { updatePriestDecisions, chooseMagicAction, beginSpell } from '../magic/system.js';
 import { stunCombatPerson } from './combat-status.js';
+import { canUseAbility, abilityTargetLimit } from './ability-progression.js';
 
 export const MILITARY_CLASSES = Object.freeze({
   guerreiro: { label: 'Infantaria', vitality: 360, range: 1.8, damage: 18, dodge: .12, block: .42 },
@@ -50,6 +51,11 @@ const ARCHER_ATTACKS = Object.freeze({
 export function manualAttackProfile(person, actionKey, comboIndexOverride = null) {
   if (person.role !== 'soldier') return null;
   const key = String(actionKey);
+  const required = person.militaryClass === 'guerreiro' ? ({ '2': 'combo', '3': 'shield-bash' })[key]
+    : person.militaryClass === 'lanceiro' ? ({ '2': 'lance-flurry', '3': 'lance-charge' })[key]
+      : person.militaryClass === 'arqueiro' ? ({ '2': 'rain', '3': 'cone', '4': 'charged' })[key] : null;
+  if (required && !canUseAbility(person, required)) return null;
+  if (comboIndexOverride > 1 && !canUseAbility(person, 'combo')) comboIndexOverride = 1;
   if (person.militaryClass === 'guerreiro') {
     if (key === '1') return { attackVariant: null, comboIndex: comboIndexOverride ?? 1, range: MILITARY_CLASSES.guerreiro.range };
     if (key === '2') return { attackVariant: null, comboIndex: comboIndexOverride ?? 2, range: MILITARY_CLASSES.guerreiro.range };
@@ -115,8 +121,8 @@ function consumePlayerAttack(person, command, day) {
 function chooseArcherAttack(person, world, target, towerMounted = false) {
   const stamina = person.stamina ?? COMBAT_RESOURCES.stamina;
   const rangeBonus = towerMounted ? 6 : 0;
-  const available = Object.entries(ARCHER_ATTACKS).filter(([, attack]) =>
-    stamina >= attack.minStamina && distance(person, target) <= attack.range + rangeBonus);
+  const available = Object.entries(ARCHER_ATTACKS).filter(([id, attack]) =>
+    canUseAbility(person, id) && stamina >= attack.minStamina && distance(person, target) <= attack.range + rangeBonus);
   const totalWeight = available.reduce((total, [, attack]) => total + attack.weight, 0);
   if (!totalWeight) return null;
   let roll = rand(world) * totalWeight;
@@ -545,7 +551,7 @@ export function fightTacticalRound(world, allies, enemies, day, objective = null
       && distance(person, threat) <= spec.range);
     const opening = person.combatOpening?.expiresDay > day ? person.combatOpening : null;
     if (!opening && person.combatOpening) person.combatOpening = null;
-    const comboMaximum = person.militaryClass === 'guerreiro' ? WARRIOR_COMBO_MAX : COMBO_MAX;
+    const comboMaximum = canUseAbility(person, 'combo') ? (person.militaryClass === 'guerreiro' ? WARRIOR_COMBO_MAX : COMBO_MAX) : 1;
     const combo = person.combatCombo?.lastDay === day - 1
       && person.combatCombo.count < comboMaximum ? person.combatCombo : null;
     if (!combo && person.combatCombo) person.combatCombo = null;
@@ -586,6 +592,7 @@ export function fightTacticalRound(world, allies, enemies, day, objective = null
       && person.combatAction?.attackVariant === 'shield-bash'
       && person.combatAction.day === day - 1;
     const shieldBashReady = !manualCommand && person.militaryClass === 'guerreiro'
+      && canUseAbility(person, 'shield-bash')
       && (!combo || recentShieldBlock) && !openingThreat && !justShieldDashed
       && (person.stamina ?? COMBAT_RESOURCES.stamina) >= WARRIOR_SHIELD_BASH.minStamina
       && enemyDistance <= WARRIOR_SHIELD_BASH.range
@@ -596,10 +603,10 @@ export function fightTacticalRound(world, allies, enemies, day, objective = null
       ? countEnemiesInSpearLane(person, enemy, threats, LANCER_CHARGE.range) : 0;
     const lancerSpecialReady = !manualCommand && person.militaryClass === 'lanceiro' && !person.towerMounted
       && !combo && !openingThreat;
-    const lanceChargeReady = lancerSpecialReady && lanceStamina >= LANCER_CHARGE.minStamina
+    const lanceChargeReady = lancerSpecialReady && canUseAbility(person, 'lance-charge') && lanceStamina >= LANCER_CHARGE.minStamina
       && enemyDistance >= 1 && enemyDistance <= LANCER_CHARGE.range
       && (lanceLaneCount > 1 || enemyDistance > lanceEngagementRange && rand(world) < .22);
-    const lanceFlurryReady = lancerSpecialReady && !lanceChargeReady
+    const lanceFlurryReady = lancerSpecialReady && !lanceChargeReady && canUseAbility(person, 'lance-flurry')
       && lanceStamina >= LANCER_FLURRY.minStamina && enemyDistance <= LANCER_FLURRY.range
       && rand(world) < .28;
     const attackVariant = manualCommand ? manualProfile.attackVariant
@@ -818,6 +825,7 @@ export function fightTacticalRound(world, allies, enemies, day, objective = null
         && action.attackVariant === 'rain') {
       const impact = action.result.point || action.aim;
       for (const victim of threats) {
+        if (alreadyHit.size >= abilityTargetLimit(person)) break;
         if (!victim.alive || alreadyHit.has(victim.id)
             || distance(victim, impact) > (action.areaRadius ?? ARCHER_ATTACKS.rain.areaRadius)) continue;
         const damageApplied = applyCombatDamage(victim, false, ARCHER_ATTACKS.rain.splashMultiplier);

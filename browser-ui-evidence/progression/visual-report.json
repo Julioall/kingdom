@@ -1,0 +1,23 @@
+{
+  "state": {
+    "magicTimeMs": 6111.5,
+    "stats": {
+      "casts": 8,
+      "cancelled": 2,
+      "manaSpent": 494,
+      "healing": 372.8,
+      "poisonDamage": 147.11999999999955,
+      "effectsApplied": 17,
+      "cleansed": 0,
+      "dispelled": 0
+    },
+    "zones": 1,
+    "affected": 43,
+    "updates": 15,
+    "maxMagicBytes": 16472,
+    "soldiers": 100
+  },
+  "fps": 22.980736735383577,
+  "mapP95Ms": 43.20000001788139,
+  "errors": []
+}

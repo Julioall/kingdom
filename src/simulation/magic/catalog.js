@@ -1,3 +1,4 @@
+import { canUseAbility, abilityTargetLimit } from '../kingdoms/ability-progression.js';
 // Times are simulated combat milliseconds; health values are fractions of max HP.
 const spell = (id, name, kind, values) => Object.freeze({ id, name, kind, range: 6,
   radius: 0, maxTargets: 1, castMs: 2000, cooldownMs: 5000, durationMs: 0,
@@ -5,9 +6,9 @@ const spell = (id, name, kind, values) => Object.freeze({ id, name, kind, range:
 
 export const SPELLS = Object.freeze(Object.fromEntries([
   spell('heal', 'Cura Simples', 'heal', { mana: 24, castMs: 2000, cooldownMs: 2200, heal: .07 }),
-  spell('area-heal', 'Cura em Área', 'heal', { mana: 48, castMs: 3600, cooldownMs: 3500, radius: 2.8, maxTargets: 8, heal: .06 }),
+  spell('area-heal', 'Cura em Área', 'heal', { mana: 48, castMs: 3600, cooldownMs: 3500, radius: 2.8, maxTargets: 7, heal: .06 }),
   spell('greater-heal', 'Grande Cura', 'heal', { mana: 100, castMs: 6000, cooldownMs: 14000,
-    radius: 3.8, maxTargets: 10, heal: .08, effect: 'regeneration', intensity: .02, durationMs: 6000 }),
+    radius: 3.8, maxTargets: 7, heal: .08, effect: 'regeneration', intensity: .02, durationMs: 6000 }),
   spell('regeneration', 'Regeneração', 'buff', { mana: 32, castMs: 2800, cooldownMs: 4000,
     effect: 'regeneration', intensity: .015, durationMs: 6000 }),
   spell('fortitude', 'Fortitude', 'buff', { effect: 'fortitude', intensity: .2, durationMs: 12000,
@@ -33,7 +34,7 @@ export const SPELLS = Object.freeze(Object.fromEntries([
   spell('dispel', 'Dissipação', 'dispel', { mana: 50, castMs: 4000, cooldownMs: 4500,
     radius: 2.5, maxTargets: 6, color: '#ac97c5' }),
   spell('sanctuary', 'Santuário', 'area', { mana: 80, castMs: 5200, cooldownMs: 12000,
-    radius: 3, maxTargets: 100, durationMs: 8000, intensity: .1, color: '#d9cd9a' })
+    radius: 3, maxTargets: 7, durationMs: 8000, intensity: .1, color: '#d9cd9a' })
 ].map(item => [item.id, item])));
 
 export const MAGIC_ROLES = Object.freeze({
@@ -51,8 +52,9 @@ export const MAGIC_TACTICS = Object.freeze({
 });
 
 export function availableSpells(person) {
-  return (person.availableMagicSpells || Object.keys(SPELLS)).filter(id => SPELLS[id]);
+  return (person.availableMagicSpells || Object.keys(SPELLS)).filter(id => SPELLS[id] && canUseAbility(person, id));
 }
+export const spellTargetLimit = (person, spell) => abilityTargetLimit(person, spell.maxTargets);
 export function equippedSpells(person) {
   const role = person.magicRole || ['healer', 'protector', 'disruptor'][Math.abs(person.id || 0) % 3];
   const available = availableSpells(person);

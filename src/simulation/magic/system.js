@@ -1,4 +1,4 @@
-import { SPELLS, equippedSpells, availableSpells } from './catalog.js';
+import { SPELLS, equippedSpells, availableSpells, spellTargetLimit } from './catalog.js';
 import { MAGIC_EFFECTS, applyMagicEffect, magicIncapacitated, removeMagicEffects, magicModifiers } from './effects.js';
 import { changePersonHealth, killPerson } from '../individuals/lifecycle.js';
 import { initializeCombatResources } from '../kingdoms/combat-resources.js';
@@ -26,7 +26,8 @@ function validTarget(world, caster, target, spell) {
 
 export function configureMagicLoadout(person, ids, role = null) {
   if (person.militaryClass !== 'monge' || !Array.isArray(ids) || !ids.length || ids.length > 5
-      || new Set(ids).size !== ids.length || ids.some(id => !availableSpells(person).includes(id))) return false;
+      || new Set(ids).size !== ids.length || ids.some(id => !SPELLS[id]
+        || person.availableMagicSpells && !person.availableMagicSpells.includes(id))) return false;
   person.magicSpells = ids.slice();
   if (role) person.magicRole = role;
   return true;
@@ -81,13 +82,13 @@ function completeSpell(world, caster, cast, changed) {
   const targets = world.people.filter(person => validTarget(world, caster, person, spell)
     && (spell.radius ? distance(person, center) <= spell.radius : person.id === cast.targetId))
     .sort((a, b) => (spell.kind === 'heal' ? a.health - b.health : distance(a, center) - distance(b, center)) || a.id - b.id)
-    .slice(0, spell.maxTargets);
+    .slice(0, spellTargetLimit(caster, spell));
   caster.magicCast = null;
   if (spell.kind === 'area') {
     world.magicZoneSequence = (world.magicZoneSequence || 0) + 1;
     (world.magicZones ||= []).push({ id: world.magicZoneSequence,
       spellId: spell.id, sourceId: caster.id, kingdomId: caster.kingdomId, x: center.x, y: center.y,
-      radius: spell.radius, intensity: spell.intensity, startedAt: now, expiresAt: now + spell.durationMs });
+      radius: spell.radius, maxTargets: spellTargetLimit(caster, spell), intensity: spell.intensity, startedAt: now, expiresAt: now + spell.durationMs });
   }
   for (const person of targets) {
     if (spell.heal) {
@@ -119,7 +120,9 @@ function completeSpell(world, caster, cast, changed) {
 function targetScore(world, caster, spell, target, allies, enemies) {
   const hpMissing = 100 - target.health;
   const nearby = list => list.filter(person => distance(person, target) <= Math.max(.1, spell.radius));
-  const affected = spell.radius ? nearby(hostile(caster, spell) ? enemies : allies) : [target];
+  const affected = (spell.radius ? nearby(hostile(caster, spell) ? enemies : allies) : [target])
+    .sort((a, b) => (spell.kind === 'heal' ? a.health - b.health : distance(a, target) - distance(b, target)) || a.id - b.id)
+    .slice(0, spellTargetLimit(caster, spell));
   const fresh = affected.filter(person => !(person.magicEffects || []).some(effect => effect.id === spell.effect
     && effect.expiresAt - world.magicTimeMs > spell.durationMs * .35));
   const enemyNear = enemies.filter(person => distance(person, target) <= 6).length;

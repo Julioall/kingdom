@@ -18,7 +18,7 @@ function fixture(militaryClass) {
     tile.terrain = 'land'; tile.elevationLevel = 0; tile.slope = 0;
     tile.plants.fill(0); tile.stoneDeposit = 0; tile.goldOre = 0;
   }
-  Object.assign(actor, { x: 30, y: 30, stamina: 100, health: 100 });
+  Object.assign(actor, { x: 30, y: 30, militaryLevel: 7, stamina: 100, health: 100 });
   dispatchCommand(world, { type: 'player-control', personId: actor.id, enabled: true });
   return { world, actor };
 }
@@ -123,7 +123,7 @@ test('controlled monk can use E or 1 to heal the selected nearby ally', () => {
 });
 
 test('archer arrow rain deals a strong area hit over its three-second duration', () => {
-  const rain = manualAttackProfile({ role: 'soldier', militaryClass: 'arqueiro' }, '2');
+  const rain = manualAttackProfile({ role: 'soldier', militaryClass: 'arqueiro', militaryLevel: 7 }, '2');
   assert.equal(rain.rainDurationMs, 3000);
   assert.equal(rain.arrowCount, 36);
   assert.ok(rain.splashMultiplier >= 3);
@@ -135,7 +135,7 @@ test('manual arrow rain damages the enemy inside its impact circle', () => {
   const enemy = world.people.find(p => p.kingdomId !== archer.kingdomId && p.role === 'soldier');
   world.people = [archer, enemy]; world.structures = [];
   world.peopleSpatialIndex = null;
-  Object.assign(archer, { x: 30, y: 30, stamina: 400, playerControlled: true });
+  Object.assign(archer, { x: 30, y: 30, militaryLevel: 7, stamina: 400, playerControlled: true });
   Object.assign(enemy, { x: 34, y: 30, health: 100, alive: true });
   world.playerControlledPersonId = archer.id;
   const healthBefore = enemy.health;

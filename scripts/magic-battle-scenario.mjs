@@ -17,7 +17,7 @@ export function createMagicBattleScenario(seed = 42, composition = 'mixed') {
       const id = 10000 + side * 100 + index;
       const magicRole = composition === 'healers' ? 'healer' : ['healer', 'healer', 'protector', 'disruptor'][index - 46];
       Object.assign(person, { id, name: type + ' ' + id, kingdomId: kingdom.id, communityId: kingdom.communityId,
-        militaryClass: type, role: 'soldier', militaryRank: 'soldado', alive: true,
+        militaryClass: type, role: 'soldier', militaryRank: 'soldado', militaryLevel: 7, alive: true,
         x: side ? 59 - (index % 5) * .7 : 50 + (index % 5) * .7,
         y: 48 + Math.floor(index / 5) * .7,
         health: 70, energy: 100, hydration: 100, foodReserve: 100, injury: 0,

@@ -5,7 +5,7 @@ import { isCombatDisarmed } from '../src/simulation/kingdoms/combat-resources.js
 import { createActivityEffects } from '../src/ui/person-animations.js';
 
 function fixture() {
-  const actor = { id: 1, x: 30, y: 30, alive: true, role: 'soldier', militaryClass: 'guerreiro',
+  const actor = { id: 1, x: 30, y: 30, alive: true, role: 'soldier', militaryClass: 'guerreiro', militaryLevel: 7,
     kingdomId: 1, health: 100, stamina: 200, maxStamina: 200 };
   const victim = { id: 2, x: 32, y: 30, alive: true, role: 'soldier', militaryClass: 'arqueiro',
     kingdomId: 2, health: 100, stamina: 200, maxStamina: 200, combatCombo: { targetId: 1, count: 2 },

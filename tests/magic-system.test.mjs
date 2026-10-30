@@ -9,7 +9,7 @@ import { spendAttackStamina, spendDefenseStamina, updateCombatResources } from '
 function fixture() {
   const person = (id, kingdomId, x, health = 100) => ({ id, kingdomId, x, y: 10, alive: true,
     role: 'soldier', militaryClass: 'guerreiro', health, stamina: 400, maxStamina: 400, maxCombatHealth: 360 });
-  const caster = { ...person(1, 1, 10), militaryClass: 'monge', mana: 200, maxMana: 200 };
+  const caster = { ...person(1, 1, 10), militaryClass: 'monge', militaryLevel: 7, mana: 200, maxMana: 200 };
   const ally = person(2, 1, 12, 45), enemy = person(3, 2, 13, 65);
   const world = { day: 0, width: 32, height: 32, people: [caster, ally, enemy], kingdoms: [], structures: [],
     magicTimeMs: 0, events: [], logs: [] };
@@ -75,9 +75,9 @@ test('great heal caps recipients, regenerates for six seconds, and never overhea
   caster.magicSpells = ['greater-heal'];
   beginSpell(world, caster, 'greater-heal', { x: 12, y: 10 });
   advanceMagic(world, SPELLS['greater-heal'].castMs);
-  assert.equal(world.people.filter(person => person.health === 58).length, 10);
+  assert.equal(world.people.filter(person => person.health === 58).length, 7);
   advanceMagic(world, 6000);
-  assert.equal(world.people.filter(person => person.health === 70).length, 10);
+  assert.equal(world.people.filter(person => person.health === 70).length, 7);
   assert.equal(world.people.filter(person => person.magicEffects?.length).length, 0);
   world.people[1].health = 99;
   assert.equal(changePersonHealth(world, world.people[1], 30, 'cleric-healing'), 1);

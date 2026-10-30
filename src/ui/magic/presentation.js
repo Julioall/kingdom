@@ -1,6 +1,7 @@
 import { DebuffSystem, normalize, drawEllipseRing } from './particle-runtime.js';
 import presets from './presets.json' with { type: 'json' };
 import { SPELLS } from '../../simulation/magic/catalog.js';
+import { zoneRecipients } from '../../simulation/kingdoms/ability-progression.js';
 import { SPELL_VISUAL_STYLES } from './spell-styles.js';
 
 const presetKinds = { weakness: 'weaken', 'blessed-weapons': 'focus', exhaustion: 'curse', protection: 'slow' };
@@ -65,9 +66,7 @@ export function createMagicPresentation({ tileSize, maxParticles = 2700, maxEffe
       if (zone.expiresAt != null && zone.expiresAt <= (world.magicTimeMs || 0)) continue;
       keep('zone:' + zone.id, { spellId: zone.spellId,
         x: zone.x, y: zone.y, radius: zone.radius, circle: false, particleSpeed: .6 });
-      for (const person of world.people) {
-        if (zone.kingdomId == null || !person.alive || person.restingStructureId != null || person.kingdomId !== zone.kingdomId
-            || Math.hypot(person.x - zone.x, person.y - zone.y) > zone.radius) continue;
+      for (const person of zoneRecipients(world, zone)) {
         keep('zone-aura:' + person.id + ':' + zone.spellId, { spellId: zone.spellId,
           personId: person.id, radius: .5, circle: false });
       }

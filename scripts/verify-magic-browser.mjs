@@ -3,7 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import { SPELLS } from '../src/simulation/magic/catalog.js';
 
-const output = 'browser-ui-evidence/magic';
+const output = process.argv.find(arg => arg.startsWith('--output='))?.slice('--output='.length) || 'browser-ui-evidence/magic';
 await mkdir(output, { recursive: true });
 const workerSource = `
 import { createSimulationWorkerRuntime } from '/src/simulation/worker-runtime.js';

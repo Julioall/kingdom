@@ -9,7 +9,7 @@ import { knockbackPose } from '../src/ui/knockback-presentation.js';
 import { spendAttackStamina } from '../src/simulation/kingdoms/combat-resources.js';
 
 function fixture(weapon = 'guerreiro') {
-  const actor = { id: 1, x: 10, y: 10, alive: true, role: 'soldier', militaryClass: weapon,
+  const actor = { id: 1, x: 10, y: 10, alive: true, role: 'soldier', militaryClass: weapon, militaryLevel: 7,
     kingdomId: 1, health: 100, stamina: 400, maxStamina: 400 };
   const victims = [12, 13, 14].map((x, i) => ({ ...actor, id: i + 2, x,
     militaryClass: 'arqueiro', kingdomId: 2, playerControlled: true, militaryFacingX: 1 }));
@@ -50,6 +50,18 @@ for (const weapon of ['guerreiro', 'lanceiro']) test(`${weapon}: charge throws e
   advanceMagic(world, 1);
   assert.equal(isCombatStunned(victim, world.day, world.magicTimeMs), false);
   assert.equal(dispatchCommand(world, input).ok, true);
+});
+
+test('shield dash limits distinct victims by earned level even inside a dense formation', () => {
+  for (const level of [4, 7]) {
+    const { world, actor, victims } = fixture();
+    actor.militaryLevel = level;
+    world.people = [actor, ...Array.from({ length: 12 }, (_, i) => ({ ...victims[0],
+      id: i + 2, x: 11.2 + i * .25, y: 10 }))];
+    dispatchCommand(world, { type: 'player-action', personId: actor.id, actionKey: '3', aimX: 15, aimY: 10 });
+    assert.equal(actor.combatAction.hitTargets.length, Math.min(7, level + 1));
+    assert.equal(world.people.filter(person => person.combatLaunch).length, Math.min(7, level + 1));
+  }
 });
 
 test('airborne knockback sweeps solid obstacles and lands before water or walls', () => {

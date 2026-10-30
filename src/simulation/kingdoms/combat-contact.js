@@ -2,6 +2,7 @@
 // Coordinates are in world cells; timings are simulated milliseconds.
 import { combatPathObstruction, worldCollisionIndex } from '../physics/hitboxes.js';
 import { rand } from '../core/random.js';
+import { abilityTargetLimit } from './ability-progression.js';
 
 export const COMBAT_PROFILES = Object.freeze({
   guerreiro: { windup: 200, active: 100, recovery: 100, reach: 1.8, radius: .17, arc: 1.2 },
@@ -265,6 +266,7 @@ export function resolveCombatAction(world, actor, action, candidates, applyDamag
     }) : null;
     const blockedContacts = [];
     for (const target of candidates) {
+      if (!action.hitTargets.includes(target.id) && action.hitTargets.length >= abilityTargetLimit(actor)) continue;
       const trainingDummy = target.trainingDummy === true;
       // The signal arrow goes upward; only the rain at the aimed area can hit.
       if (action.attackVariant === 'rain') continue;

@@ -1,6 +1,6 @@
 import { applyManualMovement } from './individuals/manual-movement.js';
 import engine from './engine.js';
-import { fightTacticalRound } from './kingdoms/military.js';
+import { fightTacticalRound, manualAttackProfile } from './kingdoms/military.js';
 import { orderTowerCapture, orderInstallationAttack } from './kingdoms/frontier-conflicts.js';
 import { exchangeAtRoyalCastle } from './economy/royal-coin-exchange.js';
 import { SPELLS, equippedSpells, MAGIC_TACTICS } from './magic/catalog.js';
@@ -165,6 +165,7 @@ export function dispatchCommand(world, command) {
       if (person.militaryClass === 'monge') {
         return manualSpell(world, person, Number(command.actionKey) - 1, command);
       }
+      if (!manualAttackProfile(person, command.actionKey)) return { ok: false, reason: 'ability-locked' };
       person.militaryFacingX = command.aimX - person.x;
       person.militaryFacingY = command.aimY - person.y;
       const now = Date.now();
