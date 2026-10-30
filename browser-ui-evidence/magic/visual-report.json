@@ -1,23 +1,23 @@
 {
   "state": {
-    "magicTimeMs": 12034.6,
+    "magicTimeMs": 10388.499999999998,
     "stats": {
-      "casts": 16,
+      "casts": 15,
       "cancelled": 2,
-      "manaSpent": 950,
-      "healing": 1273.5600000000006,
-      "poisonDamage": 219.9999999999991,
-      "effectsApplied": 40,
-      "cleansed": 2,
+      "manaSpent": 850,
+      "healing": 839.1999999999997,
+      "poisonDamage": 221.75999999999908,
+      "effectsApplied": 20,
+      "cleansed": 0,
       "dispelled": 0
     },
     "zones": 1,
-    "affected": 22,
-    "updates": 20,
-    "maxMagicBytes": 23024,
+    "affected": 15,
+    "updates": 34,
+    "maxMagicBytes": 20825,
     "soldiers": 100
   },
-  "fps": 22.639352910145952,
-  "mapP95Ms": 51.099999994039536,
+  "fps": 25.633983337910827,
+  "mapP95Ms": 39.89999997615814,
   "errors": []
 }

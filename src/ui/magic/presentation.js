@@ -13,14 +13,14 @@ const mix = (hex, amount) => '#' + hex.slice(1).match(/../g).map(part => {
   return Math.round(value + (amount > 0 ? 255 - value : value) * amount).toString(16).padStart(2, '0');
 }).join('');
 
-export function createMagicPresentation({ tileSize, maxParticles = 2700, maxEffects = 360 } = {}) {
+export function createMagicPresentation({ tileSize, maxParticles = 2700, maxEffects = 512 } = {}) {
   const system = new DebuffSystem(), entries = new Map(), indicatorConfigs = new Map(), styles = new Map();
   const visibleEntries = [], poseCache = new Map();
   let lastRenderAt = 0, particleCount = 0;
 
   function sync(world, renderAt = 0, reset = false) {
     if (reset) { system.clear(); entries.clear(); }
-    const seen = new Set();
+    const seen = new Set(), recipientIds = new Set();
     function keep(key, data) {
       seen.add(key);
       let entry = entries.get(key);
@@ -48,6 +48,7 @@ export function createMagicPresentation({ tileSize, maxParticles = 2700, maxEffe
     }
     for (const person of world.people) {
       if (!person.alive) continue;
+      if (person.restingStructureId == null) recipientIds.add(person.id);
       const cast = person.magicCast;
       if (cast) keep('cast:' + person.id + ':' + cast.startedAt, { spellId: cast.spellId,
         targetId: SPELLS[cast.spellId].radius ? null : cast.targetId,
@@ -64,15 +65,23 @@ export function createMagicPresentation({ tileSize, maxParticles = 2700, maxEffe
       if (zone.expiresAt != null && zone.expiresAt <= (world.magicTimeMs || 0)) continue;
       keep('zone:' + zone.id, { spellId: zone.spellId,
         x: zone.x, y: zone.y, radius: zone.radius, circle: false, particleSpeed: .6 });
+      for (const person of world.people) {
+        if (zone.kingdomId == null || !person.alive || person.restingStructureId != null || person.kingdomId !== zone.kingdomId
+            || Math.hypot(person.x - zone.x, person.y - zone.y) > zone.radius) continue;
+        keep('zone-aura:' + person.id + ':' + zone.spellId, { spellId: zone.spellId,
+          personId: person.id, radius: .5, circle: false });
+      }
     }
     for (const event of world.magicEvents || []) {
       if (event.kind !== 'activated' || (world.magicTimeMs || 0) - event.at > 1100) continue;
       if ((world.magicTimeMs || 0) - event.at < 650) keep('burst:' + event.id,
         { spellId: event.spellId, x: event.x, y: event.y,
           radius: SPELLS[event.spellId]?.radius || .65, circle: true, activatedAt: event.at });
-      if (SPELLS[event.spellId]?.radius) continue;
-      for (const id of event.targetIds || []) keep('pulse:' + event.id + ':' + id,
-        { spellId: event.spellId, personId: id, radius: .65, circle: false });
+      for (const id of event.targetIds || []) {
+        if (!recipientIds.has(id)) continue;
+        keep('pulse:' + event.id + ':' + id,
+          { spellId: event.spellId, personId: id, radius: .65, circle: false });
+      }
     }
     for (const [key, entry] of entries) {
       if (!seen.has(key) && entry.retiringAt == null) entry.retiringAt = renderAt;

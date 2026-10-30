@@ -70,7 +70,10 @@ test('area seals stay on their ground point during preparation and activation', 
   world.magicEvents = [{ id: 1, kind: 'activated', spellId: 'area-heal', at: 2000, x: 5, y: 6, targetIds: [1] }];
   view.sync(world, 2000);
   view.prepare(world, 2000, bounds, () => ({ x: 15, y: 15 }));
-  assert.ok(view.instances().every(instance => !String(instance.entityId).startsWith('pulse:')));
+  const pulse = view.instances().find(instance => instance.entityId === 'pulse:1:1');
+  assert.ok(pulse);
+  assert.deepEqual(pulse.config.position, { x: 155, y: 160 });
+  assert.equal(pulse.config.ringOpacity, 0, 'affected units emit particles without moving the ground seal');
   const burst = view.instances().find(instance => instance.entityId === 'burst:1');
   assert.deepEqual(burst.config.position, { x: 55, y: 70 });
 });
@@ -83,7 +86,7 @@ test('energy selection renders fine pixel details and bright spell rings retain 
   assert.ok(blocks.some(block => block.w === .25 && block.h === .25),
     'highlights use quarter-map-pixel resolution rather than whole map pixels');
   assert.ok(blocks.some(block => block.color === 'rgba(81,230,255,1)'));
-  const person = { id: 1, alive: true, x: 3, y: 3,
+  const person = { id: 1, alive: true, kingdomId: 1, x: 3, y: 3,
     magicCast: { spellId: 'heal', startedAt: 0, targetId: 1, x: 3, y: 3 } };
   const world = { people: [person], magicTimeMs: 0 };
   view.sync(world);
@@ -113,7 +116,7 @@ test('rings end after activation while zone and character particles persist unti
   const person = { id: 1, alive: true, x: 3, y: 3,
     magicEffects: [{ id: 'protection', spellId: 'protection', expiresAt: 8000 }] };
   const world = { people: [person], magicTimeMs: 0,
-    magicZones: [{ id: 1, spellId: 'sanctuary', x: 5, y: 6, radius: 3, expiresAt: 8000 }],
+    magicZones: [{ id: 1, spellId: 'sanctuary', kingdomId: 1, x: 5, y: 6, radius: 3, expiresAt: 8000 }],
     magicEvents: [{ id: 1, kind: 'activated', spellId: 'sanctuary', at: 0, x: 5, y: 6, targetIds: [1] }] };
   view.sync(world); view.prepare(world, 0, bounds, () => person);
   assert.ok(view.instances().some(instance => instance.config.ringOpacity > 0));
@@ -123,7 +126,7 @@ test('rings end after activation while zone and character particles persist unti
   world.magicTimeMs = 2000;
   view.sync(world, 2000); view.prepare(world, 2000, bounds, () => person);
   const persistent = view.instances();
-  assert.equal(persistent.length, 2);
+  assert.equal(persistent.length, 3);
   assert.ok(persistent.every(instance => instance.config.particleOpacity > 0));
   assert.ok(persistent.every(instance => instance.config.groundCount + instance.config.auraCount === 26));
   assert.ok(persistent.every(instance => instance.config.particleMotion === 'rise'
@@ -132,6 +135,41 @@ test('rings end after activation while zone and character particles persist unti
   world.magicTimeMs = 8000;
   view.sync(world, 8000); view.prepare(world, 8250, bounds, () => person);
   assert.equal(view.stats().effects, 0);
+});
+
+test('every one of 100 area recipients emits activation particles under the shared budget', () => {
+  const view = createMagicPresentation({ tileSize: 10 });
+  const people = Array.from({ length: 100 }, (_, id) => ({ id, alive: true, kingdomId: 1,
+    x: id % 10, y: Math.floor(id / 10), magicEffects: ['slow', 'curse', 'fortitude'].map(id => ({ ...effect, id, spellId: id })) }));
+  const world = { people, magicTimeMs: 0,
+    magicZones: [{ id: 1, spellId: 'sanctuary', kingdomId: 1, x: 5, y: 5, radius: 8, expiresAt: 8000 }],
+    magicEvents: [{ id: 1, kind: 'activated', spellId: 'sanctuary', at: 0, x: 5, y: 5,
+      targetIds: people.map(person => person.id) }] };
+  view.sync(world); view.prepare(world, 100, bounds, id => people[id]);
+  const pulses = view.instances().filter(instance => String(instance.entityId).startsWith('pulse:'));
+  assert.equal(pulses.length, 100);
+  assert.ok(pulses.every(instance => instance.config.enabled && instance.config.ringOpacity === 0
+    && instance.config.groundCount + instance.config.auraCount > 0));
+  assert.ok(view.stats().particles <= 2700);
+  assert.ok(view.stats().effects <= view.stats().maxEffects);
+});
+
+test('sanctuary particles follow only current allied occupants, without a persistent circle', () => {
+  const view = createMagicPresentation({ tileSize: 10 });
+  const people = [{ id: 1, alive: true, kingdomId: 1, x: 5, y: 5 },
+    { id: 2, alive: true, kingdomId: 2, x: 5, y: 5 },
+    { id: 3, alive: true, kingdomId: 1, x: 15, y: 15 }];
+  const world = { people, magicTimeMs: 2000, magicZones: [
+    { id: 1, spellId: 'sanctuary', kingdomId: 1, x: 5, y: 5, radius: 3, expiresAt: 8000 }] };
+  view.sync(world); view.prepare(world, 2000, bounds, id => people.find(person => person.id === id));
+  assert.ok(view.instances().some(instance => instance.entityId === 'zone-aura:1:sanctuary'));
+  assert.ok(!view.instances().some(instance => instance.entityId === 'zone-aura:2:sanctuary'));
+  assert.ok(!view.instances().some(instance => instance.entityId === 'zone-aura:3:sanctuary'));
+  people[0].x = 15; people[0].y = 15; people[2].x = 5; people[2].y = 5;
+  view.sync(world, 2100); view.prepare(world, 2400, bounds, id => people.find(person => person.id === id));
+  assert.ok(!view.instances().some(instance => instance.entityId === 'zone-aura:1:sanctuary'));
+  assert.ok(view.instances().some(instance => instance.entityId === 'zone-aura:3:sanctuary'));
+  assert.ok(view.instances().every(instance => instance.config.ringOpacity === 0));
 });
 
 test('detailed circles reuse high resolution images while rotating on the ground plane', () => {
