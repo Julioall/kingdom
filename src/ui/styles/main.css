@@ -244,8 +244,8 @@ html,body{background:#17231b;color:#e9dfc9}
 .map-caption{position:static;display:flex;justify-content:space-between;gap:12px;box-shadow:none}
 .world-rail{position:absolute;z-index:12;top:50%;left:12px;transform:translateY(-50%);width:58px;display:grid;gap:3px;padding:6px;border:1px solid #9a7648;border-radius:6px;background:linear-gradient(#36291d,#1f1914);box-shadow:0 8px 20px #080d09b5}
 .world-rail .skin-layer{opacity:.42}
-.world-rail button{position:relative;z-index:1;min-height:57px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:5px 2px;border:6px solid transparent;border-image:url('/assets/kingdom-ui/button-small-square-blue-regular.png') 16 fill stretch;border-radius:0;background:transparent;color:#fff0cc;text-shadow:0 1px 2px #14100b}
-.world-rail button:hover,.world-rail button[aria-expanded="true"]{border-image-source:url('/assets/kingdom-ui/button-small-square-blue-pressed.png');filter:brightness(1.12);color:#fff8e4}
+.world-rail button{position:relative;z-index:1;min-height:57px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:5px 2px;border:6px solid transparent;border-image:url('/assets/ui/buttons/button-small-square-blue-regular.png') 16 fill stretch;border-radius:0;background:transparent;color:#fff0cc;text-shadow:0 1px 2px #14100b}
+.world-rail button:hover,.world-rail button[aria-expanded="true"]{border-image-source:url('/assets/ui/buttons/button-small-square-blue-pressed.png');filter:brightness(1.12);color:#fff8e4}
 .world-rail button>span{font:22px/1 var(--font-title)}.world-rail button small{font:8px/1.1 var(--font-text);letter-spacing:.04em}
 .mini-map-panel{position:absolute;z-index:11;right:14px;bottom:14px;width:194px;display:grid;gap:6px;padding:10px;border:1px solid #987343;border-radius:6px;background:linear-gradient(#382b1f,#211a14);box-shadow:0 8px 22px #080d09b5}
 .mini-map-panel .skin-layer{opacity:.38}
@@ -335,9 +335,9 @@ html,body{background:#17231b;color:#e9dfc9}
 .spawn-tools button{white-space:nowrap;font-size:9px}
 .vital-meters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 11px;padding:9px;border:1px solid #c1a577;border-radius:4px;background:#e0cca2}
 .vital-meter{min-width:0}.vital-meter-label{display:flex;justify-content:space-between;gap:4px;margin-bottom:2px;color:#70552e;font-size:8px}.vital-meter-label b{color:#44321e;font:700 9px ui-monospace,monospace}
-.vital-meter .forja-hud{width:100%!important;height:17px;min-width:0;--frame-h:17px;--native-h:19;--cap:15;--inset-x:6;--inset-y:8;--fill-h:3}
-.vital-meter .forja-hud .progress-fill-viewport{height:3px;top:7px}
-.vital-meter .forja-hud .progress-fill{transition:none}
+.vital-meter .resource-meter{width:100%!important;height:17px;min-width:0;--frame-h:17px;--native-h:19;--cap:15;--inset-x:6;--inset-y:8;--fill-h:3}
+.vital-meter .resource-meter .progress-fill-viewport{height:3px;top:7px}
+.vital-meter .resource-meter .progress-fill{transition:none}
 .swatch{width:9px;height:9px}
 @media(max-width:1100px){
   .world-note{display:none}.brand{min-width:175px}.brand .crest-mark{width:40px;height:40px}.brand-ribbon{width:125px;--band-h:38px}.world-metrics{gap:4px}.metric{padding-inline:6px}
@@ -367,7 +367,7 @@ html,body{background:#17231b;color:#e9dfc9}
 }
 @media(prefers-reduced-motion:reduce){.left-panel,.right-panel{transition:none}}
 
-/* Gameplay HUD — Forja kit is the shared material system. */
+/* Gameplay HUD — UI components kit is the shared material system. */
 [hidden]{display:none!important}
 .topbar{height:76px;min-height:76px;padding:8px 14px;gap:12px;position:relative}
 .brand{min-width:155px}.brand-text strong{font-size:20px;letter-spacing:.05em}
@@ -381,9 +381,9 @@ html,body{background:#17231b;color:#e9dfc9}
 .date-metric{flex-wrap:wrap;justify-content:center;max-width:160px;min-width:122px;background:#e7d3a5;color:#5e4228;font-size:10px;gap:4px;padding:6px}
 .date-metric b{color:#34271b}.date-metric .season-label{flex-basis:100%;text-align:center;color:#745226;font-size:11px}
 .controls{margin:0;gap:5px}.controls #toggle{font-size:18px}
-/* Small Forja controls keep the art caps readable at real button sizes. */
+/* Small UI components controls keep the art caps readable at real button sizes. */
 .controls button,.map-zoom button,.icon-button,.kingdom-actions button,#inspector>button,.spawn-tools button,.building-picker button{
-  --button-sprite:url('/assets/kingdom-ui/button-small-square-blue-regular.png');
+  --button-sprite:url('/assets/ui/buttons/button-small-square-blue-regular.png');
   border:6px solid transparent;
   border-image-source:var(--button-sprite);
   border-image-slice:16 fill;
@@ -403,16 +403,16 @@ html,body{background:#17231b;color:#e9dfc9}
   text-shadow:0 1px 2px #11202a;
 }
 .controls button:hover:not(:disabled),.map-zoom button:hover:not(:disabled),.icon-button:hover:not(:disabled),.kingdom-actions button:hover:not(:disabled),#inspector>button:hover:not(:disabled),.spawn-tools button:hover:not(:disabled),.building-picker button:hover:not(:disabled){filter:brightness(1.18)}
-.controls button:active:not(:disabled),.map-zoom button:active:not(:disabled),.icon-button:active:not(:disabled),.kingdom-actions button:active:not(:disabled),#inspector>button:active:not(:disabled),.spawn-tools button:active:not(:disabled),.building-picker button:active:not(:disabled){--button-sprite:url('/assets/kingdom-ui/button-small-square-blue-pressed.png');transform:translateY(1px)}
+.controls button:active:not(:disabled),.map-zoom button:active:not(:disabled),.icon-button:active:not(:disabled),.kingdom-actions button:active:not(:disabled),#inspector>button:active:not(:disabled),.spawn-tools button:active:not(:disabled),.building-picker button:active:not(:disabled){--button-sprite:url('/assets/ui/buttons/button-small-square-blue-pressed.png');transform:translateY(1px)}
 .controls #toggle{min-width:40px;width:40px;height:40px;font-size:18px}.controls #toggle span{display:none}
 .kingdom-actions button,#inspector>button,.spawn-tools button,.building-picker button{
   min-height:38px;padding:5px 11px;
   font:14px/1.2 var(--font-text);text-align:left;text-shadow:0 1px #08101866;
 }
 .utility-content .block>button{min-height:38px;padding:5px 11px;font:14px/1.2 var(--font-text);text-align:left;text-shadow:0 1px #08101866}
-#hitboxToggle[aria-pressed="true"]{--button-sprite:url('/assets/kingdom-ui/button-small-square-blue-pressed.png')}
+#hitboxToggle[aria-pressed="true"]{--button-sprite:url('/assets/ui/buttons/button-small-square-blue-pressed.png')}
 .kingdom-actions button:disabled,.map-zoom button:disabled,.controls button:disabled{opacity:.48;filter:grayscale(.55);cursor:not-allowed}
-.building-picker button{--button-sprite:url('/assets/kingdom-ui/button-small-square-blue-regular.png');}
+.building-picker button{--button-sprite:url('/assets/ui/buttons/button-small-square-blue-regular.png');}
 @media(max-width:760px){.controls button,.map-zoom button,.icon-button{min-width:36px;height:36px}.controls #toggle{width:36px;min-width:36px;height:36px}.map-zoom #mapZoomReset{min-width:36px!important}}
 .world-rail{top:16px;left:12px;transform:none;width:60px;padding:5px;border:0;background:transparent;box-shadow:none;gap:6px}
 .world-rail button{background:#292017d9;border-color:#ae8950;min-height:54px}.world-rail button small{font-size:10px}
@@ -449,8 +449,8 @@ html,body{background:#17231b;color:#e9dfc9}
 .building-picker{display:flex;flex-wrap:wrap;gap:6px}.building-picker button{padding:7px 12px;font:14px var(--font-text)}
 @media(min-width:761px){.left-panel.is-open{transform:none}}
 
-.kingdom-actions button[data-structure-command=destroy-tower],.kingdom-actions button[data-structure-command=attack-installation]{--button-sprite:url('/assets/kingdom-ui/button-small-square-red-regular.png')}
-.kingdom-actions button[data-structure-command=destroy-tower]:active,.kingdom-actions button[data-structure-command=attack-installation]:active{--button-sprite:url('/assets/kingdom-ui/button-small-square-red-pressed.png')}
+.kingdom-actions button[data-structure-command=destroy-tower],.kingdom-actions button[data-structure-command=attack-installation]{--button-sprite:url('/assets/ui/buttons/button-small-square-red-regular.png')}
+.kingdom-actions button[data-structure-command=destroy-tower]:active,.kingdom-actions button[data-structure-command=attack-installation]:active{--button-sprite:url('/assets/ui/buttons/button-small-square-red-pressed.png')}
 @media(max-width:440px){.controls #toggle{width:36px!important;min-width:36px!important;height:36px!important}}
 .controls .speed-cycle{min-width:40px;width:40px;height:40px;padding:0;font:700 15px/1 var(--font-title);letter-spacing:-.03em}
 @media(max-width:760px){.controls .speed-cycle{min-width:36px;width:36px;height:36px;font-size:14px}}
@@ -470,13 +470,13 @@ html,body{background:#17231b;color:#e9dfc9}
 .world-rail{width:88px;gap:5px}
 .world-rail button{
   width:88px;min-height:76px;padding:19px 9px 16px;border:0;border-radius:0;
-  background:transparent url('/assets/kingdom-ui/scroll.png') center/100% 100% no-repeat;
+  background:transparent url('/assets/ui/frames/scroll.png') center/100% 100% no-repeat;
   color:#51371f;text-shadow:0 1px #fff2cf;filter:drop-shadow(0 3px 4px #12181175);
 }
 .world-rail button>span{color:#684522;font-size:20px}
 .world-rail button small{color:#5c4124;font-size:10px;font-weight:700}
 .world-rail button:hover{background-color:transparent;color:#382515;filter:drop-shadow(0 4px 5px #12181199) brightness(1.04)}
-.world-rail button[aria-expanded="true"]{background:transparent url('/assets/kingdom-ui/scroll.png') center/100% 100% no-repeat;color:#382515;filter:drop-shadow(0 4px 6px #121811aa) brightness(1.06);box-shadow:none}
+.world-rail button[aria-expanded="true"]{background:transparent url('/assets/ui/frames/scroll.png') center/100% 100% no-repeat;color:#382515;filter:drop-shadow(0 4px 6px #121811aa) brightness(1.06);box-shadow:none}
 .world-rail button[aria-expanded="true"]>span{color:#382515}
 .world-rail button:focus-visible{outline:2px solid #f3d98d;outline-offset:-8px}
 .left-panel,.journal-panel{
@@ -592,7 +592,7 @@ html,body{background:#17231b;color:#e9dfc9}
 .left-panel .panel-scroll,.journal-panel .event-list{position:relative;z-index:1}
 .world-rail button,.world-rail button[aria-expanded="true"]{filter:none;box-shadow:none;text-shadow:none}
 .world-rail button:not([aria-expanded="true"]):hover{
-  background:transparent url('/assets/kingdom-ui/scroll.png') center/100% 100% no-repeat;
+  background:transparent url('/assets/ui/frames/scroll.png') center/100% 100% no-repeat;
   color:#51371f;border:0;filter:none;box-shadow:none;text-shadow:none;
 }
 .world-rail button[aria-expanded="true"]:hover{background:transparent;color:#473019;filter:none;box-shadow:none;text-shadow:none}
@@ -655,15 +655,15 @@ html,body{background:#17231b;color:#e9dfc9}
 }
 
 /* Tiny Swords pointer set: arrow, hand, blocked, and the selection frame. */
-html,body{cursor:url('/assets/kingdom-ui/Cursor_01.png') 10 4,auto}
-button,select,input[type=range]{cursor:url('/assets/kingdom-ui/Cursor_02.png') 30 12,pointer}
-button:disabled{cursor:url('/assets/kingdom-ui/Cursor_03.png') 32 32,not-allowed}
-#world{cursor:url('/assets/kingdom-ui/Cursor_01.png') 10 4,auto}
-#world.map-cursor-entity{cursor:url('/assets/kingdom-ui/Cursor_02.png') 30 12,pointer}
-#world.map-cursor-pan{cursor:url('/assets/kingdom-ui/Cursor_02.png') 30 12,grab}
-#world.map-cursor-panning{cursor:url('/assets/kingdom-ui/Cursor_02.png') 30 12,grabbing}
-#world.map-cursor-blocked{cursor:url('/assets/kingdom-ui/Cursor_03.png') 32 32,not-allowed}
-.mini-map-panel canvas{cursor:url('/assets/kingdom-ui/Cursor_02.png') 30 12,pointer}
+html,body{cursor:url('/assets/ui/cursors/default.png') 10 4,auto}
+button,select,input[type=range]{cursor:url('/assets/ui/cursors/pointer.png') 30 12,pointer}
+button:disabled{cursor:url('/assets/ui/cursors/blocked.png') 32 32,not-allowed}
+#world{cursor:url('/assets/ui/cursors/default.png') 10 4,auto}
+#world.map-cursor-entity{cursor:url('/assets/ui/cursors/pointer.png') 30 12,pointer}
+#world.map-cursor-pan{cursor:url('/assets/ui/cursors/pointer.png') 30 12,grab}
+#world.map-cursor-panning{cursor:url('/assets/ui/cursors/pointer.png') 30 12,grabbing}
+#world.map-cursor-blocked{cursor:url('/assets/ui/cursors/blocked.png') 32 32,not-allowed}
+.mini-map-panel canvas{cursor:url('/assets/ui/cursors/pointer.png') 30 12,pointer}
 
 /* Initial world and sprite boot screen. */
 .loading-screen{
@@ -730,7 +730,7 @@ button:disabled{cursor:url('/assets/kingdom-ui/Cursor_03.png') 32 32,not-allowed
   .world-metrics .date-metric .season-label{margin-left:3px}
 }
 
-/* Reinos and Crônicas use the Forja 3-slice ribbon above a separate scroll. */
+/* Reinos and Crônicas use the UI components 3-slice ribbon above a separate scroll. */
 .world-rail{top:16px;left:12px;width:290px;height:48px;display:flex;gap:4px;padding:0}
 .world-rail button#kingdomsToggle,.world-rail button#journalToggle{
   position:relative;flex:1 1 0;width:auto;height:48px;min-height:48px;padding:0 28px;
@@ -790,7 +790,7 @@ button:disabled{cursor:url('/assets/kingdom-ui/Cursor_03.png') 32 32,not-allowed
   padding-bottom:50px;padding-top:50px;scroll-padding-block:50px;
 }
 
-/* The selection and settings scrolls use the same colored Forja ribbon as the realm tabs. */
+/* The selection and settings scrolls use the same colored UI components ribbon as the realm tabs. */
 .right-panel.has-ribbon-heading>.skin-layer,
 .utility-drawer.has-ribbon-heading>.skin-layer{inset:46px 0 0}
 .right-panel.has-ribbon-heading .panel-heading,

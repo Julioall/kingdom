@@ -1,3 +1,4 @@
+import engine from '../src/simulation/engine.js';
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
 import assert from 'node:assert/strict';
@@ -9,12 +10,14 @@ const preview = process.env.KINGDOM_BROWSER_PREVIEW === '1' || process.argv.incl
 const port = preview ? 5192 : 5181;
 const directory = resolve('browser-ui-evidence', preview ? 'production' : 'development');
 const base = `http://127.0.0.1:${port}/`;
+const requestedViewport = process.argv.find(arg => arg.startsWith('--viewport='))?.slice('--viewport='.length);
 const viewports = [
   { label: 'desktop', width: 1440, height: 900 },
   { label: 'tablet', width: 1024, height: 768 },
   { label: 'mobile', width: 390, height: 844 },
   { label: 'small-mobile', width: 320, height: 640 },
-];
+].filter(viewport => !requestedViewport || viewport.label === requestedViewport);
+assert.ok(viewports.length, 'Unknown viewport: ' + requestedViewport);
 await mkdir(directory, { recursive: true });
 const viteArgs = preview
   ? ['node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', String(port), '--strictPort']
@@ -24,6 +27,10 @@ const server = spawn(process.execPath, viteArgs,
 let serverLog = '';
 server.stdout.on('data', data => { serverLog += data.toString(); });
 server.stderr.on('data', data => { serverLog += data.toString(); });
+const smokeWorld = engine.createWorld(42);
+const trainingCenter = smokeWorld.structures.find(structure => structure.type === 'centro_militar'
+  && structure.kingdomId === smokeWorld.kingdoms[0].id && structure.complete);
+assert.ok(trainingCenter);
 const findings = [];
 let browser;
 let page;
@@ -41,9 +48,9 @@ try {
     || (process.platform === 'win32' ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : '');
   const launchOptions = { headless: true, args: ['--disable-gpu-sandbox'] };
   if (systemChrome && existsSync(systemChrome)) launchOptions.executablePath = systemChrome;
-  browser = await chromium.launch(launchOptions);
   for (const viewport of viewports) {
-    page = await browser.newPage({ viewport, deviceScaleFactor: 1, hasTouch: viewport.width <= 760 });
+    browser = await chromium.launch(launchOptions);
+    page = await browser.newPage({ viewport, deviceScaleFactor: 1, hasTouch: viewport.width <= 760, isMobile: viewport.width <= 760 });
     const issues = [];
     const errors = [];
     page.on('pageerror', error => errors.push(String(error)));
@@ -124,8 +131,8 @@ try {
         };
       });
       scenario.sample = sample;
-      assert.match(sample.calendarSkin, /paper\.(png|webp)/, 'Forja parchment calendar');
-      assert.match(sample.kingdomCardSkin, /paper\.(png|webp)/, 'Kingdom cards use the Forja parchment frame');
+      assert.match(sample.calendarSkin, /paper\.(png|webp)/, 'UI components parchment calendar');
+      assert.match(sample.kingdomCardSkin, /paper\.(png|webp)/, 'Kingdom cards use the UI components parchment frame');
       assert.ok(sample.worldWidth > 0 && sample.mapVisibleHeight > 200, 'live map unobstructed');
       assert.equal(sample.resourceMetricCount, 0, 'Top bar no longer shows realm resources or population totals');
       assert.equal(sample.calendarCount, 1, 'Top bar retains only the date and season');
@@ -159,8 +166,9 @@ try {
       assert.ok(sample.panelRibbons[0].centerHeight === Math.round(47 * .79 - 2)
         && sample.panelRibbons[0].headingOffset <= 6, 'Selection ribbon uses the short center and sits higher on the parchment');
       if (viewport.width <= 760) assert.ok(sample.topbarHeight <= 100, 'Mobile HUD should leave map height available');
-      scenario.checks.push('Forja sprites / map stage rendered');
+      scenario.checks.push('UI components sprites / map stage rendered');
       await page.screenshot({ path: resolve(directory, viewport.label + '-world.png'), timeout: 45_000 });
+      await page.evaluate(() => window.kingdomProfiler.enable({ panel: false }));
       const initialZoom = await page.locator('#mapZoomLevel').textContent();
       await page.locator('#mapZoomIn').click();
       await page.waitForFunction(previous => document.querySelector('#mapZoomLevel')?.textContent !== previous, initialZoom);
@@ -203,13 +211,19 @@ try {
         scenario.checks.push('Touch drag pans the map');
       }
       await page.locator('#mapZoomReset').click();
-      const knownCastlePoint = await page.evaluate(() => {
-        const stage = document.querySelector('.world-stage').getBoundingClientRect();
-        const zoom = 2;
-        const scale = Math.min(stage.width, stage.height) / 1024 * zoom;
-        return { x: stage.left + stage.width / 2 + (64.5 * 8 - 512) * scale,
-          y: stage.top + stage.height / 2 + (52.5 * 8 - 512) * scale };
-      });
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      const knownCastlePoint = await page.evaluate(({ width, target }) => {
+        const canvas = document.querySelector('#world').getBoundingClientRect();
+        const transform = window.kingdomProfiler.snapshot().context.cameraTransform;
+        const tileSize = 1024 / width;
+        const dpr = window.devicePixelRatio || 1;
+        return {
+          x: canvas.left + ((target.x + .5) * tileSize * transform[0] + transform[4]) / dpr,
+          y: canvas.top + ((target.y + .5) * tileSize * transform[3] + transform[5]) / dpr
+        };
+      }, { width: smokeWorld.width, target: { x: trainingCenter.x, y: trainingCenter.y } });
+      await page.evaluate(() => window.kingdomProfiler.disable());
+      scenario.target = knownCastlePoint;
       if (viewport.width <= 760) await page.touchscreen.tap(knownCastlePoint.x, knownCastlePoint.y);
       else await page.mouse.click(knownCastlePoint.x, knownCastlePoint.y);
       await page.waitForFunction(() => document.querySelector('#rightPanel')?.classList.contains('is-open'));
@@ -390,19 +404,23 @@ try {
       await page.waitForFunction(() => document.querySelector('#rightPanel')?.inert === true);
       scenario.checks.push('Selection inspector uses parchment and closes on outside click');
       assert.deepEqual(errors, [], 'JavaScript page errors');
-      assert.ok(!issues.some(x => /\/assets\/kingdom-ui\//.test(x)), 'Missing Forja UI assets');
+      assert.ok(!issues.some(x => /\/assets\/ui\//.test(x)), 'Missing UI components UI assets');
       await page.close(); page = undefined;
+      await browser.close(); browser = undefined;
     } catch (error) {
-      scenario.error = String(error);
-      scenario.document = await page.evaluate(() => ({
+      scenario.error = error.stack || String(error);
+      scenario.document = await page.evaluate(target => ({
         title: document.title,
+        inspectorTitle: document.querySelector('#inspectTitle')?.textContent,
+        inspectorOpen: document.querySelector('#rightPanel')?.classList.contains('is-open'),
+        elementAtTarget: target ? document.elementFromPoint(target.x, target.y)?.id : null,
         loading: document.getElementById('loadingMessage')?.textContent,
         loadingError: document.getElementById('loadingError')?.textContent,
         resources: document.getElementById('loadingResourceCount')?.textContent,
         appInert: document.querySelector('.app')?.inert,
         readyState: document.readyState,
         profiler: window.kingdomProfiler?.snapshot?.()?.map?.samples ?? null,
-      })).catch(e => ({ evaluateFailure: String(e) }));
+      }), scenario.target || null).catch(e => ({ evaluateFailure: String(e) }));
       await page.screenshot({ path: resolve(directory, viewport.label + '-failure.png'), timeout: 15_000 }).catch(() => {});
       console.error(viewport.label + ' ERROR:', scenario.error, JSON.stringify(scenario.document), JSON.stringify(errors));
       throw error;

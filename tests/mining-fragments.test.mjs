@@ -46,7 +46,7 @@ test('initial gold and stone site counts halve again to a quarter, deterministic
 test('every metal has its own six sprites and reserves variant one for ground fragments', () => {
   for (const kind of MINERAL_SPRITE_KINDS) {
     for (let variant = 1; variant <= 6; variant++)
-      assert.ok(existsSync(new URL('../public/assets/tiny-swords/minerals/' + kind + '-stone-' + variant + '.png', import.meta.url)));
+      assert.ok(existsSync(new URL('../public/assets/sprites/resources/minerals/' + kind + '-stone-' + variant + '.png', import.meta.url)));
     assert.equal(mineralDepositVariant(kind, .1), 2);
     assert.equal(mineralDepositVariant(kind, 100), 6);
   }

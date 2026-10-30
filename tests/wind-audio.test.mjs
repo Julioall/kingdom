@@ -5,7 +5,7 @@ import { createGameAudio, windGainAtZoom } from '../src/ui/game-audio.js';
 
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const sound = { id: 'effect_wind_ambience_01', loop_start_seconds: 2,
-  files: { mp3: 'audio/mp3/ambience/wind/effect_wind_ambience_01.mp3' } };
+  files: { mp3: 'ambience/wind/effect_wind_ambience_01.mp3' } };
 const manifest = { events: { wind_ambience: [sound.id] }, sounds: [sound] };
 
 function harness(decode = async () => ({ duration: 60 }), includeEffects = false, options = {}) {
@@ -237,12 +237,10 @@ test('a scheduled construction effect plays alongside wind and wind recovers aft
   assert.equal(wind.destination.gain.targets.at(-1), .7);
 });
 
-test('the wind event points to the imported MP3 in both audio manifests', async () => {
-  const root = new URL('../public/assets/sfx/', import.meta.url);
+test('the wind event points to the imported MP3 with both codec fallbacks in the active manifest', async () => {
+  const root = new URL('../public/assets/audio/sfx/', import.meta.url);
   const library = JSON.parse(await readFile(new URL('manifest.json', root), 'utf8'));
-  const events = JSON.parse(await readFile(new URL('audio_events.json', root), 'utf8'));
   assert.deepEqual(library.events.wind_ambience, [sound.id]);
-  assert.deepEqual(events.events.wind_ambience, [sound.id]);
   const entry = library.sounds.find(item => item.id === sound.id);
   assert.equal(entry.files.mp3, sound.files.mp3);
   await access(new URL(entry.files.mp3, root));

@@ -2,6 +2,8 @@
 
 Simulação de dois reinos, seus moradores, território e ecologia, executada no navegador.
 
+O padrão de organização e integração dos recursos está em [Arquitetura dos assets](docs/architecture/assets.md). Sprites, interface e áudio são separados pelo uso no jogo; `npm run assets:check` valida os arquivos registrados antes do build.
+
 ## Executar localmente
 
 ```sh

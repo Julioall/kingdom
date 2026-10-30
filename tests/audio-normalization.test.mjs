@@ -77,7 +77,7 @@ test('MP3 fallback uses the MP3 measurement instead of the OGG correction', asyn
 });
 
 test('all effects have finite measured corrections within peak and amplification limits; wind keeps its own mix', async () => {
-  const manifest = JSON.parse(await readFile(new URL('../public/assets/sfx/manifest.json', import.meta.url), 'utf8'));
+  const manifest = JSON.parse(await readFile(new URL('../public/assets/audio/sfx/manifest.json', import.meta.url), 'utf8'));
   let checked = 0;
   for (const sound of manifest.sounds) {
     if (sound.trigger === 'wind_ambience') {

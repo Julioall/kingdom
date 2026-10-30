@@ -47,9 +47,9 @@ Origem conferida: `SKILL.md` blob `f2681fb955143f96cb04bfa4f1cb09d6839b162a`.
 
 A primeira rodada preservava a identidade visual, mas não reaproveitava molduras do kit em novas superfícies. Esta revisão introduz `src/ui/styles/pixel-hud.css`, carregado após `main.css`, para aplicar uma estética pixel art concreta **sem alterar o canvas**.
 
-- **Slot de madeira** (`wood-slot.png`, Forja 9-slice): contadores de comida, riqueza, pessoas e estatísticas da barra superior.
-- **Papel** (`paper.png`, Forja 9-slice): calendário, seletores de reinos e cartões de dados do inspetor.
-- **Slot escuro** (`slot.png`, Forja 9-slice): aviso de risco alimentar com marca vermelha e mensagem legível.
+- **Slot de madeira** (`wood-slot.png`, componente 9-slice): contadores de comida, riqueza, pessoas e estatísticas da barra superior.
+- **Papel** (`paper.png`, componente 9-slice): calendário, seletores de reinos e cartões de dados do inspetor.
+- **Slot escuro** (`slot.png`, componente 9-slice): aviso de risco alimentar com marca vermelha e mensagem legível.
 - **Controles, pergaminhos e ícones**: preservados os botões pressionados/regulares, fitas, scrolls, imagens e cursores existentes. Texturas exibidas com `image-rendering:pixelated`.
 - **Responsividade e legibilidade**: espessuras da moldura e tipografia adaptadas ao HUD horizontal móvel; painéis e centro do mapa continuam sob demanda.
 
