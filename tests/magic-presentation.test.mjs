@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createMagicPresentation } from '../src/ui/magic/presentation.js';
 import { SPELL_VISUAL_STYLES } from '../src/ui/magic/spell-styles.js';
 import { SPELLS } from '../src/simulation/magic/catalog.js';
+import { DebuffSystem } from '../src/ui/magic/particle-runtime.js';
 
 const bounds = { minX: 0, minY: 0, maxX: 20, maxY: 20 };
 const effect = { id: 'slow', spellId: 'slow', expiresAt: 7000, color: '#687da7' };
@@ -124,8 +125,10 @@ test('rings end after activation while zone and character particles persist unti
   const persistent = view.instances();
   assert.equal(persistent.length, 2);
   assert.ok(persistent.every(instance => instance.config.particleOpacity > 0));
-  assert.ok(persistent.every(instance => instance.config.groundCount + instance.config.auraCount === 17));
-  assert.equal(view.stats().maxParticles, 1800);
+  assert.ok(persistent.every(instance => instance.config.groundCount + instance.config.auraCount === 26));
+  assert.ok(persistent.every(instance => instance.config.particleMotion === 'rise'
+    && instance.config.emissionStyle === 'flame' && instance.config.flameTurbulence === 1.1));
+  assert.equal(view.stats().maxParticles, 2700);
   world.magicTimeMs = 8000;
   view.sync(world, 8000); view.prepare(world, 8250, bounds, () => person);
   assert.equal(view.stats().effects, 0);
@@ -181,4 +184,33 @@ test('casting intensity increases toward completion and activation produces a fa
   view.prepare(world, 2700, bounds, () => person);
   assert.equal(burst.lightIntensity, 0);
   assert.equal(burst.ringOpacity, 0);
+});
+
+test('turbulent flames rise over time and reuse particle glyphs without leaking opacity', () => {
+  const previous = globalThis.document;
+  let images = 0;
+  const positions = [];
+  globalThis.document = { createElement() {
+    images++;
+    return { getContext: () => ({ scale() {}, fillRect() {} }) };
+  } };
+  const ctx = { globalAlpha: .6, imageSmoothingEnabled: false,
+    drawImage(canvas, x, y) { positions.push([x, y]); } };
+  try {
+    const system = new DebuffSystem();
+    system.apply(1, { particleMotion: 'rise', emissionStyle: 'flame', flameTurbulence: 1.1,
+      groundParticles: false, auraCount: 26, particleSize: 1,
+      colors: { main: '#135791', highlight: '#eeeeff', shadow: '#102030' } });
+    system.drawAura(ctx);
+    const before = positions.slice(); positions.length = 0;
+    system.update(.1); system.drawAura(ctx);
+    assert.ok(before.length > 0 && positions.length > 0);
+    assert.notDeepEqual(before, positions);
+    assert.ok(images < before.length + positions.length, 'moving flames reuse cached glyphs');
+    assert.equal(ctx.globalAlpha, .6);
+    assert.equal(ctx.imageSmoothingEnabled, false);
+  } finally {
+    if (previous === undefined) delete globalThis.document;
+    else globalThis.document = previous;
+  }
 });

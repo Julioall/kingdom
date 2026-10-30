@@ -13,7 +13,7 @@ const mix = (hex, amount) => '#' + hex.slice(1).match(/../g).map(part => {
   return Math.round(value + (amount > 0 ? 255 - value : value) * amount).toString(16).padStart(2, '0');
 }).join('');
 
-export function createMagicPresentation({ tileSize, maxParticles = 1800, maxEffects = 360 } = {}) {
+export function createMagicPresentation({ tileSize, maxParticles = 2700, maxEffects = 360 } = {}) {
   const system = new DebuffSystem(), entries = new Map(), indicatorConfigs = new Map(), styles = new Map();
   const visibleEntries = [], poseCache = new Map();
   let lastRenderAt = 0, particleCount = 0;
@@ -36,10 +36,10 @@ export function createMagicPresentation({ tileSize, maxParticles = 1800, maxEffe
           ringThickness: .375, magicPattern: data.circle,
           ringOpacity: data.circle ? .95 : 0,
           flatten: .53, rotationSpeed: profile.rotationSpeed, ringPulse: .04,
-          groundCount: data.circle ? 18 : 8, auraCount: data.circle ? 14 : 9,
+          groundCount: data.circle ? 27 : 12, auraCount: data.circle ? 21 : 14,
           particleSize: 1, auraHeight: tileSize * (data.circle ? 1.1 : 1.5),
-          particleSpeed: data.particleSpeed ?? 1, particleOpacity: .9, particleGlow: 0,
-          particleMotion: data.circle ? 'rise' : 'orbit', unifyParticles: false,
+          particleSpeed: data.particleSpeed ?? 1.2, particleOpacity: .9, particleGlow: 0,
+          particleMotion: 'rise', emissionStyle: 'flame', flameTurbulence: 1.1, unifyParticles: false,
           colors: { main: color, highlight: mix(color, .4), shadow: mix(color, -.65) },
           ...style, particleGlow: 0 });
         entry = { handle, ...data }; entries.set(key, entry);
@@ -128,9 +128,9 @@ export function createMagicPresentation({ tileSize, maxParticles = 1800, maxEffe
     for (const entry of visibleEntries) {
       const config = system.effects.get(entry.handle).config;
       const style = styles.get(entry.spellId) || {};
-      const wanted = Math.min(60, Math.max(0, style.particleCount ?? (entry.circle ? 32 : 17)));
+      const wanted = Math.min(60, Math.max(0, style.particleCount ?? (entry.circle ? 48 : 26)));
       const granted = Math.min(wanted, perEffect);
-      config.groundCount = Math.min(entry.circle ? 18 : 8, granted);
+      config.groundCount = Math.min(entry.circle ? 27 : 12, granted);
       config.auraCount = granted - config.groundCount;
       particleCount += granted;
     }

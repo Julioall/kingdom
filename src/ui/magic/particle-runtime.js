@@ -51,11 +51,34 @@
  // raster for VFX instead of rounding every detail to an entire map pixel.
  const raster=x=>Math.round(x*24)/24;
  function drawBlock(ctx,x,y,w,h,color){ctx.fillStyle=color;ctx.fillRect(raster(x),raster(y),Math.max(1/24,raster(w)),Math.max(1/24,raster(h)))}
+ const particleImages=new Map();
  function drawParticle(ctx,x,y,s,kind,pal,alpha){
   if(alpha<.012)return;
   // Eighth-size particles, including outlines and highlights. Reducing only the
   // central size left the old one-map-pixel padding dominating the whole shape.
   s=Math.max(1/24,Math.round(s*3)/24);
+  // Tiny particles share cached glyphs. Applying opacity at draw time avoids
+  // repainting their outline, core and highlight for every particle/frame.
+  if(typeof document!=='undefined'&&ctx.drawImage&&Number.isFinite(ctx.globalAlpha)){
+   const key=[kind,s,pal.main,pal.highlight,pal.shadow].join(':');
+   let image=particleImages.get(key);
+   if(!image){
+    const margin=Math.max(s,.125)+.125,resolution=24;
+    const canvas=document.createElement('canvas');canvas.width=canvas.height=Math.ceil((margin*2+s*3+.125)*resolution);
+    const context=canvas.getContext('2d');context.scale(resolution,resolution);
+    drawParticlePixels(context,margin,margin,s,kind,pal,1);
+    image={canvas,margin,size:canvas.width/resolution};
+    if(particleImages.size>=256)particleImages.delete(particleImages.keys().next().value);
+    particleImages.set(key,image);
+   }
+   const opacity=ctx.globalAlpha,smoothing=ctx.imageSmoothingEnabled;
+   ctx.globalAlpha=opacity*alpha;ctx.imageSmoothingEnabled=true;
+   ctx.drawImage(image.canvas,x-image.margin,y-image.margin,image.size,image.size);
+   ctx.globalAlpha=opacity;ctx.imageSmoothingEnabled=smoothing;return;
+  }
+  drawParticlePixels(ctx,x,y,s,kind,pal,alpha);
+ }
+ function drawParticlePixels(ctx,x,y,s,kind,pal,alpha){
   const pixel=.125,detail=1/24;
   const dark=rgba(pal.shadow,alpha),main=rgba(pal.main,alpha),light=rgba(pal.highlight,alpha);
   if(kind==='spark'){
@@ -220,9 +243,11 @@
    const upward=c.auraHeight*c.scale*(isGround?.65:1);
    const swell=Math.sin(PI*v);
    const turbulence=isFire?c.flameTurbulence:0.22;
-   const sway=Math.sin(t*5.7+i*2.8)*turbulence*5*c.scale*(.2+v);
-   const x=cx+p.x+sway;
-   const y=cy+p.y-upward*v;
+   const wave=Math.sin(t*5.7+i*2.8)+Math.sin(t*9.1+i*1.7+v*TAU)*.35;
+   const sway=wave*turbulence*Math.min(5*c.scale,Math.max(.5,r*.22))*(.2+v);
+   const spread=isFire?1-v*.55:1;
+   const x=cx+p.x*spread+sway;
+   const y=cy+p.y*spread-upward*v+(isFire?Math.sin(t*7.3+i*3.1)*turbulence*v*.3*c.scale:0);
    const alpha=c.particleOpacity*(isFire?Math.pow(swell,.95):Math.pow(swell,.7));
    const shape=c.unifyParticles?c.particleShape:(isGround?c.groundParticleShape:c.auraParticleShape);
    const sz=c.particleSize*c.scale*(i%9===0?1.3:1)*(isFire?(1-v*.78):1);

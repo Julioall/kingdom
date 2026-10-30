@@ -11,6 +11,12 @@ Atualiza a implementação inicial descrita em `priest-tactical-magic-20261030.m
 - Partículas mantêm o tamanho reduzido das iterações anteriores. O último ajuste aumenta a grade de detalhe de 16 para 24 amostras por unidade e os níveis de transparência de 32 para 48, preservando o tamanho. Quantidade desejada: 21 → 32 em círculos, 11 → 17 em personagens/zonas; orçamento global 1.200 → 1.800, dividido entre emissores visíveis.
 - Selos são rasterizados a 8× e reutilizados em cache limitado a 64 imagens/16 milhões de pixels. A filtragem na redução preserva as linhas finas, sem aplicar blur ao mapa ou aos sprites.
 
+### Ajuste posterior: chamas e turbulência
+
+A pedido do usuário, círculos e personagens passaram a emitir partículas ascendentes em modo `flame`, com turbulência 1,1 e duas ondas sobrepostas. A dispersão converge gradualmente no alto; cada partícula diminui e desaparece ao subir. O tamanho-base reduzido foi preservado. Quantidade desejada: 48 por círculo e 26 por personagem/zona; orçamento global 2.700. Glifos de partículas são reutilizados em cache de até 256 imagens, com transparência aplicada no desenho.
+
+Os dez testes de apresentação e o TypeScript passaram. Nova execução visual com 100 soldados não apresentou erros de página, mas mediu aproximadamente 24 renderizações/s e p95 do mapa de 51,5 ms. O aumento de densidade não é anunciado como melhoria de desempenho; o cenário de batalha continua pesado nesta máquina. Dados atuais em `visual-report.json`.
+
 ## Validação
 
 57 testes focados passaram (magias, apresentação, integração com armas e controles), mais TypeScript. Incluem área fixa, animação na preparação/finalização, expiração sem círculo, partículas persistentes, 16 perfis distintos e orçamento de emissão. A suíte completa de 519 testes registrada no relatório inicial é uma medição anterior; não foi repetida para cada ajuste visual.
