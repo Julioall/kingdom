@@ -4,7 +4,8 @@ import { moveOne } from '../individuals/movement.js';
 import { consumePersonEnergy } from '../individuals/energy.js';
 import { isOperationalMilitarySource } from './military-sources.js';
 
-export const MILITARY_ACTIONS = ['guard', 'patrol', 'train', 'campaign', 'drink', 'rest', 'return_garrison'];
+import { MILITARY_ACTIONS } from '../../ai/policy/action-catalog.js';
+export { MILITARY_ACTIONS };
 
 const fitForTraining = p => p.alive && p.role === 'soldier' && p.campaignId == null
   && !p.militaryReturningHome && !p.towerDutyId && !p.towerMounted && !p.tacticalRecovering
