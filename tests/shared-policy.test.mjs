@@ -119,3 +119,25 @@ test('explicit legacy mode remains available and has independently trained matri
   updateBrain(a, .7);
   assert.notDeepEqual(a.brain.outputWeights, initialWeights);
 });
+
+test('legacy brains can be migrated to shared mode and back without losing personal learning', () => {
+  const w = world(77, 'legacy');
+  const npc = person(w, 33);
+  npc.brain.actionValues[7] = .65;
+  npc.brain.baseline = .12;
+  const initialRng = w.rngState;
+  w.neuralOverrides.neuralController = 'shared';
+  const utility = PEOPLE_ACTIONS.map(action => action === 'build' ? 2 : -1e9);
+  assert.equal(choosePeopleAction(w, npc, inputs(), utility), 'build');
+  assert.equal(npc.brain.mode, 'shared');
+  assert.ok(!('inputWeights' in npc.brain));
+  assert.ok(!('outputWeights' in npc.brain));
+  assert.equal(npc.brain.actionValues[7], .65);
+  assert.equal(npc.brain.baseline, .12);
+  assert.equal(w.rngState, initialRng, 'migration should not advance simulation RNG');
+  w.neuralOverrides.neuralController = 'legacy';
+  choosePeopleAction(w, npc, inputs(), utility);
+  assert.ok(npc.brain.inputWeights.length > 0);
+  assert.ok(npc.brain.outputWeights.length > 0);
+  assert.equal(npc.brain.actionValues[7], .65);
+});
