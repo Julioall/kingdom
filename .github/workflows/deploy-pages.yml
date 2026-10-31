@@ -1,0 +1,58 @@
+name: Deploy Kingdom to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: kingdom-github-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build and publish Kingdom
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production game
+        run: npm run build
+        env:
+          GITHUB_PAGES_BASE: /kingdom/
+
+      - name: Prepare project-relative asset URLs
+        run: node scripts/prepare-pages.mjs
+        env:
+          GITHUB_PAGES_BASE: /kingdom/
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload static game
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+      - name: Publish GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
