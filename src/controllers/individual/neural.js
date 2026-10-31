@@ -1,5 +1,6 @@
 import { forwardSharedPolicy, sharedPolicyEnabled } from '../../ai/policy/shared-policy.js';
 import { MILITARY_ACTIONS, ROYAL_SITING_STRATEGIES } from '../../ai/policy/action-catalog.js';
+import { cognitiveActionBias, ensureCognitiveState, recordCognitiveOutcome } from '../../ai/policy/individual-state.js';
 import { ANIMAL_ACTIONS, HIDDEN_NEURONS, PEOPLE_ACTIONS, RULER_HIDDEN_NEURONS } from '../../config/ecosystem.js';
 import { rand } from '../../simulation/core/random.js';
 import { clamp, hash01 } from '../../simulation/core/math.js';
@@ -141,6 +142,7 @@ export function choosePeopleAction(w, p, inputs, utility) {
     const brain = p.brain;
     const rulesOnly = isCitizen && w.neuralOverrides?.peopleController === 'rules';
     const shared = brain.mode === 'shared' && sharedPolicyEnabled(w);
+    if (shared) ensureCognitiveState(w, p);
     const allowed = utility.map(value => Number.isFinite(value) && value > -1e8);
     const out = rulesOnly
       ? { hidden: [], probs: [], logits: Array(PEOPLE_ACTIONS.length).fill(0) }
@@ -152,7 +154,8 @@ export function choosePeopleAction(w, p, inputs, utility) {
     for (let i = 0; i < PEOPLE_ACTIONS.length; i++) {
       const strategyBias = plan && plan.action === PEOPLE_ACTIONS[i] && utility[i] > -.1
         ? .12 + clamp(plan.confidence || .5, 0, 1) * .22 : 0;
-      const score = utility[i] + out.logits[i] * .2 + (rulesOnly ? 0 : (brain.actionValues[i] || 0) * .18) + strategyBias;
+      const score = utility[i] + out.logits[i] * .2 + (rulesOnly ? 0 : (brain.actionValues[i] || 0) * .18)
+        + strategyBias + (shared ? cognitiveActionBias(p, PEOPLE_ACTIONS[i]) : 0);
       scores.push(score);
       if (score > bestScore) { best = i; bestScore = score; }
     }
@@ -186,6 +189,12 @@ export function updateBrain(p, reward) {
     b.baseline = b.baseline * .94 + reward * .06;
     b.rewardMean = b.rewardMean * .91 + reward * .09;
     b.updates++; p.lastReward = reward; b.pending = null;
+    if (b.mode === 'shared' && p.cognitiveState) {
+      recordCognitiveOutcome(p, {
+        day: p.lastDecision?.day || 0, domain: 'people',
+        action: p.lastDecision?.action || b.lastAction, reward
+      });
+    }
     if (p.lastLesson === 'Ainda está aprendendo com o ambiente.' || !p.lastLesson) {
       p.lastLesson = reward > .12 ? 'A ação trouxe um benefício observável.' : reward < -.12 ? 'A ação teve custo sem atender uma necessidade.' : 'O resultado foi pequeno; ainda precisa comparar alternativas.';
     }
