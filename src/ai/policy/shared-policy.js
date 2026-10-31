@@ -1,5 +1,6 @@
 import { ANIMAL_ACTIONS, PEOPLE_ACTIONS, PEOPLE_INPUTS } from '../../config/ecosystem.js';
 import { MILITARY_ACTIONS, ROYAL_SITING_STRATEGIES } from './action-catalog.js';
+import { cognitiveMemoryFeatures, cognitiveTemperamentFeatures } from './individual-state.js';
 
 // Runtime policies live in WeakMaps, never on the serialized world or an actor.
 // The human model is shared across civilian, worker, military, general and king.
@@ -14,7 +15,7 @@ export const HUMAN_POLICY_ACTIONS = Object.freeze([
   ...MILITARY_ACTIONS.map(action => 'military:' + action),
   ...ROYAL_SITING_STRATEGIES.map(action => 'royal:' + action)
 ]);
-const EXTRA_FEATURES = 8;
+const EXTRA_FEATURES = 16;
 const HUMAN_INPUT_SIZE = PEOPLE_INPUTS + COGNITIVE_ROLES.length + EXTRA_FEATURES;
 const HIDDEN_WIDTHS = new Set([24, 32, 64, 128, 256]);
 
@@ -174,9 +175,9 @@ export function actorObservation(world, actor, inputs, domain = 'people', allowe
     Float32Array.from(COGNITIVE_ROLES, candidate => Number(role === candidate));
   const personalityFeatures = isAnimal ? new Float32Array(0) :
     Float32Array.from([finite(actor.sociability), finite(actor.trust), finite(actor.loyalty),
-      finite(actor.physicalStrength), finite(actor.skills?.build), finite(actor.skills?.diplomacy)]);
-  const memoryFeatures = isAnimal ? new Float32Array(0) :
-    Float32Array.from([finite(actor.lastReward), Math.min(1, (actor.personalMemory?.length || 0) / 32)]);
+      finite(actor.physicalStrength), finite(actor.skills?.build), finite(actor.skills?.diplomacy),
+      ...cognitiveTemperamentFeatures(actor)]);
+  const memoryFeatures = isAnimal ? new Float32Array(0) : cognitiveMemoryFeatures(actor);
   return {
     actor: { actorId: actor.id, role, kingdomId: actor.kingdomId ?? null,
       communityId: actor.communityId ?? null },

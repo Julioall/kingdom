@@ -31,7 +31,7 @@ test('one deterministic human policy bank is shared by every role without actor 
   assert.equal(cognitiveRole(king), 'king');
   const policy = getSharedPolicy(w, 'human');
   assert.strictEqual(policy, getSharedPolicy(w, 'human'));
-  assert.equal(policy.spec.layerWidths[0], 31);
+  assert.equal(policy.spec.layerWidths[0], 39);
   assert.deepEqual(policy.spec.actionIds, HUMAN_POLICY_ACTIONS);
   assert.ok(policy.spec.weights instanceof Float32Array);
   assert.ok(policy.spec.weights.length > 1000);

@@ -46,31 +46,32 @@ export type AgentBelief = {
   expiresAtDay: number | null;
 };
 
-/** Bounded episodic records; compaction policy is defined in JUL-272. */
+/** Compact outcomes are self-observed and exclude other actors' secrets. */
 export type MemoryEpisode = {
   eventId: string;
+  source: 'self';
   day: number;
-  importance: number;
-  valence: number;
-  peopleIds: number[];
-  location: { x: number; y: number } | null;
-  tags: string[];
+  domain: 'people' | 'military' | 'royal';
+  action: string;
+  reward: number;
 };
 
-/** Persisted, per-actor state. Never embeds complete dense policy weights. */
+/** Persisted on the actor as cognitiveState; no policy weights or duplicated
+ * social evidence. Existing socialMemories/socialBeliefs/socialIntentions and
+ * brain.actionValues remain the owner-specific source of truth.
+ */
 export type AgentCognitiveState = {
   schemaVersion: 1;
-  identity: ActorIdentity;
-  personality: Float32Array;
-  preferences: Float32Array;
-  goals: string[];
+  actorId: number;
+  temperament: {
+    curiosity: number;
+    caution: number;
+    altruism: number;
+    persistence: number;
+  };
   episodes: MemoryEpisode[];
-  beliefs: AgentBelief[];
-  /** Actor-specific learned preferences, indexed by actionId, not global weights. */
-  actionBias: Float32Array;
-  latentState: Float32Array;
-  rewardBaseline: number;
-  lastDecisionDay: number;
+  summary: { positive: number; negative: number; discarded: number };
+  nextEpisodeSequence: number;
 };
 
 /**

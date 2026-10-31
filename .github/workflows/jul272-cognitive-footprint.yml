@@ -1,0 +1,29 @@
+name: "JUL-272 — Cognitive state footprint"
+on:
+  push:
+    branches:
+      - feat/jul272-individual-cognitive-state
+permissions:
+  contents: read
+jobs:
+  cognition:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - name: Measure serialized cognitive state and CPU
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node scripts/benchmark-jul272-cognition.mjs out/jul272-cognition.json | tee out/jul272-cognition.txt
+      - name: Store measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jul272-cognitive-footprint
+          path: out/
+          if-no-files-found: warn

@@ -1,5 +1,6 @@
 import { brainForward, createBrain, ensureBrainSize, updateBrain } from '../../controllers/individual/neural.js';
 import { forwardSharedPolicy, sharedPolicyEnabled } from '../../ai/policy/shared-policy.js';
+import { cognitiveActionBias, ensureCognitiveState, recordCognitiveOutcome } from '../../ai/policy/individual-state.js';
 import { clamp, distance } from '../core/math.js';
 import { moveOne } from '../individuals/movement.js';
 import { consumePersonEnergy } from '../individuals/energy.js';
@@ -46,12 +47,14 @@ export function chooseMilitaryAction(world, person, options) {
     : options.thirst ? { drink: 1 } : { guard: .28, ...(person.energy < 70 ? { rest: .25 + (70 - person.energy) * .015 } : {}), ...(options.patrol ? { patrol: .48 } : {}),
       ...(options.training ? { train: .65 + (1 - (person.militaryTraining || 0)) * .2 } : {}) };
   const shared = brain.mode === 'shared' && sharedPolicyEnabled(world);
+  if (shared) ensureCognitiveState(world, person);
   const mask = MILITARY_ACTIONS.map(action => utility[action] != null);
   const out = shared
     ? forwardSharedPolicy(world, person, inputs, 'military', mask)
     : brainForward(brain, inputs, MILITARY_ACTIONS);
   const scores = MILITARY_ACTIONS.map((action, i) => utility[action] == null ? -1e9
-    : utility[action] + out.logits[i] * .25 + (brain.actionValues[i] || 0) * .15);
+    : utility[action] + out.logits[i] * .25 + (brain.actionValues[i] || 0) * .15
+      + (shared ? cognitiveActionBias(person, action, 'military') : 0));
   const best = scores.indexOf(Math.max(...scores));
   const maxLogit = Math.max(...out.logits.filter((_, i) => utility[MILITARY_ACTIONS[i]] != null));
   const weights = out.logits.map((v, i) => utility[MILITARY_ACTIONS[i]] == null ? 0 : Math.exp(v - maxLogit));
@@ -68,9 +71,16 @@ export function chooseMilitaryAction(world, person, options) {
 
 export function learnMilitaryOutcome(person, reward) {
   if (!person.militaryBrain?.pending) return;
+  const chosenIndex = person.militaryBrain.pending.actionIndex;
   const sample = { brain: person.militaryBrain, lastLesson: person.lastLesson };
   updateBrain(sample, clamp(reward, -.8, .8));
   person.lastReward = sample.lastReward;
+  if (person.militaryBrain.mode === 'shared') {
+    recordCognitiveOutcome(person, {
+      domain: 'military', day: person.lastDecision?.day || 0,
+      action: MILITARY_ACTIONS[chosenIndex], reward
+    });
+  }
 }
 
 export function trainMilitaryPair(world, person, session) {
