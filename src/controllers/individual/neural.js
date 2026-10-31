@@ -11,6 +11,7 @@ export function createBrain(w, actions, inputSize, entityId, requestedHiddenSize
       // shared policy bank, never to individual NPCs or animals.
       return {
         mode: 'shared', schemaVersion: 1, inputSize: inputSize || 6, actionCount: actions.length,
+        hiddenSize: actions === ANIMAL_ACTIONS ? 16 : Number(w.neuralOverrides?.sharedHiddenSize || 24),
         learningRate: .027, actionValues: Array(actions.length).fill(0),
         actionCounts: Object.fromEntries(actions.map(action => [action, 0])),
         baseline: 0, rewardMean: 0, decisions: 0, updates: 0,
@@ -35,6 +36,18 @@ export function createBrain(w, actions, inputSize, entityId, requestedHiddenSize
 export function ensureBrainSize(w, entity, requestedHiddenSize) {
     const brain = entity && entity.brain;
     if (!brain) return false;
+    if (sharedPolicyEnabled(w) && brain.mode !== 'shared') {
+      // Upgrade legacy save/fixture brains lazily, preserving learned personal
+      // preferences/counters while discarding the old per-actor dense weights.
+      const actions = brain.actionCount === ANIMAL_ACTIONS.length ? ANIMAL_ACTIONS
+        : brain.actionCount === MILITARY_ACTIONS.length ? MILITARY_ACTIONS : PEOPLE_ACTIONS;
+      const compact = createBrain(w, actions, brain.inputSize, entity.id);
+      for (const key of ['actionValues', 'actionCounts', 'baseline', 'rewardMean', 'decisions', 'updates', 'lastAction']) {
+        if (brain[key] !== undefined) compact[key] = brain[key];
+      }
+      entity.brain = compact;
+      return true;
+    }
     if (brain.mode === 'shared') {
       if (sharedPolicyEnabled(w)) return false;
       // Explicit legacy fallback can be activated mid-world. Restore
