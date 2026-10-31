@@ -431,7 +431,9 @@ export function resourceCollisionIndex(world) {
     if (mineral && (mineral.resourceKind === 'gold' || mineral.resourceKind === 'stone'))
       hitboxes.push(mineral);
   }
-  const signature = 'resources:' + revision + ':' + hitboxSignature(hitboxes);
+  // Resources are already invalidated by navigationRevision and tile identity.
+  // Avoid re-encoding thousands of hitboxes after every resource mutation.
+  const signature = 'resources:' + revision;
   const result = { ...spatialIndex(world, hitboxes, signature), revision, tiles: world.tiles };
   resourceIndexCache.set(world, result);
   return result;
