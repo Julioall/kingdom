@@ -3,3 +3,7 @@
 export const MILITARY_ACTIONS = Object.freeze([
   'guard', 'patrol', 'train', 'campaign', 'drink', 'rest', 'return_garrison'
 ]);
+
+export const ROYAL_SITING_STRATEGIES = Object.freeze([
+  'defensive', 'balanced', 'expansion', 'left-flank', 'right-flank'
+]);
