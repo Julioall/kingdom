@@ -47,6 +47,7 @@ jobs:
         env:
           SOURCE_COMMIT: ${{ matrix.source.ref }}
         run: |
+          set -euo pipefail
           mkdir -p out
           cp bench/scripts/benchmark-jul269-baseline.mjs source/scripts/benchmark-jul269-baseline.mjs
           cd source
