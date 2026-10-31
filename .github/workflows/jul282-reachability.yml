@@ -1,0 +1,110 @@
+name: "JUL-282 — Deterministic reachable-area A/B"
+on:
+  push:
+    branches:
+      - perf/jul282-bounded-reachable-area
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - name: Checkout unchanged dev baseline
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: 46cc1a8d735e6634ebfac56feb5908d30eee7aba
+          path: baseline
+
+      - name: Checkout candidate optimization
+        uses: actions/checkout@v7.0.1
+        with:
+          path: candidate
+
+      - name: Use Node 24
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+
+      - name: Replay same seeds on baseline and candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node baseline/scripts/benchmark-simulation.mjs --days=24 --warmup=4 --repeats=1 --seeds=1,42,2026 --output=out/baseline.json > out/baseline.txt
+          node candidate/scripts/benchmark-simulation.mjs --days=24 --warmup=4 --repeats=1 --seeds=1,42,2026 --output=out/candidate.json > out/candidate.txt
+          node --input-type=commonjs -e '
+            const fs = require("node:fs");
+            const original = JSON.parse(fs.readFileSync("out/baseline.json", "utf8"));
+            const candidate = JSON.parse(fs.readFileSync("out/candidate.json", "utf8"));
+            const measures = [];
+            for (const a of original.results) {
+              const b = candidate.results.find(x => x.seed === a.seed && x.repeat === a.repeat);
+              if (!b) throw Error("Missing candidate seed " + a.seed);
+              if (a.stateDigest !== b.stateDigest) throw Error("Changed deterministic world state for seed " + a.seed);
+              const changePct = 100 * (a.meanDayMs - b.meanDayMs) / a.meanDayMs;
+              measures.push({ seed: a.seed, stateDigestMatch: true,
+                baselineMeanDayMs: a.meanDayMs, candidateMeanDayMs: b.meanDayMs,
+                candidateFasterPercent: +changePct.toFixed(2) });
+            }
+            const report = { schema: 1, commit: process.env.GITHUB_SHA,
+              baseline: "dev@46cc1a8", hardware: "GitHub runner (not player hardware)",
+              deterministic: true, measures };
+            fs.writeFileSync("out/comparison.json", JSON.stringify(report, null, 2));
+            console.log(JSON.stringify(report, null, 2));
+          ' | tee out/comparison.txt
+
+      - name: Compare reachable-area result order on real world fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp candidate/scripts/jul282-check-reachability.mjs baseline/scripts/jul282-check-reachability.mjs
+          SOURCE_COMMIT=legacy node baseline/scripts/jul282-check-reachability.mjs out/reachability-baseline.json
+          SOURCE_COMMIT=candidate node candidate/scripts/jul282-check-reachability.mjs out/reachability-candidate.json
+          node --input-type=commonjs -e '
+            const fs = require("node:fs");
+            const before = JSON.parse(fs.readFileSync("out/reachability-baseline.json", "utf8"));
+            const after = JSON.parse(fs.readFileSync("out/reachability-candidate.json", "utf8"));
+            if (before.cases.length !== after.cases.length || !before.cases.length)
+              throw new Error("Missing reachability cases");
+            const cases = [];
+            for (let i = 0; i < before.cases.length; i++) {
+              const a = before.cases[i], b = after.cases[i];
+              if (a.seed !== b.seed || a.agentId !== b.agentId || a.radius !== b.radius
+                || a.tileCount !== b.tileCount || a.orderedDigest !== b.orderedDigest)
+                throw Error("Reachability mismatch at case " + i + ": " + JSON.stringify({a,b}));
+              cases.push({seed:a.seed,agentId:a.agentId,role:a.role,radius:a.radius,
+                tiles:a.tileCount,baselineMs:a.durationMs,candidateMs:b.durationMs});
+            }
+            const output = {matching:true,casesCount:cases.length,
+              rawTotalBeforeMs:cases.reduce((n,c)=>n+c.baselineMs,0),
+              rawTotalAfterMs:cases.reduce((n,c)=>n+c.candidateMs,0),cases};
+            fs.writeFileSync("out/reachability-comparison.json", JSON.stringify(output, null, 2));
+            console.log(JSON.stringify({matching:output.matching,casesCount:cases.length,
+              rawTotalBeforeMs:output.rawTotalBeforeMs,rawTotalAfterMs:output.rawTotalAfterMs}, null, 2));
+          ' | tee out/reachability-comparison.txt
+
+      - name: Collect candidate CPU profile
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --cpu-prof --cpu-prof-dir=out --cpu-prof-name=jul282-candidate.cpuprofile candidate/scripts/benchmark-simulation.mjs --days=24 --warmup=4 --repeats=1 --seeds=42 --output=out/candidate-profile-run.json > out/candidate-profile-run.txt
+
+      - name: Upload deterministic A/B and profile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jul282-reachability-ab
+          path: out/
+          if-no-files-found: warn
+
+      - name: Summarize
+        if: always()
+        shell: bash
+        run: |
+          echo "### JUL-282 — bounded reachable-area optimization" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f out/comparison.txt ]; then
+            cat out/comparison.txt >> "$GITHUB_STEP_SUMMARY"
+          fi
