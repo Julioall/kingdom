@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { PEOPLE_ACTIONS } from '../src/config/ecosystem.js';
 import { createBrain, choosePeopleAction, updateBrain, ensureBrainSize } from '../src/controllers/individual/neural.js';
 import { forwardSharedPolicy, getSharedPolicy } from '../src/ai/policy/shared-policy.js';
+import { selectRoyalBuildSite, recordRoyalSitingOutcome } from '../src/simulation/kingdoms/royal-siting.js';
 import {
   createCognitiveState, ensureCognitiveState, recordCognitiveOutcome,
   cognitiveActionBias, cognitiveMemoryFeatures, cognitiveTemperamentFeatures,
@@ -141,4 +142,36 @@ test('unknown future schema and foreign actor memories are never adopted or over
   a.cognitiveState=future;
   assert.equal(ensureCognitiveState(w,a),null);
   assert.deepEqual(a.cognitiveState,future);
+});
+
+test('succession never grants a new king the preceding ruler\'s private royal decisions',()=>{
+  const w={...world(),people:[],tiles:Array(100),kingdoms:[]};
+  const oldKing=human(w,51), newKing=human(w,52);
+  oldKing.role='ruler';newKing.role='ruler';
+  w.people.push(oldKing,newKing);
+  const kingdom={id:1,rulerId:51,treasury:{stock:{wood:120,stone:90}},
+    territoryTileCount:35,frontierLosses:[]};
+  w.kingdoms=[kingdom];
+  const candidates=['defensive','balanced'].map((strategy,i)=>({
+    strategy,label:strategy,tile:{x:5+i,y:6+i},reason:'fixture',
+    quality:.5,metrics:{risk:.2,access:.5}
+  }));
+  const first=selectRoyalBuildSite(w,kingdom,'torre',candidates);
+  kingdom.royalSitingBrain=first.brain;
+  kingdom.royalSitingBrainOwnerId=51;
+  oldKing.royalSitingBrain=first.brain;
+  oldKing.royalSitingBrain.actionValues[0]=.5;
+  kingdom.rulerId=52;
+  const successor=selectRoyalBuildSite(w,kingdom,'torre',candidates);
+  assert.notStrictEqual(successor.brain,oldKing.royalSitingBrain);
+  assert.equal(successor.brain.actionValues[0],0);
+  newKing.royalSitingBrain=successor.brain;
+  kingdom.royalSitingBrain=successor.brain;
+  kingdom.royalSitingBrainOwnerId=52;
+  const structure={id:70,createdDay:0,required:1,sitingDecision:first.decision};
+  recordRoyalSitingOutcome(w,structure,'completed',30);
+  assert.equal(oldKing.cognitiveState.episodes.length,1);
+  assert.equal(oldKing.cognitiveState.episodes[0].domain,'royal');
+  assert.equal(newKing.cognitiveState.episodes.length,0);
+  assert.equal(structure.sitingOutcomes.completed,30);
 });
