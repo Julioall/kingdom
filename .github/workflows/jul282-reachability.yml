@@ -56,6 +56,36 @@ jobs:
             console.log(JSON.stringify(report, null, 2));
           ' | tee out/comparison.txt
 
+      - name: Compare reachable-area result order on real world fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp candidate/scripts/jul282-check-reachability.mjs baseline/scripts/jul282-check-reachability.mjs
+          SOURCE_COMMIT=legacy node baseline/scripts/jul282-check-reachability.mjs out/reachability-baseline.json
+          SOURCE_COMMIT=candidate node candidate/scripts/jul282-check-reachability.mjs out/reachability-candidate.json
+          node --input-type=commonjs -e '
+            const fs = require("node:fs");
+            const before = JSON.parse(fs.readFileSync("out/reachability-baseline.json", "utf8"));
+            const after = JSON.parse(fs.readFileSync("out/reachability-candidate.json", "utf8"));
+            if (before.cases.length !== after.cases.length || !before.cases.length)
+              throw new Error("Missing reachability cases");
+            const cases = [];
+            for (let i = 0; i < before.cases.length; i++) {
+              const a = before.cases[i], b = after.cases[i];
+              if (a.seed !== b.seed || a.agentId !== b.agentId || a.radius !== b.radius
+                || a.tileCount !== b.tileCount || a.orderedDigest !== b.orderedDigest)
+                throw Error("Reachability mismatch at case " + i + ": " + JSON.stringify({a,b}));
+              cases.push({seed:a.seed,agentId:a.agentId,role:a.role,radius:a.radius,
+                tiles:a.tileCount,baselineMs:a.durationMs,candidateMs:b.durationMs});
+            }
+            const output = {matching:true,casesCount:cases.length,
+              rawTotalBeforeMs:cases.reduce((n,c)=>n+c.baselineMs,0),
+              rawTotalAfterMs:cases.reduce((n,c)=>n+c.candidateMs,0),cases};
+            fs.writeFileSync("out/reachability-comparison.json", JSON.stringify(output, null, 2));
+            console.log(JSON.stringify({matching:output.matching,casesCount:cases.length,
+              rawTotalBeforeMs:output.rawTotalBeforeMs,rawTotalAfterMs:output.rawTotalAfterMs}, null, 2));
+          ' | tee out/reachability-comparison.txt
+
       - name: Collect candidate CPU profile
         shell: bash
         run: |
