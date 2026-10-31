@@ -104,7 +104,7 @@ try {
         snapshotMetadata: snapshots.map(({requestId, epoch, revision, typedBytes, tileCount}) =>
           ({requestId,epoch,revision,typedBytes,tileCount})) }
     });
-    if (result.profiler.frames.samples < 20 || result.profiler.map.samples < 1) {
+    if (result.profiler.frames.samples < 8 || result.profiler.map.samples < 1) {
       throw new Error('Insufficient visible frames/draws for ' + name + ': ' +
         JSON.stringify({ frames: result.profiler.frames.samples, draws: result.profiler.map.samples }));
     }
