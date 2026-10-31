@@ -1,0 +1,56 @@
+name: "JUL-269 — Browser render and Worker baseline"
+on:
+  push:
+    branches:
+      - bench/jul269-baseline-20261031
+
+permissions:
+  contents: read
+
+jobs:
+  chromium:
+    name: "Chromium frame/transport measurements"
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Checkout diagnostic branch
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install headless Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Measure render profiler and Worker round-trips
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node scripts/benchmark-jul269-browser.mjs --seed=42 --duration=6500 --output=out/jul269-browser.json | tee out/jul269-browser.txt
+
+      - name: Publish concise report
+        if: always()
+        shell: bash
+        run: |
+          echo '### JUL-269 — Browser baseline' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Host: GitHub Actions Linux headless Chromium; these numbers are NOT gaming PC FPS.' >> "$GITHUB_STEP_SUMMARY"
+          if [ -f out/jul269-browser.txt ]; then
+            echo 'JSON report available in the run artifact.' >> "$GITHUB_STEP_SUMMARY"
+            cat out/jul269-browser.txt >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload raw browser report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jul269-browser-baseline
+          path: out/
+          if-no-files-found: warn
