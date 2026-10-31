@@ -24,6 +24,7 @@ import { changePersonHealth, killPerson, reproducePeople, updateDependent } from
 import Senses from './perception.js';
 import { ensureFoodAidPlan, findTradePartner, performShare, performTrade, resolveFoodAidRequest } from '../economy/trade.js';
 import { choosePeopleAction, updateBrain } from '../../controllers/individual/neural.js';
+import { beginCognitiveDay } from '../../ai/policy/cognitive-scheduler.js';
 import { drinkWater } from '../ecology/hydrology.js';
 import { recordPersonalMemory } from './strategy.js';
 import { canPatrolToday, patrolSoldier } from '../kingdoms/patrols.js';
@@ -968,6 +969,9 @@ export function resolveResourceConflict(w, a, b, tile, resourceKind, patchValue)
 function updatePeopleCore(w) {
     refreshHarvestSuitability(w);
     const living = w.people.filter(p => p.alive).sort((a, b) => a.id - b.id);
+    // Only budgets neural forward passes; physical/need/command resolution
+    // continues for every actor on every day.
+    beginCognitiveDay(w, living);
     const socialMeetingParticipants = new Set();
     const trainingPairs = militaryTrainingPairs(w);
     const communityCounts = new Map();
