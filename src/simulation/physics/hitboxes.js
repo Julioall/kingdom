@@ -374,10 +374,18 @@ export function hitboxSurfaceDistance(a, b) {
 }
 
 function hitboxSignature(hitboxes) {
-  return hitboxes.map(hitbox => [hitbox.structureId, hitbox.x, hitbox.y,
-    hitbox.shape, hitbox.halfWidth, hitbox.halfDepth, hitbox.radius, hitbox.resourceKind,
-    hitbox.entityId, hitbox.trainingDummyId,
-    hitbox.points?.map(point => point.x + ',' + point.y).join(';')].join(':')).join('|');
+  // Preserve the exact historical string (used by navigation cache keys)
+  // while avoiding an additional array of all per-hitbox signature strings.
+  let result = '';
+  for (let i = 0; i < hitboxes.length; i++) {
+    const hitbox = hitboxes[i];
+    if (i) result += '|';
+    result += [hitbox.structureId, hitbox.x, hitbox.y,
+      hitbox.shape, hitbox.halfWidth, hitbox.halfDepth, hitbox.radius, hitbox.resourceKind,
+      hitbox.entityId, hitbox.trainingDummyId,
+      hitbox.points?.map(point => point.x + ',' + point.y).join(';')].join(':');
+  }
+  return result;
 }
 
 function spatialIndex(world, hitboxes, signature) {
@@ -431,9 +439,9 @@ export function resourceCollisionIndex(world) {
     if (mineral && (mineral.resourceKind === 'gold' || mineral.resourceKind === 'stone'))
       hitboxes.push(mineral);
   }
-  // Resources are already invalidated by navigationRevision and tile identity.
-  // Avoid re-encoding thousands of hitboxes after every resource mutation.
-  const signature = 'resources:' + revision;
+  // This exact signature participates in navigationContext cache keys.
+  // Preserve it byte-for-byte across refactors.
+  const signature = 'resources:' + revision + ':' + hitboxSignature(hitboxes);
   const result = { ...spatialIndex(world, hitboxes, signature), revision, tiles: world.tiles };
   resourceIndexCache.set(world, result);
   return result;
