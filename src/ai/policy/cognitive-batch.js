@@ -59,7 +59,7 @@ export function prepareInferenceBatches(world,candidates,{budget=128,batchSize=3
       observation:observations[i], output:predictions[i], role:observations[i].actor.role,
       policyVersion:model.spec.policyVersion, seed:model.spec.seed,
       width:model.spec.layerWidths[1],actorId:group[i].person.id,
-      createdDay:world.day
+      createdDay:world.day,createdAtMs:clock()
     });
   }
   const metrics={
@@ -67,10 +67,12 @@ export function prepareInferenceBatches(world,candidates,{budget=128,batchSize=3
     routineQueued:routine,backlog:queue.length-selected.length,
     batches:computeTimes.length,precomputeMs:clock()-initial,
     batchCompute:batchTimingSummary(computeTimes),
-    consumed:0,rejected:0,missed:0,
+    consumed:0,rejected:0,missed:0,deadlineMisses:0,
+    byRole:{civilian:0,worker:0,military:0,general:0,king:0},
+    latencyMs:{count:0,p50Ms:0,p95Ms:0,p99Ms:0,maxMs:0},
     waitDaysP50:0,waitDaysP95:0,waitDaysP99:0
   };
-  const waiting=[];
+  const waiting=[],latencies=[];
   return {
     metrics,
     consume(world,person,inputs,allowed) {
@@ -87,7 +89,12 @@ export function prepareInferenceBatches(world,candidates,{budget=128,batchSize=3
         metrics.rejected++;return null;
       }
       metrics.consumed++;
+      metrics.byRole[entry.role]=(metrics.byRole[entry.role]||0)+1;
+      const elapsed=Math.max(0,clock()-entry.createdAtMs);
+      latencies.push(elapsed);
+      metrics.latencyMs=batchTimingSummary(latencies);
       const age=Math.max(0,world.day-entry.createdDay);
+      if(age>0)metrics.deadlineMisses++;
       waiting.push(age);
       metrics.waitDaysP50=percentile(waiting,.5);
       metrics.waitDaysP95=percentile(waiting,.95);
