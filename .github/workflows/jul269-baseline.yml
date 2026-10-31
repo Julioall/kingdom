@@ -1,0 +1,74 @@
+name: "JUL-269 — Isolated simulation baseline"
+on:
+  push:
+    branches:
+      - bench/jul269-baseline-20261031
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    name: "Simulation baseline — ${{ matrix.source.name }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        source:
+          - name: dev
+            ref: 46cc1a8d735e6634ebfac56feb5908d30eee7aba
+          - name: main
+            ref: ee856209dccebe9b3f92df8e395417672e5281d9
+
+    steps:
+      - name: Checkout isolated benchmark instrumentation
+        uses: actions/checkout@v7.0.1
+        with:
+          path: bench
+
+      - name: Checkout unchanged target source
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ matrix.source.ref }}
+          path: source
+
+      - name: Install Node 24
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+
+      - name: Install locked dependencies for the source commit
+        working-directory: source
+        run: npm ci
+
+      - name: Benchmark disposable worlds and snapshot transport
+        shell: bash
+        env:
+          SOURCE_COMMIT: ${{ matrix.source.ref }}
+        run: |
+          mkdir -p out
+          cp bench/scripts/benchmark-jul269-baseline.mjs source/scripts/benchmark-jul269-baseline.mjs
+          cd source
+          node scripts/benchmark-jul269-baseline.mjs --seeds=1,42,2026 --days=30 --warmup=5 --repeats=2 --output=../out/${{ matrix.source.name }}.json | tee ../out/${{ matrix.source.name }}.txt
+
+      - name: Record concise measurement summary
+        if: always()
+        shell: bash
+        run: |
+          echo "### JUL-269 — ${{ matrix.source.name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Source: \`${{ matrix.source.ref }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo 'Measurements are on a GitHub-hosted Linux runner, not on the game player hardware.' >> "$GITHUB_STEP_SUMMARY"
+          if [ -f out/${{ matrix.source.name }}.txt ]; then
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat out/${{ matrix.source.name }}.txt >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jul269-${{ matrix.source.name }}-baseline
+          path: out/
+          if-no-files-found: warn
