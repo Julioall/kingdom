@@ -1,0 +1,61 @@
+name: "JUL-271 — Shared vs legacy neural policy A/B"
+on:
+  push:
+    branches:
+      - feat/jul271-shared-neural-policy
+
+permissions:
+  contents: read
+
+jobs:
+  policy-bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v7.0.1
+
+      - name: Use Node 24
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Compare CPU and neural weight memory for each mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node scripts/benchmark-jul271-policy-ab.mjs --seeds=1,42,2026 --warmup=3 --days=12 --output=out/jul271-policy-ab.json | tee out/jul271-policy-summary.txt
+          node --input-type=commonjs -e '
+            const fs = require("node:fs");
+            const report = JSON.parse(fs.readFileSync("out/jul271-policy-ab.json","utf8"));
+            for(const entry of report.results.filter(r => r.mode === "shared")){
+              if (entry.perActorDenseWeightBytes !== 0 ||
+                entry.sharedBrains !== entry.storedBrains) {
+                throw new Error("Shared mode retained per-actor dense neural weights or legacy brains: " + JSON.stringify(entry));
+              }
+            }
+            console.log("SHARED_WEIGHT_PARITY: PASS — zero per-actor dense weights");
+          '
+
+      - name: Publish measurements
+        if: always()
+        shell: bash
+        run: |
+          echo '### JUL-271 neural policy A/B' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Worlds created in each mode, not identical trajectories. GitHub runner CPU, not user FPS.' >> "$GITHUB_STEP_SUMMARY"
+          if [ -f out/jul271-policy-summary.txt ]; then
+            cat out/jul271-policy-summary.txt >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload JSON and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jul271-shared-policy-ab
+          path: out/
+          if-no-files-found: warn
