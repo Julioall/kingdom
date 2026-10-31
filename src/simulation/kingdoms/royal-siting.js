@@ -1,6 +1,7 @@
 import { brainForward, createBrain, ensureBrainSize, updateBrain } from '../../controllers/individual/neural.js';
 import { ROYAL_SITING_STRATEGIES } from '../../ai/policy/action-catalog.js';
 import { forwardSharedPolicy, sharedPolicyEnabled } from '../../ai/policy/shared-policy.js';
+import { cognitiveActionBias, ensureCognitiveState, recordCognitiveOutcome } from '../../ai/policy/individual-state.js';
 import { clamp } from '../core/math.js';
 import { log } from '../core/events.js';
 
@@ -32,6 +33,7 @@ export function selectRoyalBuildSite(world, kingdom, type, candidates) {
   const brain = policy(world, kingdom);
   const shared = brain.mode === 'shared' && sharedPolicyEnabled(world);
   const ruler = world.people.find(person => person.id === kingdom.rulerId);
+  if (shared && ruler) ensureCognitiveState(world, ruler);
   const actor = { ...(ruler || {}), id: kingdom.rulerId || kingdom.id,
     role: 'ruler', kingdomId: kingdom.id };
   const allowed = SITING_STRATEGIES.map(strategy =>
@@ -43,7 +45,8 @@ export function selectRoyalBuildSite(world, kingdom, type, candidates) {
   const scores = SITING_STRATEGIES.map((id, index) => {
     const candidate = candidates.find(c => c.strategy === id);
     return candidate ? baseline[index] + candidate.quality * .3 + out.logits[index] * .18
-      + (brain.actionValues[index] || 0) * .35 : -1e9;
+      + (brain.actionValues[index] || 0) * .35
+      + (shared && ruler ? cognitiveActionBias(ruler, id, 'royal') : 0) : -1e9;
   });
   const index = scores.indexOf(Math.max(...scores));
   const selected = candidates.find(c => c.strategy === SITING_STRATEGIES[index]);
@@ -82,6 +85,13 @@ export function recordRoyalSitingOutcome(world, structure, outcome, day) {
   const brain = kingdom.royalSitingBrain;
   brain.pending = decision.sample;
   updateBrain({ brain, lastLesson: '' }, reward);
+  if (brain.mode === 'shared') {
+    const ruler = world.people.find(person => person.id === kingdom.rulerId);
+    if (ruler) {
+      ensureCognitiveState(world, ruler);
+      recordCognitiveOutcome(ruler, { domain: 'royal', action: decision.strategy, reward, day });
+    }
+  }
   (structure.sitingOutcomes ||= {})[outcome] = day;
   kingdom.sitingHistory = [...(kingdom.sitingHistory || []), { day, outcome, reward,
     projectId: structure.id, strategy: decision.strategy, x: structure.x, y: structure.y }].slice(-32);
