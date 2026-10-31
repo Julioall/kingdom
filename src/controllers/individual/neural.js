@@ -1,11 +1,12 @@
 import { forwardSharedPolicy, sharedPolicyEnabled } from '../../ai/policy/shared-policy.js';
-import { MILITARY_ACTIONS } from '../../ai/policy/action-catalog.js';
+import { MILITARY_ACTIONS, ROYAL_SITING_STRATEGIES } from '../../ai/policy/action-catalog.js';
 import { ANIMAL_ACTIONS, HIDDEN_NEURONS, PEOPLE_ACTIONS, RULER_HIDDEN_NEURONS } from '../../config/ecosystem.js';
 import { rand } from '../../simulation/core/random.js';
 import { clamp, hash01 } from '../../simulation/core/math.js';
 
 export function createBrain(w, actions, inputSize, entityId, requestedHiddenSize = HIDDEN_NEURONS) {
-    const shareable = actions === PEOPLE_ACTIONS || actions === ANIMAL_ACTIONS || actions === MILITARY_ACTIONS;
+    const shareable = actions === PEOPLE_ACTIONS || actions === ANIMAL_ACTIONS
+      || actions === MILITARY_ACTIONS || actions === ROYAL_SITING_STRATEGIES;
     if (shareable && sharedPolicyEnabled(w)) {
       // Per-actor state is small. All dense weights belong to the single
       // shared policy bank, never to individual NPCs or animals.
@@ -40,7 +41,8 @@ export function ensureBrainSize(w, entity, requestedHiddenSize) {
       // Upgrade legacy save/fixture brains lazily, preserving learned personal
       // preferences/counters while discarding the old per-actor dense weights.
       const actions = brain.actionCount === ANIMAL_ACTIONS.length ? ANIMAL_ACTIONS
-        : brain.actionCount === MILITARY_ACTIONS.length ? MILITARY_ACTIONS : PEOPLE_ACTIONS;
+        : brain.actionCount === MILITARY_ACTIONS.length ? MILITARY_ACTIONS
+        : brain.actionCount === ROYAL_SITING_STRATEGIES.length ? ROYAL_SITING_STRATEGIES : PEOPLE_ACTIONS;
       const compact = createBrain(w, actions, brain.inputSize, entity.id);
       for (const key of ['actionValues', 'actionCounts', 'baseline', 'rewardMean', 'decisions', 'updates', 'lastAction']) {
         if (brain[key] !== undefined) compact[key] = brain[key];
@@ -55,7 +57,8 @@ export function ensureBrainSize(w, entity, requestedHiddenSize) {
       const size = Math.max(1, Math.floor(requestedHiddenSize || HIDDEN_NEURONS));
       const seed = ((w.seed || 1) ^ Math.imul(entity.id || 1, 2654435761)) >>> 0;
       const actions = brain.actionCount === ANIMAL_ACTIONS.length ? ANIMAL_ACTIONS
-        : brain.actionCount === MILITARY_ACTIONS.length ? MILITARY_ACTIONS : PEOPLE_ACTIONS;
+        : brain.actionCount === MILITARY_ACTIONS.length ? MILITARY_ACTIONS
+        : brain.actionCount === ROYAL_SITING_STRATEGIES.length ? ROYAL_SITING_STRATEGIES : PEOPLE_ACTIONS;
       const localWorld = { seed: w.seed, rngState: seed, neuralOverrides: { neuralController: 'legacy' } };
       const fallback = createBrain(localWorld, actions, brain.inputSize, entity.id, size);
       for (const key of ['actionValues', 'actionCounts', 'baseline', 'rewardMean', 'decisions', 'updates', 'lastAction'])
