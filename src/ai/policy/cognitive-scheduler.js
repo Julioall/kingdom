@@ -118,12 +118,12 @@ export function inferCognitivePeople(world, person, inputs, allowed) {
     state.stats.inferred++;
     if (mustRun) state.stats.urgent++;
     state.stats.byRole[role] = (state.stats.byRole[role] || 0) + 1;
-    return out;
+    return { ...out, logits:out.logits.map((v,i)=>allowed[i]?v:-1e9) };
   }
   if (valid) {
     state.stats.reused++;
     state.stats.maxCacheAgeDays = Math.max(state.stats.maxCacheAgeDays, world.day - last.day);
-    return { hidden: [], logits: last.logits, probs: [] };
+    return { hidden: [], logits: last.logits.map((v,i)=>allowed[i]?v:-1e9), probs: [] };
   }
   // Never select an action from a stale/foreign cache. Use current rules,
   // goals and personal reward preferences while waiting for a neural slot.
