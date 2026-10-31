@@ -126,3 +126,27 @@ test('NPCs near player receive same-day neural updates even outside routine rota
   assert.equal(far.brain.cognitiveInferenceCache,undefined);
   assert.ok(cognitiveDayMetrics(w).urgent>=1);
 });
+
+test('budgeted real-world simulation remains deterministic and still advances physical needs', async()=>{
+  const Sim=(await import('../src/simulation/engine.js')).default;
+  const create=()=>{const w=Sim.createWorld(42);
+    w.neuralOverrides={...(w.neuralOverrides||{}),cognitiveSchedule:{mode:'budgeted',budget:8}};
+    return w;
+  };
+  const a=create(),b=create();
+  const before=a.people.map(p=>({id:p.id,age:p.ageDays}));
+  for(let day=0;day<4;day++){
+    Sim.stepDay(a,{includeSnapshot:false});
+    Sim.stepDay(b,{includeSnapshot:false});
+    const stats=cognitiveDayMetrics(a);
+    assert.ok(stats && stats.inferred>=0);
+    assert.ok(stats.inferred-stats.urgent<=stats.budget);
+    assert.equal(a.day,day+1);
+    assert.equal(b.day,day+1);
+  }
+  assert.deepEqual(a.people.map(p=>[p.id,p.alive,p.health,p.foodReserve,p.brain?.lastAction]),
+    b.people.map(p=>[p.id,p.alive,p.health,p.foodReserve,p.brain?.lastAction]));
+  assert.equal(a.rngState,b.rngState);
+  assert.ok(a.people.some((p,i)=>p.ageDays>before[i]?.age),
+    'daily lifecycle must continue for low-LOD actors');
+});
