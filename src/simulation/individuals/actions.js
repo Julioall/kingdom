@@ -145,10 +145,13 @@ export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
       const tile = cellAt(w, resource.x, resource.y);
       if (failedTargetKeys.has(resource.x + ',' + resource.y)) continue;
       if (fieldId != null && tile?.cropFieldId !== fieldId) continue;
-      if (tile?.cropFieldId == null && !isBushAnchor(w, tile, 'berry')) continue;
+      // Skip cheap impossible candidates before invoking isBushAnchor,
+      // which queries neighboring vegetation and is CPU-hot at scale.
+      if (resource.terrain !== 'land' || resource.distance > radius) continue;
       const availableFood = resource.harvestableBiomass || resource.biomass;
       const food = HUMAN_FOOD.reduce((sum, id) => sum + (availableFood[id] || 0), 0);
-      if (resource.terrain !== 'land' || resource.distance > radius || food < .8) continue;
+      if (food < .8) continue;
+      if (tile?.cropFieldId == null && !isBushAnchor(w, tile, 'berry')) continue;
       const warningPenalty = tile && canEnterForeignTerritory(w, person, tile) ? 0 : 3;
       const expectedHarvestReserve = Math.min(food, harvestCapacity) * FOOD_DAYS_PER_UNIT;
       const expectedTravelDays = Math.ceil(Math.max(0, resource.distance - HARVEST_REACH_DISTANCE) / Math.SQRT2);
