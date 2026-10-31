@@ -99,8 +99,9 @@ export function prepareInferenceBatches(world,candidates,{budget=128,batchSize=3
       metrics.waitDaysP50=percentile(waiting,.5);
       metrics.waitDaysP95=percentile(waiting,.95);
       metrics.waitDaysP99=percentile(waiting,.99);
+      // Return complete logits. The live action mask is applied after
+      // caching, so a previously forbidden action can become legal later.
       const logits=entry.output.logits.slice(0,PEOPLE_ACTIONS.length);
-      for(let i=0;i<logits.length;i++)if(!allowed[i])logits[i]=-1e9;
       return {hidden:[],logits,probs:[]};
     },
     remaining(){return results.size;}
