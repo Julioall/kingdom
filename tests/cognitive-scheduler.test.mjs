@@ -112,3 +112,17 @@ test('deterministic replay: identical worlds with same seed, budget, and day hav
       b.people.map(p=>p.brain.cognitiveInferenceCache));
   }
 });
+
+test('NPCs near player receive same-day neural updates even outside routine rotation',()=>{
+  const w=setup(40,1);
+  const controlled=w.people[38],near=w.people[20],far=w.people[21];
+  controlled.playerControlled=true;controlled.x=50;controlled.y=50;
+  near.x=53;near.y=49;
+  far.x=90;far.y=90;
+  w.day=0;beginCognitiveDay(w,w.people);
+  inferCognitivePeople(w,near,input);
+  inferCognitivePeople(w,far,input);
+  assert.equal(near.brain.cognitiveInferenceCache?.day,0);
+  assert.equal(far.brain.cognitiveInferenceCache,undefined);
+  assert.ok(cognitiveDayMetrics(w).urgent>=1);
+});
