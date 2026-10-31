@@ -1,5 +1,5 @@
 import { ANIMAL_ACTIONS, PEOPLE_ACTIONS, PEOPLE_INPUTS } from '../../config/ecosystem.js';
-import { MILITARY_ACTIONS } from './action-catalog.js';
+import { MILITARY_ACTIONS, ROYAL_SITING_STRATEGIES } from './action-catalog.js';
 
 // Runtime policies live in WeakMaps, never on the serialized world or an actor.
 // The human model is shared across civilian, worker, military, general and king.
@@ -11,7 +11,8 @@ export const SHARED_POLICY_VERSION = 1;
 export const COGNITIVE_ROLES = Object.freeze(['civilian', 'worker', 'military', 'general', 'king']);
 export const HUMAN_POLICY_ACTIONS = Object.freeze([
   ...PEOPLE_ACTIONS.map(action => 'people:' + action),
-  ...MILITARY_ACTIONS.map(action => 'military:' + action)
+  ...MILITARY_ACTIONS.map(action => 'military:' + action),
+  ...ROYAL_SITING_STRATEGIES.map(action => 'royal:' + action)
 ]);
 const EXTRA_FEATURES = 8;
 const HUMAN_INPUT_SIZE = PEOPLE_INPUTS + COGNITIVE_ROLES.length + EXTRA_FEATURES;
@@ -155,10 +156,16 @@ export function actorObservation(world, actor, inputs, domain = 'people', allowe
   const mask = new Uint8Array(actionIds.length);
   if (!allowedActions) {
     if (isAnimal) mask.fill(1);
-    else for (let i = domain === 'military' ? PEOPLE_ACTIONS.length : 0;
-      i < (domain === 'military' ? actionIds.length : PEOPLE_ACTIONS.length); i++) mask[i] = 1;
+    else {
+      const start = domain === 'royal' ? PEOPLE_ACTIONS.length + MILITARY_ACTIONS.length
+        : domain === 'military' ? PEOPLE_ACTIONS.length : 0;
+      const count = domain === 'royal' ? ROYAL_SITING_STRATEGIES.length
+        : domain === 'military' ? MILITARY_ACTIONS.length : PEOPLE_ACTIONS.length;
+      for (let i = start; i < start + count; i++) mask[i] = 1;
+    }
   } else {
-    const start = isAnimal ? 0 : domain === 'military' ? PEOPLE_ACTIONS.length : 0;
+    const start = isAnimal ? 0 : domain === 'royal' ? PEOPLE_ACTIONS.length + MILITARY_ACTIONS.length
+      : domain === 'military' ? PEOPLE_ACTIONS.length : 0;
     for (let i = 0; i < allowedActions.length; i++) if (allowedActions[i]) mask[start + i] = 1;
   }
   const legacy = Float32Array.from({length: isAnimal ? 6 : PEOPLE_INPUTS},
@@ -189,8 +196,10 @@ export function forwardSharedPolicy(world, actor, inputs, domain = 'people', all
   const observation = actorObservation(world, actor, inputs, domain, allowedActions);
   const full = forward(model.spec, observation);
   if (isAnimal) return full;
-  const start = domain === 'military' ? PEOPLE_ACTIONS.length : 0;
-  const count = domain === 'military' ? MILITARY_ACTIONS.length : PEOPLE_ACTIONS.length;
+  const start = domain === 'royal' ? PEOPLE_ACTIONS.length + MILITARY_ACTIONS.length
+    : domain === 'military' ? PEOPLE_ACTIONS.length : 0;
+  const count = domain === 'royal' ? ROYAL_SITING_STRATEGIES.length
+    : domain === 'military' ? MILITARY_ACTIONS.length : PEOPLE_ACTIONS.length;
   return { hidden: [], logits: full.logits.slice(start, start + count),
     probs: full.probs.slice(start, start + count) };
 }
