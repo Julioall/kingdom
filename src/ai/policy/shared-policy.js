@@ -1,5 +1,5 @@
 import { ANIMAL_ACTIONS, PEOPLE_ACTIONS, PEOPLE_INPUTS } from '../../config/ecosystem.js';
-import { MILITARY_ACTIONS } from '../../simulation/kingdoms/military-learning.js';
+import { MILITARY_ACTIONS } from './action-catalog.js';
 
 // Runtime policies live in WeakMaps, never on the serialized world or an actor.
 // The human model is shared across civilian, worker, military, general and king.
