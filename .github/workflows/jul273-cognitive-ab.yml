@@ -1,0 +1,29 @@
+name: "JUL-273 — Cognitive LOD inference A/B"
+on:
+  push:
+    branches:
+      - feat/jul273-cognitive-lod-scheduler
+permissions:
+  contents: read
+jobs:
+  scheduler:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - name: Benchmark 50, 500 and 5000 synthetic decision agents
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node scripts/benchmark-jul273-cognition.mjs out/jul273-cognition-ab.json | tee out/jul273-cognition-ab.txt
+      - name: Archive results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jul273-cognitive-lod-ab
+          path: out/
+          if-no-files-found: warn
