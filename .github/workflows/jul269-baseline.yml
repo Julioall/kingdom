@@ -53,6 +53,37 @@ jobs:
           cd source
           node scripts/benchmark-jul269-baseline.mjs --seeds=1,42,2026 --days=30 --warmup=5 --repeats=2 --output=../out/${{ matrix.source.name }}.json | tee ../out/${{ matrix.source.name }}.txt
 
+      - name: Capture CPU hot functions (main only)
+        if: matrix.source.name == 'main'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd source
+          node --cpu-prof --cpu-prof-dir=../out --cpu-prof-name=jul269-main.cpuprofile scripts/benchmark-simulation.mjs --days=24 --warmup=4 --repeats=1 --seeds=42 --output=../out/main-cpu-simulation.json > ../out/main-cpu-output.txt
+          node --input-type=commonjs -e '
+            const fs = require("node:fs");
+            const profile = JSON.parse(fs.readFileSync("../out/jul269-main.cpuprofile", "utf8"));
+            const nodes = new Map(profile.nodes.map(n => [n.id, n.callFrame]));
+            const samples = new Map();
+            for (const id of profile.samples || []) {
+              const f = nodes.get(id);
+              if (!f) continue;
+              const key = [f.functionName || "(anonymous)", f.url || "node internals"].join(" @ ");
+              samples.set(key, (samples.get(key) || 0) + 1);
+            }
+            const sorted = [...samples.entries()].sort((a, b) => b[1] - a[1]);
+            const total = (profile.samples || []).length;
+            const result = {
+              schema: 1, type: "V8 leaf CPU samples, not inclusive timing",
+              source: "main@ee856209", seed: 42, days: 24,
+              sampleCount: total, topFunctions: sorted.slice(0, 35).map(([name, count]) => ({
+                name, count, sharePercent: +(100 * count / Math.max(total, 1)).toFixed(2)
+              }))
+            };
+            fs.writeFileSync("../out/main-cpu-hotspots.json", JSON.stringify(result, null, 2));
+            console.log(JSON.stringify(result.topFunctions.slice(0, 15), null, 2));
+          ' | tee ../out/main-cpu-hotspots.txt
+
       - name: Record concise measurement summary
         if: always()
         shell: bash
