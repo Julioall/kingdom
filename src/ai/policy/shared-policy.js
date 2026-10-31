@@ -17,7 +17,7 @@ export const HUMAN_POLICY_ACTIONS = Object.freeze([
 ]);
 const EXTRA_FEATURES = 16;
 const HUMAN_INPUT_SIZE = PEOPLE_INPUTS + COGNITIVE_ROLES.length + EXTRA_FEATURES;
-const HIDDEN_WIDTHS = new Set([24, 32, 64, 128, 256]);
+const HIDDEN_WIDTHS = new Set([24, 32, 64, 128, 256, 512, 1024]);
 
 function randomWeights(seed) {
   let state = (seed >>> 0) || 1;
@@ -76,8 +76,9 @@ function createPolicy(seed, domain, actionIds, inputDimension, width) {
   return {
     spec,
     inferBatch(observations) {
-      return observations.map(observation => {
-        const out = forward(spec, observation);
+      const outputs = forwardBatch(spec, observations);
+      return observations.map((observation, observationIndex) => {
+        const out = outputs[observationIndex];
         let best = -1, score = -Infinity;
         for (let i = 0; i < out.logits.length; i++) {
           if (!observation.actionMask[i]) continue;
@@ -129,6 +130,87 @@ function forward(spec, observation) {
   const exps = logits.map((v, i) => mask[i] ? Math.exp(v - max) : 0);
   const total = exps.reduce((a, b) => a + b, 0);
   return { hidden: [], logits, probs: total ? exps.map(v => v / total) : exps };
+}
+
+
+// A genuine dense batched MLP: contiguous row-major Float32Array activations
+// processed by layer with one shared weight bank and no per-agent network.
+// Math ordering and Float32 rounding match forward(spec, observation).
+export function forwardBatch(spec, observations) {
+  const count = observations.length;
+  if (!count) return [];
+  let inWidth = spec.inputDimension;
+  let current = new Float32Array(count * inWidth);
+  for (let n = 0; n < count; n++) {
+    let cursor = n * inWidth;
+    const end = cursor + inWidth;
+    const observation = observations[n];
+    for (const array of [observation.perceptionFeatures, observation.roleFeatures,
+      observation.personalityFeatures, observation.memoryFeatures, observation.contextFeatures]) {
+      for (const value of array) if (cursor < end) current[cursor++] = finite(value);
+    }
+  }
+  let weightOffset = 0, biasOffset = 0;
+  for (let layer = 1; layer < spec.layerWidths.length; layer++) {
+    const outWidth = spec.layerWidths[layer];
+    const last = layer === spec.layerWidths.length - 1;
+    const next = new Float32Array(count * outWidth);
+    for (let n = 0; n < count; n++) {
+      const from = n * inWidth, to = n * outWidth;
+      for (let o = 0; o < outWidth; o++) {
+        let sum = spec.biases[biasOffset + o];
+        const kernelOffset = weightOffset + o * inWidth;
+        for (let i = 0; i < inWidth; i++)
+          sum += spec.weights[kernelOffset + i] * current[from + i];
+        next[to + o] = last ? sum : Math.tanh(sum);
+      }
+    }
+    weightOffset += inWidth * outWidth;
+    biasOffset += outWidth;
+    inWidth = outWidth;
+    current = next;
+  }
+  const outputs = new Array(count);
+  for (let n = 0; n < count; n++) {
+    const mask = observations[n].actionMask;
+    const logits = new Array(inWidth);
+    let max = -Infinity;
+    for (let o = 0; o < inWidth; o++) {
+      const value = mask[o] ? current[n * inWidth + o] : -1e9;
+      logits[o] = value;
+      if (mask[o] && value > max) max = value;
+    }
+    const probs = new Array(inWidth).fill(0);
+    let total = 0;
+    if (max !== -Infinity) {
+      for (let o = 0; o < inWidth; o++) if (mask[o]) {
+        probs[o] = Math.exp(logits[o] - max);
+        total += probs[o];
+      }
+      if (total) for (let o = 0; o < inWidth; o++) probs[o] /= total;
+    }
+    outputs[n] = {hidden:[], logits, probs};
+  }
+  return outputs;
+}
+
+// The request list is immutable within a causal epoch. Callers must validate
+// observations at consumption time, not trust any precomputed permissions.
+export function forwardSharedBatch(world, requests) {
+  if (!requests.length) return [];
+  const model = getSharedPolicy(world, 'human');
+  const observations = requests.map(item =>
+    actorObservation(world, item.actor, item.inputs, item.domain || 'people', item.allowedActions || null));
+  const results = forwardBatch(model.spec, observations);
+  return results.map((result, i) => {
+    const domain = requests[i].domain || 'people';
+    const start = domain === 'royal' ? PEOPLE_ACTIONS.length + MILITARY_ACTIONS.length
+      : domain === 'military' ? PEOPLE_ACTIONS.length : 0;
+    const count = domain === 'royal' ? ROYAL_SITING_STRATEGIES.length
+      : domain === 'military' ? MILITARY_ACTIONS.length : PEOPLE_ACTIONS.length;
+    return {hidden:[], logits:result.logits.slice(start,start+count),
+      probs:result.probs.slice(start,start+count)};
+  });
 }
 
 export function getSharedPolicy(world, domain = 'human', speciesId = 'sheep') {
