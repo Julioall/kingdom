@@ -1,4 +1,5 @@
 import { forwardSharedPolicy, sharedPolicyEnabled } from '../../ai/policy/shared-policy.js';
+import { inferCognitivePeople } from '../../ai/policy/cognitive-scheduler.js';
 import { MILITARY_ACTIONS, ROYAL_SITING_STRATEGIES } from '../../ai/policy/action-catalog.js';
 import { cognitiveActionBias, ensureCognitiveState, recordCognitiveOutcome } from '../../ai/policy/individual-state.js';
 import { ANIMAL_ACTIONS, HIDDEN_NEURONS, PEOPLE_ACTIONS, RULER_HIDDEN_NEURONS } from '../../config/ecosystem.js';
@@ -146,7 +147,7 @@ export function choosePeopleAction(w, p, inputs, utility) {
     const allowed = utility.map(value => Number.isFinite(value) && value > -1e8);
     const out = rulesOnly
       ? { hidden: [], probs: [], logits: Array(PEOPLE_ACTIONS.length).fill(0) }
-      : shared ? forwardSharedPolicy(w, p, inputs, 'people', allowed)
+      : shared ? inferCognitivePeople(w, p, inputs, allowed)
         : brainForward(brain, inputs, PEOPLE_ACTIONS);
     const plan = p.strategicPlan && p.strategicPlan.expiresDay >= w.day + 1 ? p.strategicPlan : null;
     let best = 0, bestScore = -Infinity;
