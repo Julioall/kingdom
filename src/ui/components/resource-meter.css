@@ -1,0 +1,32 @@
+/* Resource meters — pixel art: repeat centers only; fixed end caps, both sizes. */
+.resource-meter{
+  --frame-h:51px;--native-h:51;--cap:24;--inset-x:8;--inset-y:11;--fill-h:24;
+  position:relative;display:block;box-sizing:border-box;flex:none;
+  width:300px;max-width:100%;height:var(--frame-h);min-width:65px;
+  overflow:hidden;isolation:isolate;image-rendering:pixelated;
+}
+.resource-meter .progress-track{position:absolute;inset:0;display:flex;gap:0;align-items:stretch}
+.resource-meter .hud-track-left,.resource-meter .hud-track-right{
+  display:block;flex:0 0 calc(var(--frame-h) * var(--cap) / var(--native-h));
+  background-repeat:no-repeat;background-position:center;background-size:100% 100%;
+}
+.resource-meter .hud-track-center{
+  display:block;flex:1 1 0;min-width:0;
+  background-repeat:repeat-x;background-position:0 0;background-size:auto 100%;
+}
+.resource-meter .progress-fill-viewport{
+  position:absolute;overflow:hidden;pointer-events:none;
+  left:calc(var(--frame-h) * var(--inset-x) / var(--native-h));
+  right:calc(var(--frame-h) * var(--inset-x) / var(--native-h));
+  top:calc(var(--frame-h) * var(--inset-y) / var(--native-h));
+  height:calc(var(--frame-h) * var(--fill-h) / var(--native-h));
+}
+.resource-meter .progress-fill{
+  height:100%;background-size:auto 100%;background-repeat:repeat-x;
+  background-position:0 0;image-rendering:pixelated;
+  transition:width .17s steps(28,end);
+}
+.resource-meter.hud-small{
+  --frame-h:22px;--native-h:19;--cap:15;--inset-x:6;--inset-y:8;--fill-h:3;
+}
+@media(prefers-reduced-motion:reduce){.resource-meter .progress-fill{transition:none}}

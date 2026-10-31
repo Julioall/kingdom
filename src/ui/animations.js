@@ -2,7 +2,6 @@ import manifest from './animation-manifest.js';
 
 export const ANIMATIONS = Object.freeze(Object.fromEntries(manifest.entries.map(entry => [entry.id,
   Object.freeze({ ...entry, anchor: Object.freeze(entry.anchor) })])));
-export const STATIC_SPRITE_SOURCES = Object.freeze(manifest.staticSources.slice());
 
 const unitAliases = { aldeao: 'pawn', 'aldeão': 'pawn', resident: 'pawn', lanceiro: 'lancer',
   guerreiro: 'warrior', arqueiro: 'archer', monge: 'monk' };

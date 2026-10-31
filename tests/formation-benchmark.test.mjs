@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const protocol = JSON.parse(await readFile(new URL('../docs/verification/JUL-182-formation-benchmark-v1.json', import.meta.url), 'utf8'));
+const protocol = JSON.parse(await readFile(new URL('./fixtures/formation-benchmark-v1.json', import.meta.url), 'utf8'));
 
 test('formation benchmark is frozen before policy weights are tuned', () => {
   assert.equal(protocol.version, 1);

@@ -1,6 +1,6 @@
 export const MUSIC_FILES = Object.freeze([
-  '/assets/music/ogg/medieval-ambient-01.ogg',
-  '/assets/music/mp3/medieval-ambient-01.mp3',
+  '/assets/audio/music/medieval-ambient-01.ogg',
+  '/assets/audio/music/medieval-ambient-01.mp3',
 ]);
 
 export function musicGainAtZoom(zoom, minZoom = .5, maxZoom = 16) {

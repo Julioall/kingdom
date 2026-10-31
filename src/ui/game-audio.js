@@ -229,7 +229,7 @@ export function createGameAudio({ onStatus = () => {}, getPan = () => 0, getDist
     if (manifest) return manifest;
     manifestPromise ||= (async () => {
       if (!fetchImpl) throw new Error('Fetch indisponível');
-      const response = await fetchImpl('/assets/sfx/manifest.json');
+      const response = await fetchImpl('/assets/audio/sfx/manifest.json');
       if (!response.ok) throw new Error(`Manifesto de áudio: HTTP ${response.status}`);
       const data = await response.json();
       if (!data || !Array.isArray(data.sounds) || !data.events) throw new Error('Manifesto de áudio inválido');
@@ -248,7 +248,7 @@ export function createGameAudio({ onStatus = () => {}, getPan = () => 0, getDist
   }
 
   async function decodeFile(path, sound, format) {
-    const response = await fetchImpl('/assets/sfx/' + path);
+    const response = await fetchImpl('/assets/audio/sfx/' + path);
     if (!response.ok) throw new Error(`Áudio: HTTP ${response.status}`);
     const bytes = await response.arrayBuffer();
     const buffer = await context.decodeAudioData(bytes);

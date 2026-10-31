@@ -6,3 +6,8 @@ dist/
 /reports/ollama/
 /.local/
 /Tiny Swords/
+
+# Generated QA output is kept in dev/CI artifacts, outside release source.
+/browser-ui-evidence/
+/reports/
+/docs/verification/

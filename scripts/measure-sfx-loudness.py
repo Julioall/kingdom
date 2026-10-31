@@ -8,7 +8,7 @@ import re
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-SFX = ROOT / 'public/assets/sfx'
+SFX = ROOT / 'public/assets/audio/sfx'
 TARGET_LUFS = -24.0
 PEAK_CEILING = -2.0
 MAX_BOOST = 14.0
