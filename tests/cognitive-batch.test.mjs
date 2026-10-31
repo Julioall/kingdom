@@ -7,6 +7,7 @@ import { actorObservation, forwardBatch, forwardSharedPolicy,
 import { prepareInferenceBatches } from '../src/ai/policy/cognitive-batch.js';
 import { beginCognitiveDay, cognitiveDayMetrics, inferCognitivePeople } from '../src/ai/policy/cognitive-scheduler.js';
 import { createBrain, choosePeopleAction } from '../src/controllers/individual/neural.js';
+import { createCognitiveState } from '../src/ai/policy/individual-state.js';
 
 const inputs = Array.from({length:18},(_,i)=>(i+1)/24);
 const utility = PEOPLE_ACTIONS.map(action=>action==='rest'?8:-1e9);
@@ -20,6 +21,7 @@ function world(count=12,width=24,mode='batched'){
       sociability:.4,trust:.5,loyalty:.6,physicalStrength:.7,
       skills:{build:.4,diplomacy:.5},personalMemory:[]};
     p.brain=createBrain(w,PEOPLE_ACTIONS,18,id);
+    p.cognitiveState=createCognitiveState(w,p);
     p.lastDecision={day:0,inputs:inputs.slice(),action:'rest'};
     w.people.push(p);
   }
