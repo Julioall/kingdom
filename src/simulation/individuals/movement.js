@@ -147,6 +147,19 @@ export function reachableAreaAround(w, agent, center, radius) {
   // Enumerating by y then x preserves w.tiles' row-major order, including the
   // original start-tile tie-break and BFS ordering.
   const candidates = [];
+  // 0 = unchecked, 1 = passable, 2 = blocked. A scoped cache avoids running
+  // expensive collision/territory checks again for each BFS edge. A diagonal
+  // side tile may lie *outside* the requested circle, so check it lazily.
+  const passability = new Uint8Array(w.tiles.length);
+  const isPassable = tile => {
+    if (!tile) return false;
+    let status = passability[tile.i];
+    if (!status) {
+      status = canEnter(w, agent, tile, false, null, corrals, movementOptions) ? 1 : 2;
+      passability[tile.i] = status;
+    }
+    return status === 1;
+  };
   const minX = Math.max(0, Math.ceil(center.x - radius));
   const maxX = Math.min(w.width - 1, Math.floor(center.x + radius));
   const minY = Math.max(0, Math.ceil(center.y - radius));
@@ -154,20 +167,31 @@ export function reachableAreaAround(w, agent, center, radius) {
   for (let y = minY; y <= maxY; y++) {
     for (let x = minX; x <= maxX; x++) {
       const tile = w.tiles[y * w.width + x];
-      if (tile && distance(tile, center) <= radius
-          && canEnter(w, agent, tile, false, null, corrals, movementOptions)) candidates.push(tile);
+      if (tile && distance(tile, center) <= radius && isPassable(tile)) candidates.push(tile);
     }
   }
   const start = candidates.reduce((best, tile) => !best || distance(tile, center) < distance(best, center) ? tile : best, null);
   if (!start) return [];
   const allowed = new Set(candidates.map(tile => tile.i)), seen = new Set([start.i]), queue = [start];
+  const canStepWithinArea = (from, to) => {
+    // Destination passability was already validated when forming candidates.
+    const fromTile = cellAt(w, from.x, from.y) || from;
+    if (!canTraverseElevation(fromTile, to)) return false;
+    const dx = to.x - from.x, dy = to.y - from.y;
+    if (!dx || !dy) return true;
+    const horizontal = cellAt(w, from.x + dx, from.y);
+    const vertical = cellAt(w, from.x, from.y + dy);
+    return isPassable(horizontal) && isPassable(vertical)
+      && canTraverseElevation(fromTile, horizontal) && canTraverseElevation(horizontal, to)
+      && canTraverseElevation(fromTile, vertical) && canTraverseElevation(vertical, to);
+  };
   for (let index = 0; index < queue.length; index++) {
     const from = queue[index];
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       if (!dx && !dy) continue;
       const next = cellAt(w, from.x + dx, from.y + dy);
       if (!next || !allowed.has(next.i) || seen.has(next.i)
-          || !canStep(w, agent, from, next, false, null, corrals, movementOptions)) continue;
+          || !canStepWithinArea(from, next)) continue;
       seen.add(next.i); queue.push(next);
     }
   }
