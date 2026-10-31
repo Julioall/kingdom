@@ -127,3 +127,18 @@ test('save/restore, promotion, player/AI control and neural rollback preserve id
   assert.ok(!('inputWeights' in restored.brain));
   assert.deepEqual(restored.cognitiveState,saved.cognitiveState);
 });
+
+test('unknown future schema and foreign actor memories are never adopted or overwritten',()=>{
+  const w=world(), a=human(w,10), b=human(w,11);
+  const foreign=structuredClone(b.cognitiveState);
+  a.cognitiveState=foreign;
+  assert.equal(ensureCognitiveState(w,a),null);
+  assert.deepEqual(a.cognitiveState,foreign);
+  assert.equal(recordCognitiveOutcome(a,{domain:'people',day:20,action:'rest',reward:1}),false);
+  assert.equal(cognitiveActionBias(a,'rest'),0);
+  assert.deepEqual(Array.from(cognitiveTemperamentFeatures(a)),[0,0,0,0]);
+  const future={...createCognitiveState(w,a),schemaVersion:99,unrecognized:'preserve'};
+  a.cognitiveState=future;
+  assert.equal(ensureCognitiveState(w,a),null);
+  assert.deepEqual(a.cognitiveState,future);
+});
