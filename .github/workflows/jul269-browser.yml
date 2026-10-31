@@ -32,8 +32,9 @@ jobs:
         env:
           SOURCE_COMMIT: ${{ github.sha }}
         run: |
+          set -euo pipefail
           mkdir -p out
-          node scripts/benchmark-jul269-browser.mjs --seed=42 --duration=3800 --output=out/jul269-browser.json | tee out/jul269-browser.txt
+          node scripts/benchmark-jul269-browser.mjs --seed=42 --duration=6500 --output=out/jul269-browser.json | tee out/jul269-browser.txt
 
       - name: Publish concise report
         if: always()
