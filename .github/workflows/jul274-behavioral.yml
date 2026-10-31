@@ -1,0 +1,28 @@
+name: "JUL-274 — Neural policy behavioral A/B"
+on:
+  push:
+    branches:
+      - test/jul274-controller-quality-gates
+permissions:
+  contents: read
+jobs:
+  behavior:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - name: Full-world seeded behavioral A/B
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node scripts/benchmark-jul274-behavioral.mjs out/jul274-behavioral.json | tee out/jul274-behavioral.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jul274-controller-quality
+          path: out/
+          if-no-files-found: warn
