@@ -143,8 +143,21 @@ function canStep(w, agent, from, to, aquatic, pen, corrals, movementOptions) {
 export function reachableAreaAround(w, agent, center, radius) {
   const corrals = activeCorrals(w);
   const movementOptions = { collisionIndex: worldCollisionIndex(w) };
-  const candidates = w.tiles.filter(tile => distance(tile, center) <= radius
-    && canEnter(w, agent, tile, false, null, corrals, movementOptions));
+  // Visit only the bounding rectangle of the requested local radius.
+  // Enumerating by y then x preserves w.tiles' row-major order, including the
+  // original start-tile tie-break and BFS ordering.
+  const candidates = [];
+  const minX = Math.max(0, Math.ceil(center.x - radius));
+  const maxX = Math.min(w.width - 1, Math.floor(center.x + radius));
+  const minY = Math.max(0, Math.ceil(center.y - radius));
+  const maxY = Math.min(w.height - 1, Math.floor(center.y + radius));
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const tile = w.tiles[y * w.width + x];
+      if (tile && distance(tile, center) <= radius
+          && canEnter(w, agent, tile, false, null, corrals, movementOptions)) candidates.push(tile);
+    }
+  }
   const start = candidates.reduce((best, tile) => !best || distance(tile, center) < distance(best, center) ? tile : best, null);
   if (!start) return [];
   const allowed = new Set(candidates.map(tile => tile.i)), seen = new Set([start.i]), queue = [start];
