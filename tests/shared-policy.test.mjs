@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { ANIMAL_ACTIONS, PEOPLE_ACTIONS } from '../src/config/ecosystem.js';
 import { createBrain, chooseAnimalAction, choosePeopleAction, updateBrain } from '../src/controllers/individual/neural.js';
 import { chooseMilitaryAction, MILITARY_ACTIONS } from '../src/simulation/kingdoms/military-learning.js';
+import { selectRoyalBuildSite, SITING_STRATEGIES } from '../src/simulation/kingdoms/royal-siting.js';
 import { actorObservation, cognitiveRole, forwardSharedPolicy,
   getSharedPolicy, HUMAN_POLICY_ACTIONS } from '../src/ai/policy/shared-policy.js';
 
@@ -140,4 +141,25 @@ test('legacy brains can be migrated to shared mode and back without losing perso
   assert.ok(npc.brain.inputWeights.length > 0);
   assert.ok(npc.brain.outputWeights.length > 0);
   assert.equal(npc.brain.actionValues[7], .65);
+});
+
+test('royal building strategies use the same human policy without king-specific matrices', () => {
+  const w = { ...world(15), tiles: Array(100), people: [] };
+  const king = person(w, 12, 'ruler');
+  w.people.push(king);
+  const kingdom = {id: 4, rulerId: king.id, treasury: {stock: {wood:120, stone:50}},
+    territoryTileCount: 20, frontierLosses: []};
+  const candidates = SITING_STRATEGIES.slice(0, 2).map((strategy, i) => ({
+    strategy, label: strategy, tile: {x:5+i, y:7+i},
+    reason: 'fixture', quality:.5, metrics:{risk:.4,access:.8}
+  }));
+  const before = getSharedPolicy(w, 'human').spec.weights.slice();
+  const selection = selectRoyalBuildSite(w, kingdom, 'torre', candidates);
+  assert.ok(selection?.tile);
+  assert.equal(selection.brain.mode, 'shared');
+  assert.ok(!('inputWeights' in selection.brain));
+  assert.ok(!('outputWeights' in selection.brain));
+  assert.ok(candidates.some(x => x.strategy === selection.decision.strategy));
+  assert.ok(getSharedPolicy(w, 'human').spec.actionIds.includes('royal:defensive'));
+  assert.deepEqual(Array.from(getSharedPolicy(w, 'human').spec.weights), Array.from(before));
 });
