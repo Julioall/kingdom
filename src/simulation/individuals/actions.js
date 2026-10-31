@@ -25,6 +25,7 @@ import Senses from './perception.js';
 import { ensureFoodAidPlan, findTradePartner, performShare, performTrade, resolveFoodAidRequest } from '../economy/trade.js';
 import { choosePeopleAction, updateBrain } from '../../controllers/individual/neural.js';
 import { beginCognitiveDay } from '../../ai/policy/cognitive-scheduler.js';
+import { buildPeoplePolicyInputs } from './observation-features.js';
 import { drinkWater } from '../ecology/hydrology.js';
 import { recordPersonalMemory } from './strategy.js';
 import { canPatrolToday, patrolSoldier } from '../kingdoms/patrols.js';
@@ -1153,14 +1154,11 @@ function updatePeopleCore(w) {
       const browseAccess = browseFood ? clamp(plantBiomass(browseFood, ['browse']) / 90, 0, 1) : 0;
       const materialNeed = community ? communityBuildingNeed(w, community, communitySize) : 0;
       const goldNeed = community ? clamp((55 - (community.stores.gold || 0)) / 55, 0, 1) : 0;
-      const inputs = [
-        clamp((68 - p.foodReserve) / 68, 0, 1), clamp((70 - p.hydration) / 70, 0, 1),
-        clamp((70 - p.energy) / 70, 0, 1), clamp(p.socialNeed / 100, 0, 1),
-        food ? clamp(1 - distance(p, food) / 5, 0, 1) : 0, waterTarget ? clamp(1 - distance(p, waterTarget) / 32, 0, 1) : 0,
-        clamp(groupFood / 45, 0, 1), clamp(groupMaterial / 90, 0, 1), risk, clamp(p.injury / 12, 0, 1), huntAccess, deliveryNeed,
-        preyNearby ? clamp(1 - distance(p, preyNearby) / 8, 0, 1) : 0, browseAccess, feedNeed, materialNeed,
-        looseLog ? clamp(1 - looseLog.distance / 7, 0, 1) : 0, community ? clamp((community.stores.gold || 0) / 55, 0, 1) : 0
-      ];
+      const inputs = buildPeoplePolicyInputs({
+        person: p, food, waterTarget, groupFood, groupMaterial,
+        risk, huntAccess, deliveryNeed, preyNearby, browseAccess,
+        feedNeed, materialNeed, looseLog, community
+      });
       const canBuild = community && communitySize >= 3 && p.buildCooldown <= 0 && p.energy > 27 && p.hydration > 18 && p.foodReserve > 16
         && canCommunityBuild(w, community, communitySize);
       const canGather = p.perception.resources.some(resource => resource.visible && resource.terrain === 'land'

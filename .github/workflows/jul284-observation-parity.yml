@@ -1,0 +1,44 @@
+name: "JUL-284 — Pure observation refactor parity"
+on:
+  push:
+    branches:
+      - refactor/jul284-pure-observation-features
+permissions:
+  contents: read
+jobs:
+  equality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: fdb714f2d34fa999cd8d56ddcfa5a517f60d68f9
+          path: baseline
+      - uses: actions/checkout@v7.0.1
+        with:
+          path: candidate
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - name: Equal states before and after pure extraction
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node baseline/scripts/benchmark-simulation.mjs --days=12 --warmup=3 --repeats=1 --seeds=1,42,2026 --output=out/baseline.json > out/baseline.txt
+          node candidate/scripts/benchmark-simulation.mjs --days=12 --warmup=3 --repeats=1 --seeds=1,42,2026 --output=out/candidate.json > out/candidate.txt
+          node --input-type=commonjs -e '
+            const fs=require("node:fs"),a=JSON.parse(fs.readFileSync("out/baseline.json")),
+              b=JSON.parse(fs.readFileSync("out/candidate.json"));
+            for(const x of a.results){
+              const y=b.results.find(z=>z.seed===x.seed);
+              if(!y||x.stateDigest!==y.stateDigest)throw Error("Causal replay differs for seed "+x.seed);
+              console.log("seed",x.seed,"digest equal; baseline",x.meanDayMs,"candidate",y.meanDayMs);
+            }
+          ' | tee out/result.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jul284-pure-features-parity
+          path: out/
+          if-no-files-found: warn
