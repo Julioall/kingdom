@@ -1,0 +1,38 @@
+name: "JUL-273 — Real World + Neural Width A/B"
+on:
+  push:
+    branches:
+      - feat/jul273-true-batch-priority-queues
+permissions:
+  contents: read
+jobs:
+  population:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: standard
+            sizes: "50,500"
+            widths: "24,64,128,256,512,1024"
+          - label: stress
+            sizes: "5000"
+            widths: "24"
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - name: Full simulation + neural batch throughput
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node --max-old-space-size=6144 scripts/benchmark-jul273-full-batch.mjs --sizes=${{ matrix.sizes }} --widths=${{ matrix.widths }} --output=out/jul273-${{matrix.label}}.json | tee out/jul273-${{matrix.label}}.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jul273-full-world-${{matrix.label}}
+          path: out/
+          if-no-files-found: warn
