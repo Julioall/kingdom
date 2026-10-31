@@ -28,15 +28,18 @@ function freshDay(world, people) {
       eligible.add(adults[(start + i) % adults.length].id);
   }
   const count = adults.length;
+  const controlled = adults.find(p => p.playerControlled || p.id === world.playerControlledPersonId);
+  const playerPosition = controlled ? { x: controlled.x, y: controlled.y } : null;
   const stats = {
     schemaVersion: COGNITIVE_LOD_SCHEMA_VERSION,
     day: world.day,
     eligible: count, budget,
-    planned: eligible.size, inferred: 0, urgent: 0, reused: 0,
+    planned: eligible.size, maxRoutineWaitDays: cognitiveMaxWaitDays(count, budget),
+    inferred: 0, urgent: 0, reused: 0,
     utilityOnly: 0, invalidated: 0, maxCacheAgeDays: 0,
     byRole: {civilian:0,worker:0,military:0,general:0,king:0}
   };
-  const state = { day: world.day, eligible, stats };
+  const state = { day: world.day, eligible, playerPosition, stats };
   perWorld.set(world, state);
   return state;
 }
@@ -49,9 +52,13 @@ export function beginCognitiveDay(world, living) {
   return freshDay(world, living);
 }
 
-function urgent(world, person) {
+function urgent(world, person, state) {
   // Critical triggers originate in the actor's own status or visible facts.
   // They cannot be delayed by the ambient inference budget.
+  const player = state.playerPosition;
+  if (player && Number.isFinite(person.x) && Number.isFinite(person.y)
+      && Math.abs(person.x - player.x) <= 18 && Math.abs(person.y - player.y) <= 18
+      && Math.hypot(person.x - player.x, person.y - player.y) <= 18) return true;
   if (person.playerControlled || world.playerControlledPersonId === person.id
     || person.role === 'ruler' || person.militaryRank === 'general'
     || person.campaignId != null || person.combatTargetId != null || person.tacticalRecovering
@@ -78,7 +85,7 @@ export function inferCognitivePeople(world, person, inputs, allowed) {
     delete brain.cognitiveInferenceCache;
     state.stats.invalidated++;
   }
-  const mustRun = urgent(world, person);
+  const mustRun = urgent(world, person, state);
   if (mustRun || state.eligible.has(person.id)) {
     // Model runs on current perception, never stale action masks. The legality
     // mask is checked again by the unchanged per-day utility calculation.
