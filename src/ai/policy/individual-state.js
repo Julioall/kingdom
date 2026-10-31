@@ -30,12 +30,14 @@ export function createCognitiveState(world, person) {
 
 export function ensureCognitiveState(world, person) {
   if (!person || !Number.isSafeInteger(person.id)) return null;
-  if (!person.cognitiveState || person.cognitiveState.schemaVersion !== COGNITIVE_SCHEMA_VERSION
-      || person.cognitiveState.actorId !== person.id) {
-    // New games initialise in makePerson. Old worlds/snapshots initialise
-    // lazily with a deterministic actor identity, never by role.
-    person.cognitiveState = createCognitiveState(world, person);
+  if (person.cognitiveState) {
+    // Fail closed on unknown versions and mismatched ownership: do not
+    // overwrite a future save or allow another actor's data to be consumed.
+    return person.cognitiveState.schemaVersion === COGNITIVE_SCHEMA_VERSION
+      && person.cognitiveState.actorId === person.id ? person.cognitiveState : null;
   }
+  // Old saves without cognitive state initialise lazily and deterministically.
+  person.cognitiveState = createCognitiveState(world, person);
   return person.cognitiveState;
 }
 
@@ -52,7 +54,8 @@ function compactEpisodes(state, day) {
 
 export function recordCognitiveOutcome(person, input) {
   const state = person?.cognitiveState;
-  if (!state || state.schemaVersion !== COGNITIVE_SCHEMA_VERSION) return false;
+  if (!state || state.schemaVersion !== COGNITIVE_SCHEMA_VERSION
+      || state.actorId !== person.id) return false;
   const domain = ['people', 'military', 'royal'].includes(input?.domain) ? input.domain : null;
   const action = typeof input?.action === 'string' ? input.action.slice(0, 40) : '';
   if (!domain || !action || !Number.isFinite(input?.reward)) return false;
@@ -72,7 +75,8 @@ export function recordCognitiveOutcome(person, input) {
  * memories/beliefs are read in place, never copied to the new cognitive state.
  */
 export function cognitiveMemoryFeatures(person) {
-  const state = person?.cognitiveState;
+  const state = person?.cognitiveState?.schemaVersion === COGNITIVE_SCHEMA_VERSION
+    && person.cognitiveState.actorId === person.id ? person.cognitiveState : null;
   const episodes = state?.episodes || [];
   let weighted = 0, weight = 0;
   const today = Math.max(0, Math.floor(safe(person?.lastDecision?.day)));
@@ -98,7 +102,8 @@ export function cognitiveMemoryFeatures(person) {
 }
 
 export function cognitiveTemperamentFeatures(person) {
-  const t = person?.cognitiveState?.temperament;
+  const t = person?.cognitiveState?.schemaVersion === COGNITIVE_SCHEMA_VERSION
+    && person.cognitiveState.actorId === person.id ? person.cognitiveState.temperament : null;
   return Float32Array.from([
     clamp(safe(t?.curiosity), 0, 1),
     clamp(safe(t?.caution), 0, 1),
@@ -112,7 +117,8 @@ export function cognitiveTemperamentFeatures(person) {
  */
 export function cognitiveActionBias(person, action, domain = 'people') {
   const state = person?.cognitiveState;
-  if (!state) return 0;
+  if (!state || state.schemaVersion !== COGNITIVE_SCHEMA_VERSION
+      || state.actorId !== person.id) return 0;
   const t = state.temperament;
   let disposition = 0;
   if (domain === 'people') {
