@@ -3,13 +3,14 @@
 // action masks and live utility resolution still run every simulated day.
 import { cognitiveRole, forwardSharedPolicy, getSharedPolicy, sharedPolicyEnabled } from './shared-policy.js';
 import { PEOPLE_ACTIONS } from '../../config/ecosystem.js';
+import { prepareInferenceBatches } from './cognitive-batch.js';
 
 const perWorld = new WeakMap();
 export const COGNITIVE_LOD_SCHEMA_VERSION = 1;
 const DEFAULT_BUDGET = 256;
 
 function enabled(world) {
-  return sharedPolicyEnabled(world) && world?.neuralOverrides?.cognitiveSchedule?.mode === 'budgeted';
+  return sharedPolicyEnabled(world) && ['budgeted','batched'].includes(world?.neuralOverrides?.cognitiveSchedule?.mode);
 }
 function budgetFor(world) {
   const raw = world?.neuralOverrides?.cognitiveSchedule?.budget;
@@ -35,12 +36,28 @@ function freshDay(world, people) {
     day: world.day,
     eligible: count, budget,
     planned: eligible.size, maxRoutineWaitDays: cognitiveMaxWaitDays(count, budget),
-    inferred: 0, urgent: 0, reused: 0,
+    inferred: 0, urgent: 0, reused: 0, prefetched: 0, directForwards: 0,
     utilityOnly: 0, invalidated: 0, maxCacheAgeDays: 0,
     byRole: {civilian:0,worker:0,military:0,general:0,king:0}
   };
   const state = { day: world.day, eligible, playerPosition, stats };
   perWorld.set(world, state);
+  if (world?.neuralOverrides?.cognitiveSchedule?.mode === 'batched') {
+    const candidates = adults.filter(person=>eligible.has(person.id) || urgent(world,person,state))
+      .filter(person=>Array.isArray(person.lastDecision?.inputs)
+        && person.lastDecision.inputs.length===18)
+      .map(person=>({
+        person,inputs:person.lastDecision.inputs,
+        urgency:urgent(world,person,state),
+        waitingDays:Math.max(0,world.day-(person.brain?.cognitiveInferenceCache?.day??-1)),
+        queuePriority:eligible.has(person.id)?0:1
+      }));
+    const rawBatchSize=world.neuralOverrides.cognitiveSchedule.batchSize;
+    const batchSize=Number.isSafeInteger(rawBatchSize) && rawBatchSize>=1 && rawBatchSize<=256
+      ? rawBatchSize : 32;
+    state.batch=prepareInferenceBatches(world,candidates,{budget,batchSize});
+    state.stats.prefetched=state.batch.metrics.queued;
+  }
   return state;
 }
 
@@ -89,7 +106,9 @@ export function inferCognitivePeople(world, person, inputs, allowed) {
   if (mustRun || state.eligible.has(person.id)) {
     // Model runs on current perception, never stale action masks. The legality
     // mask is checked again by the unchanged per-day utility calculation.
-    const out = forwardSharedPolicy(world, person, inputs, 'people');
+    const out = state.batch?.consume(world,person,inputs,allowed)
+      || forwardSharedPolicy(world, person, inputs, 'people');
+    if (!state.batch || out.probs?.length) state.stats.directForwards++;
     brain.cognitiveInferenceCache = {
       schemaVersion: COGNITIVE_LOD_SCHEMA_VERSION,
       actorId: person.id, role, seed: model.seed, epoch: world.epoch || 0,
@@ -114,9 +133,14 @@ export function inferCognitivePeople(world, person, inputs, allowed) {
 
 export function cognitiveDayMetrics(world) {
   const stats = perWorld.get(world)?.stats;
-  return stats ? {
-    ...stats, byRole: { ...stats.byRole }
-  } : null;
+  if (!stats) return null;
+  const batch=perWorld.get(world).batch?.metrics;
+  return {
+    ...stats, byRole:{...stats.byRole},
+    ...(batch ? {batch:{
+      ...batch,batchCompute:{...batch.batchCompute}
+    }} : {})
+  };
 }
 
 /** Predictable bound on normal refresh in a static population. Urgent actors
