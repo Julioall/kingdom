@@ -7,7 +7,12 @@ import {mkdir,writeFile} from 'node:fs/promises';
 import {resolve,dirname} from 'node:path';
 import Sim from '../src/simulation/engine.js';
 import {cognitiveDayMetrics} from '../src/ai/policy/cognitive-scheduler.js';
-const seeds=[1,42,2026], days=6;
+const seeds=[1,42,2026];
+// Longer campaign QA is opt-in: six-day historical results remain comparable.
+const rawDays=Number(process.env.JUL274_DAYS || 6);
+if(!Number.isSafeInteger(rawDays)||rawDays<1||rawDays>90)
+ throw Error('JUL274_DAYS must be an integer in [1,90]');
+const days=rawDays;
 const scenarios=[
  {name:'legacy',controller:'legacy',schedule:null},
  {name:'shared-unlimited',controller:'shared',schedule:null},
@@ -45,11 +50,13 @@ function run(seed,scenario){
  const w=Sim.createWorld(seed,scenario.controller==='legacy'?{neuralController:'legacy'}:{});
  if(scenario.schedule)w.neuralOverrides={...w.neuralOverrides,cognitiveSchedule:scenario.schedule};
  const dayTimes=[],trajectory=[],queues=[];
+ const startingDay=w.day;
  for(let i=0;i<days;i++){
   const start=performance.now();
   Sim.stepDay(w,{includeSnapshot:false});
   dayTimes.push(performance.now()-start);
   const stats=measure(w);
+  if(w.day!==startingDay+i+1)throw Error('Unexpected world day '+seed+'/'+scenario.name);
   trajectory.push(stats);
   const cognitive=cognitiveDayMetrics(w);
   queues.push(cognitive?{day:w.day,budget:cognitive.budget,inferred:cognitive.inferred,
@@ -88,7 +95,7 @@ const comparisons=seeds.map(seed=>{
 });
 const report={schema:1,sourceCommit:process.env.GITHUB_SHA||'unknown',
  methodology:'Same-seed independent full-world runs, every scenario replayed twice for exact within-mode parity. Separate model trajectories are NOT required to match. Not a claim that cognitive quality is equivalent.',
- caveats:'Six simulated days / three seeds, CPU-only GitHub runner. Longer campaigns, wars, markets and manual visual validation still necessary.',
+ caveats:`${days} simulated days / three seeds, CPU-only GitHub runner. Scenarios do not force wars or trade; a zero-activity metric is NOT evidence of quality. Manual visual and real GPU validation still necessary.`,
  seeds,days,scenarios,comparisons,data};
 const file=resolve(process.argv[2]||'out/jul274-behavioral.json');
 await mkdir(dirname(file),{recursive:true});
