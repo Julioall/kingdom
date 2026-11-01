@@ -1,0 +1,26 @@
+name: "JUL-278 — Atomic delta and transport metrics"
+on:
+  push:
+    branches:
+      - fix/jul278-atomic-world-delta-20261101
+permissions:
+  contents: read
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install dependencies
+        run: npm ci
+      - name: Focused tests of atomic corruption recovery and transport metrics
+        run: |
+          node --test tests/world-delta-atomicity.test.mjs tests/worker-transport-diagnostics.test.mjs tests/world-field-delta.test.mjs tests/world-tile-delta.test.mjs
+      - name: Full suite, typecheck and build
+        run: |
+          npm run typecheck
+          npm test
+          npm run build
