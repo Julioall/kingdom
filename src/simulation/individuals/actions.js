@@ -132,6 +132,10 @@ export function personalFoodHarvestLimit(person, requested, reserveCapacity, dir
 export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
     let best = null, bestScore = -Infinity;
     let bestSurvivalTarget = null, bestSurvivalScore = -Infinity, continuingSurvivalTarget = null;
+    // Candidate evaluation is read-only: share one collision index across all
+    // food approaches in this selection, rather than reconstructing it for
+    // each promising bush/field candidate.
+    let collisionIndex = null;
     const criticalFoodPressure = person.foodReserve <= CRITICAL_FOOD_RESERVE_THRESHOLD;
     const resources = person.perception && person.perception.resources || [];
     const failedTargets = (person.failedFoodTargets || []).filter(target => Number.isInteger(target.x)
@@ -143,12 +147,12 @@ export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
     const failedTargetKeys = new Set(failedTargets.map(target => target.x + ',' + target.y));
     const harvestCapacity = clamp(1.8 + person.skills.forage * 3.2, 1.8, 5);
     for (const resource of resources) {
-      const tile = cellAt(w, resource.x, resource.y);
-      if (failedTargetKeys.has(resource.x + ',' + resource.y)) continue;
-      if (fieldId != null && tile?.cropFieldId !== fieldId) continue;
-      // Skip cheap impossible candidates before invoking isBushAnchor,
-      // which queries neighboring vegetation and is CPU-hot at scale.
+      // Perception already carries terrain and distance. Avoid a world lookup
+      // for candidates that are provably ineligible.
       if (resource.terrain !== 'land' || resource.distance > radius) continue;
+      if (failedTargetKeys.has(resource.x + ',' + resource.y)) continue;
+      const tile = cellAt(w, resource.x, resource.y);
+      if (fieldId != null && tile?.cropFieldId !== fieldId) continue;
       const availableFood = resource.harvestableBiomass || resource.biomass;
       const food = HUMAN_FOOD.reduce((sum, id) => sum + (availableFood[id] || 0), 0);
       if (food < .8) continue;
@@ -169,7 +173,8 @@ export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
       const improvesSelection = score > bestScore;
       const improvesSurvivalSelection = criticalFoodPressure && canCoverSurvivalTrip && score > bestSurvivalScore;
       if (!improvesSelection && !improvesSurvivalSelection && !(criticalFoodPressure && canCoverSurvivalTrip && matchesCurrentTarget)) continue;
-      if (!foodApproachTiles(w, person, tile).length) continue;
+      if (!collisionIndex) collisionIndex = worldCollisionIndex(w);
+      if (!foodApproachTiles(w, person, tile, collisionIndex).length) continue;
       const candidate = cellAt(w, resource.x, resource.y);
       if (improvesSelection) { best = candidate; bestScore = score; }
       if (criticalFoodPressure && canCoverSurvivalTrip) {
@@ -181,13 +186,13 @@ export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
     return best;
   }
 
-function foodApproachTiles(w, person, foodTile) {
+function foodApproachTiles(w, person, foodTile, sharedCollisionIndex = null) {
   if (!w || !person || !foodTile) return [];
   const cropField = foodTile.cropFieldId != null;
   if (!cropField && !isBushAnchor(w, foodTile, 'berry')) return [];
   const harvestHitbox = cropField ? null : bushHarvestHitbox(w, foodTile, 'berry');
   if (!cropField && !harvestHitbox) return [];
-  const collisionIndex = worldCollisionIndex(w);
+  const collisionIndex = sharedCollisionIndex || worldCollisionIndex(w);
   const candidates = [];
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
     const tile = cellAt(w, foodTile.x + dx, foodTile.y + dy);
