@@ -3,6 +3,7 @@ import type { WorldCommand } from '../simulation';
 import { applyWorldSnapshot, applyWorldTileDelta } from '../simulation/render-snapshot.js';
 import { indexPeopleById, applyIndexedPersonUpdates } from './person-update-index.js';
 import { createTransportDiagnostics } from './worker-transport-diagnostics.js';
+import { createAdvanceBackpressureQueue } from './advance-backpressure.js';
 import {
   SIMULATION_PROTOCOL_VERSION,
   type KingdomAiDecisionRequest,
@@ -36,8 +37,7 @@ export class GameSession {
   private peopleById = new Map<number, WorldView['people'][number]>();
   private advanceInFlight = false;
   private advanceFlightToken = 0;
-  private queuedClockDays = 0;
-  private queuedManualDays = 0;
+  private readonly advanceQueue = createAdvanceBackpressureQueue();
   private resyncInFlight = false;
   private readonly tileDeltaTransport: boolean;
   private readonly transportDiagnostics = createTransportDiagnostics();
@@ -74,8 +74,7 @@ export class GameSession {
     this.rejectOlderRequests(cancellation);
     this.advanceFlightToken++;
     this.advanceInFlight = false;
-    this.queuedClockDays = 0;
-    this.queuedManualDays = 0;
+    this.advanceQueue.reset();
     this.paused = false;
     this.peopleById.clear();
     this.resyncInFlight = false;
@@ -88,17 +87,16 @@ export class GameSession {
   }
 
   advance(days = 1, source: 'clock' | 'manual' = 'clock'): Promise<void> {
+    if (!Number.isFinite(days)) return Promise.reject(new RangeError('Quantidade de dias inválida.'));
     const safeDays = Math.max(1, Math.min(12, Math.trunc(days)));
-    if (source === 'clock') {
-      if (this.paused) return Promise.resolve();
-      this.queuedClockDays = Math.min(12, this.queuedClockDays + safeDays);
-    } else this.queuedManualDays = Math.min(12, this.queuedManualDays + safeDays);
+    if (source === 'clock' && this.paused) return Promise.resolve();
+    this.advanceQueue.enqueue(safeDays, source);
     this.drainAdvances();
     return Promise.resolve();
   }
 
   async setPaused(paused: boolean): Promise<void> {
-    if (paused) this.queuedClockDays = 0;
+    if (paused) this.advanceQueue.discardClock();
     const response = await this.send('set-paused', { paused });
     if (response.type !== 'ack') throw new Error('O Worker não confirmou o estado de pausa.');
   }
@@ -134,7 +132,9 @@ export class GameSession {
   }
 
   getTransportDiagnostics() {
-    return this.transportDiagnostics.snapshot();
+    return { ...this.transportDiagnostics.snapshot(), advanceQueue: {
+      ...this.advanceQueue.snapshot(), inFlight: this.advanceInFlight, pendingRequests: this.pending.size
+    } };
   }
 
   terminate() {
@@ -142,6 +142,7 @@ export class GameSession {
     this.worker.terminate();
     this.peopleById.clear();
     this.resyncInFlight = false;
+    this.advanceQueue.reset();
   }
 
   private send(type: string, payload: Record<string, unknown>, epoch = this.epoch): Promise<SimulationWorkerResponse> {
@@ -161,16 +162,9 @@ export class GameSession {
 
   private drainAdvances() {
     if (this.advanceInFlight || this.resyncInFlight) return;
-    let source: 'clock' | 'manual', days: number;
-    if (this.queuedManualDays > 0) {
-      source = 'manual';
-      days = Math.min(12, this.queuedManualDays);
-      this.queuedManualDays -= days;
-    } else if (!this.paused && this.queuedClockDays > 0) {
-      source = 'clock';
-      days = Math.min(3, this.queuedClockDays);
-      this.queuedClockDays -= days;
-    } else return;
+    const next = this.advanceQueue.take(this.paused);
+    if (!next) return;
+    const { source, days } = next;
 
     const requestEpoch = this.epoch;
     const flightToken = ++this.advanceFlightToken;
