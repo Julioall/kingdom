@@ -1,0 +1,56 @@
+name: "JUL-285 — Lazy collision cache signatures A/B"
+on:
+  push:
+    branches:
+      - perf/jul285-lazy-collision-signatures-20261101
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  parity-and-cpu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 0071ccd5727cb6b8a780353972abc7c6aafcbd78
+          path: baseline
+      - uses: actions/checkout@v4
+        with:
+          path: candidate
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Run focused signature and navigation tests
+        run: node --test candidate/tests/jul285-lazy-collision-signature.test.mjs
+      - name: Compare three seeds with two repeats
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node baseline/scripts/benchmark-simulation.mjs --days=12 --warmup=3 --repeats=2 --seeds=1,42,2026 --output=out/baseline.json > out/baseline.txt
+          node candidate/scripts/benchmark-simulation.mjs --days=12 --warmup=3 --repeats=2 --seeds=1,42,2026 --output=out/candidate.json > out/candidate.txt
+          node --input-type=commonjs -e '
+            const fs=require("node:fs");
+            const a=JSON.parse(fs.readFileSync("out/baseline.json"));
+            const b=JSON.parse(fs.readFileSync("out/candidate.json"));
+            const results=a.results.map(x=>{
+              const y=b.results.find(z=>z.seed===x.seed&&z.repeat===x.repeat);
+              if(!y||x.stateDigest!==y.stateDigest)
+                throw Error("Cache/navigation replay changed for seed "+x.seed+" repeat "+x.repeat);
+              return {seed:x.seed,repeat:x.repeat,matchingDigest:true,
+                baselineMs:x.meanDayMs,candidateMs:y.meanDayMs,
+                gainPercent:100*(x.meanDayMs-y.meanDayMs)/x.meanDayMs};
+            });
+            const sorted=results.map(x=>x.gainPercent).sort((x,y)=>x-y);
+            const medianGainPercent=(sorted[2]+sorted[3])/2;
+            const summary={medianGainPercent,results};
+            fs.writeFileSync("out/summary.json",JSON.stringify(summary,null,2));
+            console.log(JSON.stringify(summary));
+          ' | tee out/summary.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jul285-lazy-signatures-ab
+          path: out/
+          if-no-files-found: warn
