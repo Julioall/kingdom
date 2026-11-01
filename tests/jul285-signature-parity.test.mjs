@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import Sim from '../src/simulation/engine.js';
-import { resourceCollisionIndex, structureCollisionIndex } from '../src/simulation/physics/hitboxes.js';
+import { hitboxSignature, resourceCollisionIndex, structureCollisionIndex } from '../src/simulation/physics/hitboxes.js';
 import { invalidateNavigation } from '../src/simulation/individuals/navigation-cache.js';
 
 // Original implementation: preserve the text exactly, including empty slots.
@@ -49,6 +49,8 @@ test('legacy delimiter semantics for null, undefined, NaN, zero and polygon poin
   // The index construction signature must retain empty fields rather than
   // producing literal "undefined"/"null" strings in navigation cache keys.
   const old = previousSignature(fixtures);
+  assert.equal(hitboxSignature(fixtures), old, 'optimized signature must preserve every delimiter and coercion');
+  assert.equal(hitboxSignature([]), previousSignature([]));
   assert.ok(old.includes('NaN'));
   assert.ok(old.includes('1,2;-3,4'));
   assert.ok(!old.includes('undefined'));
