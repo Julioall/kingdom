@@ -134,3 +134,33 @@ test('latency summary handles 120000 samples without argument-spread overflow',(
  });
  assert.equal(samples[0],119999,'summary must not mutate its input');
 });
+
+test('strict causal batch requires a positive LIVE domain check at consumption',()=>{
+ const {world,actors,inputs}=make(4);
+ const prepared=prepareCausalInferenceBatch(world,
+   actors.map(person=>({person,inputs})),{budget:4,batchSize:2,requireLiveValidation:true});
+ // Even with identical features, other actors can change an untracked market,
+ // territory, target occupancy or ownership before an action is applied.
+ world.marketOwner=2;
+ assert.equal(prepared.consume(world,actors[0],inputs,all()),null,'missing validator fails closed');
+ assert.equal(prepared.consume(world,actors[1],inputs,all(),()=>false),null,'changed domain rejects');
+ assert.equal(prepared.consume(world,actors[2],inputs,all(),()=>{throw Error('stale world')}),null,
+   'validator exception must reject, not bypass the gate');
+ assert.ok(prepared.consume(world,actors[3],inputs,all(),w=>w.marketOwner===2));
+ assert.equal(prepared.metrics.domainRejected,3);
+ assert.equal(prepared.metrics.rejected,3);
+ assert.equal(prepared.metrics.consumed,1);
+ assert.equal(prepared.remaining(),0,'no failed output can be replayed');
+});
+
+test('strict validation executes after neural-observation revalidation, not before',()=>{
+ const {world,actors,inputs}=make(1);
+ const prepared=prepareCausalInferenceBatch(world,[{person:actors[0],inputs}],
+   {requireLiveValidation:true});
+ world.revision++;
+ let calls=0;
+ assert.equal(prepared.consume(world,actors[0],inputs,all(),()=>{calls++;return true;}),null);
+ assert.equal(calls,0);
+ assert.equal(prepared.metrics.domainRejected,0);
+ assert.equal(prepared.metrics.rejected,1);
+});
