@@ -2,6 +2,7 @@ import { defaultWorldConfig, type WorldConfig } from '../simulation/core/state';
 import type { WorldCommand } from '../simulation';
 import { applyWorldSnapshot, applyWorldTileDelta } from '../simulation/render-snapshot.js';
 import { indexPeopleById, applyIndexedPersonUpdates } from './person-update-index.js';
+import { createTransportDiagnostics } from './worker-transport-diagnostics.js';
 import {
   SIMULATION_PROTOCOL_VERSION,
   type KingdomAiDecisionRequest,
@@ -39,6 +40,7 @@ export class GameSession {
   private queuedManualDays = 0;
   private resyncInFlight = false;
   private readonly tileDeltaTransport: boolean;
+  private readonly transportDiagnostics = createTransportDiagnostics();
 
   constructor(private readonly config: WorldConfig = defaultWorldConfig, seed = 42,
     options: {tileDeltaTransport?: boolean} = {}) {
@@ -131,6 +133,10 @@ export class GameSession {
     return response.type === 'query' ? response.result : null;
   }
 
+  getTransportDiagnostics() {
+    return this.transportDiagnostics.snapshot();
+  }
+
   terminate() {
     this.failPending(new Error('A sessão de simulação foi encerrada.'));
     this.worker.terminate();
@@ -215,20 +221,24 @@ export class GameSession {
     if (response.type === 'world-delta') {
       if (!this.world || response.delta.baseRevision !== this.revision) {
         // A missed/late packet must never be applied to a different world.
+        this.transportDiagnostics.invalid();
         this.requestResync();
         pending.resolve(response);
         return;
       }
       try {
+        const started = performance.now();
         const nextWorld = applyWorldTileDelta(response.delta, this.world);
         this.world = nextWorld;
         this.peopleById = indexPeopleById(nextWorld.people);
         this.stats = nextWorld.stats;
         this.revision = response.revision;
+        this.transportDiagnostics.record(response, performance.now() - started);
         this.onUpdate?.(nextWorld, nextWorld.stats, false);
       } catch {
         // Invalid sparse data is recoverable by requesting a fresh full
         // authoritative snapshot. Never trust a partially applied revision.
+        this.transportDiagnostics.invalid();
         this.requestResync();
       }
       pending.resolve(response);
@@ -236,10 +246,12 @@ export class GameSession {
     }
     this.revision = response.revision;
     if (response.type === 'snapshot') {
+      const started = performance.now();
       const nextWorld = applyWorldSnapshot(response.snapshot, response.snapshot.reset ? null : this.world);
       this.world = nextWorld;
       this.peopleById = indexPeopleById(nextWorld.people);
       this.stats = nextWorld.stats;
+      this.transportDiagnostics.record(response, performance.now() - started);
       this.onUpdate?.(nextWorld, nextWorld.stats, response.snapshot.reset);
     }
     pending.resolve(response);
@@ -249,6 +261,7 @@ export class GameSession {
     if (this.resyncInFlight) return;
     const epoch = this.epoch;
     this.resyncInFlight = true;
+    this.transportDiagnostics.resync();
     void this.send('resync', {}, epoch).then(response => {
       if (response.type !== 'snapshot') throw new Error('O Worker não retornou o resync completo.');
     }).catch(error => {
