@@ -30,7 +30,19 @@ function freshDay(world, people) {
   const count = adults.length;
   const controlled = adults.find(p => p.playerControlled || p.id === world.playerControlledPersonId);
   const playerPosition = controlled ? { x: controlled.x, y: controlled.y } : null;
+  // Read-only coverage telemetry. Do not affect urgency, actor selection,
+  // masks, or the authoritative decision order.
+  const refreshWindow = cognitiveMaxWaitDays(count, budget);
+  let neverInferred = 0, overdueCached = 0, oldestCacheAgeDays = 0;
+  for (const person of adults) {
+    const cachedDay = person.brain?.cognitiveInferenceCache?.day;
+    if (!Number.isFinite(cachedDay)) { neverInferred++; continue; }
+    const age = Math.max(0, world.day - cachedDay);
+    if (age > refreshWindow) overdueCached++;
+    oldestCacheAgeDays = Math.max(oldestCacheAgeDays, age);
+  }
   const stats = {
+    neverInferred, overdueCached, oldestCacheAgeDays,
     schemaVersion: COGNITIVE_LOD_SCHEMA_VERSION,
     day: world.day,
     eligible: count, budget,
