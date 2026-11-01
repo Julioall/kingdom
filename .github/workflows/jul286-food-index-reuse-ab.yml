@@ -59,6 +59,22 @@ jobs:
             console.log(JSON.stringify({equalState:true,baselineMs:a.ms,candidateMs:b.ms,
               gainPercent:100*(a.ms-b.ms)/a.ms}));
           ' | tee out/full-comparison.txt
+      - name: Reverse-order full 500-person A/B (avoid warm-run ordering bias)
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd candidate && node scripts/jul286-food-reuse-full-world.mjs 500 42) | tee out/full-candidate-first.txt
+          cp candidate/out/jul286-full-world.json out/full-candidate-first.json
+          (cd baseline && node scripts/jul286-food-reuse-full-world.mjs 500 42) | tee out/full-baseline-second.txt
+          cp baseline/out/jul286-full-world.json out/full-baseline-second.json
+          node --input-type=commonjs -e '
+            const fs=require("node:fs");
+            const a=JSON.parse(fs.readFileSync("out/full-baseline-second.json"));
+            const b=JSON.parse(fs.readFileSync("out/full-candidate-first.json"));
+            if(a.digest!==b.digest)throw Error("Reverse-order 500-NPC state changed");
+            console.log(JSON.stringify({reverseOrder:true,equalState:true,baselineMs:a.ms,
+              candidateMs:b.ms,gainPercent:100*(a.ms-b.ms)/a.ms}));
+          ' | tee out/full-reverse-comparison.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
