@@ -431,8 +431,20 @@ export function resourceCollisionIndex(world) {
     if (mineral && (mineral.resourceKind === 'gold' || mineral.resourceKind === 'stone'))
       hitboxes.push(mineral);
   }
-  const signature = 'resources:' + revision + ':' + hitboxSignature(hitboxes);
-  const result = { ...spatialIndex(world, hitboxes, signature), revision, tiles: world.tiles };
+  // The collision geometry is required immediately, but its very large
+  // textual signature is only needed for navigation-route cache keys.
+  // Preserve the *exact* historical signature when first requested.
+  const result = { ...spatialIndex(world, hitboxes, null), revision, tiles: world.tiles };
+  let signature;
+  Object.defineProperty(result, 'signature', {
+    enumerable: true,
+    configurable: true,
+    get() {
+      if (signature === undefined)
+        signature = 'resources:' + revision + ':' + hitboxSignature(hitboxes);
+      return signature;
+    }
+  });
   resourceIndexCache.set(world, result);
   return result;
 }
@@ -442,7 +454,19 @@ export function worldCollisionIndex(world) {
   const resources = resourceCollisionIndex(world);
   const cached = worldIndexCache.get(world);
   if (cached?.structures === structures && cached.resources === resources) return cached;
-  const result = { structures, resources, signature: structures.signature + '|' + resources.signature };
+  // Most callers only query collision geometry; postpone concatenating the
+  // resource signature unless a route-cache consumer asks for the context.
+  const result = { structures, resources };
+  let signature;
+  Object.defineProperty(result, 'signature', {
+    enumerable: true,
+    configurable: true,
+    get() {
+      if (signature === undefined)
+        signature = structures.signature + '|' + resources.signature;
+      return signature;
+    }
+  });
   worldIndexCache.set(world, result);
   return result;
 }
