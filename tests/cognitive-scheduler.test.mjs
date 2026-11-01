@@ -150,3 +150,24 @@ test('budgeted real-world simulation remains deterministic and still advances ph
   assert.ok(a.people.some((p,i)=>p.ageDays>before[i]?.age),
     'daily lifecycle must continue for low-LOD actors');
 });
+
+test('read-only LOD coverage telemetry counts cold-start and overdue neural caches',()=>{
+  const w=setup(10,2);
+  beginCognitiveDay(w,w.people);
+  assert.equal(cognitiveDayMetrics(w).neverInferred,10);
+  assert.equal(cognitiveDayMetrics(w).oldestCacheAgeDays,0);
+  for(const person of w.people)choosePeopleAction(w,person,input,utility('rest'));
+  w.day=1;
+  beginCognitiveDay(w,w.people);
+  assert.equal(cognitiveDayMetrics(w).neverInferred,8);
+  assert.equal(cognitiveDayMetrics(w).overdueCached,0);
+  assert.equal(cognitiveDayMetrics(w).oldestCacheAgeDays,1);
+  // A saved actor may re-enter a world with a cache older than the expected
+  // window; telemetry reports this without modifying action or cache.
+  w.people[0].brain.cognitiveInferenceCache.day=-30;
+  beginCognitiveDay(w,w.people);
+  const stats=cognitiveDayMetrics(w);
+  assert.equal(stats.overdueCached,1);
+  assert.equal(stats.oldestCacheAgeDays,31);
+  assert.equal(w.people[0].brain.cognitiveInferenceCache.day,-30);
+});

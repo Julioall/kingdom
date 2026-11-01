@@ -1,0 +1,396 @@
+{
+  "seed": 42,
+  "browser": "chromium",
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "scenarios": [
+    {
+      "label": "optimized",
+      "fps": 29.36301207672271,
+      "frameP50Ms": 34.69999999999982,
+      "frameP95Ms": 41.70000000000073,
+      "cpuMeanMs": 30.899999999929044,
+      "cpuP95Ms": 38,
+      "over33MsPercent": 66.12903225806451,
+      "mapP50Ms": 30.200000002980232,
+      "mapP95Ms": 38,
+      "mapMeanMs": 30.825396825042034,
+      "mapSamples": 63,
+      "mapStages": {
+        "preparation": {
+          "samples": 63,
+          "meanMs": 0.2079365077236342,
+          "p50Ms": 0.19999999552965164,
+          "p95Ms": 0.30000000447034836,
+          "maxMs": 2.100000001490116,
+          "executions": 63,
+          "executionMeanMs": 0.2079365077236342,
+          "executionP95Ms": 0.30000000447034836
+        },
+        "terrain": {
+          "samples": 63,
+          "meanMs": 0,
+          "p50Ms": 0,
+          "p95Ms": 0,
+          "maxMs": 0,
+          "executions": 0,
+          "executionMeanMs": 0,
+          "executionP95Ms": 0
+        },
+        "plants": {
+          "samples": 63,
+          "meanMs": 0,
+          "p50Ms": 0,
+          "p95Ms": 0,
+          "maxMs": 0,
+          "executions": 0,
+          "executionMeanMs": 0,
+          "executionP95Ms": 0
+        },
+        "roads": {
+          "samples": 63,
+          "meanMs": 0,
+          "p50Ms": 0,
+          "p95Ms": 0,
+          "maxMs": 0,
+          "executions": 0,
+          "executionMeanMs": 0,
+          "executionP95Ms": 0
+        },
+        "water": {
+          "samples": 63,
+          "meanMs": 16.76666666661936,
+          "p50Ms": 16.600000001490116,
+          "p95Ms": 21,
+          "maxMs": 24.399999998509884,
+          "executions": 63,
+          "executionMeanMs": 16.76666666661936,
+          "executionP95Ms": 21
+        },
+        "composition": {
+          "samples": 63,
+          "meanMs": 4.695238095309053,
+          "p50Ms": 4.299999997019768,
+          "p95Ms": 6.300000004470348,
+          "maxMs": 6.9000000059604645,
+          "executions": 63,
+          "executionMeanMs": 4.695238095309053,
+          "executionP95Ms": 6.300000004470348
+        },
+        "groundEffects": {
+          "samples": 63,
+          "meanMs": 0.6301587298512459,
+          "p50Ms": 0.5999999940395355,
+          "p95Ms": 1,
+          "maxMs": 1.2999999970197678,
+          "executions": 63,
+          "executionMeanMs": 0.6301587298512459,
+          "executionP95Ms": 1
+        },
+        "depthOrder": {
+          "samples": 63,
+          "meanMs": 0.6714285714995294,
+          "p50Ms": 0.6000000014901161,
+          "p95Ms": 1,
+          "maxMs": 1.2000000029802322,
+          "executions": 63,
+          "executionMeanMs": 0.6714285714995294,
+          "executionP95Ms": 1
+        },
+        "entities": {
+          "samples": 63,
+          "meanMs": 7.709523809452851,
+          "p50Ms": 7.299999997019768,
+          "p95Ms": 10.299999997019768,
+          "maxMs": 12,
+          "executions": 63,
+          "executionMeanMs": 7.709523809452851,
+          "executionP95Ms": 10.299999997019768
+        },
+        "selection": {
+          "samples": 63,
+          "meanMs": 0.015873015991279056,
+          "p50Ms": 0,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.10000000149011612,
+          "executions": 63,
+          "executionMeanMs": 0.015873015991279056,
+          "executionP95Ms": 0.10000000149011612
+        },
+        "clouds": {
+          "samples": 63,
+          "meanMs": 0.10634920663303798,
+          "p50Ms": 0.10000000149011612,
+          "p95Ms": 0.20000000298023224,
+          "maxMs": 0.30000000447034836,
+          "executions": 63,
+          "executionMeanMs": 0.10634920663303798,
+          "executionP95Ms": 0.20000000298023224
+        },
+        "other": {
+          "samples": 63,
+          "meanMs": 0.022222221962043216,
+          "p50Ms": 0,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.10000000149011612,
+          "executions": 63,
+          "executionMeanMs": 0.022222221962043216,
+          "executionP95Ms": 0.10000000149011612
+        }
+      },
+      "cachedPercent": 100,
+      "renderer": "canvas2d",
+      "seed": 42,
+      "canvasWidth": 1280,
+      "canvasHeight": 724,
+      "snapshotContext": {
+        "renderer": "canvas2d",
+        "atmosphereRenderer": "webgl",
+        "referenceRendering": false,
+        "fixedEffects": true,
+        "terrainChunks": {
+          "entries": 32,
+          "bytes": 4193408,
+          "maxBytes": 33554432,
+          "hits": 0,
+          "rebuilds": 160,
+          "evictions": 0,
+          "side": 16,
+          "lastDraw": {
+            "hits": 0,
+            "rebuilds": 32,
+            "visible": 32
+          }
+        },
+        "pixelTiles": {
+          "entries": 38,
+          "bytes": 9860,
+          "maxBytes": 8388608,
+          "hits": 38239,
+          "misses": 38,
+          "evictions": 0
+        },
+        "seed": 42,
+        "day": 0,
+        "season": 0,
+        "paused": true,
+        "speed": 1,
+        "zoom": 2,
+        "cameraTransform": [
+          1.4140625,
+          0,
+          0,
+          1.4140625,
+          -84,
+          -362
+        ],
+        "viewport": {
+          "minX": 0,
+          "maxX": 127,
+          "minY": 24,
+          "maxY": 104
+        },
+        "canvasWidth": 1280,
+        "canvasHeight": 724,
+        "devicePixelRatio": 1,
+        "viewportWidth": 1280,
+        "viewportHeight": 724,
+        "visibilityState": "visible",
+        "pageHasFocus": true,
+        "worldWidth": 128,
+        "worldHeight": 128,
+        "peopleTotal": 96,
+        "animalsTotal": 24
+      },
+      "screenshot": "optimized-map.png",
+      "screenshotBytes": 620755,
+      "pageErrors": []
+    },
+    {
+      "label": "reference",
+      "fps": 28.21011673151751,
+      "frameP50Ms": 34.70000000000027,
+      "frameP95Ms": 41.70000000000073,
+      "cpuMeanMs": 32.54915254234763,
+      "cpuP95Ms": 37.69999999552965,
+      "over33MsPercent": 87.93103448275862,
+      "mapP50Ms": 31.899999998509884,
+      "mapP95Ms": 37.5,
+      "mapMeanMs": 32.472881355780665,
+      "mapSamples": 59,
+      "mapStages": {
+        "preparation": {
+          "samples": 59,
+          "meanMs": 0.16779660938654917,
+          "p50Ms": 0.19999999552965164,
+          "p95Ms": 0.29999999701976776,
+          "maxMs": 0.30000000447034836,
+          "executions": 59,
+          "executionMeanMs": 0.16779660938654917,
+          "executionP95Ms": 0.29999999701976776
+        },
+        "terrain": {
+          "samples": 59,
+          "meanMs": 0,
+          "p50Ms": 0,
+          "p95Ms": 0,
+          "maxMs": 0,
+          "executions": 0,
+          "executionMeanMs": 0,
+          "executionP95Ms": 0
+        },
+        "plants": {
+          "samples": 59,
+          "meanMs": 0,
+          "p50Ms": 0,
+          "p95Ms": 0,
+          "maxMs": 0,
+          "executions": 0,
+          "executionMeanMs": 0,
+          "executionP95Ms": 0
+        },
+        "roads": {
+          "samples": 59,
+          "meanMs": 0,
+          "p50Ms": 0,
+          "p95Ms": 0,
+          "maxMs": 0,
+          "executions": 0,
+          "executionMeanMs": 0,
+          "executionP95Ms": 0
+        },
+        "water": {
+          "samples": 59,
+          "meanMs": 17.974576272070408,
+          "p50Ms": 18.100000001490116,
+          "p95Ms": 22.200000002980232,
+          "maxMs": 27.100000001490116,
+          "executions": 59,
+          "executionMeanMs": 17.974576272070408,
+          "executionP95Ms": 22.200000002980232
+        },
+        "composition": {
+          "samples": 59,
+          "meanMs": 4.354237288615461,
+          "p50Ms": 4.199999995529652,
+          "p95Ms": 5.899999998509884,
+          "maxMs": 6.299999997019768,
+          "executions": 59,
+          "executionMeanMs": 4.354237288615461,
+          "executionP95Ms": 5.899999998509884
+        },
+        "groundEffects": {
+          "samples": 59,
+          "meanMs": 0.552542372275207,
+          "p50Ms": 0.5,
+          "p95Ms": 0.8000000044703484,
+          "maxMs": 1,
+          "executions": 59,
+          "executionMeanMs": 0.552542372275207,
+          "executionP95Ms": 0.8000000044703484
+        },
+        "depthOrder": {
+          "samples": 59,
+          "meanMs": 0.5355932206168013,
+          "p50Ms": 0.5,
+          "p95Ms": 0.8000000044703484,
+          "maxMs": 1.3000000044703484,
+          "executions": 59,
+          "executionMeanMs": 0.5355932206168013,
+          "executionP95Ms": 0.8000000044703484
+        },
+        "entities": {
+          "samples": 59,
+          "meanMs": 8.732203388870772,
+          "p50Ms": 8.5,
+          "p95Ms": 11.5,
+          "maxMs": 12.5,
+          "executions": 59,
+          "executionMeanMs": 8.732203388870772,
+          "executionP95Ms": 11.5
+        },
+        "selection": {
+          "samples": 59,
+          "meanMs": 0.022033898254572335,
+          "p50Ms": 0,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.20000000298023224,
+          "executions": 59,
+          "executionMeanMs": 0.022033898254572335,
+          "executionP95Ms": 0.10000000149011612
+        },
+        "clouds": {
+          "samples": 59,
+          "meanMs": 0.11864406830173428,
+          "p50Ms": 0.10000000149011612,
+          "p95Ms": 0.20000000298023224,
+          "maxMs": 0.5,
+          "executions": 59,
+          "executionMeanMs": 0.11864406830173428,
+          "executionP95Ms": 0.20000000298023224
+        },
+        "other": {
+          "samples": 59,
+          "meanMs": 0.015254237389160414,
+          "p50Ms": 0,
+          "p95Ms": 0.10000000149011612,
+          "maxMs": 0.10000000149011612,
+          "executions": 59,
+          "executionMeanMs": 0.015254237389160414,
+          "executionP95Ms": 0.10000000149011612
+        }
+      },
+      "cachedPercent": 100,
+      "renderer": "canvas2d",
+      "seed": 42,
+      "canvasWidth": 1280,
+      "canvasHeight": 724,
+      "snapshotContext": {
+        "renderer": "canvas2d",
+        "atmosphereRenderer": "webgl",
+        "referenceRendering": true,
+        "fixedEffects": true,
+        "terrainChunks": null,
+        "pixelTiles": null,
+        "seed": 42,
+        "day": 0,
+        "season": 0,
+        "paused": true,
+        "speed": 1,
+        "zoom": 2,
+        "cameraTransform": [
+          1.4140625,
+          0,
+          0,
+          1.4140625,
+          -84,
+          -362
+        ],
+        "viewport": {
+          "minX": 0,
+          "maxX": 127,
+          "minY": 24,
+          "maxY": 104
+        },
+        "canvasWidth": 1280,
+        "canvasHeight": 724,
+        "devicePixelRatio": 1,
+        "viewportWidth": 1280,
+        "viewportHeight": 724,
+        "visibilityState": "visible",
+        "pageHasFocus": true,
+        "worldWidth": 128,
+        "worldHeight": 128,
+        "peopleTotal": 96,
+        "animalsTotal": 24
+      },
+      "screenshot": "reference-map.png",
+      "screenshotBytes": 644883,
+      "pageErrors": []
+    }
+  ],
+  "thresholdPolicy": "informational: no machine-specific FPS gate",
+  "notes": "Browser CPU/map submission and screenshots; no direct GPU completion timing."
+}
