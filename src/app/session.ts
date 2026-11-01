@@ -1,6 +1,7 @@
 import { defaultWorldConfig, type WorldConfig } from '../simulation/core/state';
 import type { WorldCommand } from '../simulation';
 import { applyWorldSnapshot } from '../simulation/render-snapshot.js';
+import { indexPeopleById, applyIndexedPersonUpdates } from './person-update-index.js';
 import {
   SIMULATION_PROTOCOL_VERSION,
   type KingdomAiDecisionRequest,
@@ -31,6 +32,7 @@ export class GameSession {
   private readonly worker: Worker;
   private nextRequestId = 1;
   private pending = new Map<number, PendingRequest>();
+  private peopleById = new Map<number, WorldView['people'][number]>();
   private advanceInFlight = false;
   private advanceFlightToken = 0;
   private queuedClockDays = 0;
@@ -68,6 +70,7 @@ export class GameSession {
     this.queuedClockDays = 0;
     this.queuedManualDays = 0;
     this.paused = false;
+    this.peopleById.clear();
     this.ready = this.send('reset', { seed, kingdomAiEnabled }, this.epoch).then(() => {
       if (!this.world) throw new Error('O Worker reiniciou sem devolver o estado do mundo.');
       return this.world;
@@ -124,6 +127,7 @@ export class GameSession {
   terminate() {
     this.failPending(new Error('A sessão de simulação foi encerrada.'));
     this.worker.terminate();
+    this.peopleById.clear();
   }
 
   private send(type: string, payload: Record<string, unknown>, epoch = this.epoch): Promise<SimulationWorkerResponse> {
@@ -191,10 +195,7 @@ export class GameSession {
     if (response.type === 'player-update') {
       if (this.world) {
         const updates = response.people || (response.person ? [response.person] : []);
-        for (const update of updates) {
-          const person = this.world.people.find(person => person.id === update.id);
-          if (person) Object.assign(person, update);
-        }
+        applyIndexedPersonUpdates(this.peopleById, updates);
         for (const key of ['combatEvents', 'loot', 'trainingDummyStates', 'events', 'logs', 'magicTimeMs', 'magicZones', 'magicEvents', 'magicStats'] as const) {
           if (response[key] !== undefined) (this.world as unknown as Record<string, unknown>)[key] = response[key];
         }
@@ -207,6 +208,7 @@ export class GameSession {
     if (response.type === 'snapshot') {
       const nextWorld = applyWorldSnapshot(response.snapshot, response.snapshot.reset ? null : this.world);
       this.world = nextWorld;
+      this.peopleById = indexPeopleById(nextWorld.people);
       this.stats = nextWorld.stats;
       this.onUpdate?.(nextWorld, nextWorld.stats, response.snapshot.reset);
     }
