@@ -1,0 +1,67 @@
+name: "JUL-286 — Food collision reuse A/B"
+on:
+  push:
+    branches:
+      - perf/jul286-food-approach-index-reuse-20261101
+permissions:
+  contents: read
+jobs:
+  performance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 0071ccd5727cb6b8a780353972abc7c6aafcbd78
+          path: baseline
+      - uses: actions/checkout@v4
+        with:
+          path: candidate
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Three seeds, 2 repeats, exact replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node baseline/scripts/benchmark-simulation.mjs --days=12 --warmup=3 --repeats=2 --seeds=1,42,2026 --output=out/baseline.json > out/baseline.txt
+          node candidate/scripts/benchmark-simulation.mjs --days=12 --warmup=3 --repeats=2 --seeds=1,42,2026 --output=out/candidate.json > out/candidate.txt
+          node --input-type=commonjs -e '
+            const fs=require("node:fs");
+            const a=JSON.parse(fs.readFileSync("out/baseline.json"));
+            const b=JSON.parse(fs.readFileSync("out/candidate.json"));
+            const rows=a.results.map(x=>{
+              const y=b.results.find(z=>z.seed===x.seed&&z.repeat===x.repeat);
+              if(!y||x.stateDigest!==y.stateDigest)throw Error("Food/nav replay changed at seed "+x.seed+" repeat "+x.repeat);
+              return {seed:x.seed,repeat:x.repeat,matching:true,baselineMs:x.meanDayMs,
+                candidateMs:y.meanDayMs,gainPercent:100*(x.meanDayMs-y.meanDayMs)/x.meanDayMs};
+            });
+            const sorted=rows.map(r=>r.gainPercent).sort((x,y)=>x-y);
+            const summary={medianGainPercent:(sorted[2]+sorted[3])/2,rows};
+            fs.writeFileSync("out/summary.json",JSON.stringify(summary,null,2));
+            console.log(JSON.stringify(summary));
+          ' | tee out/summary.txt
+      - name: Full 500-person world parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp candidate/scripts/jul286-food-reuse-full-world.mjs baseline/scripts/jul286-food-reuse-full-world.mjs
+          (cd baseline && node scripts/jul286-food-reuse-full-world.mjs 500 42) | tee out/full-baseline.txt
+          cp baseline/out/jul286-full-world.json out/full-baseline.json
+          (cd candidate && node scripts/jul286-food-reuse-full-world.mjs 500 42) | tee out/full-candidate.txt
+          cp candidate/out/jul286-full-world.json out/full-candidate.json
+          node --input-type=commonjs -e '
+            const fs=require("node:fs");
+            const a=JSON.parse(fs.readFileSync("out/full-baseline.json"));
+            const b=JSON.parse(fs.readFileSync("out/full-candidate.json"));
+            if(a.digest!==b.digest)throw Error("500-NPC state changed");
+            console.log(JSON.stringify({equalState:true,baselineMs:a.ms,candidateMs:b.ms,
+              gainPercent:100*(a.ms-b.ms)/a.ms}));
+          ' | tee out/full-comparison.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jul286-food-index-reuse
+          path: out/
+          if-no-files-found: warn
