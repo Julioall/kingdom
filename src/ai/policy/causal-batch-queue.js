@@ -46,7 +46,7 @@ export function observationsMatch(prepared,current) {
  *
  * candidates: [{person, inputs: number[18], urgent?, waitingDays?, priority?}]
  */
-export function prepareCausalInferenceBatch(world,candidates,{budget=128,batchSize=32}={}){
+export function prepareCausalInferenceBatch(world,candidates,{budget=128,batchSize=32,requireLiveValidation=false}={}){
   if(!Number.isSafeInteger(budget)||budget<1||budget>100000)throw Error('Invalid cognitive budget');
   if(!Number.isSafeInteger(batchSize)||batchSize<1||batchSize>256)throw Error('Invalid batch size');
   const policy=getSharedPolicy(world,'human');
@@ -88,7 +88,7 @@ export function prepareCausalInferenceBatch(world,candidates,{budget=128,batchSi
     queueDepth:queue.length,selected:selected.length,urgent:selected.filter(c=>!!c.urgent).length,
     routine,backlog:queue.length-selected.length,batches:batchDurations.length,
     prepareMs:now()-start,batchCompute:batchLatencySummary(batchDurations),
-    consumed:0,rejected:0,missed:0,byRole:{civilian:0,worker:0,military:0,general:0,king:0},
+    consumed:0,rejected:0,domainRejected:0,missed:0,byRole:{civilian:0,worker:0,military:0,general:0,king:0},
     deadlineMisses:0
   };
   // Percentiles are observational, not part of causal decisions. Computing them
@@ -104,7 +104,7 @@ export function prepareCausalInferenceBatch(world,candidates,{budget=128,batchSi
   });
   return {
     metrics,
-    consume(world,person,inputs,allowed){
+    consume(world,person,inputs,allowed,validateLive=null){
       const entry=entries.get(person?.id);
       if(!entry){metrics.missed++;return null;}
       entries.delete(person.id); // output must be consumed at most once
@@ -113,6 +113,16 @@ export function prepareCausalInferenceBatch(world,candidates,{budget=128,batchSi
         ||entry.width!==spec.layerWidths[1]||entry.seed!==spec.seed
         || !observationsMatch(entry.observation,actorObservation(world,person,inputs,'people'))){
         metrics.rejected++;return null;
+      }
+      // A feature-vector match alone cannot detect all intra-day world effects.
+      // With the opt-in strict gate, a caller MUST recheck live resources,
+      // territory, position, occupancy, and permissions at this exact point.
+      // Fail closed on missing, false or throwing validators.
+      if (requireLiveValidation) {
+        let valid = false;
+        try { valid = typeof validateLive === 'function' && validateLive(world,person) === true; }
+        catch { valid = false; }
+        if (!valid) { metrics.rejected++; metrics.domainRejected++; return null; }
       }
       const logits=entry.logits.slice();
       // A mask can change after preparation. Revalidate *at use time*.
