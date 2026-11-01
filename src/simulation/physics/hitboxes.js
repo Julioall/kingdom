@@ -373,7 +373,7 @@ export function hitboxSurfaceDistance(a, b) {
   return polygonDistance(polygonPoints(a), polygonPoints(b));
 }
 
-function hitboxSignature(hitboxes) {
+export function hitboxSignature(hitboxes) {
   // JUL-285 experiment: preserve every delimiter and null/undefined slot
   // in the original navigation key, while avoiding a nested field-array
   // allocation for every hitbox. Do not hash/truncate collision identity.
