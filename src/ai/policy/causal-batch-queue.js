@@ -114,7 +114,17 @@ export function prepareCausalInferenceBatch(world,candidates,{budget=128,batchSi
         || !observationsMatch(entry.observation,actorObservation(world,person,inputs,'people'))){
         metrics.rejected++;return null;
       }
-      // A feature-vector match alone cannot detect all intra-day world effects.\n      // With the opt-in strict gate, a caller MUST recheck live resources,\n      // territory, position, occupancy, and permissions at this exact point.\n      // Fail closed on missing, false or throwing validators.\n      if (requireLiveValidation) {\n        let valid = false;\n        try { valid = typeof validateLive === 'function' && validateLive(world,person) === true; }\n        catch { valid = false; }\n        if (!valid) { metrics.rejected++; metrics.domainRejected++; return null; }\n      }\n      const logits=entry.logits.slice();
+      // A feature-vector match alone cannot detect all intra-day world effects.
+      // With the opt-in strict gate, a caller MUST recheck live resources,
+      // territory, position, occupancy, and permissions at this exact point.
+      // Fail closed on missing, false or throwing validators.
+      if (requireLiveValidation) {
+        let valid = false;
+        try { valid = typeof validateLive === 'function' && validateLive(world,person) === true; }
+        catch { valid = false; }
+        if (!valid) { metrics.rejected++; metrics.domainRejected++; return null; }
+      }
+      const logits=entry.logits.slice();
       // A mask can change after preparation. Revalidate *at use time*.
       for(let i=0;i<logits.length;i++)if(!allowed?.[i])logits[i]=-1e9;
       metrics.consumed++;
