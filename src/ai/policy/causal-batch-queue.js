@@ -9,14 +9,16 @@ const featureKeys = Object.freeze([
 ]);
 const now = () => typeof performance !== 'undefined' ? performance.now() : 0;
 const normal = value => Number.isFinite(value) ? value : 0;
-const quantile = (xs,p) => xs.length ?
-  xs.slice().sort((a,b)=>a-b)[Math.max(0,Math.ceil(xs.length*p)-1)] : 0;
+const sortedQuantile = (sorted,p) => sorted.length ?
+  sorted[Math.max(0,Math.ceil(sorted.length*p)-1)] : 0;
 export function batchLatencySummary(samples) {
+  // Sort once on demand; spreading large samples into Math.max can overflow.
+  const sorted=samples.slice().sort((a,b)=>a-b);
   return {
-    count:samples.length,
-    p50Ms:quantile(samples,.50),p95Ms:quantile(samples,.95),
-    p99Ms:quantile(samples,.99),
-    maxMs:samples.length?Math.max(...samples):0
+    count:sorted.length,
+    p50Ms:sortedQuantile(sorted,.50),p95Ms:sortedQuantile(sorted,.95),
+    p99Ms:sortedQuantile(sorted,.99),
+    maxMs:sorted.length?sorted[sorted.length-1]:0
   };
 }
 
@@ -87,9 +89,19 @@ export function prepareCausalInferenceBatch(world,candidates,{budget=128,batchSi
     routine,backlog:queue.length-selected.length,batches:batchDurations.length,
     prepareMs:now()-start,batchCompute:batchLatencySummary(batchDurations),
     consumed:0,rejected:0,missed:0,byRole:{civilian:0,worker:0,military:0,general:0,king:0},
-    latencyMs:batchLatencySummary([]),waitDays:{p50:0,p95:0,p99:0},
     deadlineMisses:0
   };
+  // Percentiles are observational, not part of causal decisions. Computing them
+  // after every consume sorts an ever-growing sample list (quadratic cost).
+  // Lazy enumerable getters preserve the public metrics/JSON shape, while
+  // avoiding that cost unless a profiler actually reads the metrics.
+  Object.defineProperties(metrics,{
+    latencyMs:{enumerable:true,get(){return batchLatencySummary(waitMs);}},
+    waitDays:{enumerable:true,get(){
+      const summary=batchLatencySummary(waitDays);
+      return {p50:summary.p50Ms,p95:summary.p95Ms,p99:summary.p99Ms};
+    }}
+  });
   return {
     metrics,
     consume(world,person,inputs,allowed){
@@ -110,9 +122,6 @@ export function prepareCausalInferenceBatch(world,candidates,{budget=128,batchSi
       metrics.byRole[role]=(metrics.byRole[role]||0)+1;
       waitMs.push(Math.max(0,now()-entry.createdAtMs));
       waitDays.push(Math.max(0,world.day-entry.createdDay));
-      metrics.latencyMs=batchLatencySummary(waitMs);
-      metrics.waitDays={p50:quantile(waitDays,.5),p95:quantile(waitDays,.95),
-        p99:quantile(waitDays,.99)};
       if(world.day>entry.createdDay)metrics.deadlineMisses++;
       return {hidden:[],logits,probs:[]};
     },
