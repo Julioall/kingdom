@@ -1,6 +1,6 @@
 import { defaultWorldConfig, type WorldConfig } from '../simulation/core/state';
 import type { WorldCommand } from '../simulation';
-import { applyWorldSnapshot } from '../simulation/render-snapshot.js';
+import { applyWorldSnapshot, applyWorldTileDelta } from '../simulation/render-snapshot.js';
 import { indexPeopleById, applyIndexedPersonUpdates } from './person-update-index.js';
 import {
   SIMULATION_PROTOCOL_VERSION,
@@ -37,8 +37,12 @@ export class GameSession {
   private advanceFlightToken = 0;
   private queuedClockDays = 0;
   private queuedManualDays = 0;
+  private resyncInFlight = false;
+  private readonly tileDeltaTransport: boolean;
 
-  constructor(private readonly config: WorldConfig = defaultWorldConfig, seed = 42) {
+  constructor(private readonly config: WorldConfig = defaultWorldConfig, seed = 42,
+    options: {tileDeltaTransport?: boolean} = {}) {
+    this.tileDeltaTransport = options.tileDeltaTransport === true;
     this.worker = new Worker(new URL('../simulation/simulation.worker.ts', import.meta.url), { type: 'module' });
     this.worker.addEventListener('message', (event: MessageEvent<SimulationWorkerResponse>) => this.receive(event.data));
     this.worker.addEventListener('error', event => {
@@ -51,7 +55,8 @@ export class GameSession {
       this.failPending(error);
       this.onError?.(error);
     });
-    this.ready = this.send('initialize', { config: this.config, seed }, this.epoch).then(() => {
+    this.ready = this.send('initialize', { config: this.config, seed,
+      ...(this.tileDeltaTransport ? {transport:'tile-delta'} : {}) }, this.epoch).then(() => {
       if (!this.world) throw new Error('O Worker inicializou sem devolver o estado do mundo.');
       return this.world;
     });
@@ -71,7 +76,9 @@ export class GameSession {
     this.queuedManualDays = 0;
     this.paused = false;
     this.peopleById.clear();
-    this.ready = this.send('reset', { seed, kingdomAiEnabled }, this.epoch).then(() => {
+    this.resyncInFlight = false;
+    this.ready = this.send('reset', { seed, kingdomAiEnabled,
+      ...(this.tileDeltaTransport ? {transport:'tile-delta'} : {}) }, this.epoch).then(() => {
       if (!this.world) throw new Error('O Worker reiniciou sem devolver o estado do mundo.');
       return this.world;
     });
@@ -128,6 +135,7 @@ export class GameSession {
     this.failPending(new Error('A sessão de simulação foi encerrada.'));
     this.worker.terminate();
     this.peopleById.clear();
+    this.resyncInFlight = false;
   }
 
   private send(type: string, payload: Record<string, unknown>, epoch = this.epoch): Promise<SimulationWorkerResponse> {
@@ -146,7 +154,7 @@ export class GameSession {
   }
 
   private drainAdvances() {
-    if (this.advanceInFlight) return;
+    if (this.advanceInFlight || this.resyncInFlight) return;
     let source: 'clock' | 'manual', days: number;
     if (this.queuedManualDays > 0) {
       source = 'manual';
@@ -204,6 +212,28 @@ export class GameSession {
       pending.resolve(response);
       return;
     }
+    if (response.type === 'world-delta') {
+      if (!this.world || response.delta.baseRevision !== this.revision) {
+        // A missed/late packet must never be applied to a different world.
+        this.requestResync();
+        pending.resolve(response);
+        return;
+      }
+      try {
+        const nextWorld = applyWorldTileDelta(response.delta, this.world);
+        this.world = nextWorld;
+        this.peopleById = indexPeopleById(nextWorld.people);
+        this.stats = nextWorld.stats;
+        this.revision = response.revision;
+        this.onUpdate?.(nextWorld, nextWorld.stats, false);
+      } catch {
+        // Invalid sparse data is recoverable by requesting a fresh full
+        // authoritative snapshot. Never trust a partially applied revision.
+        this.requestResync();
+      }
+      pending.resolve(response);
+      return;
+    }
     this.revision = response.revision;
     if (response.type === 'snapshot') {
       const nextWorld = applyWorldSnapshot(response.snapshot, response.snapshot.reset ? null : this.world);
@@ -213,6 +243,21 @@ export class GameSession {
       this.onUpdate?.(nextWorld, nextWorld.stats, response.snapshot.reset);
     }
     pending.resolve(response);
+  }
+
+  private requestResync() {
+    if (this.resyncInFlight) return;
+    const epoch = this.epoch;
+    this.resyncInFlight = true;
+    void this.send('resync', {}, epoch).then(response => {
+      if (response.type !== 'snapshot') throw new Error('O Worker não retornou o resync completo.');
+    }).catch(error => {
+      if (epoch === this.epoch) this.onError?.(error);
+    }).finally(() => {
+      if (epoch !== this.epoch) return;
+      this.resyncInFlight = false;
+      this.drainAdvances();
+    });
   }
 
   private rejectOlderRequests(error: Error) {

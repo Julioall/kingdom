@@ -22,6 +22,38 @@ export type WorldSnapshot = {
   reset: boolean;
 };
 
+export type SparseTileColumns = {
+  schemaVersion: 1;
+  tileCount: number;
+  plantCount: number;
+  indices: Uint32Array;
+  scalars: Float32Array;
+  ids: Int32Array;
+  types: Uint8Array;
+  plants: Float32Array;
+};
+
+export type FieldTileColumns = {
+  schemaVersion: 2;
+  tileCount: number;
+  plantCount: number;
+  scalarFields: number;
+  idFields: number;
+  typeFields: number;
+  fields: {
+    scalars: Array<{field: number; indices?: Uint32Array; values: Float32Array}>;
+    ids: Array<{field: number; indices?: Uint32Array; values: Int32Array}>;
+    types: Array<{field: number; indices?: Uint32Array; values: Uint8Array}>;
+    plants: Array<{field: number; indices?: Uint32Array; values: Float32Array}>;
+  };
+};
+
+export type WorldTileDelta = Omit<WorldSnapshot, 'tileColumns' | 'reset'> & {
+  tileColumns: SparseTileColumns | FieldTileColumns;
+  baseRevision: number;
+  reset: false;
+};
+
 export type KingdomAiDecisionRequest = {
   contractVersion: 1;
   requestId: string;
@@ -49,8 +81,9 @@ type RequestEnvelope = {
 };
 
 export type SimulationWorkerRequest = RequestEnvelope & (
-  | { type: 'initialize'; config: WorldConfig; seed: number }
-  | { type: 'reset'; seed: number; kingdomAiEnabled: boolean }
+  | { type: 'initialize'; config: WorldConfig; seed: number; transport?: 'tile-delta' }
+  | { type: 'reset'; seed: number; kingdomAiEnabled: boolean; transport?: 'tile-delta' }
+  | { type: 'resync' }
   | { type: 'set-paused'; paused: boolean }
   | { type: 'advance'; days: number; source: 'clock' | 'manual' }
   | { type: 'dispatch'; command: WorldCommand }
@@ -70,6 +103,7 @@ type ResponseEnvelope = {
 
 export type SimulationWorkerResponse = ResponseEnvelope & (
   | { type: 'snapshot'; snapshot: WorldSnapshot; result?: unknown }
+  | { type: 'world-delta'; delta: WorldTileDelta; result?: unknown }
   | { type: 'player-update'; person?: WorldState['people'][number] | null; people?: WorldState['people']; combatEvents?: unknown[]; loot?: unknown[]; trainingDummyStates?: WorldState['trainingDummyStates']; events?: unknown[]; logs?: unknown[]; magicTimeMs?: number; magicZones?: unknown[]; magicEvents?: unknown[]; magicStats?: unknown; result?: unknown }
   | { type: 'ack'; result?: unknown }
   | { type: 'kingdom-ai-request'; request: KingdomAiDecisionRequest | null }
