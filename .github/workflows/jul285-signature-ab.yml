@@ -1,0 +1,53 @@
+name: "JUL-285 — Exact collision signature A/B"
+on:
+  push:
+    branches:
+      - perf/jul285-signature-allocation-ab-20261101
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: 0071ccd5727cb6b8a780353972abc7c6aafcbd78
+          path: baseline
+      - uses: actions/checkout@v7.0.1
+        with:
+          path: candidate
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - name: Deterministic full-world states and comparable CPU cost
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node baseline/scripts/benchmark-simulation.mjs --days=12 --warmup=3 --repeats=2 --seeds=1,42,2026 --output=out/baseline.json > out/baseline.txt
+          node candidate/scripts/benchmark-simulation.mjs --days=12 --warmup=3 --repeats=2 --seeds=1,42,2026 --output=out/candidate.json > out/candidate.txt
+          node --input-type=commonjs -e '
+            const fs=require("node:fs");
+            const a=JSON.parse(fs.readFileSync("out/baseline.json"));
+            const b=JSON.parse(fs.readFileSync("out/candidate.json"));
+            const summary=[];
+            for(const x of a.results){
+              const y=b.results.find(z=>z.seed===x.seed && z.repeat===x.repeat);
+              if(!y||x.stateDigest!==y.stateDigest)
+                throw Error("Collision/nav replay differs for seed "+x.seed+" repeat "+x.repeat);
+              const gain=100*(x.meanDayMs-y.meanDayMs)/x.meanDayMs;
+              summary.push({seed:x.seed,repeat:x.repeat,equalState:true,
+                baselineMs:x.meanDayMs,candidateMs:y.meanDayMs,gainPercent:gain});
+            }
+            const gains=summary.map(x=>x.gainPercent).sort((x,y)=>x-y);
+            const median=(gains[2]+gains[3])/2;
+            console.log(JSON.stringify({repeatCount:summary.length,medianGainPercent:median,summary}));
+          ' | tee out/parity.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jul285-signature-ab
+          path: out/
+          if-no-files-found: warn

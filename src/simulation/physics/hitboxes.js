@@ -374,10 +374,16 @@ export function hitboxSurfaceDistance(a, b) {
 }
 
 function hitboxSignature(hitboxes) {
-  return hitboxes.map(hitbox => [hitbox.structureId, hitbox.x, hitbox.y,
-    hitbox.shape, hitbox.halfWidth, hitbox.halfDepth, hitbox.radius, hitbox.resourceKind,
-    hitbox.entityId, hitbox.trainingDummyId,
-    hitbox.points?.map(point => point.x + ',' + point.y).join(';')].join(':')).join('|');
+  // JUL-285 experiment: preserve every delimiter and null/undefined slot
+  // in the original navigation key, while avoiding a nested field-array
+  // allocation for every hitbox. Do not hash/truncate collision identity.
+  const slots = new Array(hitboxes.length);
+  for (let i = 0; i < hitboxes.length; i++) {
+    const h = hitboxes[i];
+    const points = h.points?.map(point => point.x + ',' + point.y).join(';');
+    slots[i] = `${h.structureId ?? ''}:${h.x ?? ''}:${h.y ?? ''}:${h.shape ?? ''}:${h.halfWidth ?? ''}:${h.halfDepth ?? ''}:${h.radius ?? ''}:${h.resourceKind ?? ''}:${h.entityId ?? ''}:${h.trainingDummyId ?? ''}:${points ?? ''}`;
+  }
+  return slots.join('|');
 }
 
 function spatialIndex(world, hitboxes, signature) {
