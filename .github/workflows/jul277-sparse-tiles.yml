@@ -1,0 +1,43 @@
+name: "JUL-277 — Sparse tile delta benchmark"
+on:
+  push:
+    branches:
+      - feat/jul277-sparse-tile-delta
+permissions:
+  contents: read
+jobs:
+  tile-delta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Validate all types and production build
+        run: |
+          npm run typecheck
+          npm run build
+      - name: Run full Kingdom test suite
+        run: npm test
+      - name: Run focused deterministic tests
+        run: |
+          node --test tests/world-tile-delta.test.mjs tests/world-field-delta.test.mjs tests/world-tile-delta-worker.test.mjs tests/person-update-index.test.mjs
+      - name: Analyze dirty fields
+        run: |
+          node scripts/analyze-jul277-dirty-fields.mjs | tee dirty-fields.txt
+      - name: Measure 3-seed full world delta use and transport size
+        run: |
+          set -euo pipefail
+          node scripts/benchmark-jul277-sparse-tiles.mjs | tee out-delta-summary.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jul277-sparse-delta-audit
+          path: |
+            out/
+            out-delta-summary.txt
+            dirty-fields.txt
+          if-no-files-found: warn
