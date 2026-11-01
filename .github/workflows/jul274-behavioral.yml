@@ -1,5 +1,12 @@
 name: "JUL-274 — Neural policy behavioral A/B"
 on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Simulated campaign duration (1-90 days; compare matching seeds)"
+        required: true
+        default: "30"
+        type: string
   push:
     branches:
       - test/jul274-controller-quality-gates
@@ -15,6 +22,8 @@ jobs:
         with:
           node-version: 24
       - name: Full-world seeded behavioral A/B
+        env:
+          JUL274_DAYS: ${{ inputs.days || '6' }}
         shell: bash
         run: |
           set -euo pipefail
