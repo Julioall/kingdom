@@ -104,3 +104,33 @@ test('observation identity is checked, not merely actor ID',()=>{
  const b=actorObservation(world,{...actors[0],role:'ruler'},inputs,'people');
  assert.equal(observationsMatch(a,b),false);
 });
+
+// JUL-273: profiling must not impose a sort per consumed NPC at scale.
+test('latency and wait percentiles are lazy, enumerable and preserve the metrics contract',()=>{
+ const {world,actors,inputs}=make(12);
+ const batch=prepareCausalInferenceBatch(world,actors.map(person=>({person,inputs})),
+   {budget:12,batchSize:4});
+ const latencyProperty=Object.getOwnPropertyDescriptor(batch.metrics,'latencyMs');
+ const waitProperty=Object.getOwnPropertyDescriptor(batch.metrics,'waitDays');
+ assert.equal(typeof latencyProperty.get,'function');
+ assert.equal(typeof waitProperty.get,'function');
+ assert.equal(latencyProperty.enumerable,true);
+ assert.equal(waitProperty.enumerable,true);
+ assert.deepEqual(batch.metrics.latencyMs,batchLatencySummary([]));
+ for(const person of actors)assert.ok(batch.consume(world,person,inputs,all()));
+ const latency=batch.metrics.latencyMs;
+ assert.equal(latency.count,12);
+ assert.ok(latency.p50Ms<=latency.p95Ms && latency.p95Ms<=latency.p99Ms);
+ assert.deepEqual(batch.metrics.waitDays,{p50:0,p95:0,p99:0});
+ const json=JSON.parse(JSON.stringify(batch.metrics));
+ assert.equal(json.latencyMs.count,12);
+ assert.equal(json.waitDays.p99,0);
+});
+
+test('latency summary handles 120000 samples without argument-spread overflow',()=>{
+ const samples=Array.from({length:120000},(_,i)=>119999-i);
+ assert.deepEqual(batchLatencySummary(samples),{
+   count:120000,p50Ms:59999,p95Ms:113999,p99Ms:118799,maxMs:119999
+ });
+ assert.equal(samples[0],119999,'summary must not mutate its input');
+});
