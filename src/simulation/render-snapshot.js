@@ -118,6 +118,38 @@ export function applyWorldSnapshot(snapshot, previous = null) {
  * @param {import('./protocol').WorldView} previous
  * @returns {import('./protocol').WorldView}
  */
+// Preflight all modified tiles before touching *any* authoritative projection.
+// An invalid packet must leave the previous view intact until resync arrives.
+function validateDeltaTileTargets(previous, columns) {
+  const tiles = previous.tiles;
+  const check = index => {
+    const tile = tiles[index];
+    if (!tile || !(tile.plants instanceof Float32Array) ||
+        tile.plants.length !== columns.plantCount)
+      throw new Error('Tile inexistente ou incompatível no delta.');
+  };
+  if (columns.schemaVersion === 1) {
+    for (const index of columns.indices) check(index);
+    return;
+  }
+  const entries = Object.values(columns.fields).flat();
+  if (entries.some(entry => entry.indices == null)) {
+    for (let index = 0; index < tiles.length; index++) check(index);
+    return;
+  }
+  const seen = new Uint8Array(tiles.length);
+  for (const entry of entries) for (const index of entry.indices) {
+    if (seen[index]) continue;
+    seen[index] = 1;
+    check(index);
+  }
+}
+function validateDeltaCollections(delta, previous) {
+  if (!Array.isArray(delta.events) || !Array.isArray(delta.logs) ||
+      !Array.isArray(previous.events) || !Array.isArray(previous.logs))
+    throw new Error('Coleções incompatíveis no delta do mundo.');
+}
+
 function applyWorldFieldTileDelta(delta, previous) {
   const fields = delta?.tileColumns;
   if (!previous || !delta || delta.reset || !delta.base ||
@@ -127,6 +159,8 @@ function applyWorldFieldTileDelta(delta, previous) {
         scalarFields: SCALAR_FIELDS.length, idFields: ID_FIELDS.length,
         typeFields: TYPE_FIELDS.length
       })) throw new Error('O delta de campos não corresponde ao estado atual.');
+  validateDeltaCollections(delta, previous);
+  validateDeltaTileTargets(previous, fields);
   Object.assign(previous, delta.base);
   let waterChanged = false;
   const eachValue = (entries, apply) => {
@@ -172,6 +206,8 @@ export function applyWorldTileDelta(delta, previous) {
     throw new Error('O delta de tiles não corresponde ao estado atual.');
   }
   const { base, tileColumns } = delta;
+  validateDeltaCollections(delta, previous);
+  validateDeltaTileTargets(previous, tileColumns);
   Object.assign(previous, base);
   let waterChanged = false;
   for (let row = 0; row < tileColumns.indices.length; row++) {
