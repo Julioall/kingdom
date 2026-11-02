@@ -50,6 +50,7 @@ import { createTerrainChunkCache } from './terrain-chunks.js';
 import { createPixelTileCache } from './pixel-tile-cache.js';
 import { compareDepth, mergeDepthItems } from './depth-order.js';
 import { createStaticDepthSpatialIndex } from './depth-spatial-index.js';
+import { createEntityDrawProbe } from './entity-draw-probe.js';
 import { createVisibleStaticDepthCache } from './visible-static-depth-cache.js';
 import { shouldDrawMineralAtZoom } from './mineral-lod.js';
 import { MINERAL_SPRITE_KINDS, mineralDepositVariant } from './mineral-sprites.js';
@@ -115,6 +116,9 @@ export function mountGame() {
   // depthCache=0 is the exact baseline switch for same-browser A/B captures.
   const optimizedDepth = !referenceRendering && diagnosticQuery.get('depthCache') !== '0';
   const fixedEffects = diagnosticQuery.get('profile') === '1' && diagnosticQuery.get('effects') === 'fixed';
+  // Profiling is opt-in: sampling every item by default would distort the hot path.
+  const entityDrawProbe = diagnosticQuery.get('profile') === '1' && diagnosticQuery.get('entityProfile') === '1'
+    ? createEntityDrawProbe({ sampleEvery: 16 }) : null;
   const combatDebug = diagnosticQuery.get('combatDebug') === '1';
   const trackedImage = () => loadingScreen.trackImage(new Image());
   const $ = id => document.getElementById(id);
@@ -2078,7 +2082,9 @@ export function mountGame() {
     magicVfx.drawGround(ctx);
     const items = collectDepthItems(bounds);
     profile?.mark('depthOrder');
+    const entitySamples = profile && entityDrawProbe ? entityDrawProbe.beginFrame() : null;
     for (const item of items) {
+      const sampledAt = entitySamples?.begin(item.kind) ?? null;
       if (item.kind === 'tree') drawTreeItem(item);
       else if (item.kind === 'mineral') drawMineralDeposit(item);
       else if (item.kind === 'bush') drawTinySwordsBush(item.tile, item.plantId, item.layout);
@@ -2120,7 +2126,9 @@ export function mountGame() {
           ctx.restore();
         }
       }
+      entitySamples?.end(item.kind, sampledAt);
     }
+    if (entitySamples) profile.setEntityBreakdown(entitySamples.finish());
     magicVfx.drawAura(ctx);
     if (showHitboxes) drawHitboxOverlay(bounds);
     drawMovementBlockLabels(bounds);
@@ -3057,7 +3065,8 @@ export function mountGame() {
     profile?.end({ cacheRebuilt, day: world.day, zoom: mapZoom,
       context: { renderer: 'canvas2d', atmosphereRenderer: atmosphericLayer.rendererType,
         magic: magicVfx.stats(),
-        referenceRendering, fixedEffects, depthCache: optimizedDepth ? visibleStaticDepthCache.stats() : null,
+        referenceRendering, fixedEffects, entityProfile: !!entityDrawProbe,
+        depthCache: optimizedDepth ? visibleStaticDepthCache.stats() : null,
         terrainChunks: referenceRendering ? null : terrainChunks.stats(),
         pixelTiles: referenceRendering ? null : pixelTiles.stats(),
         seed: world.seed, day: world.day, season: world.stats.season, paused: session.paused, speed: session.speed,
