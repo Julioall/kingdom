@@ -239,18 +239,19 @@ test('effects wait for release/contact, expire, and do not replay on redraw or r
   assert.equal(effects.active(releaseAt).filter(e => e.projectile).length, 1);
   effects.observe(f.world, releaseAt + 100);
   assert.equal(effects.active(releaseAt + 100).filter(e => e.projectile).length, 1);
-  assert.equal(effects.active(1000 + f.action.result.atMs).filter(e => !e.projectile && !e.blood).length, 1);
+  assert.equal(effects.active(1000 + f.action.result.atMs).filter(e => !e.projectile && !e.blood).length, 0,
+    'body contact no longer emits a generic dust effect');
   assert.equal(effects.active(1000 + f.action.result.atMs).filter(e => e.blood).length, 1);
   effects.observe(f.world, 2000, true); assert.equal(effects.active(2000).length, 0);
 });
 
-test('body impact presentation is anchored to the confirmed contact point and simulated contact time', () => {
+test('blood impact presentation remains anchored to confirmed contact and contact time', () => {
   const f = fixture('guerreiro');
   f.resolve();
   const effects = createActivityEffects();
   effects.observe(f.world, 1000);
 
-  const impact = effects.active(1000 + f.action.result.atMs).find(effect => !effect.projectile);
+  const impact = effects.active(1000 + f.action.result.atMs).find(effect => effect.blood);
 
   assert.ok(impact);
   assert.equal(impact.startedAt, 1000 + f.action.result.atMs);
