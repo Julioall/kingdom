@@ -49,9 +49,11 @@ export function createMovementInterpolator({ stabilizeCadence = true } = {}) {
       // apart. Compressing all actors into that tiny interval makes them sprint
       // to the final keyframe, then freeze simultaneously until the next day.
       // Never interpolate a simulated day faster than its nominal duration.
-      if (resumed) cadence = expected;
-      else if (gap > 0) cadence = stabilizeCadence ? Math.max(expected, gap) : gap;
+      if (gap > 0) cadence = stabilizeCadence ? Math.max(expected, gap) : gap;
     }
+    // A pause or manual step is not a slow simulation tick: never turn the
+    // elapsed paused time into an abnormally long visual interpolation.
+    if (resumed) cadence = expected;
     if (stalledPoses) playbackTime = now - cadence - bufferMs;
     lastDay = world.day; lastArrival = now;
     const living = new Set();
@@ -111,7 +113,7 @@ export function createMovementInterpolator({ stabilizeCadence = true } = {}) {
       // A positive value when motion segments are known signals that a new
       // authoritative snapshot is overdue; never extrapolate into unknown tiles.
       waitingForSnapshotMs: snapshotAgeMs !== null && motionSegments > 0
-        ? Math.max(0, snapshotAgeMs - cadence - SNAPSHOT_JITTER_BUFFER_MS) : 0,
+        ? Math.max(0, snapshotAgeMs - cadence - bufferMs) : 0,
       bufferMs, stabilizeCadence };
   }
   return { observe, pose, markDiscontinuity, snapActor, settleActor, stats };
