@@ -111,3 +111,24 @@ test('fast path remains an explicit opt-in and does not change sprites without a
   assert.equal(fresh.draw(missing.ctx, sprite, 80, 120, { scale: .5, directDraw: true }), false);
   assert.equal(missing.commands.length, 0);
 });
+
+test('coverage counters identify eligible fallback and direct usage without modifying sprite output', async () => {
+  const renderer = await loadTestRenderer();
+  const ready = createFakeCanvas();
+  const mirrored = createFakeCanvas();
+  const rotated = createFakeCanvas();
+  const smoothed = createFakeCanvas({ smoothing: true });
+  renderer.draw(ready.ctx, sprite, 50, 60, { scale: .5, trackFastPath: true, directDraw: true });
+  renderer.draw(ready.ctx, sprite, 50, 60, { scale: .5, trackFastPath: true, directDraw: false });
+  renderer.draw(mirrored.ctx, sprite, 50, 60, { scale: .5, flipX: true, trackFastPath: true, directDraw: true });
+  renderer.draw(rotated.ctx, sprite, 50, 60, { scale: .5, rotation: .1, trackFastPath: true, directDraw: true });
+  renderer.draw(smoothed.ctx, sprite, 50, 60, { scale: .5, trackFastPath: true, directDraw: true });
+  assert.deepEqual(renderer.fastPathStats(), {
+    total: 5, eligible: 2, direct: 1, mirrored: 1, rotated: 1, smoothed: 1,
+  });
+  renderer.resetFastPathStats();
+  assert.equal(renderer.fastPathStats().total, 0);
+  assert.equal(renderer.fastPathStats().direct, 0);
+  renderer.draw(ready.ctx, sprite, 50, 60, { scale: .5, directDraw: true });
+  assert.equal(renderer.fastPathStats().total, 0, 'coverage is disabled without explicit opt-in');
+});
