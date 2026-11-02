@@ -6,6 +6,7 @@ import {createHash} from 'node:crypto';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {resolve,dirname} from 'node:path';
 import Sim from '../src/simulation/engine.js';
+import { authoritativeSnapshotDigest } from './support/jul274-snapshot-digest.mjs';
 import {cognitiveDayMetrics} from '../src/ai/policy/cognitive-scheduler.js';
 const seeds=[1,42,2026];
 // Longer campaign QA is opt-in: six-day historical results remain comparable.
@@ -49,7 +50,7 @@ function digest(data){return createHash('sha256').update(JSON.stringify(data)).d
 function run(seed,scenario){
  const w=Sim.createWorld(seed,scenario.controller==='legacy'?{neuralController:'legacy'}:{});
  if(scenario.schedule)w.neuralOverrides={...w.neuralOverrides,cognitiveSchedule:scenario.schedule};
- const dayTimes=[],trajectory=[],queues=[];
+ const dayTimes=[],trajectory=[],queues=[],snapshotDayDigests=[];
  const startingDay=w.day;
  for(let i=0;i<days;i++){
   const start=performance.now();
@@ -58,6 +59,9 @@ function run(seed,scenario){
   const stats=measure(w);
   if(w.day!==startingDay+i+1)throw Error('Unexpected world day '+seed+'/'+scenario.name);
   trajectory.push(stats);
+  // Outside the timed simulation step: stronger replay parity without
+  // contaminating the per-day performance samples.
+  snapshotDayDigests.push(authoritativeSnapshotDigest(w));
   const cognitive=cognitiveDayMetrics(w);
   queues.push(cognitive?{day:w.day,budget:cognitive.budget,inferred:cognitive.inferred,
    urgent:cognitive.urgent,utilityOnly:cognitive.utilityOnly,reused:cognitive.reused,
@@ -69,7 +73,8 @@ function run(seed,scenario){
     throw Error('Unexpected dense NPC weights '+seed+'/'+scenario.name);
  }
  const summary=trajectory.at(-1);
- return {seed,scenario:scenario.name,digest:digest(trajectory),summary,trajectory,queues,
+ return {seed,scenario:scenario.name,digest:digest(trajectory),
+   snapshotDigest:digest(snapshotDayDigests),snapshotDayDigests,summary,trajectory,queues,
    meanDayMs:dayTimes.reduce((a,b)=>a+b,0)/dayTimes.length,
    timingsMs:dayTimes};
 }
@@ -77,14 +82,19 @@ const data=[];
 for(const seed of seeds)for(const scenario of scenarios){
  const one=run(seed,scenario);
  const replay=run(seed,scenario);
- if(one.digest!==replay.digest){
-  throw Error('Nondeterministic '+seed+'/'+scenario.name+' '+one.digest+' vs '+replay.digest);
+ if(one.digest!==replay.digest || one.snapshotDigest!==replay.snapshotDigest){
+  const firstSnapshotMismatch=one.snapshotDayDigests.findIndex((value,i)=>
+    value!==replay.snapshotDayDigests[i]);
+  throw Error('Nondeterministic '+seed+'/'+scenario.name
+    +' aggregate='+one.digest+'/'+replay.digest
+    +' snapshot='+one.snapshotDigest+'/'+replay.snapshotDigest
+    +' firstSnapshotMismatchDay='+(firstSnapshotMismatch<0?'none':firstSnapshotMismatch+1));
  }
  data.push(one);
  console.log('QUALITY',JSON.stringify({seed,scenario:scenario.name,meanDayMs:one.meanDayMs,
   alive:one.summary.peopleAlive,deaths:one.summary.deaths,trades:one.summary.trades,
   buildings:one.summary.structuresComplete,meanFood:one.summary.meanFoodReserve,
-  meanHydration:one.summary.meanHydration,successfulReplay:true}));
+  meanHydration:one.summary.meanHydration,successfulReplay:true,snapshotReplay:true}));
 }
 const comparisons=seeds.map(seed=>{
  const rows=data.filter(r=>r.seed===seed);
@@ -93,11 +103,11 @@ const comparisons=seeds.map(seed=>{
    deaths:r.summary.deaths,trades:r.summary.trades,structuresComplete:r.summary.structuresComplete,
    meanDayMs:r.meanDayMs,actions:r.summary.lastActions}))};
 });
-const report={schema:1,sourceCommit:process.env.GITHUB_SHA||'unknown',
- methodology:'Same-seed independent full-world runs, every scenario replayed twice for exact within-mode parity. Separate model trajectories are NOT required to match. Not a claim that cognitive quality is equivalent.',
+const report={schema:2,sourceCommit:process.env.GITHUB_SHA||'unknown',
+ methodology:'Same-seed independent full-world runs, each scenario replayed twice. Compare aggregate trajectory AND per-day authoritative snapshot digests (base, tile columns, stats, events, logs). Snapshot hashing occurs outside measured step times. Different controller trajectories are not required to match. This is snapshot parity, not proof of every transient internal state or cognitive quality.',
  caveats:`${days} simulated days / three seeds, CPU-only GitHub runner. Scenarios do not force wars or trade; a zero-activity metric is NOT evidence of quality. Manual visual and real GPU validation still necessary.`,
  seeds,days,scenarios,comparisons,data};
 const file=resolve(process.argv[2]||'out/jul274-behavioral.json');
 await mkdir(dirname(file),{recursive:true});
 await writeFile(file,JSON.stringify(report,null,2));
-console.log('PASSED within-mode deterministic replays',data.length);
+console.log('PASSED aggregate and authoritative-snapshot within-mode deterministic replays',data.length);
