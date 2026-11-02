@@ -87,6 +87,7 @@ export function createRenderDiagnostics() {
     }
     const entityBody = host.shadowRoot.getElementById('entity-stages');
     const categoryStats = map.entityBreakdown;
+    entityBody.parentElement.style.display = categoryStats.measuredFrames ? '' : 'none';
     const ranked = Object.entries(categoryStats.categories).filter(([, value]) => value.count > 0)
       .sort((a, b) => (b[1].estimatedMsPerDraw ?? -1) - (a[1].estimatedMsPerDraw ?? -1))
       .slice(0, 12);
