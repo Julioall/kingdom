@@ -331,7 +331,9 @@ export function mountGame() {
   const syncPanelAccess = () => syncHudPanelAccess($('leftPanel'), $('rightPanel'), { leftOpen: showLeft, rightOpen: showRight });
   syncPanelAccess();
   const isResetCancellation = error => error && error.name === 'AbortError';
+  const snapshotCallbackCpu = { samples: 0, totalMs: 0, lastMs: 0, maxMs: 0, over16Ms: 0 };
   session.onUpdate = (nextWorld, _stats, reset) => {
+    const updateStart = performance.now();
     world = nextWorld;
     peopleById = new Map(world.people.map(person => [person.id, person]));
     animalsById = new Map(world.animals.map(animal => [animal.id, animal]));
@@ -390,6 +392,12 @@ export function mountGame() {
       loadingScreen.markWorldReady();
     } else render('snapshot');
     if (localAI) localAI.pump();
+    const cpuMs = Math.max(0, performance.now() - updateStart);
+    snapshotCallbackCpu.samples++;
+    snapshotCallbackCpu.lastMs = cpuMs;
+    snapshotCallbackCpu.totalMs += cpuMs;
+    snapshotCallbackCpu.maxMs = Math.max(snapshotCallbackCpu.maxMs, cpuMs);
+    if (cpuMs > 16.7) snapshotCallbackCpu.over16Ms++;
   };
   session.onPlayerUpdate = (combat, personIds, magic = false) => {
     if (!world) return;
@@ -3078,6 +3086,7 @@ export function mountGame() {
         movementJitterFix: stabilizeMovement,
         movement: movementInterpolator.stats(renderTimestamp ?? performance.now()),
         workerTransport: session.getTransportDiagnostics(),
+        snapshotCallbackCpu: { ...snapshotCallbackCpu },
         ...(trackPersonSpriteCoverage ? { personSpriteCoverage: animationRenderer.fastPathStats() } : {}),
         depthCache: optimizedDepth ? visibleStaticDepthCache.stats() : null,
         terrainChunks: referenceRendering ? null : terrainChunks.stats(),
