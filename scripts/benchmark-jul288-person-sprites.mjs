@@ -26,6 +26,7 @@ const report = {
   method: 'Three alternating baseline/candidate pairs, 30s per capture by default; both modes keep depthCache enabled. Baseline uses personDrawFastPath=0; candidate enables optimized direct Canvas blit for eligible person sprites. Measures RAF cadence and main-thread Canvas submission, not GPU completion or Worker execution. Compare screenshots and do not equate headless SwiftShader with windowed GPU.',
   headless, platform: platform(), captures: [], errors: []
 };
+await mkdir(dirname(output), { recursive: true });
 const server = spawn(process.execPath,
   ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', String(port), '--strictPort'],
   { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, BROWSER: 'none' } });
@@ -88,6 +89,8 @@ try {
             dpr: window.devicePixelRatio, viewport: [innerWidth, innerHeight] };
         });
         const initial = await page.evaluate(() => window.kingdomProfiler.snapshot().context);
+        if (initial.personDrawFastPath !== (mode !== 'baseline'))
+          throw Error('Person sprite A/B switch mismatch: ' + JSON.stringify({ mode, actual: initial.personDrawFastPath }));
         if (initial.zoom !== .5 || initial.speed !== 1 || initial.worldWidth !== 112 || initial.worldHeight !== 112
             || initial.peopleTotal !== 96 || initial.animalsTotal !== 24)
           throw Error('Scenario mismatch: ' + JSON.stringify(initial));
