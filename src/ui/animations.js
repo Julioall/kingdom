@@ -48,6 +48,7 @@ export function getAnimationFrame(animation, elapsedMs, { loop, phase = 0 } = {}
 // loads the entire pack, and Node consumers do not need a browser DOM.
 export function createAnimationRenderer({ imageFactory = () => new Image(), onReady = () => {}, onError = () => {} } = {}) {
   const images = new Map();
+  const fastPathStats = { total: 0, eligible: 0, direct: 0, mirrored: 0, rotated: 0, smoothed: 0 };
   function load(animation) {
     if (typeof animation === 'string') animation = getAnimation(animation);
     let entry = images.get(animation.url);
@@ -62,12 +63,34 @@ export function createAnimationRenderer({ imageFactory = () => new Image(), onRe
     image.src = animation.url;
     return entry.promise;
   }
-  function draw(ctx, animation, x, y, { elapsedMs = 0, scale = 1, flipX = false, rotation = 0, loop, phase = 0 } = {}) {
+  function draw(ctx, animation, x, y, { elapsedMs = 0, scale = 1, flipX = false, rotation = 0,
+    loop, phase = 0, directDraw = false, trackFastPath = false } = {}) {
     if (typeof animation === 'string') animation = getAnimation(animation);
     const cached = images.get(animation.url);
     if (!cached) { load(animation).catch(onError); return false; }
     if (!cached.ready) return false;
     const frame = getAnimationFrame(animation, elapsedMs, { loop, phase });
+    // Equivalent to translate(x,y) + scale(scale,scale) for an upright,
+    // non-mirrored sprite. Only use if the caller already has nearest-neighbor
+    // filtering enabled: no Canvas state can be left changed by this path.
+    // Keeping the fallback unchanged preserves rotations, mirroring and any
+    // callers that expect their smoothing state restored by save/restore.
+    const eligible = (directDraw || trackFastPath) && !flipX && rotation === 0
+      && scale > 0 && ctx.imageSmoothingEnabled === false;
+    if (trackFastPath) {
+      fastPathStats.total++;
+      if (eligible) fastPathStats.eligible++;
+      if (flipX) fastPathStats.mirrored++;
+      if (rotation !== 0 || scale <= 0) fastPathStats.rotated++;
+      if (ctx.imageSmoothingEnabled !== false) fastPathStats.smoothed++;
+    }
+    if (directDraw && eligible) {
+      if (trackFastPath) fastPathStats.direct++;
+      ctx.drawImage(cached.image, frame.sx, frame.sy, frame.sw, frame.sh,
+        x - animation.anchor.x * scale, y - animation.anchor.y * scale,
+        frame.sw * scale, frame.sh * scale);
+      return true;
+    }
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     ctx.translate(x, y);
@@ -78,5 +101,9 @@ export function createAnimationRenderer({ imageFactory = () => new Image(), onRe
     ctx.restore();
     return true;
   }
-  return { load, draw };
+  return { load, draw,
+    fastPathStats: () => ({ ...fastPathStats }),
+    resetFastPathStats: () => {
+      for (const key of Object.keys(fastPathStats)) fastPathStats[key] = 0;
+    } };
 }
