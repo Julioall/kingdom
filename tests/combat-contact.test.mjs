@@ -265,7 +265,8 @@ test('movement must use snapshot arrival time even while the animation clock pau
   const world = { day: 0, people: [person], animals: [] };
   movement.observe(world, 10000, { reset: true });
   person.x = 1; world.day = 1; movement.observe(world, 11000);
-  assert.ok(movement.pose('person', person, 11560).x > .4);
+  // JUL-289 keeps a 180ms visual jitter buffer, so progress is 380/1000.
+  assert.ok(Math.abs(movement.pose('person', person, 11560).x - .38) < 1e-8);
   person.x = 2; world.day = 2; movement.observe(world, 12000, { speed: 3 });
   assert.ok(movement.pose('person', person, 12560).x > 1.4);
 });

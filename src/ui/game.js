@@ -115,6 +115,8 @@ export function mountGame() {
   const referenceRendering = diagnosticQuery.get('profile') === '1' && diagnosticQuery.get('render') === 'reference';
   // depthCache=0 is the exact baseline switch for same-browser A/B captures.
   const optimizedDepth = !referenceRendering && diagnosticQuery.get('depthCache') !== '0';
+  // JUL-289: allow precise headful A/B against the legacy shared cadence.
+  const stabilizeMovement = diagnosticQuery.get('movementJitterFix') !== '0';
   // JUL-288: A/B switch; only upright, unmirrored person frames use the fast path.
   const optimizedPersonSprites = diagnosticQuery.get('personDrawFastPath') !== '0';
   const trackPersonSpriteCoverage = diagnosticQuery.get('profile') === '1'
@@ -329,7 +331,9 @@ export function mountGame() {
   const syncPanelAccess = () => syncHudPanelAccess($('leftPanel'), $('rightPanel'), { leftOpen: showLeft, rightOpen: showRight });
   syncPanelAccess();
   const isResetCancellation = error => error && error.name === 'AbortError';
+  const snapshotCallbackCpu = { samples: 0, totalMs: 0, lastMs: 0, maxMs: 0, over16Ms: 0 };
   session.onUpdate = (nextWorld, _stats, reset) => {
+    const updateStart = performance.now();
     world = nextWorld;
     peopleById = new Map(world.people.map(person => [person.id, person]));
     animalsById = new Map(world.animals.map(animal => [animal.id, animal]));
@@ -388,6 +392,12 @@ export function mountGame() {
       loadingScreen.markWorldReady();
     } else render('snapshot');
     if (localAI) localAI.pump();
+    const cpuMs = Math.max(0, performance.now() - updateStart);
+    snapshotCallbackCpu.samples++;
+    snapshotCallbackCpu.lastMs = cpuMs;
+    snapshotCallbackCpu.totalMs += cpuMs;
+    snapshotCallbackCpu.maxMs = Math.max(snapshotCallbackCpu.maxMs, cpuMs);
+    if (cpuMs > 16.7) snapshotCallbackCpu.over16Ms++;
   };
   session.onPlayerUpdate = (combat, personIds, magic = false) => {
     if (!world) return;
@@ -468,7 +478,7 @@ export function mountGame() {
   let animationTime = 0, lastSpriteDraw = 0, lastAtmosphereUpdate = 0, assetRenderQueued = false, groundCacheKey = '', pendingClockDays = 0;
   let pendingMapDraw = 'initial';
   let lastCloudLayerDraw = -Infinity, cloudLayerViewKey = '', fogUpdateAccumulator = 0;
-  const movementInterpolator = createMovementInterpolator();
+  const movementInterpolator = createMovementInterpolator({ stabilizeCadence: stabilizeMovement });
   document.addEventListener('visibilitychange', () => movementInterpolator.markDiscontinuity());
   const actorAnimationClock = createActorAnimationClock();
   const activityEffects = createActivityEffects();
@@ -3073,6 +3083,10 @@ export function mountGame() {
         magic: magicVfx.stats(),
         referenceRendering, fixedEffects, entityProfile: !!entityDrawProbe,
         personDrawFastPath: optimizedPersonSprites,
+        movementJitterFix: stabilizeMovement,
+        movement: movementInterpolator.stats(renderTimestamp ?? performance.now()),
+        workerTransport: session.getTransportDiagnostics(),
+        snapshotCallbackCpu: { ...snapshotCallbackCpu },
         ...(trackPersonSpriteCoverage ? { personSpriteCoverage: animationRenderer.fastPathStats() } : {}),
         depthCache: optimizedDepth ? visibleStaticDepthCache.stats() : null,
         terrainChunks: referenceRendering ? null : terrainChunks.stats(),
@@ -4066,7 +4080,7 @@ export function mountGame() {
       paintMap(source);
     }
     profile?.mark('map');
-    profile?.end();
+    profile?.end({ movement: movementInterpolator.stats(now), rafTimestamp: now });
     if (renderDiagnostics.profiler.enabled) renderDiagnostics.refresh(now);
     window.requestAnimationFrame(frame);
   }
