@@ -5,7 +5,8 @@
 // This does NOT change the simulation clock, snapshots, or navigation.
 export const SNAPSHOT_JITTER_BUFFER_MS = 180;
 
-export function createMovementInterpolator() {
+export function createMovementInterpolator({ stabilizeCadence = true } = {}) {
+  const bufferMs = stabilizeCadence ? SNAPSHOT_JITTER_BUFFER_MS : 60;
   const actors = new Map();
   let lastDay = null, lastArrival = null, cadence = 1000, lastSpeed = null;
   let playbackTime = -Infinity;
@@ -36,7 +37,7 @@ export function createMovementInterpolator() {
       const gap = now - lastArrival;
       lastGapMs = gap;
       if (gap > 0 && gap < expected * .75) shortSnapshots++;
-      if (gap > expected + SNAPSHOT_JITTER_BUFFER_MS) lateSnapshots++;
+      if (gap > expected + bufferMs) lateSnapshots++;
       if (gap > cadence * 1.5) {
         stalledPoses = new Map();
         for (const [kind, agents] of [['person', world.people], ['animal', world.animals]]) {
@@ -48,9 +49,10 @@ export function createMovementInterpolator() {
       // apart. Compressing all actors into that tiny interval makes them sprint
       // to the final keyframe, then freeze simultaneously until the next day.
       // Never interpolate a simulated day faster than its nominal duration.
-      if (gap > 0) cadence = Math.max(expected, gap);
+      if (resumed) cadence = expected;
+      else if (gap > 0) cadence = stabilizeCadence ? Math.max(expected, gap) : gap;
     }
-    if (stalledPoses) playbackTime = now - cadence - SNAPSHOT_JITTER_BUFFER_MS;
+    if (stalledPoses) playbackTime = now - cadence - bufferMs;
     lastDay = world.day; lastArrival = now;
     const living = new Set();
     motionSegments = 0;
@@ -79,7 +81,7 @@ export function createMovementInterpolator() {
   function pose(kind, agent, now) {
     const actor = actors.get(kind + ':' + agent.id);
     if (!actor) return { x: agent.x, y: agent.y, moving: false, dirX: 0, dirY: 0, facingX: 1 };
-    playbackTime = Math.max(playbackTime, now - cadence - SNAPSHOT_JITTER_BUFFER_MS);
+    playbackTime = Math.max(playbackTime, now - cadence - bufferMs);
     const points = actor.points;
     while (points.length > 2 && points[1].time <= playbackTime) points.shift();
     const from = points[0], to = points[1] || from;
@@ -94,10 +96,10 @@ export function createMovementInterpolator() {
   }
   function snapActor(kind, agent, now) {
     actors.set(kind + ':' + agent.id, { facingX: agent.militaryFacingX || 1,
-      points: [{ x: agent.x, y: agent.y, time: now - cadence - SNAPSHOT_JITTER_BUFFER_MS }] });
+      points: [{ x: agent.x, y: agent.y, time: now - cadence - bufferMs }] });
   }
   function settleActor(kind, agent, from, now) {
-    const start = Math.max(playbackTime, now - cadence - SNAPSHOT_JITTER_BUFFER_MS);
+    const start = Math.max(playbackTime, now - cadence - bufferMs);
     actors.set(kind + ':' + agent.id, { facingX: agent.militaryFacingX || 1,
       points: [{ x: from.x, y: from.y, time: start },
         { x: agent.x, y: agent.y, time: start + Math.min(250, cadence) }] });
@@ -110,7 +112,7 @@ export function createMovementInterpolator() {
       // authoritative snapshot is overdue; never extrapolate into unknown tiles.
       waitingForSnapshotMs: snapshotAgeMs !== null && motionSegments > 0
         ? Math.max(0, snapshotAgeMs - cadence - SNAPSHOT_JITTER_BUFFER_MS) : 0,
-      bufferMs: SNAPSHOT_JITTER_BUFFER_MS };
+      bufferMs, stabilizeCadence };
   }
   return { observe, pose, markDiscontinuity, snapActor, settleActor, stats };
 }
