@@ -43,8 +43,9 @@ export function createRenderDiagnostics() {
       '<details open><summary id="headline">Profiler · aguardando quadros</summary><div class="body">',
       '<p id="cadence"></p><p id="frame"></p><p id="map"></p><p id="cache"></p><p id="chunks"></p>',
       '<table aria-label="Tempos das etapas de desenho"><thead><tr><th>Etapa</th><th>Média/desenho</th><th>p95/exec.</th></tr></thead><tbody id="stages"></tbody></table>',
+      '<table aria-label="Entidades por categoria (amostragem)"><thead><tr><th>Entidade</th><th>Itens/desenho</th><th>CPU estimada</th></tr></thead><tbody id="entity-stages"></tbody></table>',
       '<p id="atmosphere"></p><p id="context"></p>',
-      '<small>Janela móvel de 10 s, até 1.200 amostras. Tempos de CPU e envio de comandos. GPU e simulação no Worker não são medidos. Etapas em cache entram como zero na média; p95 considera só execuções.</small>',
+      '<small>Janela móvel de 10 s, até 1.200 amostras. Tempos de CPU e envio de comandos; GPU e Worker não incluídos. A tabela por entidade só aparece com ?profile=1&amp;entityProfile=1; conta itens exatos e estima o tempo por amostragem rotativa (1/16), não inclui overlays fora do painter loop. Instrumentação altera os próprios tempos.</small>',
       '</div>',
       '<div class="buttons"><button id="reset" type="button">Zerar</button><button id="export" type="button">Exportar JSON</button><button id="map-png" type="button" title="Exportar o Canvas 2D sem a UI e a névoa separada">Mapa PNG</button><button id="close" type="button">Desativar</button></div>',
       '</details>',
@@ -84,6 +85,22 @@ export function createRenderDiagnostics() {
       rows[key].p95.textContent = values.executions ? ms(values.executionP95Ms) : '—';
       rows[key].row.title = values.executions + ' execuções em ' + map.samples + ' desenhos; média por execução ' + ms(values.executionMeanMs) + ' ms';
     }
+    const entityBody = host.shadowRoot.getElementById('entity-stages');
+    const categoryStats = map.entityBreakdown;
+    const ranked = Object.entries(categoryStats.categories).filter(([, value]) => value.count > 0)
+      .sort((a, b) => (b[1].estimatedMsPerDraw ?? -1) - (a[1].estimatedMsPerDraw ?? -1))
+      .slice(0, 12);
+    const fragment = document.createDocumentFragment();
+    for (const [name, values] of ranked) {
+      const row = document.createElement('tr');
+      const label = document.createElement('td'), count = document.createElement('td'), estimated = document.createElement('td');
+      label.textContent = name;
+      count.textContent = values.averageCountPerDraw.toFixed(1);
+      estimated.textContent = values.estimatedMsPerDraw === null ? '—' : ms(values.estimatedMsPerDraw) + ' ms';
+      row.title = values.samples + ' elementos amostrados; valores de CPU estimados, não tempos exatos/GPU';
+      row.append(label, count, estimated); fragment.append(row);
+    }
+    entityBody.replaceChildren(fragment);
     fields.atmosphere.textContent = 'CPU névoa/update RAF: ' + ms(frames.stages.atmosphere.meanMs) + ' ms · quadros >33 ms: ' + frames.over33MsPercent.toFixed(1) + '%';
     const context = report.context;
     fields.context.textContent = context ? 'Zoom ' + Math.round(context.zoom * 100) + '% · ' + context.canvasWidth + '×' + context.canvasHeight + ' px · dia ' + context.day + ' · ' + (context.paused ? 'pausado' : context.speed + '×') : '';
