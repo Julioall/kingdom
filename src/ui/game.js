@@ -50,6 +50,7 @@ import { createTerrainChunkCache } from './terrain-chunks.js';
 import { createPixelTileCache } from './pixel-tile-cache.js';
 import { compareDepth, mergeDepthItems } from './depth-order.js';
 import { createStaticDepthSpatialIndex } from './depth-spatial-index.js';
+import { createVisibleStaticDepthCache } from './visible-static-depth-cache.js';
 import { shouldDrawMineralAtZoom } from './mineral-lod.js';
 import { MINERAL_SPRITE_KINDS, mineralDepositVariant } from './mineral-sprites.js';
 import { CORRAL_VISUAL_SCALE, corralFenceRadius } from '../simulation/ecology/herd.js';
@@ -111,6 +112,8 @@ export function mountGame() {
   const renderDiagnostics = createRenderDiagnostics();
   const diagnosticQuery = new URLSearchParams(window.location.search);
   const referenceRendering = diagnosticQuery.get('profile') === '1' && diagnosticQuery.get('render') === 'reference';
+  // depthCache=0 is the exact baseline switch for same-browser A/B captures.
+  const optimizedDepth = !referenceRendering && diagnosticQuery.get('depthCache') !== '0';
   const fixedEffects = diagnosticQuery.get('profile') === '1' && diagnosticQuery.get('effects') === 'fixed';
   const combatDebug = diagnosticQuery.get('combatDebug') === '1';
   const trackedImage = () => loadingScreen.trackImage(new Image());
@@ -1699,7 +1702,9 @@ export function mountGame() {
 
   let staticDepthCacheWorld = null, staticDepthCacheDay = -1, staticDepthItems = [];
   let staticDepthSpatialIndex = null;
+  const visibleStaticDepthCache = createVisibleStaticDepthCache();
   function invalidateStaticDepthCache() {
+    visibleStaticDepthCache.clear();
     staticDepthCacheWorld = null;
     staticDepthCacheDay = -1;
     staticDepthSpatialIndex = null;
@@ -1797,7 +1802,8 @@ export function mountGame() {
         { dummy, depthY: dummy.y });
     }
     staticDepthItems = referenceRendering ? items : items.sort(compareDepth);
-    staticDepthSpatialIndex = referenceRendering ? null : createStaticDepthSpatialIndex(staticDepthItems);
+    staticDepthSpatialIndex = referenceRendering ? null : createStaticDepthSpatialIndex(staticDepthItems, 16,
+      { fullMapFastPath: optimizedDepth });
     staticDepthCacheWorld = world;
     staticDepthCacheDay = world.day;
     return staticDepthItems;
@@ -1857,8 +1863,11 @@ export function mountGame() {
   function collectDepthItems(bounds) {
     // Only off-screen resources are culled. Camera zoom never thins deposits.
     const allStatic = collectStaticDepthItems();
-    const staticCandidates = referenceRendering ? allStatic : staticDepthSpatialIndex.query(bounds);
-    const staticItems = staticCandidates.filter(item => item.x >= bounds.minX && item.x <= bounds.maxX
+    const staticItems = optimizedDepth ? visibleStaticDepthCache.get({
+      items: allStatic, spatialIndex: staticDepthSpatialIndex, bounds, zoom: mapZoom,
+      miningSites: activeMiningSites, showMineral: shouldDrawMineralAtZoom
+    }) : (referenceRendering ? allStatic : staticDepthSpatialIndex.query(bounds)).filter(item =>
+      item.x >= bounds.minX && item.x <= bounds.maxX
       && item.y >= bounds.minY && item.y <= bounds.maxY
       && (referenceRendering || item.kind !== 'mineral'
         || shouldDrawMineralAtZoom(item, mapZoom, activeMiningSites.has(item.x + ':' + item.y))));
@@ -3048,7 +3057,8 @@ export function mountGame() {
     profile?.end({ cacheRebuilt, day: world.day, zoom: mapZoom,
       context: { renderer: 'canvas2d', atmosphereRenderer: atmosphericLayer.rendererType,
         magic: magicVfx.stats(),
-        referenceRendering, fixedEffects, terrainChunks: referenceRendering ? null : terrainChunks.stats(),
+        referenceRendering, fixedEffects, depthCache: optimizedDepth ? visibleStaticDepthCache.stats() : null,
+        terrainChunks: referenceRendering ? null : terrainChunks.stats(),
         pixelTiles: referenceRendering ? null : pixelTiles.stats(),
         seed: world.seed, day: world.day, season: world.stats.season, paused: session.paused, speed: session.speed,
         zoom: mapZoom, cameraTransform: camera.transform.slice(), viewport: { ...view.bounds },
