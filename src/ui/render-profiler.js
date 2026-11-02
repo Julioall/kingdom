@@ -1,3 +1,5 @@
+import { summarizeEntityDraws } from './entity-draw-probe.js';
+
 export const RENDER_PHASES = Object.freeze({
   preparation: 'Preparação e trilhas', terrain: 'Terreno', plants: 'Plantas do solo', roads: 'Estradas',
   water: 'Oceano e água', composition: 'Composição do cache', groundEffects: 'Trilhas e lavouras',
@@ -50,8 +52,9 @@ export function createRenderProfiler({ enabled = false, now = () => performance.
 
   function measurement(commit, source) {
     const started = now(), token = generation, phases = {};
-    let previous = started, ended = false;
+    let previous = started, ended = false, entityBreakdown = null;
     return {
+      setEntityBreakdown(value) { if (!ended) entityBreakdown = value; },
       mark(phase) {
         if (ended) return;
         const time = now();
@@ -64,7 +67,8 @@ export function createRenderProfiler({ enabled = false, now = () => performance.
         if (!active || !visible || token !== generation) return;
         const time = now();
         phases.other = (phases.other || 0) + Math.max(0, time - previous);
-        commit({ at: time, durationMs: Math.max(0, time - started), phases, source, ...details });
+        commit({ at: time, durationMs: Math.max(0, time - started), phases, source,
+          ...(entityBreakdown ? { entityBreakdown } : {}), ...details });
       },
     };
   }
@@ -127,6 +131,7 @@ export function createRenderProfiler({ enabled = false, now = () => performance.
           cpu: summarize(frameSamples.map(sample => sample.durationMs)), stages: frameStages },
         map: { ...drawStats, drawsPerSecond: drawCadence.length ? 1000 / summarize(drawCadence.map(sample => sample.ms)).meanMs : 0,
           sources, stages: phaseStats,
+          entityBreakdown: summarizeEntityDraws(drawSamples),
           cache: { rebuilt: rebuilt.length, hits: drawSamples.length - rebuilt.length,
             hitPercent: drawSamples.length ? (drawSamples.length - rebuilt.length) / drawSamples.length * 100 : 0,
             rebuildCpu: summarize(rebuilt.map(sample => sample.durationMs)),
