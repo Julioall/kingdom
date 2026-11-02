@@ -87,7 +87,7 @@ export function createRenderDiagnostics() {
       + ms(movement.waitingForSnapshotMs) + ' ms · respostas agrupadas ' + movement.shortSnapshots
       + (movement.stabilizeCadence ? ' · estabilizado' : ' · legado') : '';
     const transport = report.context?.workerTransport;
-    fields.worker.textContent = transport ? 'Worker: fila automática ' + (transport.advanceQueue?.clockDays ?? '—')
+    fields.worker.textContent = transport ? 'Worker: fila automática ' + (transport.advanceQueue?.queuedClockDays ?? '—')
       + ' · avanço em curso ' + !!transport.advanceQueue?.inFlight
       + ' · aplicar snapshot até ' + ms(transport.maxApplyMs || 0) + ' ms' : '';
     for (const [key, values] of Object.entries(map.stages)) {
