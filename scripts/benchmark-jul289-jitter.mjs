@@ -129,6 +129,16 @@ try {
           starvedRafPercent: movementFrames.length ? 100 * starvingFrames.length / movementFrames.length : 0,
           maxWaitingMs: starvingFrames.length ? Math.max(...starvingFrames.map(f => f.movement.waitingForSnapshotMs)) : 0,
           transportStart: initial.workerTransport, transportEnd: finalContext?.workerTransport,
+          snapshotCallbackCpu: {
+            count: (finalContext?.snapshotCallbackCpu?.samples || 0)
+              - (initial.snapshotCallbackCpu?.samples || 0),
+            over16Ms: (finalContext?.snapshotCallbackCpu?.over16Ms || 0)
+              - (initial.snapshotCallbackCpu?.over16Ms || 0),
+            lastMs: finalContext?.snapshotCallbackCpu?.lastMs ?? null,
+            maxLifetimeMs: finalContext?.snapshotCallbackCpu?.maxMs ?? null,
+            meanLifetimeMs: finalContext?.snapshotCallbackCpu?.samples
+              ? finalContext.snapshotCallbackCpu.totalMs / finalContext.snapshotCallbackCpu.samples : null,
+          },
         };
         const stages = {};
         for (const key of ['depthOrder', 'entities', 'water']) {
