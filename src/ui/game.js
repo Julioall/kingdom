@@ -4071,7 +4071,7 @@ export function mountGame() {
       paintMap(source);
     }
     profile?.mark('map');
-    profile?.end({ movement: movementInterpolator.stats(now) });
+    profile?.end({ movement: movementInterpolator.stats(now), rafTimestamp: now });
     if (renderDiagnostics.profiler.enabled) renderDiagnostics.refresh(now);
     window.requestAnimationFrame(frame);
   }
