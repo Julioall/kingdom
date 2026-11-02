@@ -115,6 +115,8 @@ export function mountGame() {
   const referenceRendering = diagnosticQuery.get('profile') === '1' && diagnosticQuery.get('render') === 'reference';
   // depthCache=0 is the exact baseline switch for same-browser A/B captures.
   const optimizedDepth = !referenceRendering && diagnosticQuery.get('depthCache') !== '0';
+  // JUL-288: A/B switch; only upright, unmirrored person frames use the fast path.
+  const optimizedPersonSprites = diagnosticQuery.get('personDrawFastPath') !== '0';
   const fixedEffects = diagnosticQuery.get('profile') === '1' && diagnosticQuery.get('effects') === 'fixed';
   // Profiling is opt-in: sampling every item by default would distort the hot path.
   const entityDrawProbe = diagnosticQuery.get('profile') === '1' && diagnosticQuery.get('entityProfile') === '1'
@@ -1154,7 +1156,7 @@ export function mountGame() {
     return animationRenderer.draw(ctx, animation, drawCenterX, drawBaseY,
       { elapsedMs, scale, flipX: sprite.flip,
         rotation: (pose.rotation || 0) + leanRotation,
-        loop: battle ? loop : true });
+        loop: battle ? loop : true, directDraw: optimizedPersonSprites });
   }
 
   function drawTinySwordsPerson(person, x, y, child, pose) {
@@ -1167,7 +1169,7 @@ export function mountGame() {
     return animationRenderer.draw(ctx, animation, x + TILE / 2, y + TILE,
       { elapsedMs: actorAnimationClock.elapsed(person.id, animation.id, animationTime),
         scale: spriteScale(TILE, CHARACTER_SPRITE_SCALE * (child ? .78 : 1)),
-        flipX: sprite.flip, loop: true });
+        flipX: sprite.flip, loop: true, directDraw: optimizedPersonSprites });
   }
 
   function drawCarriedMeat(person, x, y, pose) {
@@ -3066,6 +3068,7 @@ export function mountGame() {
       context: { renderer: 'canvas2d', atmosphereRenderer: atmosphericLayer.rendererType,
         magic: magicVfx.stats(),
         referenceRendering, fixedEffects, entityProfile: !!entityDrawProbe,
+        personDrawFastPath: optimizedPersonSprites,
         depthCache: optimizedDepth ? visibleStaticDepthCache.stats() : null,
         terrainChunks: referenceRendering ? null : terrainChunks.stats(),
         pixelTiles: referenceRendering ? null : pixelTiles.stats(),

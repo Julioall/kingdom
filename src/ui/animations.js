@@ -62,12 +62,24 @@ export function createAnimationRenderer({ imageFactory = () => new Image(), onRe
     image.src = animation.url;
     return entry.promise;
   }
-  function draw(ctx, animation, x, y, { elapsedMs = 0, scale = 1, flipX = false, rotation = 0, loop, phase = 0 } = {}) {
+  function draw(ctx, animation, x, y, { elapsedMs = 0, scale = 1, flipX = false, rotation = 0,
+    loop, phase = 0, directDraw = false } = {}) {
     if (typeof animation === 'string') animation = getAnimation(animation);
     const cached = images.get(animation.url);
     if (!cached) { load(animation).catch(onError); return false; }
     if (!cached.ready) return false;
     const frame = getAnimationFrame(animation, elapsedMs, { loop, phase });
+    // Equivalent to translate(x,y) + scale(scale,scale) for an upright,
+    // non-mirrored sprite. Only use if the caller already has nearest-neighbor
+    // filtering enabled: no Canvas state can be left changed by this path.
+    // Keeping the fallback unchanged preserves rotations, mirroring and any
+    // callers that expect their smoothing state restored by save/restore.
+    if (directDraw && !flipX && rotation === 0 && scale > 0 && ctx.imageSmoothingEnabled === false) {
+      ctx.drawImage(cached.image, frame.sx, frame.sy, frame.sw, frame.sh,
+        x - animation.anchor.x * scale, y - animation.anchor.y * scale,
+        frame.sw * scale, frame.sh * scale);
+      return true;
+    }
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     ctx.translate(x, y);
