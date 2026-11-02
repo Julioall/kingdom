@@ -8,7 +8,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import { createEntityDrawProbe, summarizeEntityDraws } from '../src/ui/entity-draw-probe.js';
+import { summarizeEntityDraws } from '../src/ui/entity-draw-probe.js';
 import { platform, cpus } from 'node:os';
 
 const opts = Object.fromEntries(process.argv.slice(2).filter(arg => arg.startsWith('--'))
@@ -25,6 +25,7 @@ const report = { issue: 'JUL-288', sha, date: new Date().toISOString(),
   caveats: 'Item counts are exact; estimated times sample 1/16 synchronous main-thread Canvas calls. Excludes GPU completion, Worker CPU, and blood/ground/magic overlays outside the painter loop. Opt-in profiling distorts timing; compare categories, not FPS against non-profiled games.',
   environment: { os: platform(), cpu: cpus()[0]?.model, headless: opts.headless === '1' },
   captures: [], errors: [] };
+await mkdir(dirname(output), { recursive: true });
 const server = spawn(process.execPath,
   ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', String(port), '--strictPort'],
   { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, BROWSER: 'none' } });
@@ -95,7 +96,7 @@ try {
       const breakdown = summarizeEntityDraws(drawSamples);
       const categories = Object.entries(breakdown.categories)
         .sort((a,b) => (b[1].estimatedMsPerDraw ?? -1) - (a[1].estimatedMsPerDraw ?? -1));
-      const screenshot = output.replace(/\\.json$/i, '') + '-run' + (repeat+1) + '.png';
+      const screenshot = (output.endsWith('.json') ? output.slice(0, -5) : output) + '-run' + (repeat+1) + '.png';
       await page.locator('#world').screenshot({ path: screenshot });
       const frameMs = [...intervals.values()].map(x=>x.ms);
       const capture = { repeat: repeat+1, durationMs: Date.now()-started,
