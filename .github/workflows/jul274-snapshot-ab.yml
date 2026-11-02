@@ -1,0 +1,36 @@
+name: "JUL-274 — Snapshot parity CPU A/B"
+on:
+  workflow_dispatch:
+    inputs:
+      baseline_ref:
+        description: "Commit SHA or branch for the baseline (pin SHA for reproducibility)"
+        required: true
+        default: "dev"
+        type: string
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.baseline_ref }}
+          path: baseline
+      - uses: actions/checkout@v7.0.1
+        with:
+          path: candidate
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - name: Two alternating complete-world A/B pairs
+        env:
+          BASELINE_SHA: ${{ inputs.baseline_ref }}
+        run: node candidate/scripts/benchmark-jul274-snapshot-ab.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jul274-snapshot-cpu-ab
+          path: out/jul274-snapshot-ab/
+          if-no-files-found: warn
