@@ -23,6 +23,7 @@ export function createMovementInterpolator({ stabilizeCadence = true } = {}) {
       lastGapMs = null; shortSnapshots = lateSnapshots = motionSegments = 0;
     }
     expectedCadenceMs = expected;
+    const speedChanged = lastSpeed !== null && lastSpeed !== safeSpeed;
     if (reset || lastSpeed !== safeSpeed) cadence = expected;
     lastSpeed = safeSpeed;
     // Commands and UI acknowledgements can deliver the same day again.
@@ -49,7 +50,9 @@ export function createMovementInterpolator({ stabilizeCadence = true } = {}) {
       // apart. Compressing all actors into that tiny interval makes them sprint
       // to the final keyframe, then freeze simultaneously until the next day.
       // Never interpolate a simulated day faster than its nominal duration.
-      if (gap > 0) cadence = stabilizeCadence ? Math.max(expected, gap) : gap;
+      // On a speed change the previous gap belongs to the OLD speed.
+      // Reusing it would cancel the new simulation speed for a full snapshot.
+      if (gap > 0 && !speedChanged) cadence = stabilizeCadence ? Math.max(expected, gap) : gap;
     }
     // A pause or manual step is not a slow simulation tick: never turn the
     // elapsed paused time into an abnormally long visual interpolation.
