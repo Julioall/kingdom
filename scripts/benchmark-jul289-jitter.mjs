@@ -1,6 +1,6 @@
 // JUL-289: same-browser paired A/B. Run locally with Chrome and hardware
 // acceleration: CHROME_PATH="..." node scripts/benchmark-jul289-browser.mjs
-// --duration=30000 --repeats=3 --output=reports/jul289-render-ab.json
+// --duration=30000 --repeats=3 --output=reports/jul289-jitter-ab.json
 // This cannot measure GPU completion; manually review the saved screenshots.
 import { chromium } from 'playwright';
 import { spawn, execFileSync } from 'node:child_process';
@@ -15,7 +15,7 @@ const port = Number(args.port || 5198);
 const duration = Number(args.duration || 30000), repeats = Number(args.repeats || 3);
 if (!Number.isInteger(duration) || duration < 3000 || !Number.isInteger(repeats) || repeats < 1 || repeats > 10)
   throw Error('Invalid --duration or --repeats');
-const output = resolve(args.output || 'reports/jul289-render-ab.json');
+const output = resolve(args.output || 'reports/jul289-jitter-ab.json');
 const base = 'http://127.0.0.1:' + port + '/';
 const headless = args.headless === '1'; // Headful Chrome is necessary for hardware QA.
 let sha = process.env.SOURCE_COMMIT || 'unknown';
@@ -113,7 +113,7 @@ try {
         const movementFrames = [...frames.values()].filter(sample => sample.movement);
         const starvingFrames = movementFrames.filter(sample => sample.movement.waitingForSnapshotMs > 0);
         const smoothButStarvingFrames = starvingFrames.filter(sample =>
-          (intervals.get(sample.at)?.ms ?? 0) <= 1000 / 30);
+          (intervals.get(sample.rafTimestamp)?.ms ?? Infinity) <= 1000 / 30);
         const ages = movementFrames.map(sample => sample.movement.snapshotAgeMs).filter(Number.isFinite);
         const arrivalGaps = movementFrames.filter((entry, index) => index > 0
           && entry.movement.snapshotAgeMs < movementFrames[index - 1].movement.snapshotAgeMs)
