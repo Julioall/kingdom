@@ -73,7 +73,7 @@ try {
         } catch { /* Browser does not expose long task entries. */ }
       });
       try {
-        const params = new URLSearchParams({ seed: '42', profile: '1', effects: 'fixed' });
+        const params = new URLSearchParams({ seed: '42', profile: '1', effects: 'fixed', spriteCoverage: '1' });
         if (mode === 'baseline') params.set('personDrawFastPath', '0');
         await page.goto(base + '?' + params, { waitUntil: 'domcontentloaded', timeout: 60_000 });
         await page.waitForFunction(() => {
@@ -107,6 +107,13 @@ try {
           mergeSamples(draws, samples.draws);
           mergeSamples(intervals, samples.frameIntervals);
         }
+        const endContext = await page.evaluate(() => window.kingdomProfiler.snapshot().context);
+        const beforeCoverage = initial.personSpriteCoverage || {};
+        const afterCoverage = endContext?.personSpriteCoverage || {};
+        const spriteCoverage = Object.fromEntries(Object.entries(afterCoverage)
+          .map(([key, value]) => [key, value - (beforeCoverage[key] || 0)]));
+        spriteCoverage.eligiblePercent = spriteCoverage.total ? 100 * spriteCoverage.eligible / spriteCoverage.total : null;
+        spriteCoverage.directPercent = spriteCoverage.total ? 100 * spriteCoverage.direct / spriteCoverage.total : null;
         const longTasks = await page.evaluate(() => window.__jul287LongTasks || []);
         const frameMs = [...intervals.values()].map(e => e.ms);
         const stages = {};
@@ -117,6 +124,7 @@ try {
         await page.locator('#world').screenshot({ path: shot });
         const capture = { repeat: repeat + 1, mode, sourceSha: sha,
           durationMs: Date.now() - started, environment, context: initial,
+          spriteCoverage,
           frames: { ...summarize(frameMs), fps: frameMs.length
             ? 1000 / (frameMs.reduce((a, b) => a + b, 0) / frameMs.length) : null,
             over33MsPercent: frameMs.length ? 100 * frameMs.filter(x => x > 1000 / 30).length / frameMs.length : null },
@@ -128,7 +136,8 @@ try {
         report.captures.push(capture);
         console.log(JSON.stringify({ pair: repeat + 1, mode, fps: capture.frames.fps,
           frameP95: capture.frames.p95Ms, depthP95: stages.depthOrder.p95Ms,
-          entityP95: stages.entities.p95Ms, waterP95: stages.water.p95Ms }));
+          entityP95: stages.entities.p95Ms, waterP95: stages.water.p95Ms,
+          spriteCoverage: capture.spriteCoverage }));
       } catch (e) {
         report.errors.push({ pair: repeat + 1, mode, error: String(e), pageErrors });
         throw e;
