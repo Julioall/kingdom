@@ -42,6 +42,7 @@ export function createRenderDiagnostics() {
       '</style>',
       '<details open><summary id="headline">Profiler · aguardando quadros</summary><div class="body">',
       '<p id="cadence"></p><p id="frame"></p><p id="map"></p><p id="cache"></p><p id="chunks"></p>',
+      '<p id="movement"></p><p id="worker"></p>',
       '<table aria-label="Tempos das etapas de desenho"><thead><tr><th>Etapa</th><th>Média/desenho</th><th>p95/exec.</th></tr></thead><tbody id="stages"></tbody></table>',
       '<table aria-label="Entidades por categoria (amostragem)"><thead><tr><th>Entidade</th><th>Itens/desenho</th><th>CPU estimada</th></tr></thead><tbody id="entity-stages"></tbody></table>',
       '<p id="atmosphere"></p><p id="context"></p>',
@@ -50,7 +51,7 @@ export function createRenderDiagnostics() {
       '<div class="buttons"><button id="reset" type="button">Zerar</button><button id="export" type="button">Exportar JSON</button><button id="map-png" type="button" title="Exportar o Canvas 2D sem a UI e a névoa separada">Mapa PNG</button><button id="close" type="button">Desativar</button></div>',
       '</details>',
     ].join('');
-    fields = Object.fromEntries(['headline', 'cadence', 'frame', 'map', 'cache', 'chunks', 'atmosphere', 'context'].map(id => [id, root.getElementById(id)]));
+    fields = Object.fromEntries(['headline', 'cadence', 'frame', 'map', 'cache', 'chunks', 'movement', 'worker', 'atmosphere', 'context'].map(id => [id, root.getElementById(id)]));
     rows = {};
     const body = root.getElementById('stages');
     for (const [key, label] of Object.entries(RENDER_PHASES)) {
@@ -80,6 +81,15 @@ export function createRenderDiagnostics() {
     fields.cache.textContent = 'Cache do terreno: ' + map.cache.hitPercent.toFixed(1) + '% acertos · ' + map.cache.rebuilt + '/' + map.samples + ' reconstruções';
     const chunks = report.context?.terrainChunks;
     fields.chunks.textContent = chunks ? 'Chunks: ' + chunks.entries + ' · ' + (chunks.bytes / 1024 / 1024).toFixed(1) + ' MiB · ' + chunks.rebuilds + ' rasterizações acumuladas' : '';
+    const movement = report.context?.movement;
+    fields.movement.textContent = movement ? 'Movimento: gap Worker ' + (movement.lastGapMs === null ? '—' : ms(movement.lastGapMs))
+      + ' ms · cadência ' + ms(movement.cadenceMs) + ' ms · aguardando snapshot '
+      + ms(movement.waitingForSnapshotMs) + ' ms · respostas agrupadas ' + movement.shortSnapshots
+      + (movement.stabilizeCadence ? ' · estabilizado' : ' · legado') : '';
+    const transport = report.context?.workerTransport;
+    fields.worker.textContent = transport ? 'Worker: fila automática ' + (transport.advanceQueue?.clockDays ?? '—')
+      + ' · avanço em curso ' + !!transport.advanceQueue?.inFlight
+      + ' · aplicar snapshot até ' + ms(transport.maxApplyMs || 0) + ' ms' : '';
     for (const [key, values] of Object.entries(map.stages)) {
       rows[key].average.textContent = ms(values.meanMs);
       rows[key].p95.textContent = values.executions ? ms(values.executionP95Ms) : '—';
