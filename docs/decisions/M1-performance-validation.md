@@ -66,8 +66,8 @@ measured 38–52 ms versus 83–96 ms baseline. This is not complete-world evide
 The budget-128 matrix in isolated baseline/candidate checkouts must establish
 whole-world timing and per-seed parity before accepting the changes.
 
-M1 remains open until paired performance, three-seed reproducibility, prolonged
-functional validation, tests, typecheck, build and integration into dev are proven.
+The initial measurements below preceded the final reference-runner comparison
+and integration. The final acceptance record appears at the end of this document.
 
 ## Local full-world matrix — 5 November 2026
 
@@ -88,8 +88,8 @@ authoritative snapshot digest after one day. Budgeted neural schedule is 128.
 | 2026 | 152.140 | 116.413 | 23.48% |
 
 All 5,000 actors survived each scenario. The strict local timing gate passed.
-This is one pair per seed; reversed-order reference-runner measurements remain
-pending. The 30-day behavioral comparison is documented below. These results do not establish
+This is one pair per seed; the separate reference-runner matrix is recorded
+below. The 30-day behavioral comparison is documented below. These results do not establish
 browser FPS, peak memory, multi-day performance at 5,000 actors, or complete M1
 acceptance. Raw logs and JSON remain outside production files.
 
@@ -152,8 +152,60 @@ All candidate measurements were below 300 seconds and all six gains exceeded
 a direct percentage calculation against the historical 377-second experiment.
 Artifact: `m1-paired-full-world`, ID `13447294092`, SHA-256
 `a79ea91ece86b61a7e0268df1283673d49bb26c6a161abaad3df6462814e81d3`.
-Later transport-only changes require their final CI before integration; this
+The final-head reference-runner matrix and CI results are recorded below. This
 measurement does not include browser input latency or GPU performance.
+
+## Final acceptance — 5 November 2026
+
+[Run 42097994790](https://github.com/Julioall/kingdom/actions/runs/42097994790)
+measured final candidate `44b753674eb6b73c04b5a0163ccc4ff20d06d8df` against
+baseline `6022a32f17212f3702ca30baee80a38962d7dc39` on the same Ubuntu runner,
+AMD EPYC 9V45, Node v24.22.2 and budget 128. It ran two matrices with the
+baseline/candidate order reversed. All 18 pairs across 500, 1,000 and 5,000
+actors and seeds 1, 42 and 2026 had identical authoritative snapshots.
+
+The 500-actor candidates took 2.29–2.46 seconds in round 1 and 2.23–2.44
+seconds in round 2. Gains ranged from 19.47–26.66% and 23.23–26.81%. The
+1,000-actor candidates took 6.07–6.86 seconds and 5.98–6.74 seconds, with
+31.96–36.72% and 30.92–36.89% gains, respectively.
+
+| Round | Seed | Baseline seconds | Candidate seconds | Reduction |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 1 | 247.394 | 146.972 | 40.59% |
+| 1 | 42 | 259.074 | 150.480 | 41.92% |
+| 1 | 2026 | 235.461 | 144.354 | 38.69% |
+| 2 | 1 | 236.895 | 145.266 | 38.68% |
+| 2 | 42 | 252.872 | 150.224 | 40.59% |
+| 2 | 2026 | 235.804 | 144.942 | 38.53% |
+
+Every 5,000-actor candidate run was below 300 seconds and exceeded the 20%
+improvement threshold. The downloaded and locally rechecked artifact is
+`m1-paired-full-world`, ID `13450673489`, digest
+`sha256:1036ba95162b4b0d9fb26d630e2cae979d288d2e626dbfa21e6dcb4190eb4f69`.
+
+Candidate CI passed on the final source SHA in
+[run 42098005890](https://github.com/Julioall/kingdom/actions/runs/42098005890):
+668 tests, deterministic food replay, asset checks, typecheck and production
+build. The same checks passed after integration in
+[run 42128265537](https://github.com/Julioall/kingdom/actions/runs/42128265537).
+The separate 30-day comparison covered three seeds and the legacy, shared
+unlimited and shared budgeted cognitive modes: all 270 daily authoritative
+snapshots and nine behavioral summaries matched, and within-mode replays passed.
+Dedicated shared-policy tests also verify shared model weights and personal
+learning state. The optimization changes do not modify individual cognition.
+
+PR [#91](https://github.com/Julioall/kingdom/pull/91) was squash-merged into
+`dev` as `7ffa606ab55df29f194a0504d1619c5862f3532e`. The `main` branch remained
+at `ee856209dccebe9b3f92df8e395417672e5281d9`.
+
+Origin-level tile dirty tracking is still not implemented; dirty indexes are
+derived from a full snapshot scan. The measurements also do not establish
+browser FPS, GPU performance, peak memory or 30-day performance at 5,000 actors.
+No new neural batching mode or cognitive LOD was enabled. The prolonged ordinary
+scenarios exercised trade and births but did not trigger a war; combat behavior
+remains covered by the existing automated suite rather than a prolonged war
+scenario. These are the remaining limits of this validation, not blockers for
+the measured 5,000-actor acceptance target.
 
 Physical and economic update frequencies were retained because reducing them
 would require separate causal and behavioral evidence. No new default cognitive
