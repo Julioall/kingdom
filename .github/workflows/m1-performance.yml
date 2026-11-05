@@ -38,7 +38,7 @@ jobs:
                 done
               done
             done
-            node candidate/scripts/compare-m1-results.mjs "out/$repeat" > "out/summary-$repeat.json"
+            node candidate/scripts/compare-m1-results.mjs "out/$repeat" --require-timing > "out/summary-$repeat.json"
           done
       - uses: actions/upload-artifact@v4
         if: always()

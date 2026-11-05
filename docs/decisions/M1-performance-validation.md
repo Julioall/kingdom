@@ -68,3 +68,49 @@ whole-world timing and per-seed parity before accepting the changes.
 
 M1 remains open until paired performance, three-seed reproducibility, prolonged
 functional validation, tests, typecheck, build and integration into dev are proven.
+
+## Local full-world matrix — 5 November 2026
+
+Same-host sequential baseline/candidate, Node v24.22.1, Windows 10.0.26200,
+Intel Core i7-12700, approximately 16 GB RAM. Baseline is `6022a32`; the isolated
+candidate source diff SHA-256 is
+`97d01ef10241813668f4b8578cd0db2b5a6eccb293487d61a58d2a475e345101`.
+The candidate contains the four simulation changes described above; Worker delta
+packing does not participate in the timed complete-world step.
+
+All nine scenarios (500/1,000/5,000 actors × seeds 1/42/2026) preserved the
+authoritative snapshot digest after one day. Budgeted neural schedule is 128.
+
+| 5,000-actor seed | Baseline seconds | Candidate seconds | Reduction |
+| --- | ---: | ---: | ---: |
+| 1 | 156.465 | 99.975 | 36.10% |
+| 42 | 163.191 | 97.407 | 40.31% |
+| 2026 | 152.140 | 116.413 | 23.48% |
+
+All 5,000 actors survived each scenario. The strict local timing gate passed.
+This is one pair per seed; reversed-order reference-runner measurements and
+30-day behavioral comparisons remain pending. These results do not establish
+browser FPS, peak memory, multi-day performance at 5,000 actors, or complete M1
+acceptance. Raw logs and JSON remain outside production files.
+
+## Prolonged behavior and verification
+
+Thirty days × seeds 1/42/2026 × legacy/shared-unlimited/shared-budgeted were run
+twice per scenario in both baseline and candidate. All 270 paired daily snapshot
+digests and all nine behavioral summaries matched. Within-mode replays passed.
+These ordinary-population scenarios observed trades and births and no deaths;
+they do not establish thirty-day performance at 5,000 actors or force a war.
+The complete 666-test suite, typecheck, asset checks and production build passed
+locally; PR CI also passed for the simulation commit `a1926f5`.
+
+The Worker field-delta encoder now stops allocating once its monotonic payload
+byte count reaches the full-snapshot fallback threshold. Existing field-delta
+and atomicity tests passed. A dense 12,544-tile isolated fallback measurement
+was 161–184 ms versus 184–193 ms baseline over 15 calls. This change reduces
+wasted packing; it does not implement origin-level tile dirty tracking or avoid
+the complete snapshot scan. That part of M1.2 remains open.
+
+Physical and economic update frequencies were retained because reducing them
+would require separate causal and behavioral evidence. No new default cognitive
+LOD or batched inference mode is enabled by this candidate. Existing individual
+cognition and scheduler tests remain part of the required complete suite.
