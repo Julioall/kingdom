@@ -35,6 +35,30 @@ const CONIFER_INDEX = PLANTS.findIndex(plant => plant.id === 'conifer');
 let structureIndexCache = new WeakMap();
 let resourceIndexCache = new WeakMap();
 let worldIndexCache = new WeakMap();
+const structureGeometryCache = new WeakMap();
+
+function sameHitboxGeometry(current, previous) {
+  if (!previous || current.length !== previous.length) return false;
+  for (let i = 0; i < current.length; i++) {
+    const a = current[i], b = previous[i];
+    if (!Object.is(a.structureId, b.structureId) || !Object.is(a.x, b.x)
+      || !Object.is(a.y, b.y) || a.shape !== b.shape
+      || !Object.is(a.halfWidth, b.halfWidth) || !Object.is(a.halfDepth, b.halfDepth)
+      || !Object.is(a.radius, b.radius) || a.resourceKind !== b.resourceKind
+      || !Object.is(a.entityId, b.entityId) || !Object.is(a.trainingDummyId, b.trainingDummyId)) return false;
+    if (a.points?.length !== b.points?.length) return false;
+    for (let j = 0; j < (a.points?.length || 0); j++) {
+      if (!Object.is(a.points[j].x, b.points[j].x) || !Object.is(a.points[j].y, b.points[j].y)) return false;
+    }
+  }
+  return true;
+}
+
+function rememberHitboxGeometry(world, hitboxes) {
+  // Keep independent values; public index hitboxes are not a revision token.
+  structureGeometryCache.set(world, hitboxes.map(hitbox => ({ ...hitbox,
+    points: hitbox.points?.map(point => ({ ...point })) })));
+}
 
 function structureProfile(sprite) {
   return STRUCTURE_COLLISION_PROFILES[sprite] || {};
@@ -408,8 +432,11 @@ export function structureCollisionIndex(world) {
     ...npcHitbox(dummy), structureId: dummy.id, trainingDummyId: dummy.id
   }));
   const hitboxes = [...buildingHitboxes, ...trainingDummyHitboxes];
-  const signature = hitboxSignature(hitboxes);
   const cached = structureIndexCache.get(world);
+  if (cached && cached.width === world.width && cached.height === world.height
+      && sameHitboxGeometry(hitboxes, structureGeometryCache.get(world))) return cached;
+  const signature = hitboxSignature(hitboxes);
+  rememberHitboxGeometry(world, hitboxes);
   if (cached?.signature === signature && cached.width === world.width && cached.height === world.height) return cached;
   const result = spatialIndex(world, hitboxes, signature);
   structureIndexCache.set(world, result);

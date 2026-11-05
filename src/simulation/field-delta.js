@@ -8,6 +8,7 @@ export function createFieldTileDelta(next,previous,{maxBytesFraction=.8}={}){
   if(!previous||next.tileCount!==previous.tileCount
     ||next.plantCount!==previous.plantCount)return null;
   const tileCount=next.tileCount,fields={};
+  const fullBytes=KEYS.reduce((sum,key)=>sum+(next[key]?.byteLength||0),0);
   let totalBytes=0;
   for(const key of KEYS){
     if(!next[key]||!previous[key]||next[key].constructor!==previous[key].constructor
@@ -34,6 +35,9 @@ export function createFieldTileDelta(next,previous,{maxBytesFraction=.8}={}){
         totalBytes+=entry.indices.byteLength;
       }
       totalBytes+=values.byteLength;
+      // Byte counts only increase. Stop packing a packet that already needs
+      // the full-snapshot fallback instead of allocating its remaining fields.
+      if(totalBytes>=fullBytes*maxBytesFraction)return null;
       entries.push(entry);
     }
     fields[key]=entries;
