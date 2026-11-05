@@ -485,10 +485,12 @@ export function respondToLocalThreats(world, day = world.day + 1) {
     const order = frontierOrders.get(soldier.id);
     const threats = people.filter(candidate => candidate.alive && candidate.kingdomId !== soldier.kingdomId
       && candidate.restingStructureId == null
-      && isCombatTargetEligible(world, soldier, candidate, day)
       && (manualCommand || cellAt(world, candidate.x, candidate.y)?.kingdomId === soldier.kingdomId)
       && distance(soldier, candidate) <= (manualCommand ? 16 : 12)
-      && (manualCommand || (assigned.get(candidate.id) || 0) < (candidate.role === 'soldier' ? 2 : 1)))
+      && (manualCommand || (assigned.get(candidate.id) || 0) < (candidate.role === 'soldier' ? 2 : 1))
+      // Eligibility can scan every victim for recent aggression. Check the
+      // cheap, read-only local filters first; preserve candidate ordering.
+      && isCombatTargetEligible(world, soldier, candidate, day))
       .sort((a, b) => Number(order?.targetIds.has(b.id)) - Number(order?.targetIds.has(a.id))
         || Number(b.role === 'soldier') - Number(a.role === 'soldier')
         || distance(soldier, a) - distance(soldier, b) || a.id - b.id);

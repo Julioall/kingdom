@@ -1,0 +1,47 @@
+name: M1 complete-world paired performance
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/m1-performance-validation
+permissions:
+  contents: read
+jobs:
+  paired:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6022a32f17212f3702ca30baee80a38962d7dc39
+          path: baseline
+      - uses: actions/checkout@v4
+        with:
+          path: candidate
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Paired three-seed matrices with reversed order
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp candidate/scripts/benchmark-m1.mjs baseline/scripts/benchmark-m1.mjs
+          for repeat in 1 2; do
+            mkdir -p "out/$repeat"
+            for population in 500 1000 5000; do
+              for seed in 1 42 2026; do
+                order="baseline candidate"
+                if [ "$repeat" = 2 ]; then order="candidate baseline"; fi
+                for kind in $order; do
+                  node "$kind/scripts/benchmark-m1.mjs" "$population" "$seed" 1 \
+                    "out/$repeat/$kind-$population-$seed.json" budgeted
+                done
+              done
+            done
+            node candidate/scripts/compare-m1-results.mjs "out/$repeat" --require-timing > "out/summary-$repeat.json"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: m1-paired-full-world
+          path: out/

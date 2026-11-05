@@ -8,22 +8,31 @@ export function createFieldTileDelta(next,previous,{maxBytesFraction=.8}={}){
   if(!previous||next.tileCount!==previous.tileCount
     ||next.plantCount!==previous.plantCount)return null;
   const tileCount=next.tileCount,fields={};
+  const fullBytes=KEYS.reduce((sum,key)=>sum+(next[key]?.byteLength||0),0);
   let totalBytes=0;
   for(const key of KEYS){
     if(!next[key]||!previous[key]||next[key].constructor!==previous[key].constructor
        ||next[key].length!==previous[key].length)return null;
     const span=fieldsPerTile(next,key);
     if(!Number.isSafeInteger(span))return null;
+    if(next[key]===previous[key]){fields[key]=[];continue;}
     const entries=[];
     for(let field=0;field<span;field++){
       const changed=[];
+      const Value=next[key].constructor,bytesPerValue=next[key].BYTES_PER_ELEMENT;
+      let dense=false;
       for(let i=0;i<tileCount;i++){
         const offset=i*span+field;
-        if(!Object.is(next[key][offset],previous[key][offset]))changed.push(i);
+        if(!Object.is(next[key][offset],previous[key][offset])){
+          changed.push(i);
+          // Once dense encoding wins, further dirty indices cannot change
+          // the representation. Copy the full authoritative field below.
+          if(changed.length*(bytesPerValue+4)>=tileCount*bytesPerValue){
+            dense=true;break;
+          }
+        }
       }
       if(!changed.length)continue;
-      const Value=next[key].constructor,bytesPerValue=next[key].BYTES_PER_ELEMENT;
-      const dense=changed.length*(bytesPerValue+4)>=tileCount*bytesPerValue;
       const values=new Value(dense?tileCount:changed.length);
       const entry={field,values};
       if(dense){
@@ -34,6 +43,9 @@ export function createFieldTileDelta(next,previous,{maxBytesFraction=.8}={}){
         totalBytes+=entry.indices.byteLength;
       }
       totalBytes+=values.byteLength;
+      // Byte counts only increase. Stop packing a packet that already needs
+      // the full-snapshot fallback instead of allocating its remaining fields.
+      if(totalBytes>=fullBytes*maxBytesFraction)return null;
       entries.push(entry);
     }
     fields[key]=entries;

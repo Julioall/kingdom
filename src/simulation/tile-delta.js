@@ -29,6 +29,7 @@ export function createTileColumnDelta(next,previous,{maxChangedFraction=.35}={})
   for(let i=0;i<total;i++){
     let changed=false;
     for(const key of columnNames) {
+      if(next[key]===previous[key])continue;
       const span=fieldsPerTile(next,key),start=i*span;
       for(let j=0;j<span;j++)if(!Object.is(next[key][start+j],previous[key][start+j])){
         changed=true;break;
