@@ -18,13 +18,20 @@ export function createFieldTileDelta(next,previous,{maxBytesFraction=.8}={}){
     const entries=[];
     for(let field=0;field<span;field++){
       const changed=[];
+      const Value=next[key].constructor,bytesPerValue=next[key].BYTES_PER_ELEMENT;
+      let dense=false;
       for(let i=0;i<tileCount;i++){
         const offset=i*span+field;
-        if(!Object.is(next[key][offset],previous[key][offset]))changed.push(i);
+        if(!Object.is(next[key][offset],previous[key][offset])){
+          changed.push(i);
+          // Once dense encoding wins, further dirty indices cannot change
+          // the representation. Copy the full authoritative field below.
+          if(changed.length*(bytesPerValue+4)>=tileCount*bytesPerValue){
+            dense=true;break;
+          }
+        }
       }
       if(!changed.length)continue;
-      const Value=next[key].constructor,bytesPerValue=next[key].BYTES_PER_ELEMENT;
-      const dense=changed.length*(bytesPerValue+4)>=tileCount*bytesPerValue;
       const values=new Value(dense?tileCount:changed.length);
       const entry={field,values};
       if(dense){

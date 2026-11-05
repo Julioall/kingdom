@@ -110,6 +110,15 @@ was 161–184 ms versus 184–193 ms baseline over 15 calls. This change reduces
 wasted packing; it does not implement origin-level tile dirty tracking or avoid
 the complete snapshot scan. That part of M1.2 remains open.
 
+Dirty-index collection is additionally bounded by the sparse/dense encoding
+threshold. After dense encoding is inevitable, comparison stops and the full
+authoritative field is copied, including changes beyond the detection boundary.
+Twenty-one sparse/dense/fallback packet comparisons were identical to baseline;
+targeted tests cover trailing changes, resync, epochs and atomic application.
+An isolated 128-tile dense workload over 1,000 calls measured 83 ms versus 131 ms.
+This bounds derived dirty tracking and improves packing; it still does not track
+mutations at their origin or remove the snapshot scan.
+
 Physical and economic update frequencies were retained because reducing them
 would require separate causal and behavioral evidence. No new default cognitive
 LOD or batched inference mode is enabled by this candidate. Existing individual
