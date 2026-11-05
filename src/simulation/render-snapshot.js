@@ -27,12 +27,18 @@ function typeCode(fieldIndex, value) {
   return code;
 }
 
-export function createWorldSnapshot(world, { reset = false } = {}) {
+export function createWorldSnapshot(world, { reset = false, previousTileColumns = null } = {}) {
   const tileCount = world.tiles.length;
   const plantCount = engine.plants.length;
   const scalars = new Float32Array(tileCount * SCALAR_FIELDS.length);
-  const ids = new Int32Array(tileCount * ID_FIELDS.length);
-  const types = new Uint8Array(tileCount * TYPE_FIELDS.length);
+  const reusable = !reset && previousTileColumns?.tileCount === tileCount
+    && previousTileColumns?.plantCount === plantCount;
+  let idsShared = reusable && previousTileColumns.ids instanceof Int32Array
+    && previousTileColumns.ids.length === tileCount * ID_FIELDS.length;
+  let typesShared = reusable && previousTileColumns.types instanceof Uint8Array
+    && previousTileColumns.types.length === tileCount * TYPE_FIELDS.length;
+  let ids = idsShared ? previousTileColumns.ids : new Int32Array(tileCount * ID_FIELDS.length);
+  let types = typesShared ? previousTileColumns.types : new Uint8Array(tileCount * TYPE_FIELDS.length);
   const plants = new Float32Array(tileCount * plantCount);
 
   for (let index = 0; index < tileCount; index++) {
@@ -41,9 +47,16 @@ export function createWorldSnapshot(world, { reset = false } = {}) {
     for (let field = 0; field < SCALAR_FIELDS.length; field++) scalars[scalarOffset + field] = tile[SCALAR_FIELDS[field]] || 0;
     for (let field = 0; field < ID_FIELDS.length; field++) {
       const value = field === STUMP_ID_INDEX ? tile.stump?.untilDay : tile[ID_FIELDS[field]];
-      ids[idOffset + field] = Number.isInteger(value) ? value : -1;
+      const encoded = Number.isInteger(value) ? value | 0 : -1;
+      const offset = idOffset + field;
+      if (idsShared && ids[offset] !== encoded) { ids = ids.slice(); idsShared = false; }
+      if (!idsShared) ids[offset] = encoded;
     }
-    for (let field = 0; field < TYPE_FIELDS.length; field++) types[typeOffset + field] = typeCode(field, tile[TYPE_FIELDS[field]]);
+    for (let field = 0; field < TYPE_FIELDS.length; field++) {
+      const encoded = typeCode(field, tile[TYPE_FIELDS[field]]), offset = typeOffset + field;
+      if (typesShared && types[offset] !== encoded) { types = types.slice(); typesShared = false; }
+      if (!typesShared) types[offset] = encoded;
+    }
     plants.set(tile.plants, index * plantCount);
   }
 

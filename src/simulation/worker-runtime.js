@@ -37,7 +37,10 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
   }
 
   function capture(request, { reset = false, result } = {}) {
-    const snapshot = createWorldSnapshot(world, { reset });
+    // Retained columns are private and never transferred. Unchanged ID/type
+    // columns can be shared; packing copies before the first authoritative change.
+    const snapshot = createWorldSnapshot(world, { reset,
+      previousTileColumns: tileDeltaTransport ? lastSnapshotColumns : null });
     if (!reset && request.type === 'advance' && tileDeltaTransport && lastSnapshotColumns) {
       const tileColumns = createTileColumnDelta(snapshot.tileColumns, lastSnapshotColumns)
         || createFieldTileDelta(snapshot.tileColumns, lastSnapshotColumns);

@@ -88,8 +88,8 @@ authoritative snapshot digest after one day. Budgeted neural schedule is 128.
 | 2026 | 152.140 | 116.413 | 23.48% |
 
 All 5,000 actors survived each scenario. The strict local timing gate passed.
-This is one pair per seed; reversed-order reference-runner measurements and
-30-day behavioral comparisons remain pending. These results do not establish
+This is one pair per seed; reversed-order reference-runner measurements remain
+pending. The 30-day behavioral comparison is documented below. These results do not establish
 browser FPS, peak memory, multi-day performance at 5,000 actors, or complete M1
 acceptance. Raw logs and JSON remain outside production files.
 
@@ -118,6 +118,42 @@ targeted tests cover trailing changes, resync, epochs and atomic application.
 An isolated 128-tile dense workload over 1,000 calls measured 83 ms versus 131 ms.
 This bounds derived dirty tracking and improves packing; it still does not track
 mutations at their origin or remove the snapshot scan.
+
+The opt-in Worker snapshot path additionally reuses unchanged ID/type columns.
+Packing reads current authoritative values and copies the retained column before
+its first changed encoded value. Shared immutable columns are skipped by delta
+detection. Reset, detached buffers and incompatible layouts force fresh arrays.
+The legacy snapshot path retains fresh packing. Tests compare fresh/reused
+columns, large integer encoding, terrain changes and baseline immutability.
+An alternating-order 25-capture fixture changing soil and plants preserved delta
+packets, measured 354–359 ms versus 422–426 ms, and avoided 9.72 MB of allocations.
+This is capture/encoding evidence, not a browser FPS measurement.
+
+## Reference runner confirmation
+
+[Run 42093414593](https://github.com/Julioall/kingdom/actions/runs/42093414593),
+candidate `a1926f5`, Node v24.22.2, Linux 7.0.0-1017-azure, AMD EPYC 9V45,
+approximately 16 GB RAM. Each pair used the same runner and budget 128. Round 1
+ran baseline first; round 2 ran candidate first. All 18 paired snapshots matched
+across the three populations and three seeds. Both matrices passed the strict
+timing gate when their downloaded JSON artifacts were rechecked locally.
+
+| Round | Seed | Baseline seconds | Candidate seconds | Reduction |
+| --- | --- | ---: | ---: | ---: |
+| 1 | 1 | 153.142 | 101.810 | 33.52% |
+| 1 | 42 | 161.851 | 111.977 | 30.82% |
+| 1 | 2026 | 154.547 | 97.236 | 37.08% |
+| 2 | 1 | 146.413 | 91.761 | 37.33% |
+| 2 | 42 | 146.746 | 95.409 | 34.98% |
+| 2 | 2026 | 144.551 | 97.385 | 32.63% |
+
+All candidate measurements were below 300 seconds and all six gains exceeded
+20%. This compares the current dev baseline on the reference runner; it is not
+a direct percentage calculation against the historical 377-second experiment.
+Artifact: `m1-paired-full-world`, ID `13447294092`, SHA-256
+`a79ea91ece86b61a7e0268df1283673d49bb26c6a161abaad3df6462814e81d3`.
+Later transport-only changes require their final CI before integration; this
+measurement does not include browser input latency or GPU performance.
 
 Physical and economic update frequencies were retained because reducing them
 would require separate causal and behavioral evidence. No new default cognitive

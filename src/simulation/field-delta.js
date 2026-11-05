@@ -15,6 +15,7 @@ export function createFieldTileDelta(next,previous,{maxBytesFraction=.8}={}){
        ||next[key].length!==previous[key].length)return null;
     const span=fieldsPerTile(next,key);
     if(!Number.isSafeInteger(span))return null;
+    if(next[key]===previous[key]){fields[key]=[];continue;}
     const entries=[];
     for(let field=0;field<span;field++){
       const changed=[];
