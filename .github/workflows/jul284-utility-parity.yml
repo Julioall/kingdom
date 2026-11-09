@@ -1,0 +1,54 @@
+name: "JUL-284 — Full-world causal utility parity A/B"
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - "src/simulation/individuals/actions.js"
+      - "src/simulation/individuals/action-utilities.js"
+      - "tests/action-utilities.test.mjs"
+      - ".github/workflows/jul284-utility-parity.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-parity:
+    name: Paired seeded full-world 6-day replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout baseline ${{ github.event.pull_request.base.sha }}
+        uses: actions/checkout@v4
+        with:
+          path: compare/baseline
+          ref: ${{ github.event.pull_request.base.sha || 'dev' }}
+      - name: Checkout candidate ${{ github.event.pull_request.head.sha }}
+        uses: actions/checkout@v4
+        with:
+          path: compare/candidate
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: compare/candidate/package-lock.json
+      - name: Install both locked sources
+        run: |
+          npm ci --prefix compare/baseline
+          npm ci --prefix compare/candidate
+      - name: Compare aggregate and authoritative snapshot hashes in alternating pairs
+        working-directory: compare
+        env:
+          BASELINE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          node candidate/scripts/benchmark-jul274-snapshot-ab.mjs
+      - name: Archive comparison evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jul284-exact-parity-ab
+          path: compare/out/jul274-snapshot-ab/
+          if-no-files-found: warn
