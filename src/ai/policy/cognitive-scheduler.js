@@ -17,10 +17,14 @@ function budgetFor(world) {
 }
 function freshDay(world, people) {
   const budget = budgetFor(world);
-  const adults = people.filter(p => p.alive && p.ageDays >= 12 * 365)
-    .sort((a, b) => a.id - b.id);
+  const adults = people.filter(p => p.alive && p.ageDays >= 12 * 365);
+  // updatePeople already passes ID-sorted adults. Avoid sorting the hot path,
+  // but preserve deterministic order if the scheduler is used independently.
+  if (adults.some((person, i) => i > 0 && adults[i - 1].id > person.id))
+    adults.sort((a, b) => a.id - b.id);
   const eligible = new Set();
   const epoch = world.epoch || 0;
+  const seed = world.seed;
   const previous = perWorld.get(world);
   // The day * budget modulo population shortcut can repeatedly select the
   // same NPCs if births/deaths change the population at matching intervals.
@@ -31,10 +35,10 @@ function freshDay(world, people) {
   let routineStartId = null, routineLastId = null;
   if (adults.length) {
     let start = (Math.max(0, Math.floor(world.day)) * budget) % adults.length;
-    if (previous?.epoch === epoch && previous.day === world.day
+    if (previous?.epoch === epoch && previous.seed === seed && previous.day === world.day
         && Number.isSafeInteger(previous.routineStartId)) {
       start = adults.findIndex(p => p.id >= previous.routineStartId);
-    } else if (previous?.epoch === epoch && previous.day < world.day
+    } else if (previous?.epoch === epoch && previous.seed === seed && previous.day < world.day
         && Number.isSafeInteger(previous.routineLastId)) {
       start = adults.findIndex(p => p.id > previous.routineLastId);
     }
@@ -71,7 +75,7 @@ function freshDay(world, people) {
     utilityOnly: 0, invalidated: 0, maxCacheAgeDays: 0,
     byRole: {civilian:0,worker:0,military:0,general:0,king:0}
   };
-  const state = { day: world.day, epoch, routineStartId, routineLastId,
+  const state = { day: world.day, epoch, seed, routineStartId, routineLastId,
     eligible, playerPosition, stats };
   perWorld.set(world, state);
   return state;
