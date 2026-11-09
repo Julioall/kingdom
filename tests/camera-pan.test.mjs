@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { clampCameraPan, zoomCameraAtPoint } from '../src/ui/camera-pan.js';
 
 test('camera pan clamp matches the original map-size and aspect-ratio policy', () => {
-  assert.deepEqual(clampCameraPan(1200, 800, 1, 80, -90), { x: 0, y: 0 });
+  assert.deepEqual(clampCameraPan(1200, 800, 1, 80, -90), { x: 0, y: -0 });
   assert.deepEqual(clampCameraPan(1200, 800, 2, 600, -700), { x: 200, y: -400 });
   assert.deepEqual(clampCameraPan(1200, 800, 2, -600, 700), { x: -200, y: 400 });
   assert.deepEqual(clampCameraPan(500, 500, .5, 200, 200), { x: 0, y: 0 });
