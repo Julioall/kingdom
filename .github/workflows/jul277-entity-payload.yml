@@ -1,0 +1,43 @@
+name: "JUL-277 — Worker entity payload baseline"
+
+on:
+  push:
+    branches:
+      - bench/jul277-entity-payload-baseline-20261109
+  pull_request:
+    branches: [dev]
+    paths:
+      - "scripts/benchmark-jul277-entity-payload.mjs"
+      - ".github/workflows/jul277-entity-payload.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  entity-payload:
+    name: Compare full/delta projections and entity byte proxies
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Capture three seeded entity baselines
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          mkdir -p out
+          node scripts/benchmark-jul277-entity-payload.mjs out/jul277-entity-payload.json \
+            | tee out/jul277-entity-payload.txt
+      - name: Archive report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jul277-entity-payload
+          path: out/
+          if-no-files-found: warn
