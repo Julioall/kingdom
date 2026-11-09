@@ -37,6 +37,7 @@ import { mapDecorationAt, MAP_DECORATION_SPRITES } from './map-decorations.js';
 import { MILITARY_PAY, GARRISON_RECOVERY } from '../simulation/kingdoms/service.js';
 import { MILITARY_SOURCE_LABELS } from '../simulation/kingdoms/military-sources.js';
 import { mapCamera, followCameraPan, spriteScale, BUILDING_FEET, alignedTileRect, SOURCE_TILE_PIXELS } from './map-camera.js';
+import { clampCameraPan, zoomCameraAtPoint } from './camera-pan.js';
 import { structureDepthY } from './world-depth.js';
 import { createCloudSystem, atmosphereZoomProfile } from './cloud-system.js';
 import AtmosphericLayer from './atmospheric-layer.js';
@@ -822,11 +823,9 @@ export function mountGame() {
     }
   }
   function clampMapPan() {
-    const mapSize = Math.min(stage.clientWidth, stage.clientHeight) * mapZoom;
-    const maxX = Math.max(0, (mapSize - stage.clientWidth) / 2);
-    const maxY = Math.max(0, (mapSize - stage.clientHeight) / 2);
-    mapPanX = Math.max(-maxX, Math.min(maxX, mapPanX));
-    mapPanY = Math.max(-maxY, Math.min(maxY, mapPanY));
+    const pan = clampCameraPan(stage.clientWidth, stage.clientHeight, mapZoom, mapPanX, mapPanY);
+    mapPanX = pan.x;
+    mapPanY = pan.y;
   }
   function updateMapViewport() {
     clampMapPan();
@@ -869,14 +868,14 @@ export function mountGame() {
   }
   function zoomMapTo(nextZoom, clientX, clientY) {
     const bounds = stage.getBoundingClientRect();
-    const centerX = bounds.left + bounds.width / 2, centerY = bounds.top + bounds.height / 2;
-    const focusX = Number.isFinite(clientX) ? clientX : centerX;
-    const focusY = Number.isFinite(clientY) ? clientY : centerY;
-    const mapX = (focusX - centerX - mapPanX) / mapZoom;
-    const mapY = (focusY - centerY - mapPanY) / mapZoom;
-    mapZoom = Math.max(MIN_MAP_ZOOM, Math.min(MAX_MAP_ZOOM, nextZoom));
-    mapPanX = focusX - centerX - mapX * mapZoom;
-    mapPanY = focusY - centerY - mapY * mapZoom;
+    const camera = zoomCameraAtPoint({
+      left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height,
+      zoom: mapZoom, panX: mapPanX, panY: mapPanY,
+      nextZoom, clientX, clientY, minZoom: MIN_MAP_ZOOM, maxZoom: MAX_MAP_ZOOM
+    });
+    mapZoom = camera.zoom;
+    mapPanX = camera.panX;
+    mapPanY = camera.panY;
     updateMapViewport();
     drawMap();
   }
