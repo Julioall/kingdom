@@ -52,6 +52,7 @@ import { compareDepth, mergeDepthItems } from './depth-order.js';
 import { createStaticDepthSpatialIndex } from './depth-spatial-index.js';
 import { createEntityDrawProbe } from './entity-draw-probe.js';
 import { createVisibleStaticDepthCache } from './visible-static-depth-cache.js';
+import { paintMinimap } from './render/minimap.js';
 import { shouldDrawMineralAtZoom } from './mineral-lod.js';
 import { MINERAL_SPRITE_KINDS, mineralDepositVariant } from './mineral-sprites.js';
 import { CORRAL_VISUAL_SCALE, corralFenceRadius } from '../simulation/ecology/herd.js';
@@ -861,42 +862,10 @@ export function mountGame() {
     const key = [world.seed, world.day, mapZoom, mapPanX.toFixed(1), mapPanY.toFixed(1), world.people.length, world.structures.length].join(':');
     if (key === miniMapRenderKey) return;
     miniMapRenderKey = key;
-    const map = miniMapContext, width = miniMapCanvas.width, height = miniMapCanvas.height;
-    map.clearRect(0, 0, width, height);
-    const tileWidth = width / W, tileHeight = height / H;
-    const colors = { blue: '#3974b8', red: '#b74f45', purple: '#8354a7', yellow: '#d5b346', black: '#59616b' };
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) {
-        const tile = cell(x, y);
-        if (!tile) continue;
-        if (tile.terrain === 'water') map.fillStyle = '#3995a8';
-        else if (tile.kingdomId != null) {
-          const kingdom = getKingdom(tile.kingdomId);
-          map.fillStyle = colors[kingdom && kingdom.palette] || '#9c8751';
-        } else {
-          const biomass = Array.isArray(tile.plants) ? tile.plants.reduce((sum, amount) => sum + amount, 0) : 0;
-          map.fillStyle = biomass > 80 ? '#78934e' : biomass > 25 ? '#879351' : '#958751';
-        }
-        map.fillRect(x * tileWidth, y * tileHeight, tileWidth + .1, tileHeight + .1);
-      }
-    }
-    for (const structure of world.structures) {
-      map.fillStyle = colors[getKingdom(structure.kingdomId)?.palette] || '#d0b36c';
-      map.fillRect(structure.x - .6, structure.y - .6, 1.4, 1.4);
-    }
-    for (const person of world.people) if (person.alive && person.restingStructureId == null) {
-      map.fillStyle = colors[getKingdom(person.kingdomId)?.palette] || '#f0e2ae';
-      map.fillRect(person.x - .35, person.y - .35, .8, .8);
-    }
-    for (const animal of world.animals) if (animal.alive) {
-      map.fillStyle = '#fff1d0';
-      map.fillRect(animal.x - .3, animal.y - .3, .7, .7);
-    }
-    const view = getMapViewport();
-    const scaleX = width / LOGICAL_SIZE, scaleY = height / LOGICAL_SIZE;
-    map.strokeStyle = '#fff4ce'; map.lineWidth = 1.25;
-    map.strokeRect(view.x * scaleX + .5, view.y * scaleY + .5,
-      Math.max(1, view.width * scaleX - 1), Math.max(1, view.height * scaleY - 1));
+    paintMinimap({
+      map: miniMapContext, width: miniMapCanvas.width, height: miniMapCanvas.height,
+      W, H, world, cell, getKingdom, view: getMapViewport(), LOGICAL_SIZE
+    });
   }
   function zoomMapTo(nextZoom, clientX, clientY) {
     const bounds = stage.getBoundingClientRect();
