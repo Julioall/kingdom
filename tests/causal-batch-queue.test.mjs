@@ -98,6 +98,20 @@ test('same-seed queues produce identical outputs and priorities, independently o
  assert.equal(x.metrics.consumed,y.metrics.consumed);
  assert.equal(x.metrics.backlog,y.metrics.backlog);
 });
+test('an action-domain or permission mask change invalidates the prepared observation',()=>{
+ const {world,actors,inputs}=make(1);
+ const prepared=actorObservation(world,actors[0],inputs,'people');
+ const same=actorObservation(world,actors[0],inputs,'people');
+ const military=actorObservation(world,actors[0],inputs,'military');
+ const onlyRest=actorObservation(world,actors[0],inputs,'people',
+   PEOPLE_ACTIONS.map(name=>name==='rest'));
+ assert.equal(observationsMatch(prepared,same),true);
+ assert.equal(observationsMatch(prepared,military),false,
+   'military action logits cannot reuse the people-action observation');
+ assert.equal(observationsMatch(prepared,onlyRest),false,
+   'changed legal actions invalidate the old precomputed inference');
+});
+
 test('observation identity is checked, not merely actor ID',()=>{
  const {world,actors,inputs}=make(1);
  const a=actorObservation(world,actors[0],inputs,'people');
