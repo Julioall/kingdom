@@ -171,3 +171,54 @@ test('read-only LOD coverage telemetry counts cold-start and overdue neural cach
   assert.equal(stats.oldestCacheAgeDays,31);
   assert.equal(w.people[0].brain.cognitiveInferenceCache.day,-30);
 });
+
+test('changing NPC population cannot pin neural turns on the earliest IDs',()=>{
+  const w=setup(2,2);
+  const firstSeen=new Map();
+  // At days >= 2, count = day * budget. The former modulo formula would
+  // start at index zero each time, leaving every newcomer without inference.
+  for(let day=0;day<10;day++){
+    while(w.people.length<Math.max(2,day*2)){
+      const id=w.people.length+1;
+      const person={...setup(1,2).people[0],id};
+      person.brain=createBrain(w,PEOPLE_ACTIONS,18,id);
+      w.people.push(person);
+    }
+    w.day=day;
+    beginCognitiveDay(w,w.people);
+    for(const person of w.people){
+      inferCognitivePeople(w,person,input);
+      if(person.brain.cognitiveInferenceCache?.day===day && !firstSeen.has(person.id))
+        firstSeen.set(person.id,day);
+    }
+    assert.equal(cognitiveDayMetrics(w).inferred,2);
+  }
+  for(const id of [3,4,5,6,7,8,9,10])
+    assert.ok(firstSeen.has(id),'NPC '+id+' must receive a fair neural turn despite growth');
+});
+
+test('same-day reinitialization preserves the routine window and epoch reset discards it',()=>{
+  const w=setup(9,2);
+  w.day=0;
+  beginCognitiveDay(w,w.people);
+  const selected=()=>{
+    const ids=[];
+    for(const person of w.people){
+      inferCognitivePeople(w,person,input);
+      if(person.brain.cognitiveInferenceCache?.day===w.day)ids.push(person.id);
+    }
+    return ids;
+  };
+  assert.deepEqual(selected(),[1,2]);
+  for(const person of w.people)delete person.brain.cognitiveInferenceCache;
+  beginCognitiveDay(w,w.people);
+  assert.deepEqual(selected(),[1,2],'reinitializing the same day must not advance the cursor');
+
+  w.day=1;
+  beginCognitiveDay(w,w.people);
+  assert.deepEqual(selected(),[3,4]);
+  for(const person of w.people)delete person.brain.cognitiveInferenceCache;
+  w.epoch++;
+  beginCognitiveDay(w,w.people);
+  assert.deepEqual(selected(),[3,4],'a new epoch uses the deterministic day-based starting window');
+});
