@@ -5,7 +5,7 @@ import { PEOPLE_ACTIONS } from '../../config/ecosystem.js';
 
 const featureKeys = Object.freeze([
   'perceptionFeatures', 'roleFeatures', 'personalityFeatures',
-  'memoryFeatures', 'contextFeatures'
+  'memoryFeatures', 'contextFeatures', 'actionMask'
 ]);
 const now = () => typeof performance !== 'undefined' ? performance.now() : 0;
 const normal = value => Number.isFinite(value) ? value : 0;
@@ -32,7 +32,7 @@ export function observationsMatch(prepared,current) {
     || prepared.simulatedDay!==current.simulatedDay) return false;
   for(const key of featureKeys){
     const a=prepared[key],b=current[key];
-    if(a.length!==b.length) return false;
+    if(!a || !b || a.length!==b.length) return false;
     for(let i=0;i<a.length;i++) if(a[i]!==b[i])return false;
   }
   return true;
