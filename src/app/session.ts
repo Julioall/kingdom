@@ -4,6 +4,7 @@ import { applyWorldSnapshot, applyWorldTileDelta } from '../simulation/render-sn
 import { indexPeopleById, applyIndexedPersonUpdates } from './person-update-index.js';
 import { createTransportDiagnostics } from './worker-transport-diagnostics.js';
 import { createAdvanceBackpressureQueue } from './advance-backpressure.js';
+import { nextMaterializedWorldRevision } from './materialized-world-revision.js';
 import {
   SIMULATION_PROTOCOL_VERSION,
   type KingdomAiDecisionRequest,
@@ -226,7 +227,7 @@ export class GameSession {
         this.world = nextWorld;
         this.peopleById = indexPeopleById(nextWorld.people);
         this.stats = nextWorld.stats;
-        this.revision = response.revision;
+        this.revision = nextMaterializedWorldRevision(this.revision, response);
         this.transportDiagnostics.record(response, performance.now() - started);
         this.onUpdate?.(nextWorld, nextWorld.stats, false);
       } catch {
@@ -238,13 +239,13 @@ export class GameSession {
       pending.resolve(response);
       return;
     }
-    this.revision = response.revision;
     if (response.type === 'snapshot') {
       const started = performance.now();
       const nextWorld = applyWorldSnapshot(response.snapshot, response.snapshot.reset ? null : this.world);
       this.world = nextWorld;
       this.peopleById = indexPeopleById(nextWorld.people);
       this.stats = nextWorld.stats;
+      this.revision = nextMaterializedWorldRevision(this.revision, response);
       this.transportDiagnostics.record(response, performance.now() - started);
       this.onUpdate?.(nextWorld, nextWorld.stats, response.snapshot.reset);
     }
