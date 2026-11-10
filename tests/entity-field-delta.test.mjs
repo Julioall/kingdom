@@ -28,7 +28,7 @@ test('entity field patches handle nested mutation, deletion, spawn/despawn, and 
   ];
   next.animals[0].energy = 16;
   next.structures[1].construction = 101;
-  const { patch } = createEntityFieldPatch(next, cache, { maxFraction: 1 });
+  const { patch } = createEntityFieldPatch(next, cache, { force: true });
   assert.equal(patch.schemaVersion, 1);
   assert.deepEqual(patch.collections.people.removed, [1]);
   assert.deepEqual(patch.collections.people.added.map(p => p.id), [3]);
@@ -49,7 +49,7 @@ test('entity field patches distinguish undefined, missing keys, and signed zero'
   const next = structuredClone(before);
   delete next.people[0].optional;
   next.people[0].signed = 0;
-  const { patch } = createEntityFieldPatch(next, prev, { maxFraction: 1 });
+  const { patch } = createEntityFieldPatch(next, prev, { force: true });
   assert.ok(patch);
   assert.deepEqual(patch.collections.people.updated[0].unset, ['optional']);
   assert.ok(Object.is(patch.collections.people.updated[0].set.signed, 0));
@@ -63,7 +63,7 @@ test('invalid entity packets reject atomically without touching original state',
   const before = initial(), cache = captureEntityFieldCache(before);
   const next = structuredClone(before);
   next.people[0].energy++;
-  const { patch } = createEntityFieldPatch(next, cache, { maxFraction: 1 });
+  const { patch } = createEntityFieldPatch(next, cache, { force: true });
   const bad = structuredClone(patch);
   bad.collections.people.updated[0].id = 999;
   const snapshot = structuredClone(before);
