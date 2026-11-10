@@ -58,7 +58,10 @@ export function captureEntityFieldCache(base) {
       const fields = new Map();
       for (const key of Object.keys(entity)) {
         if (FORBIDDEN_KEYS.has(key)) throw Error('Unsafe entity property.');
-        fields.set(key, signature(entity[key]));
+        try { fields.set(key, signature(entity[key])); }
+        catch (error) {
+          throw Error(name + ' #' + entity.id + ' .' + key + ': ' + error.message);
+        }
       }
       rows.set(entity.id, fields);
       order.push(entity.id);
