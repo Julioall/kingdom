@@ -9,6 +9,7 @@ import { createSimulationWorkerRuntime } from '../src/simulation/worker-runtime.
 import { SIMULATION_PROTOCOL_VERSION } from '../src/simulation/protocol-version.js';
 import { applyWorldSnapshot, applyWorldTileDelta } from '../src/simulation/render-snapshot.js';
 import { tileTransportBytes } from '../src/app/worker-transport-diagnostics.js';
+import { captureEntityFieldCache } from '../src/simulation/entity-field-delta.js';
 
 const encoder = new TextEncoder();
 const bytes = value => encoder.encode(JSON.stringify(value)).byteLength;
@@ -48,6 +49,9 @@ for (const seed of [1, 42, 2026]) {
   }).response;
   assert.equal(initBase.type, 'snapshot');
   assert.equal(initOptimized.type, 'snapshot');
+  // This must be safe for full Kingdom state; report the exact field which
+  // prevented a delta instead of silently treating a fallback as success.
+  captureEntityFieldCache(initOptimized.snapshot.base);
   let baseView = applyWorldSnapshot(initBase.snapshot);
   let optimizedView = applyWorldSnapshot(initOptimized.snapshot);
   for (let day = 1; day <= 2; day++) {
