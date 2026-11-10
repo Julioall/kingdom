@@ -16,7 +16,7 @@ O teste não cria uma guerra completa nem força uma gravidez natural. A valida�
 
 ## 2. Diagnóstico de navegador, CPU e memória
 
-O script `scripts/benchmark-jul278-compact-browser-ab.mjs` usa **o jogo real** em Vite com o mesmo seed e dois modos, alternando a ordem (full/compact, compact/full). Abre o mundo, mede snapshots durante a simulação rodando, sem mudar a lógica do jogo, e coleta:
+O script `scripts/benchmark-jul278-compact-browser-ab.mjs` usa **o jogo real** em Vite com o mesmo seed e dois modos, alternando a ordem (full/compact, compact/full). **Ambos os modos negociam `tile-delta`** com o parâmetro de QA `tileDeltaQA=1`, de modo que apenas os campos cognitivos omitidos variam. Ele bloqueia resultados caso os tipos de pacotes de tile nos pares não coincidam. Abre o mundo, mede snapshots durante a simulação rodando, sem mudar a lógica do jogo, e coleta:
 
 - FPS, frame p50/p95 e p95 do mapa, segundo o profiler do Kingdom
 - request→response p50/p95 do Worker (inclui **simulação, fila e transporte**; não mede apenas serialização), mais latência da consulta real a um personagem selecionado
@@ -48,6 +48,8 @@ node scripts/benchmark-jul278-compact-browser-ab.mjs --headful=1 --requireGpu=1 
 Manter a janela visível, sem extensões, downloads ou outros jogos competindo por GPU; conferir em `chrome://gpu` se o Canvas 2D está acelerado e confirmar a GPU ativa no Gerenciador de Tarefas. Não usar `--requireGpu=1` em runner de CI/headless.
 
 Comparar **três pares ou mais** com a mesma seed, resolução e velocidade e repetir após aquecimento da aba; registrar GPU, driver, memória de vídeo e Hz do monitor. O script falha se detectar `SwiftShader`/software quando `--requireGpu=1`.
+
+**Validade do A/B:** nunca comparar o modo normal usando snapshots completos contra o modo compacto usando `tile-delta`; isso confunde economia de tile com economia de cognição. Ambos devem operar com o mesmo protocolo, mesma seed e quantidade de avanços.
 
 **Critério antes de habilitar por padrão:** zero regressões de render, seleção, morte/ressurgimento, combate, introspecção e reset; melhora de bytes e redução consistente do p95 do Worker sem piora relevante do p95 de frames ou heap/GC. Testar posteriormente 50/500/5.000 NPCs em escala real com instrumentação de Worker heap, trace de Chrome e acesso a GPU.
 
