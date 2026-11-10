@@ -204,8 +204,12 @@ export function mountGame() {
   // Experimental only: validate stripped render actors against the live
   // inspector before allowing compact presentation in normal sessions.
   const compactActorsQA = import.meta.env.DEV && diagnosticQuery.get('compactActors') === '1';
+  // JUL-278: same tile-delta transport on BOTH sides of the browser A/B.
+  // Without this independent DEV-only flag, full mode would use complete
+  // snapshots while compact mode used tile deltas, confounding measurements.
+  const tileDeltaQA = import.meta.env.DEV && diagnosticQuery.get('tileDeltaQA') === '1';
   const session = new GameSession(undefined, sessionSeed,
-    { compactActorTransport: compactActorsQA });
+    { compactActorTransport: compactActorsQA, tileDeltaTransport: tileDeltaQA });
   if (diagnosticQuery.get('paused') === '1') {
     session.paused = true;
     session.ready.then(() => session.setPaused(true)).catch(error => session.onError?.(error));
