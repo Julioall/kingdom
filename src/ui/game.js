@@ -201,7 +201,11 @@ export function mountGame() {
   const trailSegmentByPerson = new Map();
   const pendingPersonTrailPoints = new Map();
   let lastTrailFlushAt = -Infinity;
-  const session = new GameSession(undefined, sessionSeed);
+  // Keep compact actor transport in explicit DEV QA mode until its UI and
+  // Worker payload/CPU evidence passes browser + local GPU acceptance.
+  const compactActorQA = import.meta.env.DEV && diagnosticQuery.get('compactActors') === '1';
+  const session = new GameSession(undefined, sessionSeed,
+    compactActorQA ? { compactActorTransport: true } : {});
   if (diagnosticQuery.get('paused') === '1') {
     session.paused = true;
     session.ready.then(() => session.setPaused(true)).catch(error => session.onError?.(error));
@@ -3230,7 +3234,7 @@ export function mountGame() {
       state() {
         return { selection: selection ? { ...selection } : null,
           day: world?.day ?? null, epoch: session.epoch,
-          materializedRevision: session.revision,
+          materializedRevision: session.revision, compactActors: compactActorQA,
           detail: actorInspectorDetails.snapshot() };
       }
     });
@@ -3332,6 +3336,18 @@ export function mountGame() {
       const detail = actorInspectorDetails.read('person', selection.id);
       const p = detail === undefined ? getPerson(selection.id) : detail;
       if (!p) { selection = null; renderInspector(); return; }
+      if (!p.brain) {
+        // Compact actor DTO carries location/identity/actions only. The full
+        // cognition is fetched from the authoritative Worker asynchronously.
+        $('inspectEyebrow').textContent = 'PERSONAGEM · CONSULTA AO WORKER';
+        $('inspectTitle').textContent = p.name || 'Personagem';
+        const failed = actorInspectorDetails.snapshot().failedKey != null;
+        root.innerHTML = '<div class="data-row"><span>Estado atual</span><b>'
+          + esc(p.state || '—') + '</b></div><p class="quiet">'
+          + (failed ? 'Detalhes indisponíveis. Selecione novamente o personagem para tentar outra consulta.'
+            : 'Consultando memória, aprendizado e percepção no Worker…') + '</p>';
+        return;
+      }
       const kingdom = p.kingdomId ? getKingdom(p.kingdomId) : null;
       const links = Object.values(world.socialLinks).filter(l => l.a === p.id || l.b === p.id).length;
       const skillLabels = { forage: 'coletor de alimento', hunt: 'caçador', gather: 'coletor de recursos', build: 'construtor', care: 'cuidador', diplomacy: 'mediador' };
@@ -3450,6 +3466,16 @@ export function mountGame() {
       const detail = actorInspectorDetails.read('animal', selection.id);
       const a = detail === undefined ? getAnimal(selection.id) : detail;
       if (!a) { selection = null; renderInspector(); return; }
+      if (detail === undefined && !a.brain) {
+        $('inspectEyebrow').textContent = 'BIOSFERA · FAUNA';
+        $('inspectTitle').textContent = Sim.animals.find(p => p.id === a.speciesId)?.name || 'Animal';
+        const failed = actorInspectorDetails.snapshot().failedKey != null;
+        root.innerHTML = '<div class="data-row"><span>Comportamento</span><b>'
+          + esc(a.state || '—') + '</b></div><p class="quiet">'
+          + (failed ? 'Detalhes indisponíveis. Selecione novamente o animal para consultar.'
+            : 'Consultando a memória e o comportamento no Worker…') + '</p>';
+        return;
+      }
       const profile = Sim.animals.find(p => p.id === a.speciesId);
       $('inspectEyebrow').textContent = 'BIOSFERA · FAUNA';
       $('inspectTitle').textContent = profile.name;
