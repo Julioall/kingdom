@@ -1,0 +1,52 @@
+name: "JUL-278 — Opt-in compact actor transport and inspector"
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - "src/simulation/compact-presentation.js"
+      - "src/simulation/worker-runtime.js"
+      - "src/simulation/protocol.ts"
+      - "src/app/session.ts"
+      - "src/ui/game.js"
+      - "tests/compact-actor-transport.test.mjs"
+      - "scripts/benchmark-jul278-compact-actors.mjs"
+      - "scripts/qa-jul278-compact-inspector.mjs"
+      - ".github/workflows/jul278-compact-actors.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compact:
+    name: World snapshot parity, byte/clone A/B and actual browser inspector
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Validate projection, Worker delta and full actor inspection
+        run: node --test tests/compact-actor-transport.test.mjs
+      - name: Benchmark opt-in rendering DTO payload and clone
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node scripts/benchmark-jul278-compact-actors.mjs out/jul278-compact-render.json \
+            | tee out/jul278-compact-render.log
+      - name: Install software-rendered Chromium for browser QA
+        run: npx playwright install --with-deps chromium
+      - name: Inspect selected NPC/animal through actual compact and full Worker paths
+        run: |
+          set -euo pipefail
+          node scripts/qa-jul278-compact-inspector.mjs out/jul278-browser-inspector.json \
+            | tee out/jul278-browser-inspector.log
+      - name: Archive reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jul278-compact-actor-qa
+          path: out/jul278-*.*
+          if-no-files-found: warn

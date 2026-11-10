@@ -201,7 +201,11 @@ export function mountGame() {
   const trailSegmentByPerson = new Map();
   const pendingPersonTrailPoints = new Map();
   let lastTrailFlushAt = -Infinity;
-  const session = new GameSession(undefined, sessionSeed);
+  // Experimental only: validate stripped render actors against the live
+  // inspector before allowing compact presentation in normal sessions.
+  const compactActorsQA = import.meta.env.DEV && diagnosticQuery.get('compactActors') === '1';
+  const session = new GameSession(undefined, sessionSeed,
+    { compactActorTransport: compactActorsQA });
   if (diagnosticQuery.get('paused') === '1') {
     session.paused = true;
     session.ready.then(() => session.setPaused(true)).catch(error => session.onError?.(error));
@@ -3330,6 +3334,12 @@ export function mountGame() {
     }
     if (selection.kind === 'person') {
       const detail = actorInspectorDetails.read('person', selection.id);
+      if (compactActorsQA && detail === undefined && getPerson(selection.id)) {
+        $('inspectEyebrow').textContent = 'PERSONAGEM · CONSULTANDO WORKER';
+        $('inspectTitle').textContent = getPerson(selection.id).name || 'Personagem';
+        root.innerHTML = '<p class="quiet">Consultando os detalhes e a memória deste personagem no Worker…</p>';
+        return;
+      }
       const p = detail === undefined ? getPerson(selection.id) : detail;
       if (!p) { selection = null; renderInspector(); return; }
       const kingdom = p.kingdomId ? getKingdom(p.kingdomId) : null;
@@ -3448,6 +3458,12 @@ export function mountGame() {
     }
     if (selection.kind === 'animal') {
       const detail = actorInspectorDetails.read('animal', selection.id);
+      if (compactActorsQA && detail === undefined && getAnimal(selection.id)) {
+        $('inspectEyebrow').textContent = 'FAUNA · CONSULTANDO WORKER';
+        $('inspectTitle').textContent = 'Animal';
+        root.innerHTML = '<p class="quiet">Consultando os detalhes deste animal no Worker…</p>';
+        return;
+      }
       const a = detail === undefined ? getAnimal(selection.id) : detail;
       if (!a) { selection = null; renderInspector(); return; }
       const profile = Sim.animals.find(p => p.id === a.speciesId);
