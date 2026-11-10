@@ -148,3 +148,50 @@ test('malformed entity patch never applies base or any sparse tiles', () => {
   assert.equal(view.day, beforeDay);
   assert.equal(view.tiles[0].soilWaterMm, firstTile);
 });
+
+test('nested volatile perception and navigation patches preserve exact data with key reordering', () => {
+  const before = initial();
+  before.people[0].perception = { day: 1, resources: [
+    { tileIndex: 10, x: 1, biomass: { oak: 100, fern: 20 }, water: 20 },
+    { tileIndex: 20, x: 2, biomass: { oak: 30, fern: 60 }, water: 25 }
+  ], knownWater: [{ x: 5, y: 8, source: 'lake' }] };
+  before.people[0].navigationRoute = [11, 12, 13, 14];
+  const cache = captureEntityFieldCache(before);
+  const after = structuredClone(before);
+  after.people[0].perception.day++;
+  after.people[0].perception.resources = [
+    { tileIndex: 20, x: 2, biomass: { oak: 31, fern: 60 }, water: 25 },
+    { tileIndex: 10, x: 1, biomass: { oak: 100, fern: 20 }, water: 20 },
+    { tileIndex: 30, x: 3, biomass: { oak: 4 }, water: 15 }
+  ];
+  after.people[0].navigationRoute = [12, 13, 14];
+  const { patch } = createEntityFieldPatch(after, cache, { force: true });
+  assert.ok(patch);
+  const update = patch.collections.people.updated.find(item => item.id === 1);
+  assert.ok(update);
+  assert.ok(update.nested?.length, 'nested changes must be used instead of full fields');
+  assert.equal(Object.hasOwn(update.set, 'perception'), false);
+  const projected = prepareEntityFieldPatch(before, structuredClone(patch));
+  assert.deepEqual(projected.people, after.people);
+  assert.deepEqual(before.people[0].perception.resources[0].biomass, { oak: 100, fern: 20 });
+});
+
+test('corrupt nested keyed patch rejects without touching prior world', () => {
+  const before = initial();
+  before.people[0].perception = { day: 1, resources: Array.from({ length: 15 }, (_, i) =>
+    ({ tileIndex: i, x: i, y: i, soil: i / 15 })) };
+  const cache = captureEntityFieldCache(before);
+  const after = structuredClone(before);
+  after.people[0].perception.resources[2].soil += 1;
+  const { patch } = createEntityFieldPatch(after, cache, { force: true });
+  const corrupted = structuredClone(patch);
+  const update = corrupted.collections.people.updated.find(x => x.id === 1);
+  const p = update.nested?.find(x => x.key === 'perception')?.patch;
+  assert.ok(p);
+  // Invalid nested shape should throw during preflight, before mutating any
+  // old perception or other entity.
+  p.t = 'bad-format';
+  const snapshot = structuredClone(before);
+  assert.throws(() => prepareEntityFieldPatch(before, corrupted), /entity|nested/i);
+  assert.deepEqual(before, snapshot);
+});
