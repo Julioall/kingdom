@@ -1,5 +1,5 @@
 // JUL-291: A/B of the exact animal observation algorithm with/without one-
-// observation canopy memoization, driven by the real full simulation loop.
+// observation canopy memoization plus distant-actor culling, driven by real worlds.
 // Controls are identical worlds, interleaved order, full snapshot parity.
 // performance.now() reports synchronous Node wall time (CPU proxy), NOT FPS.
 import assert from 'node:assert/strict';
@@ -22,7 +22,7 @@ const measure = (world, cache) => {
     const began = performance.now();
     try {
       return originalObserve(w, actor, kind, profiles,
-        kind === 'animal' ? { disableCanopyCache: !cache } : options);
+        kind === 'animal' ? { disableCanopyCache: !cache, disableRangePrefilter: !cache } : options);
     } finally {
       if (kind === 'animal') {
         observations++;
@@ -77,7 +77,7 @@ for (const seed of seeds) {
       'The same number of animals must observe in each mode');
     assert.equal(baseline.day, cached.day);
     assert.equal(baseline.rngState, cached.rngState,
-      'The visual LOS cache must not alter random decisions');
+      'Animal LOS optimizations must not alter random decisions');
     assert.deepEqual(createWorldSnapshot(cached), createWorldSnapshot(baseline),
       'Authoritative world parity changed at seed ' + seed + ', day ' + day);
     results.push({ seed, day, order: reverse ? 'cached-first' : 'uncached-first',
@@ -101,7 +101,7 @@ summary.observationCalls = results.reduce((sum,row)=>sum+row.cached.observations
 const report = {
   schema: 1, issue: 'JUL-291', sourceSha: process.env.GITHUB_SHA || 'unknown',
   seeds, days, fullWorldSnapshotParity: true,
-  methodology: 'Paired real-world day loops using a fresh animal-scoped canopy Map versus uncached canopy, with alternating execution order. After every day compare complete createWorldSnapshot, daily RNG and animal observation counts. Instrumented performance.now Node wall time for animal LOS, entire animal subsystem and whole day; no GPU/browser FPS claim.',
+  methodology: 'Paired real-world day loops using a per-observation canopy Map plus Euclidean-safe bounding cull versus uncached and unbounded LOS, alternating order. After every day compare complete createWorldSnapshot, daily RNG and animal observation counts. Instrumented performance.now Node wall time for animal LOS, entire animal subsystem and whole day; no GPU/browser FPS claim.',
   caveats: [
     'Node wall time is CPU proxy and includes profiler and runtime noise; repeated browser trials are required for FPS claims.',
     'Time outside animal observation can vary due scheduling, JIT, GC and changes in wall-clock conditions even though world state is identical.',
