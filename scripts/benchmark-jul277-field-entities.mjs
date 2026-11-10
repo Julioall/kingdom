@@ -68,7 +68,17 @@ for (const seed of [1, 42, 2026]) {
         }).length;
         console.error('FALLBACK-DIAGNOSTICS', JSON.stringify({
           seed, day, fullJson,
-          patchJson: attempt.patch ? JSON.stringify(attempt.patch).length : null
+          patchJson: attempt.patch ? JSON.stringify(attempt.patch).length : null,
+          largestChangedFields: attempt.patch
+            ? Object.entries(attempt.patch.collections).flatMap(([collection, delta]) => {
+              const totals = new Map();
+              for (const update of delta.updated) for (const [key, value] of Object.entries(update.set))
+                totals.set(key, (totals.get(key) || 0) + JSON.stringify(value)?.length || 0);
+              return [...totals.entries()].map(([field, jsonBytes]) => ({
+                collection, field, jsonBytes
+              }));
+            }).sort((a,b) => b.jsonBytes - a.jsonBytes).slice(0,20)
+            : null
         }));
       } catch (error) { console.error('FALLBACK-SHAPE-ERROR', error.message); }
     }
