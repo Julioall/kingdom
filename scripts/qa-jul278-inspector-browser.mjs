@@ -48,8 +48,10 @@ try {
           if(packet.type==='snapshot'&&packet.snapshot?.base&&!initial){
             initial={people:packet.snapshot.base.people.slice(0,2).map(p=>({id:p.id,name:p.name})),
               animal:packet.snapshot.base.animals[0]?.id,
-              hasPersonBrain:!!packet.snapshot.base.people[0]?.brain,
-              hasAnimalBrain:!!packet.snapshot.base.animals[0]?.brain};
+              hasPersonFullBrain:Object.hasOwn(packet.snapshot.base.people[0]?.brain||{},'updates'),
+              hasAnimalFullBrain:Object.hasOwn(packet.snapshot.base.animals[0]?.brain||{},'updates'),
+              personRenderAction:packet.snapshot.base.people[0]?.brain?.lastAction,
+              animalRenderAction:packet.snapshot.base.animals[0]?.brain?.lastAction};
           }
           const pending=requests.get(packet.requestId);
           if(pending){
@@ -83,9 +85,9 @@ try {
   null,{timeout:150000,polling:250});
   const first=await page.evaluate(()=>window.__jul278Probe.initial());
   assert.ok(first.people.length===2&&first.people[0].id!==first.people[1].id);
-  assert.equal(first.hasPersonBrain,!compactActors,
+  assert.equal(first.hasPersonFullBrain,!compactActors,
     'legacy must include cognition, compact must defer it to the Worker');
-  assert.equal(first.hasAnimalBrain,!compactActors,
+  assert.equal(first.hasAnimalFullBrain,!compactActors,
     'legacy must include animal brain, compact must defer it');
   assert.equal(await page.evaluate(()=>window.__kingdomInspectorQA.state().compactActors),
     compactActors,'UI must negotiate the expected snapshot mode');
