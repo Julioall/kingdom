@@ -219,6 +219,22 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
           revision++;
           return capture(request, { result });
         }
+        case 'inspect-person':
+        case 'inspect-animal': {
+          const kind = request.type === 'inspect-person' ? 'person' : 'animal';
+          const actorId = kind === 'person' ? request.personId : request.animalId;
+          if (!Number.isSafeInteger(actorId) || actorId < 0)
+            throw new Error('Identificador de personagem ou animal inválido.');
+          const collection = kind === 'person' ? world.people : world.animals;
+          const actor = collection.find(item => item.id === actorId) || null;
+          // This request is read-only and does not increment the authoritative
+          // revision. Return a detached value so callers cannot change state
+          // by editing the inspector response outside the Worker.
+          return envelope(request, 'query', {
+            result: { kind, actorId, day: world.day,
+              actor: actor ? structuredClone(actor) : null }
+          });
+        }
         case 'inspect-tile': {
           return envelope(request, 'query', { result: engine.inspectTile(world, request.x, request.y) });
         }
