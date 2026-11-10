@@ -48,8 +48,24 @@ export type FieldTileColumns = {
   };
 };
 
-export type WorldTileDelta = Omit<WorldSnapshot, 'tileColumns' | 'reset'> & {
+export type EntityFieldDelta = {
+  schemaVersion: 1;
+  collections: {
+    [K in 'people' | 'animals' | 'structures']: {
+      beforeCount: number;
+      afterCount: number;
+      added: WorldSnapshot['base'][K];
+      updated: Array<{id: number; set: Partial<WorldSnapshot['base'][K][number]>; unset: string[]; nested?: Array<{key: string; patch: unknown}>}>;
+      removed: number[];
+      order?: number[];
+    };
+  };
+};
+
+export type WorldTileDelta = Omit<WorldSnapshot, 'tileColumns' | 'reset' | 'base'> & {
   tileColumns: SparseTileColumns | FieldTileColumns;
+  base: WorldSnapshot['base'] | Omit<WorldSnapshot['base'], 'people' | 'animals' | 'structures'>;
+  entityPatches?: EntityFieldDelta;
   baseRevision: number;
   reset: false;
 };
@@ -81,8 +97,8 @@ type RequestEnvelope = {
 };
 
 export type SimulationWorkerRequest = RequestEnvelope & (
-  | { type: 'initialize'; config: WorldConfig; seed: number; transport?: 'tile-delta' }
-  | { type: 'reset'; seed: number; kingdomAiEnabled: boolean; transport?: 'tile-delta' }
+  | { type: 'initialize'; config: WorldConfig; seed: number; transport?: 'tile-delta' | 'entity-field-delta' }
+  | { type: 'reset'; seed: number; kingdomAiEnabled: boolean; transport?: 'tile-delta' | 'entity-field-delta' }
   | { type: 'resync' }
   | { type: 'set-paused'; paused: boolean }
   | { type: 'advance'; days: number; source: 'clock' | 'manual' }

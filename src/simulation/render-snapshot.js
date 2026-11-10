@@ -1,6 +1,7 @@
 import engine from './engine.js';
 import { validTileColumnDelta } from './tile-delta.js';
 import { validFieldTileDelta } from './field-delta.js';
+import { prepareEntityFieldPatch, ENTITY_DELTA_COLLECTIONS } from './entity-field-delta.js';
 
 const SCALAR_FIELDS = [
   'heightM', 'slope', 'soilCapacityMm', 'soilWaterMm', 'roadWear',
@@ -163,6 +164,17 @@ function validateDeltaCollections(delta, previous) {
     throw new Error('Coleções incompatíveis no delta do mundo.');
 }
 
+function validatedDeltaBase(delta, previous) {
+  if (!delta.entityPatches) return delta.base;
+  for (const name of ENTITY_DELTA_COLLECTIONS) {
+    if (Object.prototype.hasOwnProperty.call(delta.base, name))
+      throw new Error('O delta de entidades inclui coleções integrais conflitantes.');
+  }
+  // Build all replacement arrays/objects before mutating the existing WorldView.
+  // Any bad ID, order, removal or field causes a clean rejection/resync.
+  return { ...delta.base, ...prepareEntityFieldPatch(previous, delta.entityPatches) };
+}
+
 function applyWorldFieldTileDelta(delta, previous) {
   const fields = delta?.tileColumns;
   if (!previous || !delta || delta.reset || !delta.base ||
@@ -174,7 +186,7 @@ function applyWorldFieldTileDelta(delta, previous) {
       })) throw new Error('O delta de campos não corresponde ao estado atual.');
   validateDeltaCollections(delta, previous);
   validateDeltaTileTargets(previous, fields);
-  Object.assign(previous, delta.base);
+  Object.assign(previous, validatedDeltaBase(delta, previous));
   let waterChanged = false;
   const eachValue = (entries, apply) => {
     for (const entry of entries) {
@@ -221,7 +233,7 @@ export function applyWorldTileDelta(delta, previous) {
   const { base, tileColumns } = delta;
   validateDeltaCollections(delta, previous);
   validateDeltaTileTargets(previous, tileColumns);
-  Object.assign(previous, base);
+  Object.assign(previous, validatedDeltaBase(delta, previous));
   let waterChanged = false;
   for (let row = 0; row < tileColumns.indices.length; row++) {
     const index = tileColumns.indices[row];

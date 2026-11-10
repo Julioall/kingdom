@@ -1,0 +1,43 @@
+name: "JUL-277 — Entity field Worker transport A/B"
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - "src/simulation/entity-field-delta.js"
+      - "src/simulation/render-snapshot.js"
+      - "src/simulation/worker-runtime.js"
+      - "scripts/benchmark-jul277-field-entities.mjs"
+      - ".github/workflows/jul277-field-entities.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  field-entities:
+    name: Full-world delta parity, JSON size and CPU A/B
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run 3 seeds × 2 real simulation days
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node scripts/benchmark-jul277-field-entities.mjs out/jul277-field-entity-ab.json \
+            | tee out/jul277-field-entity-ab.log
+      - name: Retain parity, timing and payload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jul277-field-entity-ab
+          path: out/jul277-field-entity-ab.*
+          if-no-files-found: warn

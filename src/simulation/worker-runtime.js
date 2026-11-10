@@ -4,6 +4,7 @@ import { createWorldSnapshot } from './render-snapshot.js';
 import { createTileColumnDelta, copyTileColumns } from './tile-delta.js';
 import { createFieldTileDelta } from './field-delta.js';
 import { SIMULATION_PROTOCOL_VERSION } from './protocol-version.js';
+import { createEntityFieldPatch } from './entity-field-delta.js';
 
 const MAX_ADVANCE_DAYS = 12;
 // Magic pulses do not resend brains, inventories or navigation histories.
@@ -22,6 +23,8 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
   let paused = false;
   let lastMagicEventsSequence = -1;
   let tileDeltaTransport = false;
+  let entityDeltaTransport = false;
+  let lastEntityCache = null;
   let lastSnapshotColumns = null;
   let lastCaptureRevision = -1;
 
@@ -41,17 +44,36 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
     // columns can be shared; packing copies before the first authoritative change.
     const snapshot = createWorldSnapshot(world, { reset,
       previousTileColumns: tileDeltaTransport ? lastSnapshotColumns : null });
+    let entityPatch = null;
+    if (entityDeltaTransport) {
+      try {
+        const candidate = createEntityFieldPatch(snapshot.base, lastEntityCache);
+        lastEntityCache = candidate.cache;
+        entityPatch = candidate.patch;
+      } catch {
+        // Unknown serializable shapes must not create incomplete entity diffs.
+        // Keep the public full-snapshot path available as a safe fallback.
+        lastEntityCache = null;
+      }
+    }
     if (!reset && request.type === 'advance' && tileDeltaTransport && lastSnapshotColumns) {
       const tileColumns = createTileColumnDelta(snapshot.tileColumns, lastSnapshotColumns)
         || createFieldTileDelta(snapshot.tileColumns, lastSnapshotColumns);
-      if (tileColumns) {
+      if (tileColumns && (!entityDeltaTransport || entityPatch)) {
         const baseRevision = lastCaptureRevision;
         // These full local columns are NOT transferred; only changed rows are.
         lastSnapshotColumns = snapshot.tileColumns;
         lastCaptureRevision = revision;
+        const base = entityPatch ? { ...snapshot.base } : snapshot.base;
+        if (entityPatch) {
+          delete base.people;
+          delete base.animals;
+          delete base.structures;
+        }
         return envelope(request, 'world-delta', {
-          delta: { base: snapshot.base, tileColumns, stats: snapshot.stats,
+          delta: { base, tileColumns, stats: snapshot.stats,
             events: snapshot.events, logs: snapshot.logs,
+            ...(entityPatch ? { entityPatches: entityPatch } : {}),
             baseRevision, reset: false }, result
         });
       }
@@ -81,7 +103,9 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
         if (request.epoch <= epoch) throw new Error('Época de inicialização inválida.');
         if (!request.config || request.config.scenario !== 'kingdom') throw new Error('Cenário não implementado.');
         world = createWorldImpl(request.seed);
-        tileDeltaTransport = request.transport === 'tile-delta';
+        entityDeltaTransport = request.transport === 'entity-field-delta';
+        tileDeltaTransport = request.transport === 'tile-delta' || entityDeltaTransport;
+        lastEntityCache = null;
         lastSnapshotColumns = null;
         lastCaptureRevision = -1;
         lastMagicEventsSequence = -1;
@@ -96,7 +120,9 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
       if (request.type === 'reset') {
         if (request.epoch <= epoch) throw new Error('Época de reset inválida.');
         world = createWorldImpl(request.seed);
-        tileDeltaTransport = request.transport === 'tile-delta';
+        entityDeltaTransport = request.transport === 'entity-field-delta';
+        tileDeltaTransport = request.transport === 'tile-delta' || entityDeltaTransport;
+        lastEntityCache = null;
         lastSnapshotColumns = null;
         lastCaptureRevision = -1;
         lastMagicEventsSequence = -1;
