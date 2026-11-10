@@ -54,6 +54,12 @@ export type WorldTileDelta = Omit<WorldSnapshot, 'tileColumns' | 'reset'> & {
   reset: false;
 };
 
+// Detailed actor data is requested only when an inspector needs it. The
+// response envelope supplies epoch/revision; result carries the precise day.
+export type ActorInspectionResult =
+  | {kind:'person'; actorId:number; day:number; actor:WorldState['people'][number] | null}
+  | {kind:'animal'; actorId:number; day:number; actor:WorldState['animals'][number] | null};
+
 export type KingdomAiDecisionRequest = {
   contractVersion: 1;
   requestId: string;
@@ -92,6 +98,8 @@ export type SimulationWorkerRequest = RequestEnvelope & (
   | { type: 'apply-kingdom-ai-decision'; aiRequest: KingdomAiDecisionRequest; decision: { action: string; confidence: number; reason: string }; providerMetadata?: { provider?: string; model?: string; elapsedMs?: number; inputTokens?: number; contextTokens?: number; outputTokens?: number } }
   | { type: 'fail-kingdom-ai-request'; aiRequest: KingdomAiDecisionRequest; failure?: { reason?: string; provider?: string; model?: string } }
   | { type: 'inspect-tile'; x: number; y: number }
+  | { type: 'inspect-person'; personId: number }
+  | { type: 'inspect-animal'; animalId: number }
 );
 
 type ResponseEnvelope = {
