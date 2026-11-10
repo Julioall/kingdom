@@ -23,7 +23,7 @@ if(gpuRequired&&!headful)throw Error('--requireGpu=1 requires --headful=1.');
 const url='http://127.0.0.1:'+port+'/';
 const out=resolve(opts.output||'out/jul278-compact-browser-ab.json');
 const report={schema:1,issue:'JUL-278',sourceSha:process.env.GITHUB_SHA||'local',
-  seed,headful,repeats,durationMs,
+  seed,headful,repeats,durationMs,transportBaseline:'tile-delta in BOTH modes',
   environment:{platform:platform(),cpu:cpus()[0]?.model,node:process.version,
     browser:headful?'Chromium headful: renderer must be checked':'Chromium headless/SwiftShader'},
   samples:[],errors:[],
@@ -91,7 +91,7 @@ async function profileMode(mode,roundIndex){
       reset:()=>{records.length=0;}
     };
   });
-  const q='?seed='+seed+'&paused=1&profile=1&effects=fixed&inspectorQA=1'
+  const q='?seed='+seed+'&paused=1&profile=1&effects=fixed&inspectorQA=1&tileDeltaQA=1'
     +(mode==='compact'?'&compactActors=1':'');
   try {
     await page.goto(url+q,{waitUntil:'domcontentloaded',timeout:90000});
@@ -203,6 +203,13 @@ try{
   for(let i=0;i<repeats;i++){
     const order=i%2===0?['full','compact']:['compact','full'];
     for(const mode of order)await profileMode(reportModeName(mode),i+1);
+    const pair=report.samples.filter(s=>s.roundIndex===i+1);
+    const [a,b]=pair;
+    const aUpdate=a?.capturedBaseJson?.find(row=>row.day>0)?.type;
+    const bUpdate=b?.capturedBaseJson?.find(row=>row.day>0)?.type;
+    assert.equal(aUpdate,bUpdate,'Full/compact A/B must use the SAME tile packet type');
+    if(aUpdate!=='world-delta')
+      report.errors.push('Pair '+(i+1)+' lacks a comparable tile-delta: '+aUpdate);
   }
   const grouped=Object.fromEntries(['full','compact'].map(mode=>{
     const rows=report.samples.filter(r=>r.mode===mode);
