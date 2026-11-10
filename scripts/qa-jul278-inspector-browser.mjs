@@ -9,6 +9,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
 const port=Number(process.env.JUL278_PORT||5205);
+const compactActors=process.env.JUL278_COMPACT_ACTORS==='1';
 const base='http://127.0.0.1:'+port+'/';
 const server=spawn(process.execPath,
   ['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port',String(port),'--strictPort'],
@@ -18,7 +19,8 @@ for(const stream of [server.stdout,server.stderr])
   stream.on('data',buf=>{serverLog=(serverLog+buf.toString()).slice(-5000);});
 let browser;
 const report={schema:1,issue:'JUL-278',browser:'Chromium headless/SwiftShader (not GPU QA)',
-  sourceSha:process.env.GITHUB_SHA||'unknown',responses:[],errors:[],success:false};
+  sourceSha:process.env.GITHUB_SHA||'unknown',compactActors,
+  responses:[],errors:[],success:false};
 try {
   let ready=false;
   for(let i=0;i<180;i++){
@@ -45,7 +47,9 @@ try {
           const packet=event.data||{};
           if(packet.type==='snapshot'&&packet.snapshot?.base&&!initial){
             initial={people:packet.snapshot.base.people.slice(0,2).map(p=>({id:p.id,name:p.name})),
-              animal:packet.snapshot.base.animals[0]?.id};
+              animal:packet.snapshot.base.animals[0]?.id,
+              hasPersonBrain:!!packet.snapshot.base.people[0]?.brain,
+              hasAnimalBrain:!!packet.snapshot.base.animals[0]?.brain};
           }
           const pending=requests.get(packet.requestId);
           if(pending){
@@ -69,7 +73,8 @@ try {
     window.Worker=ProbeWorker;
     window.__jul278Probe={initial:()=>initial,records:()=>records.slice()};
   });
-  await page.goto(base+'?seed=42&paused=1&inspectorQA=1&profile=1&effects=fixed',
+  await page.goto(base+'?seed=42&paused=1&inspectorQA=1&profile=1&effects=fixed'
+    +(compactActors?'&compactActors=1':''),
     {waitUntil:'domcontentloaded',timeout:60000});
   await page.waitForFunction(()=>
     document.querySelector('.app')?.inert===false
@@ -78,6 +83,12 @@ try {
   null,{timeout:150000,polling:250});
   const first=await page.evaluate(()=>window.__jul278Probe.initial());
   assert.ok(first.people.length===2&&first.people[0].id!==first.people[1].id);
+  assert.equal(first.hasPersonBrain,!compactActors,
+    'legacy must include cognition, compact must defer it to the Worker');
+  assert.equal(first.hasAnimalBrain,!compactActors,
+    'legacy must include animal brain, compact must defer it');
+  assert.equal(await page.evaluate(()=>window.__kingdomInspectorQA.state().compactActors),
+    compactActors,'UI must negotiate the expected snapshot mode');
   async function open(kind,id){
     await page.evaluate(({kind,id})=>window.__kingdomInspectorQA.open(kind,id),{kind,id});
     await page.waitForFunction(({kind,id})=>{
