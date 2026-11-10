@@ -1,5 +1,5 @@
-// JUL-291: A/B of the exact animal observation algorithm with/without one-
-// observation canopy memoization plus distant-actor culling, driven by real worlds.
+// JUL-291: A/B of conservative distance prefiltering during animal observation.
+// Full worlds are identical; the original Euclidean/FOV/LOS are still used.
 // Controls are identical worlds, interleaved order, full snapshot parity.
 // performance.now() reports synchronous Node wall time (CPU proxy), NOT FPS.
 import assert from 'node:assert/strict';
@@ -22,7 +22,7 @@ const measure = (world, cache) => {
     const began = performance.now();
     try {
       return originalObserve(w, actor, kind, profiles,
-        kind === 'animal' ? { disableCanopyCache: !cache, disableRangePrefilter: !cache } : options);
+        kind === 'animal' ? { disableRangePrefilter: !cache } : options);
     } finally {
       if (kind === 'animal') {
         observations++;
@@ -105,7 +105,7 @@ const report = {
   caveats: [
     'Node wall time is CPU proxy and includes profiler and runtime noise; repeated browser trials are required for FPS claims.',
     'Time outside animal observation can vary due scheduling, JIT, GC and changes in wall-clock conditions even though world state is identical.',
-    'No cache persists between animal observations. Any shared cache must separately prove invalidation after movement or feeding.',
+    'No persistent LOS or food score cache is created; each NPC observes current tile/animal state after earlier actions.',
     'Daily resource/animal metabolism and all ecological frequencies remain unchanged.'
   ],
   summary, samples: results
@@ -114,4 +114,4 @@ const out = resolve(process.argv[2] || 'out/jul291-animal-los-cache.json');
 await mkdir(dirname(out),{recursive:true});
 await writeFile(out,JSON.stringify(report,null,2));
 console.log('JUL291-SUMMARY',JSON.stringify(summary));
-console.log('PASSED JUL-291 3-seed paired animal perception cache A/B and exact world parity');
+console.log('PASSED JUL-291 3-seed paired animal range prefilter A/B and exact world parity');
