@@ -42,7 +42,8 @@ test('unchanged rows preserve ordering and use a small patch',()=>{
   assert.ok(patch);
   assert.equal(patch.order,undefined);
   assert.equal(patch.updated.length,1);
-  assert.deepEqual(patch.updated[0].set,{distance:21.25});
+  assert.equal(patch.updated[0].set.distance,21.25);
+  assert.deepEqual(Object.keys(patch.updated[0].set),['distance']);
   assert.deepEqual(applyPerceptionResourceRowsPatch(before,patch),after);
 });
 test('unsupported and expensive deltas fail closed',()=>{
