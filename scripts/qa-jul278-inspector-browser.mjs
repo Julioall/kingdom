@@ -39,12 +39,14 @@ try {
   page.on('pageerror',error=>report.errors.push(String(error)));
   await page.addInitScript(()=>{
     const NativeWorker=window.Worker,requests=new Map(),records=[];
+    const packetTypes=Object.create(null);
     let initial=null;
     class ProbeWorker extends NativeWorker{
       constructor(...args){
         super(...args);
         this.addEventListener('message',event=>{
           const packet=event.data||{};
+          packetTypes[packet.type]=(packetTypes[packet.type]||0)+1;
           if(packet.type==='snapshot'&&packet.snapshot?.base&&!initial){
             initial={people:packet.snapshot.base.people.slice(0,2).map(p=>({id:p.id,name:p.name})),
               animal:packet.snapshot.base.animals[0]?.id,
@@ -73,7 +75,8 @@ try {
       }
     }
     window.Worker=ProbeWorker;
-    window.__jul278Probe={initial:()=>initial,records:()=>records.slice()};
+    window.__jul278Probe={initial:()=>initial,records:()=>records.slice(),
+      packetTypes:()=>({...packetTypes})};
   });
   await page.goto(base+'?seed=42&paused=1&inspectorQA=1&profile=1&effects=fixed'
     +(compactActors?'&compactActors=1':''),
@@ -130,6 +133,33 @@ try {
   assert.equal(repeat,1,'Repeated inspector renders must coalesce requests');
   await open('animal',first.animal);
   await open('person',first.people[1].id);
+  if(compactActors){
+    const before=await page.evaluate(()=>window.__kingdomInspectorQA.state());
+    await page.locator('#step').click();
+    await page.waitForFunction(({id,oldRev})=>{
+      const qa=window.__kingdomInspectorQA?.state();
+      return qa?.day===1 && qa?.materializedRevision>oldRev
+        && qa?.detail?.completedKey?.endsWith(':person:'+id);
+    },{id:first.people[1].id,oldRev:before.materializedRevision},
+      {timeout:45000,polling:100});
+    const after=await page.evaluate(id=>({
+      state:window.__kingdomInspectorQA.state(),
+      packetTypes:window.__jul278Probe.packetTypes(),
+      selectedQueries:window.__jul278Probe.records()
+        .filter(r=>r.kind==='inspect-person'&&r.id===id),
+      detail:document.querySelector('#inspector')?.textContent
+    }),first.people[1].id);
+    assert.ok((after.packetTypes['world-delta']||0)>=1,
+      'Daily compact actor advancement must retain the delta transport');
+    assert.equal(after.selectedQueries.length,2,
+      'Selected NPC detail must refresh after a materialized day advance');
+    assert.ok(after.detail?.includes('Decisão e aprendizado'),
+      'Selected NPC must still show cognitive detail after a daily delta');
+    report.dayAdvance={day:after.state.day,
+      revision:after.state.materializedRevision,
+      deltaMessages:after.packetTypes['world-delta'],
+      personQueries:after.selectedQueries.length};
+  }
   assert.deepEqual(report.errors,[],'Unexpected JS errors while inspecting actors');
   report.success=true;
   await page.close();
