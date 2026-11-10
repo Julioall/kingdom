@@ -26,13 +26,14 @@ const report={schema:1,issue:'JUL-278',sourceSha:process.env.GITHUB_SHA||'local'
   seed,headful,repeats,durationMs,transportBaseline:'tile-delta in BOTH modes',
   environment:{platform:platform(),cpu:cpus()[0]?.model,node:process.version,
     browser:headful?'Chromium headful: renderer must be checked':'Chromium headless/SwiftShader'},
-  samples:[],errors:[],
+  samples:[],errors:[],warnings:[],pairs:[],
   methodology:'Two modes run sequentially in alternating order with identical seed and zoom; observe actual browser Worker request-to-reply latency, UI frame profiler, p95 frames and JS heap of main page. Includes a paused selection query after running. The CPU/GPU load, caches, JIT and browser process vary across runs.',
   limits:[
     'Worker round trip includes simulation CPU, queueing and structuredClone, not pure transport latency.',
     'performance.memory reports approximate MAIN PAGE JS heap only: not Worker heap, GPU memory or all browser allocations.',
     'Renderer identification from WebGL is a hint only; verify GPU acceleration independently in chrome://gpu / Windows Task Manager.',
     'FPS from requestAnimationFrame profiler cannot prove GPU present completion; use browser tracing or GPU profiling for acceptance.',
+    'Time-boxed runs can complete different simulation days; the report marks such pairs as NOT workload matched for FPS/p95 comparisons.',
     'Only initial full base size and first day delta JSON proxies are sampled, not actual binary message wire bytes.'
   ]
 };
@@ -210,6 +211,14 @@ try{
     assert.equal(aUpdate,bUpdate,'Full/compact A/B must use the SAME tile packet type');
     if(aUpdate!=='world-delta')
       report.errors.push('Pair '+(i+1)+' lacks a comparable tile-delta: '+aUpdate);
+    const full=pair.find(row=>row.mode==='full');
+    const compact=pair.find(row=>row.mode==='compact');
+    const sameDay=full.finalDay===compact.finalDay;
+    report.pairs.push({roundIndex:i+1,fullFinalDay:full.finalDay,
+      compactFinalDay:compact.finalDay,sameDay,
+      comparableForFrameP95:sameDay});
+    if(!sameDay)report.warnings.push('Pair '+(i+1)
+      +' advanced different simulated days; FPS/frame p95 are NOT workload-matched.');
   }
   const grouped=Object.fromEntries(['full','compact'].map(mode=>{
     const rows=report.samples.filter(r=>r.mode===mode);
