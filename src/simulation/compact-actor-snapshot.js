@@ -18,6 +18,11 @@ export const DEFERRED_ANIMAL_FIELDS = Object.freeze([
 function stripDeferredFields(actor, fields) {
   const projected = {...actor};
   for (const field of fields) delete projected[field];
+  // The canvas renders a subtle action cue from brain.lastAction. Keep only
+  // that presentation scalar, not the shared neural weights or decision
+  // history; an explicit marker tells the inspector to await full cognition.
+  projected.brain = { lastAction: actor.brain?.lastAction };
+  projected.__compactActorSnapshot = true;
   return projected;
 }
 
