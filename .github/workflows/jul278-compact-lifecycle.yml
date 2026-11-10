@@ -32,7 +32,7 @@ jobs:
           set -euo pipefail
           mkdir -p out
           node scripts/benchmark-jul278-compact-browser-ab.mjs \
-            --headful=0 --duration=3000 --repeats=1 \
+            --headful=0 --duration=6500 --repeats=1 \
             --output=out/jul278-compact-browser-ab.json \
             | tee out/jul278-compact-browser-ab.log
       - name: Preserve browser measurements
