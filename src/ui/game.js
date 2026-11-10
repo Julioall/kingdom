@@ -3218,6 +3218,24 @@ export function mountGame() {
     drawMap();
   }
 
+  // E2E test-only access: never present in production or a normal dev game.
+  // The browser QA still goes through the real selection and Worker contract.
+  if (import.meta.env.DEV && diagnosticQuery.get('inspectorQA') === '1') {
+    window.__kingdomInspectorQA = Object.freeze({
+      open(kind, id) {
+        if (!['person', 'animal'].includes(kind) || !Number.isSafeInteger(id))
+          throw new Error('Invalid inspector QA selection.');
+        openSelection({ kind, id });
+      },
+      state() {
+        return { selection: selection ? { ...selection } : null,
+          day: world?.day ?? null, epoch: session.epoch,
+          materializedRevision: session.revision,
+          detail: actorInspectorDetails.snapshot() };
+      }
+    });
+  }
+
   function updateLocalAIStatus(status) {
     if (!$('localAiState')) return;
     const labels = { idle: 'desligada', loading: 'carregando', ready: 'ativa', working: 'pensando', error: 'indisponível' };
