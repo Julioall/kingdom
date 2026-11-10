@@ -9,7 +9,7 @@ import { createSimulationWorkerRuntime } from '../src/simulation/worker-runtime.
 import { SIMULATION_PROTOCOL_VERSION } from '../src/simulation/protocol-version.js';
 import { applyWorldSnapshot, applyWorldTileDelta } from '../src/simulation/render-snapshot.js';
 import { tileTransportBytes } from '../src/app/worker-transport-diagnostics.js';
-import { captureEntityFieldCache } from '../src/simulation/entity-field-delta.js';
+import { captureEntityFieldCache, createEntityFieldPatch } from '../src/simulation/entity-field-delta.js';
 
 const encoder = new TextEncoder();
 const bytes = value => encoder.encode(JSON.stringify(value)).byteLength;
@@ -51,13 +51,27 @@ for (const seed of [1, 42, 2026]) {
   assert.equal(initOptimized.type, 'snapshot');
   // This must be safe for full Kingdom state; report the exact field which
   // prevented a delta instead of silently treating a fallback as success.
-  captureEntityFieldCache(initOptimized.snapshot.base);
+  const initCache = captureEntityFieldCache(initOptimized.snapshot.base);
   let baseView = applyWorldSnapshot(initBase.snapshot);
   let optimizedView = applyWorldSnapshot(initOptimized.snapshot);
   for (let day = 1; day <= 2; day++) {
     const old = send(baseline, 'advance', { days: 1, source: 'manual' });
     const candidate = send(optimized, 'advance', { days: 1, source: 'manual' });
     assert.equal(old.response.type, 'world-delta');
+    if (candidate.response.type === 'snapshot') {
+      try {
+        const attempt = createEntityFieldPatch(candidate.response.snapshot.base, initCache, { force: true });
+        const fullJson = JSON.stringify({
+          people: candidate.response.snapshot.base.people,
+          animals: candidate.response.snapshot.base.animals,
+          structures: candidate.response.snapshot.base.structures
+        }).length;
+        console.error('FALLBACK-DIAGNOSTICS', JSON.stringify({
+          seed, day, fullJson,
+          patchJson: attempt.patch ? JSON.stringify(attempt.patch).length : null
+        }));
+      } catch (error) { console.error('FALLBACK-SHAPE-ERROR', error.message); }
+    }
     assert.equal(candidate.response.type, 'world-delta',
       'entity-field optimization fell back to a full snapshot (day ' + day + ')');
     assert.ok(candidate.response.delta.entityPatches,
