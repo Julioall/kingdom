@@ -3311,7 +3311,8 @@ export function mountGame() {
       return;
     }
     if (selection.kind === 'person') {
-      const p = actorInspectorDetails.read('person', selection.id) || getPerson(selection.id);
+      const detail = actorInspectorDetails.read('person', selection.id);
+      const p = detail === undefined ? getPerson(selection.id) : detail;
       if (!p) { selection = null; renderInspector(); return; }
       const kingdom = p.kingdomId ? getKingdom(p.kingdomId) : null;
       const links = Object.values(world.socialLinks).filter(l => l.a === p.id || l.b === p.id).length;
@@ -3428,7 +3429,8 @@ export function mountGame() {
       return;
     }
     if (selection.kind === 'animal') {
-      const a = actorInspectorDetails.read('animal', selection.id) || getAnimal(selection.id);
+      const detail = actorInspectorDetails.read('animal', selection.id);
+      const a = detail === undefined ? getAnimal(selection.id) : detail;
       if (!a) { selection = null; renderInspector(); return; }
       const profile = Sim.animals.find(p => p.id === a.speciesId);
       $('inspectEyebrow').textContent = 'BIOSFERA · FAUNA';
