@@ -55,7 +55,7 @@ export type EntityFieldDelta = {
       beforeCount: number;
       afterCount: number;
       added: WorldSnapshot['base'][K];
-      updated: Array<{id: number; set: Partial<WorldSnapshot['base'][K][number]>; unset: string[]}>;
+      updated: Array<{id: number; set: Partial<WorldSnapshot['base'][K][number]>; unset: string[]; nested?: Array<{key: string; patch: unknown}>}>;
       removed: number[];
       order?: number[];
     };
