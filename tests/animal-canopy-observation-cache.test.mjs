@@ -20,7 +20,7 @@ test('animal canopy memoization preserves visible targets, resources and sensory
         assert.ok(other, 'matching real-world animal missing');
         const cached = Senses.observe(worldCached, animal, 'animal', PLANTS);
         const uncached = Senses.observe(worldUncached, other, 'animal', PLANTS,
-          { disableCanopyCache: true });
+          { disableCanopyCache: true, disableRangePrefilter: true });
         assert.deepEqual(cached, uncached,
           'perception changed for seed ' + seed + ' day ' + day + ' animal ' + animal.id);
         assert.deepEqual(animal.sensoryMemory, other.sensoryMemory,
@@ -39,7 +39,7 @@ test('canopy changes between observations are not reused across animal calls', (
   const rawTile = originalWorld.tiles[y * originalWorld.width + x];
   const original = Senses.observe(cachedWorld, actor, 'animal', PLANTS);
   const rawOriginal = Senses.observe(originalWorld, otherActor, 'animal', PLANTS,
-    { disableCanopyCache: true });
+    { disableCanopyCache: true, disableRangePrefilter: true });
   assert.deepEqual(original, rawOriginal);
   const trees = PLANTS.findIndex(p => p.id === 'broadleaf');
   const conifers = PLANTS.findIndex(p => p.id === 'conifer');
@@ -49,7 +49,7 @@ test('canopy changes between observations are not reused across animal calls', (
   }
   const refreshed = Senses.observe(cachedWorld, actor, 'animal', PLANTS);
   const rawRefreshed = Senses.observe(originalWorld, otherActor, 'animal', PLANTS,
-    { disableCanopyCache: true });
+    { disableCanopyCache: true, disableRangePrefilter: true });
   assert.deepEqual(refreshed, rawRefreshed,
     'memoized canopy from prior observations must not survive terrain changes');
   assert.deepEqual(actor.sensoryMemory, otherActor.sensoryMemory);
@@ -65,7 +65,7 @@ test('full-world animal decisions, RNG and tile snapshots match the uncached pat
         Sim.stepDay(memoized, { includeSnapshot: false });
         Senses.observe = (world, actor, kind, plants) =>
           originalObserve(world, actor, kind, plants,
-            kind === 'animal' ? { disableCanopyCache: true } : null);
+            kind === 'animal' ? { disableCanopyCache: true, disableRangePrefilter: true } : null);
         Sim.stepDay(direct, { includeSnapshot: false });
         assert.equal(memoized.rngState, direct.rngState, 'world RNG changed');
         assert.deepEqual(createWorldSnapshot(memoized), createWorldSnapshot(direct),
