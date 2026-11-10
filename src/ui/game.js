@@ -44,6 +44,7 @@ import AtmosphericLayer from './atmospheric-layer.js';
 import DirtBrush, { SOIL_PALETTE } from './dirt-brush.js';
 import { createLoadingScreen } from './loading-screen.js';
 import { renderSocialInspectorSections } from './social-inspector.js';
+import { createActorInspectorDetails } from './actor-inspector-details.js';
 import { createRenderDiagnostics } from './render-profiler-panel.js';
 import { syncHudPanelAccess } from './hud-panel-access.js';
 import { createKingThoughts } from './king-thoughts.js';
@@ -210,6 +211,14 @@ export function mountGame() {
   let world = null, rendered = false, localAI = null;
   let peopleById = new Map(), animalsById = new Map(), communitiesById = new Map(), kingdomsById = new Map(), structuresById = new Map();
   let selection = null, showLeft = false, showRight = false, hoveredTerritoryStructureId = null, hoveredMapEntity = false, hoveredPersonId = null;
+  // Detailed perception, learned routes and neural decisions belong to the
+  // Worker. The current full snapshot remains a compatibility fallback until
+  // a separate compact render DTO has passed gameplay/inspector parity gates.
+  const actorInspectorDetails = createActorInspectorDetails({
+    session, readSelection: () => selection, readWorld: () => world,
+    onDetail: () => { if (world && selection) renderInspector(); },
+    onError: error => console.warn('[Inspetor de personagens]', error)
+  });
   let manualControlId = null, manualAimWorld = null, manualDefending = false, manualHealing = false, lastManualInputKey = '';
   const manualHeldKeys = new Set();
   let manualAttackPreview = null, lastManualPointer = null;
@@ -375,6 +384,7 @@ export function mountGame() {
       pendingPersonTrailPoints.clear();
       lastTrailFlushAt = performance.now();
       selection = null;
+      actorInspectorDetails.invalidate();
       manualPrediction.reset(); manualAttackPreview = null;
       manualControlId = null; manualAimWorld = null; manualDefending = false;
       manualHeldKeys.clear(); lastManualInputKey = '';
@@ -414,6 +424,12 @@ export function mountGame() {
       return;
     }
     if (!combat) return;
+    if (selection?.kind === 'person' && personIds.includes(selection.id)) {
+      // A combat/player command can change actor detail without a daily
+      // snapshot. Never display cached neural/health detail after that event.
+      actorInspectorDetails.invalidate();
+      renderInspector();
+    }
     invalidateStaticDepthCache();
     if (selection?.kind === 'training-dummy') renderInspector();
     let combatPresentationAt = animationTime;
@@ -3192,12 +3208,32 @@ export function mountGame() {
       $('leftPanel').classList.remove('is-open');
       $('kingdomsToggle').setAttribute('aria-expanded', 'false');
     }
+    if (selection?.kind !== item?.kind || selection?.id !== item?.id)
+      actorInspectorDetails.invalidate();
     selection = item;
     showRight = !!item;
     $('rightPanel').classList.toggle('is-open', showRight);
     syncPanelAccess();
     renderInspector();
     drawMap();
+  }
+
+  // E2E test-only access: never present in production or a normal dev game.
+  // The browser QA still goes through the real selection and Worker contract.
+  if (import.meta.env.DEV && diagnosticQuery.get('inspectorQA') === '1') {
+    window.__kingdomInspectorQA = Object.freeze({
+      open(kind, id) {
+        if (!['person', 'animal'].includes(kind) || !Number.isSafeInteger(id))
+          throw new Error('Invalid inspector QA selection.');
+        openSelection({ kind, id });
+      },
+      state() {
+        return { selection: selection ? { ...selection } : null,
+          day: world?.day ?? null, epoch: session.epoch,
+          materializedRevision: session.revision,
+          detail: actorInspectorDetails.snapshot() };
+      }
+    });
   }
 
   function updateLocalAIStatus(status) {
@@ -3293,7 +3329,8 @@ export function mountGame() {
       return;
     }
     if (selection.kind === 'person') {
-      const p = getPerson(selection.id);
+      const detail = actorInspectorDetails.read('person', selection.id);
+      const p = detail === undefined ? getPerson(selection.id) : detail;
       if (!p) { selection = null; renderInspector(); return; }
       const kingdom = p.kingdomId ? getKingdom(p.kingdomId) : null;
       const links = Object.values(world.socialLinks).filter(l => l.a === p.id || l.b === p.id).length;
@@ -3410,7 +3447,8 @@ export function mountGame() {
       return;
     }
     if (selection.kind === 'animal') {
-      const a = getAnimal(selection.id);
+      const detail = actorInspectorDetails.read('animal', selection.id);
+      const a = detail === undefined ? getAnimal(selection.id) : detail;
       if (!a) { selection = null; renderInspector(); return; }
       const profile = Sim.animals.find(p => p.id === a.speciesId);
       $('inspectEyebrow').textContent = 'BIOSFERA · FAUNA';
