@@ -1,0 +1,44 @@
+name: "JUL-278 — Compact combat, birth, death and browser A/B"
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - "tests/compact-actor-lifecycle.test.mjs"
+      - "scripts/benchmark-jul278-compact-browser-ab.mjs"
+      - "docs/verification/JUL-278-compact-lifecycle-gpu.md"
+      - ".github/workflows/jul278-compact-lifecycle.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lifecycle:
+    name: Scripted real world lifecycle replay and headless browser measurements
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Validate full/compact lifecycle, sprite actions and inspector
+        run: node --test tests/compact-actor-lifecycle.test.mjs
+      - name: Install Chromium (software rendering only)
+        run: npx playwright install --with-deps chromium
+      - name: Profile full vs compact in Chromium headless (not GPU acceptance)
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node scripts/benchmark-jul278-compact-browser-ab.mjs \
+            --headful=0 --duration=3000 --repeats=1 \
+            --output=out/jul278-compact-browser-ab.json \
+            | tee out/jul278-compact-browser-ab.log
+      - name: Preserve browser measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jul278-compact-lifecycle-browser
+          path: out/jul278-compact-browser-ab.*
+          if-no-files-found: warn
