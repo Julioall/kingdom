@@ -19,7 +19,7 @@ O teste não cria uma guerra completa nem força uma gravidez natural. A valida�
 O script `scripts/benchmark-jul278-compact-browser-ab.mjs` usa **o jogo real** em Vite com o mesmo seed e dois modos, alternando a ordem (full/compact, compact/full). Abre o mundo, mede snapshots durante a simulação rodando, sem mudar a lógica do jogo, e coleta:
 
 - FPS, frame p50/p95 e p95 do mapa, segundo o profiler do Kingdom
-- request→response p50/p95 do Worker (inclui **simulação, fila e transporte**; não mede apenas serialização)
+- request→response p50/p95 do Worker (inclui **simulação, fila e transporte**; não mede apenas serialização), mais latência da consulta real a um personagem selecionado
 - total de respostas de simulação e revisões/dias observados
 - `performance.memory.usedJSHeapSize` antes/depois na página principal, quando disponível
 - tamanho JSON estimado de apenas uma base inicial e a primeira atualização (sem buffers tipados dos tiles)
@@ -53,6 +53,6 @@ Comparar **três pares ou mais** com a mesma seed, resolução e velocidade e re
 
 ## 4. Ambiente de CI
 
-`jul278-compact-lifecycle.yml` roda o teste de eventos e um A/B com Chromium headless/SwiftShader (`--duration=3000 --repeats=1`), publicando artefatos. Esse A/B serve para verificar **se o diagnóstico funciona e se há crashes**. Não tem duração, GPU ou repetições suficientes para concluir FPS.
+`jul278-compact-lifecycle.yml` roda o teste de eventos e um A/B com Chromium headless/SwiftShader (`--duration=6500 --repeats=1`), publicando artefatos. Esse A/B serve para verificar **se o diagnóstico funciona e se há crashes**. Não tem duração, GPU ou repetições suficientes para concluir FPS.
 
 **Decisão:** a opção experimental continua desativada por padrão. A máquina de estados neural permanece adiada (JUL-292).
