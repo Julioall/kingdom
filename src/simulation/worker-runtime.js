@@ -1,6 +1,7 @@
 import engine from './engine.js';
 import { dispatchCommand } from './commands.js';
 import { createWorldSnapshot } from './render-snapshot.js';
+import { compactActorSnapshotBase } from './compact-actor-snapshot.js';
 import { createTileColumnDelta, copyTileColumns } from './tile-delta.js';
 import { createFieldTileDelta } from './field-delta.js';
 import { SIMULATION_PROTOCOL_VERSION } from './protocol-version.js';
@@ -22,6 +23,7 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
   let paused = false;
   let lastMagicEventsSequence = -1;
   let tileDeltaTransport = false;
+  let compactActorTransport = false;
   let lastSnapshotColumns = null;
   let lastCaptureRevision = -1;
 
@@ -39,8 +41,13 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
   function capture(request, { reset = false, result } = {}) {
     // Retained columns are private and never transferred. Unchanged ID/type
     // columns can be shared; packing copies before the first authoritative change.
-    const snapshot = createWorldSnapshot(world, { reset,
+    const fullSnapshot = createWorldSnapshot(world, { reset,
       previousTileColumns: tileDeltaTransport ? lastSnapshotColumns : null });
+    // Opt-in presentation DTO: the Worker continues holding all cognition,
+    // perception and route data; only serialized actor rows omit them.
+    const snapshot = compactActorTransport
+      ? { ...fullSnapshot, base: compactActorSnapshotBase(fullSnapshot.base) }
+      : fullSnapshot;
     if (!reset && request.type === 'advance' && tileDeltaTransport && lastSnapshotColumns) {
       const tileColumns = createTileColumnDelta(snapshot.tileColumns, lastSnapshotColumns)
         || createFieldTileDelta(snapshot.tileColumns, lastSnapshotColumns);
@@ -81,7 +88,8 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
         if (request.epoch <= epoch) throw new Error('Época de inicialização inválida.');
         if (!request.config || request.config.scenario !== 'kingdom') throw new Error('Cenário não implementado.');
         world = createWorldImpl(request.seed);
-        tileDeltaTransport = request.transport === 'tile-delta';
+        compactActorTransport = request.transport === 'tile-delta-compact';
+        tileDeltaTransport = request.transport === 'tile-delta' || compactActorTransport;
         lastSnapshotColumns = null;
         lastCaptureRevision = -1;
         lastMagicEventsSequence = -1;
@@ -96,7 +104,8 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
       if (request.type === 'reset') {
         if (request.epoch <= epoch) throw new Error('Época de reset inválida.');
         world = createWorldImpl(request.seed);
-        tileDeltaTransport = request.transport === 'tile-delta';
+        compactActorTransport = request.transport === 'tile-delta-compact';
+        tileDeltaTransport = request.transport === 'tile-delta' || compactActorTransport;
         lastSnapshotColumns = null;
         lastCaptureRevision = -1;
         lastMagicEventsSequence = -1;

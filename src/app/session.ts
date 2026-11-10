@@ -42,11 +42,13 @@ export class GameSession {
   private readonly advanceQueue = createAdvanceBackpressureQueue();
   private resyncInFlight = false;
   private readonly tileDeltaTransport: boolean;
+  private readonly compactActorTransport: boolean;
   private readonly transportDiagnostics = createTransportDiagnostics();
 
   constructor(private readonly config: WorldConfig = defaultWorldConfig, seed = 42,
-    options: {tileDeltaTransport?: boolean} = {}) {
-    this.tileDeltaTransport = options.tileDeltaTransport === true;
+    options: {tileDeltaTransport?: boolean; compactActorTransport?: boolean} = {}) {
+    this.compactActorTransport = options.compactActorTransport === true;
+    this.tileDeltaTransport = options.tileDeltaTransport === true || this.compactActorTransport;
     this.worker = new Worker(new URL('../simulation/simulation.worker.ts', import.meta.url), { type: 'module' });
     this.worker.addEventListener('message', (event: MessageEvent<SimulationWorkerResponse>) => this.receive(event.data));
     this.worker.addEventListener('error', event => {
@@ -60,7 +62,9 @@ export class GameSession {
       this.onError?.(error);
     });
     this.ready = this.send('initialize', { config: this.config, seed,
-      ...(this.tileDeltaTransport ? {transport:'tile-delta'} : {}) }, this.epoch).then(() => {
+      ...(this.compactActorTransport
+        ? {transport:'tile-delta-compact'} : this.tileDeltaTransport
+          ? {transport:'tile-delta'} : {}) }, this.epoch).then(() => {
       if (!this.world) throw new Error('O Worker inicializou sem devolver o estado do mundo.');
       return this.world;
     });
@@ -81,7 +85,9 @@ export class GameSession {
     this.peopleById.clear();
     this.resyncInFlight = false;
     this.ready = this.send('reset', { seed, kingdomAiEnabled,
-      ...(this.tileDeltaTransport ? {transport:'tile-delta'} : {}) }, this.epoch).then(() => {
+      ...(this.compactActorTransport
+        ? {transport:'tile-delta-compact'} : this.tileDeltaTransport
+          ? {transport:'tile-delta'} : {}) }, this.epoch).then(() => {
       if (!this.world) throw new Error('O Worker reiniciou sem devolver o estado do mundo.');
       return this.world;
     });
