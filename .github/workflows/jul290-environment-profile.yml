@@ -1,0 +1,42 @@
+name: "JUL-290 — Environment CPU profiling"
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - "src/simulation/systems.js"
+      - "tests/environment-phase-profile.test.mjs"
+      - "scripts/benchmark-jul290-environment-cpu.mjs"
+      - ".github/workflows/jul290-environment-profile.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  environment-cpu:
+    name: 3 seeds × 35 days, phase p95 and exact replay parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Sample real simulation and compare legacy corral geometry
+        env:
+          JUL290_DAYS: 35
+          JUL290_SEEDS: 1,42,2026
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node scripts/benchmark-jul290-environment-cpu.mjs out/jul290-environment-cpu.json \
+            | tee out/jul290-environment-cpu.log
+      - name: Retain raw daily measurements and summaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jul290-environment-cpu
+          path: out/jul290-environment-cpu.*
+          if-no-files-found: warn
