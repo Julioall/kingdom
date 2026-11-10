@@ -22,10 +22,7 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
     const dot = (hx * dx + hy * dy) / (headingLength * length);
     return dot >= Math.cos(fieldOfViewDegrees * Math.PI / 360);
   }
-  // Cache canopy only for one synchronous observation. An animal may eat/move
-  // before the next animal observes, so never share this cache across agents,
-  // days, worlds or the authoritative world state.
-  function lineOfSight(world, observer, target, plantProfiles, canopyCache = null) {
+  function lineOfSight(world, observer, target, plantProfiles) {
     let x0 = Math.round(observer.x), y0 = Math.round(observer.y);
     const x1 = Math.round(target.x), y1 = Math.round(target.y);
     const dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
@@ -36,13 +33,7 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
       if (twice >= dy) { error += dy; x0 += sx; }
       if (twice <= dx) { error += dx; y0 += sy; }
       if (x0 === x1 && y0 === y1) break;
-      const tile = tileAt(world, x0, y0);
-      let canopy = canopyCache ? canopyCache.get(tile) : undefined;
-      if (canopy === undefined) {
-        canopy = canopyAt(tile, plantProfiles);
-        if (canopyCache) canopyCache.set(tile, canopy);
-      }
-      if (canopy >= .61) return false;
+      if (canopyAt(tileAt(world, x0, y0), plantProfiles) >= .61) return false;
     }
     return true;
   }
@@ -56,9 +47,6 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
   }
   function observe(world, observer, kind, plantProfiles, options = null) {
     const animal = kind === 'animal';
-    // Benchmark/test-only opt-out. All production animal observations use one
-    // short-lived cache; human observations retain their old path for scope.
-    const canopyCache = animal && !options?.disableCanopyCache ? new Map() : null;
     // A Euclidean-visible target must also lie inside the square of radius
     // `range`. Reject distant actors before calling Math.hypot; near targets
     // retain the original distance, FOV and raycast checks.
@@ -80,7 +68,7 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
               || Math.abs(target.y - observer.y) > range)) continue;
         const d = distance(observer, target);
         if (d > range || !inFieldOfView(observer, target, fieldOfView)
-            || !lineOfSight(world, observer, target, plantProfiles, canopyCache)) continue;
+            || !lineOfSight(world, observer, target, plantProfiles)) continue;
         const key = targetKind + ':' + target.id;
         seenKeys.add(key);
         const sighting = { id: target.id, kind: targetKind, speciesId: target.speciesId || null,
@@ -130,7 +118,7 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
       if (!tile) continue;
       const d = Math.hypot(x - observer.x, y - observer.y);
       if (d > resourceRange || !inFieldOfView(observer, { x, y }, fieldOfView)
-          || !lineOfSight(world, observer, { x, y }, plantProfiles, canopyCache)) continue;
+          || !lineOfSight(world, observer, { x, y }, plantProfiles)) continue;
       const biomass = {};
       const harvestableBiomass = {};
       for (let i = 0; i < plantProfiles.length; i++) {
@@ -166,7 +154,7 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
       if (!item.available || item.amount <= .01) continue;
       const d = distance(observer, item);
       if (d > resourceRange || !inFieldOfView(observer, item, fieldOfView)
-          || !lineOfSight(world, observer, item, plantProfiles, canopyCache)) continue;
+          || !lineOfSight(world, observer, item, plantProfiles)) continue;
       const seen = { id: item.id, x: item.x, y: item.y, amount: item.amount, distance: d,
         visible: true, confidence: 1, lastSeenDay: world.day };
       memory.logs[item.id] = seen;
@@ -192,14 +180,14 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
         if (!shelter.complete || shelter.type !== 'abrigo') continue;
         const d = distance(observer, shelter);
         if (d > 22 || !inFieldOfView(observer, shelter, fieldOfView)
-            || !lineOfSight(world, observer, shelter, plantProfiles, canopyCache)) continue;
+            || !lineOfSight(world, observer, shelter, plantProfiles)) continue;
         sites.push({ id: shelter.id, communityId: shelter.communityId, kind: 'shelter', x: shelter.x, y: shelter.y });
       }
       for (const community of world.communities || []) {
         if (community.dissolved) continue;
         const d = distance(observer, community);
         if (d > 16 || !inFieldOfView(observer, community, fieldOfView)
-            || !lineOfSight(world, observer, community, plantProfiles, canopyCache)) continue;
+            || !lineOfSight(world, observer, community, plantProfiles)) continue;
         sites.push({ id: community.id, communityId: community.id, kind: 'community', x: community.x, y: community.y });
       }
       for (const site of sites) {
@@ -230,7 +218,7 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
         if (!tile || tile.kingdomId == null || tile.kingdomId === observer.kingdomId) continue;
         const d = distance(observer, tile);
         if (d > range || !inFieldOfView(observer, tile, fieldOfView)
-            || !lineOfSight(world, observer, tile, plantProfiles, canopyCache)) continue;
+            || !lineOfSight(world, observer, tile, plantProfiles)) continue;
         if (!nearestForeign || d < nearestForeign.distance) {
           const owner = world.kingdoms.find(kingdom => kingdom.id === tile.kingdomId);
           nearestForeign = { kingdomId: tile.kingdomId, name: owner ? owner.name : 'outro reino', distance: d };
