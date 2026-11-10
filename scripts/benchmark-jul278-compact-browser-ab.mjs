@@ -72,6 +72,8 @@ async function profileMode(mode,roundIndex){
             if(base){
               const start=performance.now();
               capture.push({type:msg.type,day:base.day,
+                personId:base.people?.[0]?.id??null,
+                animalId:base.animals?.[0]?.id??null,
                 jsonBaseBytes:new TextEncoder().encode(JSON.stringify(base)).byteLength,
                 estimatedMs:performance.now()-start,
                 compact:!Object.hasOwn(base.people?.[0]||{},'perception')});
@@ -128,13 +130,26 @@ async function profileMode(mode,roundIndex){
       visibility:document.visibilityState
     }));
     await page.locator('#toggle').click(); // pause before querying inspector
-    const actorId=await page.evaluate(()=>window.__jul278AB.payloads().length);
-    assert.ok(actorId>0);
+    const personId=measured.payloads.find(row=>Number.isSafeInteger(row.personId))?.personId;
+    assert.ok(Number.isSafeInteger(personId),'No person captured from live Worker');
     // Real selection and detailed Worker query (same path as the player).
-    const chosen=await page.evaluate(()=>{
-      const snapshot=window.__kingdomInspectorQA.state();
-      return {day:snapshot.day,epoch:snapshot.epoch,revision:snapshot.materializedRevision};
-    });
+    await page.evaluate(id=>window.__kingdomInspectorQA.open('person',id),personId);
+    await page.waitForFunction(id=>{
+      const state=window.__kingdomInspectorQA.state();
+      return state?.selection?.kind==='person'&&state.selection.id===id
+        && state.detail.completedKey!=null && state.detail.pendingKey==null;
+    },personId,{timeout:45000,polling:100});
+    const inspector=await page.evaluate(()=>({
+      state:window.__kingdomInspectorQA.state(),
+      text:document.querySelector('#inspector')?.innerText,
+      records:window.__jul278AB.records().filter(r=>r.type==='query')
+    }));
+    assert.ok(inspector.text?.length>20,'On-demand inspector did not render');
+    const inspectorTrips=inspector.records.map(r=>r.roundTripMs)
+      .filter(n=>Number.isFinite(n));
+    assert.ok(inspectorTrips.length>0,'No inspector Worker query observed');
+    const chosen={day:inspector.state.day,epoch:inspector.state.epoch,
+      revision:inspector.state.materializedRevision};
     const records=measured.worker;
     const trip=records.filter(r=>r.roundTripMs!=null
       &&['snapshot','world-delta','player-update'].includes(r.type))
@@ -151,6 +166,8 @@ async function profileMode(mode,roundIndex){
       workerMessages:records.length,workerSimResponses:trip.length,
       workerRoundTripP50Ms:round(percentile(trip,.5)),
       workerRoundTripP95Ms:round(percentile(trip,.95)),
+      inspectorQueryP95Ms:round(percentile(inspectorTrips,.95)),
+      inspectorPersonId:personId,
       capturedBaseJson:measured.payloads,
       finalDay:measured.day,selectionRevision:chosen.revision,
       visibility:measured.visibility,
@@ -197,7 +214,8 @@ try{
         (rows.filter(r=>r.workerRoundTripP95Ms!=null).length||1)),
       meanHeapDeltaMB:round(rows.filter(r=>r.heapDeltaBytes!=null)
         .reduce((s,r)=>s+r.heapDeltaBytes/1048576,0)/
-        (rows.filter(r=>r.heapDeltaBytes!=null).length||1))
+        (rows.filter(r=>r.heapDeltaBytes!=null).length||1)),
+      meanInspectorQueryP95Ms:round(rows.reduce((s,r)=>s+r.inspectorQueryP95Ms,0)/rows.length)
     }];
   }));
   report.summary=grouped;
