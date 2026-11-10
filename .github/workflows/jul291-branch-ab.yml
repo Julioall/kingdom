@@ -1,0 +1,67 @@
+name: "JUL-291 — Baseline versus wildlife food selection"
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - "src/simulation/ecology/animals.js"
+      - "src/simulation/individuals/perception.js"
+      - "tests/animal-food-selection.test.mjs"
+      - "scripts/benchmark-jul291-branch.mjs"
+      - "scripts/compare-jul291-branches.mjs"
+      - "scripts/benchmark-jul291-food-selection.mjs"
+      - ".github/workflows/jul291-branch-ab.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  wildlife:
+    name: Baseline/candidate 3 seeds × 14 days × 2 pairs
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Fetch baseline
+        uses: actions/checkout@v4
+        with:
+          path: compare/baseline
+          ref: ${{ github.event.pull_request.base.sha || 'dev' }}
+      - name: Fetch candidate
+        uses: actions/checkout@v4
+        with:
+          path: compare/candidate
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: compare/candidate/package-lock.json
+      - name: Install both locked builds
+        run: |
+          set -euo pipefail
+          npm ci --prefix compare/baseline
+          npm ci --prefix compare/candidate
+      - name: Copy read-only benchmark to baseline
+        run: cp compare/candidate/scripts/benchmark-jul291-branch.mjs compare/baseline/scripts/benchmark-jul291-branch.mjs
+      - name: Compare full world digests and CPU with alternating order
+        working-directory: compare
+        env:
+          BASELINE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          node candidate/scripts/compare-jul291-branches.mjs \
+            | tee jul291-branch-ab.log
+      - name: Measure isolated wildlife food selection
+        run: |
+          set -euo pipefail
+          node compare/candidate/scripts/benchmark-jul291-food-selection.mjs \
+            compare/out/jul291-branch-ab/food-selection-micro.json \
+            | tee compare/out/jul291-branch-ab/food-selection-micro.log
+      - name: Preserve A/B evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jul291-wildlife-branch-ab
+          path: |
+            compare/out/jul291-branch-ab/
+            compare/jul291-branch-ab.log
+          if-no-files-found: warn
