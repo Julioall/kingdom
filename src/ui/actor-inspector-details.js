@@ -49,7 +49,7 @@ export function createActorInspectorDetails({session, readSelection, readWorld, 
 
   function read(kind, id) {
     const current = context();
-    if (!current || current.kind !== kind || current.id !== id) return null;
+    if (!current || current.kind !== kind || current.id !== id) return undefined;
     if (current.key !== activeKey) {
       generation++;
       activeKey = current.key;
@@ -59,7 +59,7 @@ export function createActorInspectorDetails({session, readSelection, readWorld, 
       detailedActor = null;
     }
     if (completedKey === current.key) return detailedActor;
-    if (pendingKey === current.key || failedKey === current.key) return null;
+    if (pendingKey === current.key || failedKey === current.key) return undefined;
 
     const queryGeneration = generation, requested = current;
     pendingKey = requested.key;
@@ -69,9 +69,15 @@ export function createActorInspectorDetails({session, readSelection, readWorld, 
       request = kind === 'person' ? session.inspectPerson(id) : session.inspectAnimal(id);
     } catch (error) { request = Promise.reject(error); }
     Promise.resolve(request).then(result => {
-      if (queryGeneration !== generation || context()?.key !== requested.key
-        || !isCurrentInspectorResponse(requested, result)) {
+      if (queryGeneration !== generation || context()?.key !== requested.key) {
         discarded++;
+        return;
+      }
+      if (!isCurrentInspectorResponse(requested, result)) {
+        discarded++;
+        pendingKey = null;
+        failedKey = requested.key;
+        onError(new Error('O Worker retornou uma inspeção de personagem incompatível.'));
         return;
       }
       pendingKey = null;
@@ -87,7 +93,7 @@ export function createActorInspectorDetails({session, readSelection, readWorld, 
       failedKey = requested.key; // Never retry a broken request every render frame.
       if (error?.name !== 'AbortError') onError(error);
     });
-    return null;
+    return undefined;
   }
 
   return {
