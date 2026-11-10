@@ -76,7 +76,7 @@ function sameOrder(a, b) {
  * snapshot when patch is null (unsupported shape / insufficient byte savings).
  * The byte comparison is a JSON *proxy*, not structuredClone wire bytes.
  */
-export function createEntityFieldPatch(base, previousCache, { maxFraction = .9 } = {}) {
+export function createEntityFieldPatch(base, previousCache, { maxFraction = .9, force = false } = {}) {
   const cache = captureEntityFieldCache(base);
   if (!previousCache) return { cache, patch: null };
   const collections = {};
@@ -108,7 +108,7 @@ export function createEntityFieldPatch(base, previousCache, { maxFraction = .9 }
   const deltaJson = JSON.stringify(patch);
   if (!Number.isFinite(maxFraction) || maxFraction <= 0 || maxFraction > 1)
     throw new RangeError('Invalid entity delta budget.');
-  if (deltaJson.length >= fullJson.length * maxFraction) return { cache, patch: null };
+  if (!force && deltaJson.length >= fullJson.length * maxFraction) return { cache, patch: null };
   return { cache, patch };
 }
 
