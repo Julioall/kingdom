@@ -8,6 +8,7 @@ on:
       - "tests/animal-food-selection.test.mjs"
       - "scripts/benchmark-jul291-branch.mjs"
       - "scripts/compare-jul291-branches.mjs"
+      - "scripts/benchmark-jul291-food-selection.mjs"
       - ".github/workflows/jul291-branch-ab.yml"
   workflow_dispatch:
 permissions:
@@ -49,6 +50,12 @@ jobs:
           set -euo pipefail
           node candidate/scripts/compare-jul291-branches.mjs \
             | tee jul291-branch-ab.log
+      - name: Measure isolated wildlife food selection
+        run: |
+          set -euo pipefail
+          node compare/candidate/scripts/benchmark-jul291-food-selection.mjs \
+            compare/out/jul291-branch-ab/food-selection-micro.json \
+            | tee compare/out/jul291-branch-ab/food-selection-micro.log
       - name: Preserve A/B evidence
         if: always()
         uses: actions/upload-artifact@v4
