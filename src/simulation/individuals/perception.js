@@ -59,6 +59,10 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
     // Benchmark/test-only opt-out. All production animal observations use one
     // short-lived cache; human observations retain their old path for scope.
     const canopyCache = animal && !options?.disableCanopyCache ? new Map() : null;
+    // A Euclidean-visible target must also lie inside the square of radius
+    // `range`. Reject distant actors before calling Math.hypot; near targets
+    // retain the original distance, FOV and raycast checks.
+    const animalRangePrefilter = animal && !options?.disableRangePrefilter;
     const baseRange = animal ? 7 : 10;
     const fieldOfView = animal ? 300 : 210;
     const range = baseRange * visibilityFactor(world, observer);
@@ -71,6 +75,9 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
     function inspect(list, targetKind) {
       for (const target of list) {
         if (!target.alive || target.id === observer.id) continue;
+        if (animalRangePrefilter
+            && (Math.abs(target.x - observer.x) > range
+              || Math.abs(target.y - observer.y) > range)) continue;
         const d = distance(observer, target);
         if (d > range || !inFieldOfView(observer, target, fieldOfView)
             || !lineOfSight(world, observer, target, plantProfiles, canopyCache)) continue;
