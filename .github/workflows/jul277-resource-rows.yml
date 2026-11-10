@@ -1,0 +1,42 @@
+name: "JUL-277 — Resource row delta feasibility"
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - "src/simulation/perception-resource-delta.js"
+      - "tests/perception-resource-delta.test.mjs"
+      - "scripts/benchmark-jul277-resource-rows.mjs"
+      - ".github/workflows/jul277-resource-rows.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  resource-delta:
+    name: Exact codec parity, seven days per seed, CPU and JSON bytes
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Resource codec unit tests including real-world actors
+        run: node --test tests/perception-resource-delta.test.mjs
+      - name: Profile seven days of actual people and animal observations
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node scripts/benchmark-jul277-resource-rows.mjs out/jul277-resource-row-deltas.json \
+            | tee out/jul277-resource-row-deltas.log
+      - name: Archive payload and CPU evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jul277-resource-row-deltas
+          path: out/jul277-resource-row-deltas.*
+          if-no-files-found: warn
