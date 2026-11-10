@@ -59,7 +59,8 @@ for(const seed of seeds){
     assert.ok(compactBaseBytes<fullBaseBytes,
       'compact actor DTO must actually reduce world base bytes');
     const first=compactBase.people[0];
-    assert.equal(first.brain,undefined);
+    assert.deepEqual(Object.keys(first.brain),['lastAction'],
+      'only lastAction needed for animation may cross the Worker');
     const detail=compact.send('inspect-person',{personId:first.id});
     assert.equal(detail.type,'query');
     assert.ok(detail.result.actor.brain);
