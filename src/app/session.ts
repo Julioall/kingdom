@@ -8,6 +8,7 @@ import { nextMaterializedWorldRevision } from './materialized-world-revision.js'
 import {
   SIMULATION_PROTOCOL_VERSION,
   type KingdomAiDecisionRequest,
+  type ActorInspectionResult,
   type SimulationWorkerRequest,
   type SimulationWorkerResponse,
   type WorldView
@@ -125,6 +126,35 @@ export class GameSession {
   async failKingdomAiRequest(aiRequest: KingdomAiDecisionRequest, failure?: { reason?: string; provider?: string; model?: string }): Promise<boolean> {
     const response = await this.send('fail-kingdom-ai-request', { aiRequest, failure });
     return response.type === 'snapshot' ? !!response.result : false;
+  }
+
+  // Query detailed cognition only when a selected inspector asks for it.
+  // The caller must compare epoch/revision with its current selection before
+  // displaying a delayed response; no global WorldView state is modified.
+  private async inspectActor(kind: 'person' | 'animal', actorId: number):
+    Promise<ActorInspectionResult & {epoch: number; revision: number}> {
+    if (!Number.isSafeInteger(actorId) || actorId < 0)
+      throw new RangeError('Identificador de personagem ou animal inválido.');
+    const response = await this.send(kind === 'person' ? 'inspect-person' : 'inspect-animal',
+      kind === 'person' ? { personId: actorId } : { animalId: actorId });
+    if (response.type !== 'query') throw new Error('O Worker não retornou a inspeção esperada.');
+    const result = response.result as ActorInspectionResult;
+    if (!result || result.kind !== kind || result.actorId !== actorId ||
+        !Number.isSafeInteger(result.day) || result.day < 0)
+      throw new Error('O Worker retornou uma inspeção de ator incompatível.');
+    return { ...result, epoch: response.epoch, revision: response.revision };
+  }
+
+  async inspectPerson(personId: number):
+    Promise<Extract<ActorInspectionResult, {kind: 'person'}> & {epoch: number; revision: number}> {
+    return this.inspectActor('person', personId) as Promise<
+      Extract<ActorInspectionResult, {kind: 'person'}> & {epoch: number; revision: number}>;
+  }
+
+  async inspectAnimal(animalId: number):
+    Promise<Extract<ActorInspectionResult, {kind: 'animal'}> & {epoch: number; revision: number}> {
+    return this.inspectActor('animal', animalId) as Promise<
+      Extract<ActorInspectionResult, {kind: 'animal'}> & {epoch: number; revision: number}>;
   }
 
   async inspectTile(x: number, y: number): Promise<unknown> {
