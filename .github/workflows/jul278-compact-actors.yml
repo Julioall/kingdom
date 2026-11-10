@@ -1,0 +1,58 @@
+name: "JUL-278 — Compact actor snapshots A/B (opt-in)"
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - "src/simulation/compact-actor-snapshot.js"
+      - "src/simulation/worker-runtime.js"
+      - "src/simulation/protocol.ts"
+      - "src/app/session.ts"
+      - "src/ui/game.js"
+      - "tests/worker-compact-actors.test.mjs"
+      - "scripts/benchmark-jul278-compact-actors.mjs"
+      - "scripts/qa-jul278-inspector-browser.mjs"
+      - ".github/workflows/jul278-compact-actors.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compact-actors:
+    name: A/B world parity, bytes, and inspector on lean DTO
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Test compact Worker protocol and full cognition requests
+        run: node --test tests/worker-compact-actors.test.mjs
+      - name: Measure 3 seeds x 3 days of compact snapshot sizes and cloning
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node scripts/benchmark-jul278-compact-actors.mjs out/jul278-compact-actors.json \
+            | tee out/jul278-compact-actors.log
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Open NPC and animal inspectors from compact mode in browser
+        env:
+          JUL278_COMPACT_ACTORS: 1
+          JUL278_PORT: 5206
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          node scripts/qa-jul278-inspector-browser.mjs out/jul278-inspector-compact-browser.json \
+            | tee out/jul278-inspector-compact-browser.log
+      - name: Preserve full A/B evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jul278-compact-actor-ab
+          path: out/jul278-*.*
+          if-no-files-found: warn
