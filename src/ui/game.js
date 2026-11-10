@@ -3336,7 +3336,7 @@ export function mountGame() {
       const detail = actorInspectorDetails.read('person', selection.id);
       const p = detail === undefined ? getPerson(selection.id) : detail;
       if (!p) { selection = null; renderInspector(); return; }
-      if (!p.brain) {
+      if (detail === undefined && (p.__compactActorSnapshot || !p.brain)) {
         // Compact actor DTO carries location/identity/actions only. The full
         // cognition is fetched from the authoritative Worker asynchronously.
         $('inspectEyebrow').textContent = 'PERSONAGEM · CONSULTA AO WORKER';
@@ -3466,7 +3466,7 @@ export function mountGame() {
       const detail = actorInspectorDetails.read('animal', selection.id);
       const a = detail === undefined ? getAnimal(selection.id) : detail;
       if (!a) { selection = null; renderInspector(); return; }
-      if (detail === undefined && !a.brain) {
+      if (detail === undefined && (a.__compactActorSnapshot || !a.brain)) {
         $('inspectEyebrow').textContent = 'BIOSFERA · FAUNA';
         $('inspectTitle').textContent = Sim.animals.find(p => p.id === a.speciesId)?.name || 'Animal';
         const failed = actorInspectorDetails.snapshot().failedKey != null;
