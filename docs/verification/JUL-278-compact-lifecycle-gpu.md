@@ -49,7 +49,7 @@ Manter a janela visível, sem extensões, downloads ou outros jogos competindo p
 
 Comparar **três pares ou mais** com a mesma seed, resolução e velocidade e repetir após aquecimento da aba; registrar GPU, driver, memória de vídeo e Hz do monitor. O script falha se detectar `SwiftShader`/software quando `--requireGpu=1`.
 
-**Validade do A/B:** nunca comparar o modo normal usando snapshots completos contra o modo compacto usando `tile-delta`; isso confunde economia de tile com economia de cognição. Ambos devem operar com o mesmo protocolo, mesma seed e quantidade de avanços.
+**Validade do A/B:** nunca comparar o modo normal usando snapshots completos contra o modo compacto usando `tile-delta`; isso confunde economia de tile com economia de cognição. Ambos operam com o mesmo protocolo e seed. Como a janela de tempo é fixa, **cada modo pode executar uma quantidade diferente de dias**. O relatório registra `pairs[].sameDay` e marca comparações com dias diferentes como **não equivalentes para FPS/p95**. Rodar também um cenário com avanço manual fixo para comparação de frames com carga igual antes de aprovar produção.
 
 **Critério antes de habilitar por padrão:** zero regressões de render, seleção, morte/ressurgimento, combate, introspecção e reset; melhora de bytes e redução consistente do p95 do Worker sem piora relevante do p95 de frames ou heap/GC. Testar posteriormente 50/500/5.000 NPCs em escala real com instrumentação de Worker heap, trace de Chrome e acesso a GPU.
 
