@@ -30,6 +30,7 @@ jobs:
         env:
           GITHUB_SHA: ${{ github.sha }}
         run: |
+          set -euo pipefail
           mkdir -p out
           node scripts/benchmark-jul277-field-entities.mjs out/jul277-field-entity-ab.json \
             | tee out/jul277-field-entity-ab.log
