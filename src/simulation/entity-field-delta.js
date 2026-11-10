@@ -2,7 +2,12 @@
 // Comparison is conservative: only plain serializable records/arrays may be
 // memoized. Unsupported values fail closed to a full WorldSnapshot. This
 // module does NOT modify the authoritative simulation.
+import { diffNestedValue, applyNestedValuePatch } from './entity-nested-patch.js';
 const COLLECTIONS = Object.freeze(['people', 'animals', 'structures']);
+// Only the largest/fast-changing nested fields require previous-value clones.
+// Their visual representation remains lossless, but this opt-in CPU/cache
+// overhead must be measured before rollout.
+const NESTED_FIELDS = new Set(['perception', 'navigationRoute', 'knownRoutes', 'sensoryMemory']);
 const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 const isRecord = v => !!v && typeof v === 'object'
   && (Object.getPrototypeOf(v) === Object.prototype || Object.getPrototypeOf(v) === null);
@@ -55,15 +60,17 @@ export function captureEntityFieldCache(base) {
     for (const entity of list) {
       if (!isRecord(entity) || !validId(entity.id) || rows.has(entity.id))
         throw Error('Invalid or duplicate entity ID in ' + name);
-      const fields = new Map();
+      const fields = new Map(), hot = new Map();
       for (const key of Object.keys(entity)) {
         if (FORBIDDEN_KEYS.has(key)) throw Error('Unsafe entity property.');
-        try { fields.set(key, signature(entity[key])); }
-        catch (error) {
+        try {
+          fields.set(key, signature(entity[key]));
+          if (NESTED_FIELDS.has(key)) hot.set(key, structuredClone(entity[key]));
+        } catch (error) {
           throw Error(name + ' #' + entity.id + ' .' + key + ': ' + error.message);
         }
       }
-      rows.set(entity.id, fields);
+      rows.set(entity.id, { fields, hot });
       order.push(entity.id);
     }
     cache[name] = { rows, order };
@@ -90,15 +97,24 @@ export function createEntityFieldPatch(base, previousCache, { maxFraction = .9, 
     const added = [], updated = [], removed = [];
     for (const id of oldIds.keys()) if (!currentIds.has(id)) removed.push(id);
     for (const entity of base[name]) {
-      const oldFields = oldIds.get(entity.id);
-      if (!oldFields) { added.push(entity); continue; }
-      const newFields = currentIds.get(entity.id);
-      const set = Object.create(null), unset = [];
+      const oldRow = oldIds.get(entity.id);
+      if (!oldRow) { added.push(entity); continue; }
+      const oldFields = oldRow.fields, newFields = currentIds.get(entity.id).fields;
+      const set = Object.create(null), unset = [], nested = [];
       for (const key of oldFields.keys()) if (!newFields.has(key)) unset.push(key);
       for (const [key, hash] of newFields) {
-        if (!oldFields.has(key) || oldFields.get(key) !== hash) set[key] = entity[key];
+        if (oldFields.has(key) && oldFields.get(key) === hash) continue;
+        if (oldFields.has(key) && oldRow.hot.has(key)) {
+          const patch = diffNestedValue(oldRow.hot.get(key), entity[key]);
+          if (patch && patch.t !== 'r') {
+            nested.push({ key, patch });
+            continue;
+          }
+        }
+        set[key] = entity[key];
       }
-      if (unset.length || Object.keys(set).length) updated.push({ id: entity.id, set, unset });
+      if (unset.length || Object.keys(set).length || nested.length)
+        updated.push({ id: entity.id, set, unset, ...(nested.length ? { nested } : {}) });
     }
     collections[name] = {
       beforeCount: previous.order.length, afterCount: current.order.length,
@@ -142,7 +158,9 @@ export function prepareEntityFieldPatch(previous, patch) {
     for (const change of descriptor.updated) {
       if (!isRecord(change) || !validId(change.id) || !oldIds.has(change.id)
           || !current.has(change.id) || !isRecord(change.set)
-          || !Array.isArray(change.unset)) throw Error('Invalid entity update.');
+          || !Array.isArray(change.unset)
+          || (change.nested !== undefined && !Array.isArray(change.nested)))
+        throw Error('Invalid entity update.');
       const before = current.get(change.id), next = { ...before };
       const changedKeys = new Set();
       for (const key of change.unset) {
@@ -156,6 +174,13 @@ export function prepareEntityFieldPatch(previous, patch) {
           throw Error('Invalid entity field update.');
         changedKeys.add(key);
         next[key] = change.set[key];
+      }
+      for (const row of change.nested || []) {
+        if (!isRecord(row) || typeof row.key !== 'string' || FORBIDDEN_KEYS.has(row.key)
+            || row.key === 'id' || changedKeys.has(row.key) || !hasOwn(before, row.key))
+          throw Error('Invalid nested entity field.');
+        changedKeys.add(row.key);
+        next[row.key] = applyNestedValuePatch(before[row.key], row.patch);
       }
       if (next.id !== change.id) throw Error('Entity ID changed.');
       current.set(change.id, next);
