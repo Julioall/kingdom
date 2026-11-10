@@ -30,9 +30,13 @@ test('compact projection omits only deferred fields without modifying original w
   assert.notEqual(projected.people[0],p);
   assert.notEqual(projected.animals[0],a);
   for(const key of DEFERRED_PERSON_FIELDS)
-    assert.equal(Object.hasOwn(projected.people[0],key),false,key);
+    if(key!=='brain') assert.equal(Object.hasOwn(projected.people[0],key),false,key);
   for(const key of DEFERRED_ANIMAL_FIELDS)
-    assert.equal(Object.hasOwn(projected.animals[0],key),false,key);
+    if(key!=='brain') assert.equal(Object.hasOwn(projected.animals[0],key),false,key);
+  assert.deepEqual(projected.people[0].brain,{lastAction:undefined});
+  assert.deepEqual(projected.animals[0].brain,{lastAction:undefined});
+  assert.equal(projected.people[0].__compactActorSnapshot,true);
+  assert.equal(projected.animals[0].__compactActorSnapshot,true);
   assert.deepEqual(p.brain,{updates:9});
   assert.equal(a.perception.resources.length,0);
   assert.equal(projected.people[0].skills,p.skills);
@@ -51,11 +55,15 @@ test('opt-in compact worker still has full cognition and preserves legacy snapsh
       compactActorSnapshotBase(full.init.snapshot.base).animals);
     const actor=full.init.snapshot.base.people[0];
     assert.ok(actor.brain,'legacy snapshot still includes neural detail');
-    assert.equal(lite.init.snapshot.base.people[0].brain,undefined);
+    assert.deepEqual(Object.keys(lite.init.snapshot.base.people[0].brain),['lastAction']);
+    assert.equal(lite.init.snapshot.base.people[0].brain.lastAction,
+      full.init.snapshot.base.people[0].brain.lastAction);
     assert.equal(lite.init.snapshot.base.people[0].perception,undefined);
     const a=full.init.snapshot.base.animals[0];
     assert.ok(a.brain,'legacy animal snapshot still carries brain');
-    assert.equal(lite.init.snapshot.base.animals[0].brain,undefined);
+    assert.deepEqual(Object.keys(lite.init.snapshot.base.animals[0].brain),['lastAction']);
+    assert.equal(lite.init.snapshot.base.animals[0].brain.lastAction,
+      full.init.snapshot.base.animals[0].brain.lastAction);
     const personDetail=lite.send('inspect-person',{personId:actor.id});
     const animalDetail=lite.send('inspect-animal',{animalId:a.id});
     assert.equal(personDetail.type,'query');
@@ -90,11 +98,11 @@ test('opt-in compact worker still has full cognition and preserves legacy snapsh
     const resync=lite.send('resync');
     assert.equal(resync.type,'snapshot');
     assert.equal(resync.snapshot.reset,true);
-    assert.equal(resync.snapshot.base.people[0].brain,undefined);
+    assert.deepEqual(Object.keys(resync.snapshot.base.people[0].brain),['lastAction']);
     const reset=lite.send('reset',{seed,kingdomAiEnabled:false,
       transport:'tile-delta-compact'},2);
     assert.equal(reset.type,'snapshot');
-    assert.equal(reset.snapshot.base.people[0].brain,undefined);
+    assert.deepEqual(Object.keys(reset.snapshot.base.people[0].brain),['lastAction']);
     assert.ok(lite.send('inspect-person',{personId:reset.snapshot.base.people[0].id},2)
       .result.actor.brain);
   }
