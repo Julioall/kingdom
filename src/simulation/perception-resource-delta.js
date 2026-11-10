@@ -27,6 +27,29 @@ function safeValue(value, visiting=new WeakSet()) {
   visiting.delete(value);
   return safe;
 }
+// Resource fields are plain finite numbers, strings or nested biomass objects.
+// Avoid serializing every old and new field to compare them: JSON.stringify per
+// field dominated the first A/B's CPU. Preserve key insertion order so the
+// resulting authoritative JSON representation stays byte-for-byte equivalent.
+function sameResourceValue(a,b) {
+  if (Object.is(a,b)) return true;
+  if (a === null || b === null || typeof a !== 'object' || typeof b !== 'object')
+    return false;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a)||!Array.isArray(b)||a.length!==b.length) return false;
+    for(let i=0;i<a.length;i++){
+      if(own(a,i)!==own(b,i)||!sameResourceValue(a[i],b[i]))return false;
+    }
+    return true;
+  }
+  if (!plain(a)||!plain(b)) return false;
+  const ka=Object.keys(a),kb=Object.keys(b);
+  if(ka.length!==kb.length) return false;
+  for(let i=0;i<ka.length;i++)
+    if(ka[i]!==kb[i]||!sameResourceValue(a[ka[i]],b[kb[i]]))return false;
+  return true;
+}
+
 function indexRows(rows) {
   if (!Array.isArray(rows)) throw Error('Resources must be an array.');
   const map=new Map(),order=[];
@@ -61,7 +84,7 @@ export function diffPerceptionResourceRows(before, after, { maxFraction=.9, forc
     for (const key of Object.keys(original))
       if (!own(row,key)) unset.push(key);
     for (const [key,value] of Object.entries(row)) {
-      if (!own(original,key) || JSON.stringify(original[key]) !== JSON.stringify(value))
+      if (!own(original,key) || !sameResourceValue(original[key],value))
         set[key]=value;
     }
     if (unset.length || Object.keys(set).length)
