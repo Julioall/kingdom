@@ -140,7 +140,10 @@ export function applyNestedValuePatch(before, patch, depth = 0) {
     for (const row of patch.update) {
       if (!record(row) || !old.has(row.id) || !next.has(row.id))
         throw Error('Invalid keyed entity update.');
-      next.set(row.id, applyNestedValuePatch(old.get(row.id), row.patch, depth + 1));
+      const materialized = applyNestedValuePatch(old.get(row.id), row.patch, depth + 1);
+      if (!record(materialized) || materialized[patch.key] !== row.id)
+        throw Error('Nested entity key changed during patch.');
+      next.set(row.id, materialized);
     }
     for (const value of patch.add) {
       if (!record(value) || !own(value, patch.key) || next.has(value[patch.key])
