@@ -1,0 +1,180 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { PEOPLE_ACTIONS } from '../src/config/ecosystem.js';
+import { forwardSharedPolicy } from '../src/ai/policy/shared-policy.js';
+import { batchLatencySummary, observationsMatch,
+  prepareCausalInferenceBatch } from '../src/ai/policy/causal-batch-queue.js';
+import { actorObservation } from '../src/ai/policy/shared-policy.js';
+
+function actor(id){
+ return {id,role:'resident',kingdomId:1,communityId:1,
+   sociability:.5,trust:.6,loyalty:.7,physicalStrength:.8,
+   skills:{build:.4,diplomacy:.3},personalMemory:[],lastReward:0};
+}
+function make(count=10){
+ const world={seed:42,epoch:1,revision:2,day:4,neuralOverrides:{sharedHiddenSize:24}};
+ const actors=Array.from({length:count},(_,i)=>actor(i+1));
+ const inputs=Array.from({length:18},(_,i)=>(i+1)/40);
+ return {world,actors,inputs};
+}
+const all=()=>PEOPLE_ACTIONS.map(()=>true);
+
+test('real neural kernel processes prioritized observations and matches scalar logits exactly',()=>{
+ const {world,actors,inputs}=make(9);
+ const list=actors.map((person,i)=>({person,inputs:inputs.slice(),
+   urgent:i===8,waitingDays:i,priority:0}));
+ const batch=prepareCausalInferenceBatch(world,list,{budget:2,batchSize:2});
+ assert.equal(batch.metrics.queueDepth,9);
+ assert.equal(batch.metrics.selected,3);
+ assert.equal(batch.metrics.backlog,6);
+ assert.equal(batch.metrics.batches,2);
+ for(const id of [9,8,7]){
+   const person=actors[id-1];
+   const out=batch.consume(world,person,inputs,all());
+   const scalar=forwardSharedPolicy(world,person,inputs,'people');
+   assert.deepEqual(out.logits,scalar.logits);
+ }
+ assert.equal(batch.metrics.consumed,3);
+ assert.equal(batch.remaining(),0);
+ assert.equal(batch.consume(world,actors[8],inputs,all()),null,'output cannot be reused');
+ assert.equal(batch.metrics.missed,1);
+ assert.equal(batch.metrics.batchCompute.count,2);
+ assert.equal(batch.metrics.latencyMs.count,3);
+ assert.ok(batch.metrics.latencyMs.p95Ms>=0);
+});
+test('mask changes take effect at consumption without poisoning unmasked computation',()=>{
+ const {world,actors,inputs}=make(1);
+ const batch=prepareCausalInferenceBatch(world,[{person:actors[0],inputs}],{budget:1});
+ const mask=PEOPLE_ACTIONS.map(x=>x==='rest');
+ const out=batch.consume(world,actors[0],inputs,mask);
+ assert.ok(out.logits.every((x,i)=>mask[i]||x===-1e9));
+ assert.equal(batch.metrics.consumed,1);
+});
+test('stale perception, role, identity, ownership, day, epoch and revision all reject cached result',()=>{
+ for(const type of ['features','role','kingdom','community','epoch','revision','day']){
+   const {world,actors,inputs}=make(1);
+   const batch=prepareCausalInferenceBatch(world,[{person:actors[0],inputs}],{budget:1});
+   if(type==='features')actors[0].lastReward=.7;
+   if(type==='role')actors[0].role='ruler';
+   if(type==='kingdom')actors[0].kingdomId=2;
+   if(type==='community')actors[0].communityId=2;
+   if(type==='epoch')world.epoch++;
+   if(type==='revision')world.revision++;
+   if(type==='day')world.day++;
+   const out=batch.consume(world,actors[0],inputs,all());
+   assert.equal(out,null,type);
+   assert.equal(batch.metrics.rejected,1,type);
+ }
+});
+test('typed feature vectors, duplicate actors and empty lists obey quotas',()=>{
+ const {world,actors,inputs}=make(5);
+ const t=new Float32Array(inputs);
+ const batch=prepareCausalInferenceBatch(world,[
+   {person:actors[0],inputs:t},
+   {person:actors[0],inputs:t},
+   {person:actors[1],inputs}
+ ],{budget:1,batchSize:3});
+ assert.equal(batch.metrics.queueDepth,2);
+ assert.equal(batch.metrics.selected,1);
+ assert.equal(batch.consume(world,actors[0],t,all())?.logits.length,PEOPLE_ACTIONS.length);
+ assert.equal(batch.consume(world,actors[1],inputs,all()),null);
+ const zero=prepareCausalInferenceBatch(world,[],{budget:1});
+ assert.equal(zero.metrics.batches,0);
+ assert.deepEqual(batchLatencySummary([]),{count:0,p50Ms:0,p95Ms:0,p99Ms:0,maxMs:0});
+});
+test('same-seed queues produce identical outputs and priorities, independently of clock timing',()=>{
+ const a=make(25),b=make(25);
+ const construct=({world,actors,inputs})=>
+   prepareCausalInferenceBatch(world,actors.map((person,i)=>({person,inputs,urgent:i===14,
+   waitingDays:i%5,priority:i%3})),{budget:7,batchSize:4});
+ const x=construct(a),y=construct(b);
+ assert.equal(x.metrics.urgent,y.metrics.urgent);
+ assert.equal(x.metrics.batches,y.metrics.batches);
+ for(let id=1;id<=25;id++){
+   const p=x.consume(a.world,a.actors[id-1],a.inputs,all());
+   const q=y.consume(b.world,b.actors[id-1],b.inputs,all());
+   assert.deepEqual(p?.logits||null,q?.logits||null);
+ }
+ assert.equal(x.metrics.consumed,y.metrics.consumed);
+ assert.equal(x.metrics.backlog,y.metrics.backlog);
+});
+test('an action-domain or permission mask change invalidates the prepared observation',()=>{
+ const {world,actors,inputs}=make(1);
+ const prepared=actorObservation(world,actors[0],inputs,'people');
+ const same=actorObservation(world,actors[0],inputs,'people');
+ const military=actorObservation(world,actors[0],inputs,'military');
+ const onlyRest=actorObservation(world,actors[0],inputs,'people',
+   PEOPLE_ACTIONS.map(name=>name==='rest'));
+ assert.equal(observationsMatch(prepared,same),true);
+ assert.equal(observationsMatch(prepared,military),false,
+   'military action logits cannot reuse the people-action observation');
+ assert.equal(observationsMatch(prepared,onlyRest),false,
+   'changed legal actions invalidate the old precomputed inference');
+});
+
+test('observation identity is checked, not merely actor ID',()=>{
+ const {world,actors,inputs}=make(1);
+ const a=actorObservation(world,actors[0],inputs,'people');
+ const b=actorObservation(world,{...actors[0],role:'ruler'},inputs,'people');
+ assert.equal(observationsMatch(a,b),false);
+});
+
+// JUL-273: profiling must not impose a sort per consumed NPC at scale.
+test('latency and wait percentiles are lazy, enumerable and preserve the metrics contract',()=>{
+ const {world,actors,inputs}=make(12);
+ const batch=prepareCausalInferenceBatch(world,actors.map(person=>({person,inputs})),
+   {budget:12,batchSize:4});
+ const latencyProperty=Object.getOwnPropertyDescriptor(batch.metrics,'latencyMs');
+ const waitProperty=Object.getOwnPropertyDescriptor(batch.metrics,'waitDays');
+ assert.equal(typeof latencyProperty.get,'function');
+ assert.equal(typeof waitProperty.get,'function');
+ assert.equal(latencyProperty.enumerable,true);
+ assert.equal(waitProperty.enumerable,true);
+ assert.deepEqual(batch.metrics.latencyMs,batchLatencySummary([]));
+ for(const person of actors)assert.ok(batch.consume(world,person,inputs,all()));
+ const latency=batch.metrics.latencyMs;
+ assert.equal(latency.count,12);
+ assert.ok(latency.p50Ms<=latency.p95Ms && latency.p95Ms<=latency.p99Ms);
+ assert.deepEqual(batch.metrics.waitDays,{p50:0,p95:0,p99:0});
+ const json=JSON.parse(JSON.stringify(batch.metrics));
+ assert.equal(json.latencyMs.count,12);
+ assert.equal(json.waitDays.p99,0);
+});
+
+test('latency summary handles 120000 samples without argument-spread overflow',()=>{
+ const samples=Array.from({length:120000},(_,i)=>119999-i);
+ assert.deepEqual(batchLatencySummary(samples),{
+   count:120000,p50Ms:59999,p95Ms:113999,p99Ms:118799,maxMs:119999
+ });
+ assert.equal(samples[0],119999,'summary must not mutate its input');
+});
+
+test('strict causal batch requires a positive LIVE domain check at consumption',()=>{
+ const {world,actors,inputs}=make(4);
+ const prepared=prepareCausalInferenceBatch(world,
+   actors.map(person=>({person,inputs})),{budget:4,batchSize:2,requireLiveValidation:true});
+ // Even with identical features, other actors can change an untracked market,
+ // territory, target occupancy or ownership before an action is applied.
+ world.marketOwner=2;
+ assert.equal(prepared.consume(world,actors[0],inputs,all()),null,'missing validator fails closed');
+ assert.equal(prepared.consume(world,actors[1],inputs,all(),()=>false),null,'changed domain rejects');
+ assert.equal(prepared.consume(world,actors[2],inputs,all(),()=>{throw Error('stale world')}),null,
+   'validator exception must reject, not bypass the gate');
+ assert.ok(prepared.consume(world,actors[3],inputs,all(),w=>w.marketOwner===2));
+ assert.equal(prepared.metrics.domainRejected,3);
+ assert.equal(prepared.metrics.rejected,3);
+ assert.equal(prepared.metrics.consumed,1);
+ assert.equal(prepared.remaining(),0,'no failed output can be replayed');
+});
+
+test('strict validation executes after neural-observation revalidation, not before',()=>{
+ const {world,actors,inputs}=make(1);
+ const prepared=prepareCausalInferenceBatch(world,[{person:actors[0],inputs}],
+   {requireLiveValidation:true});
+ world.revision++;
+ let calls=0;
+ assert.equal(prepared.consume(world,actors[0],inputs,all(),()=>{calls++;return true;}),null);
+ assert.equal(calls,0);
+ assert.equal(prepared.metrics.domainRejected,0);
+ assert.equal(prepared.metrics.rejected,1);
+});

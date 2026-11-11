@@ -1,0 +1,64 @@
+name: "JUL-286 — Food selection deterministic A/B"
+on:
+  push:
+    branches:
+      - perf/jul286-food-filter-order
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: fb17677042583880ed9b75d13bdd334faabafec4
+          path: baseline
+      - uses: actions/checkout@v7.0.1
+        with:
+          path: candidate
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - name: Full 500 NPC world parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          cp candidate/scripts/jul286-full500.mjs baseline/scripts/jul286-full500.mjs
+          (cd baseline && node scripts/jul286-full500.mjs) > out/500-baseline.txt
+          cp baseline/out/full-500.json out/full-500-baseline.json
+          (cd candidate && node scripts/jul286-full500.mjs) > out/500-candidate.txt
+          cp candidate/out/full-500.json out/full-500-candidate.json
+          node --input-type=commonjs -e '
+            const fs=require("node:fs");
+            const a=JSON.parse(fs.readFileSync("out/full-500-baseline.json"));
+            const b=JSON.parse(fs.readFileSync("out/full-500-candidate.json"));
+            if(a.stateDigest!==b.stateDigest)throw Error("Changed full-world 500 NPC state");
+            console.log("500 full NPC digest equal; baseline",a.elapsedMs,"candidate",b.elapsedMs);
+          '
+      - name: Replay seeds 1 42 2026
+        shell: bash
+        run: |
+          set -euo pipefail
+          node baseline/scripts/benchmark-simulation.mjs --days=12 --warmup=3 --repeats=1 --seeds=1,42,2026 --output=out/baseline.json > out/baseline.txt
+          node candidate/scripts/benchmark-simulation.mjs --days=12 --warmup=3 --repeats=1 --seeds=1,42,2026 --output=out/candidate.json > out/candidate.txt
+          node --input-type=commonjs -e '
+            const fs=require("node:fs");
+            const a=JSON.parse(fs.readFileSync("out/baseline.json"));
+            const b=JSON.parse(fs.readFileSync("out/candidate.json"));
+            const res=a.results.map(x=>{
+              const y=b.results.find(r=>r.seed===x.seed&&r.repeat===x.repeat);
+              if(!y||x.stateDigest!==y.stateDigest)throw Error("Seed "+x.seed+" changed");
+              return {seed:x.seed,stateDigestMatch:true,baselineMs:x.meanDayMs,
+               candidateMs:y.meanDayMs,improvementPercent:100*(x.meanDayMs-y.meanDayMs)/x.meanDayMs};
+            });
+            fs.writeFileSync("out/comparison.json",JSON.stringify(res,null,2));
+            console.log(JSON.stringify(res,null,2));
+          ' | tee out/comparison.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jul286-food-audit-ab
+          path: out/
+          if-no-files-found: warn

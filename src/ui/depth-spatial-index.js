@@ -2,10 +2,13 @@ import { compareDepth } from './depth-order.js';
 
 // Only presentation items are indexed. The world tiles, mines, collision and
 // harvesting inventories remain unchanged. Rebuilt once per world/day snapshot.
-export function createStaticDepthSpatialIndex(sortedItems, chunkSize = 16) {
+export function createStaticDepthSpatialIndex(sortedItems, chunkSize = 16, { fullMapFastPath = true } = {}) {
   if (!Number.isSafeInteger(chunkSize) || chunkSize <= 0) throw new Error('Invalid depth chunk size');
   const bins = new Map();
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   for (const item of sortedItems) {
+    minX = Math.min(minX, item.x); maxX = Math.max(maxX, item.x);
+    minY = Math.min(minY, item.y); maxY = Math.max(maxY, item.y);
     const key = Math.floor(item.x / chunkSize) + ':' + Math.floor(item.y / chunkSize);
     let bin = bins.get(key);
     if (!bin) bins.set(key, bin = []);
@@ -17,6 +20,14 @@ export function createStaticDepthSpatialIndex(sortedItems, chunkSize = 16) {
         || bounds.minX > bounds.maxX || bounds.minY > bounds.maxY) {
       lastExamined = 0;
       return [];
+    }
+    // Full-map zoom: items are already sorted. Sorting the same thousands of
+    // sprites every frame is wasted work. The caller treats query output as
+    // read-only, and still applies its existing mineral visibility predicate.
+    if (fullMapFastPath && sortedItems.length && bounds.minX <= minX && bounds.maxX >= maxX
+        && bounds.minY <= minY && bounds.maxY >= maxY) {
+      lastExamined = sortedItems.length;
+      return sortedItems;
     }
     const result = [];
     let examined = 0;

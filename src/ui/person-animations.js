@@ -129,8 +129,6 @@ export function createActivityEffects() {
             if (victim) {
               add('parry-stars', victim.x, victim.y, now + Math.max(0, hit.atMs || 0) + 600, 64,
                 { personId: victim.id, duration: 3000 });
-              add('effect.dust-01', victim.x, victim.y, now + Math.max(0, hit.atMs || 0) + 600, 96,
-                { duration: 500 });
             }
           }
         }
@@ -146,14 +144,6 @@ export function createActivityEffects() {
             { personId: actor.id, angle: event.angle, advanceDistance: event.advanceDistance,
               endX: endPosition.x, endY: endPosition.y, dashDistance, activeDuration,
               duration: activeDuration + DASH_TRAIL_FADE_MS });
-          const dustCount = Math.max(2, Math.ceil(dashDistance / .65));
-          for (let index = 1; index <= dustCount; index++) {
-            const progress = index / dustCount;
-            const timeProgress = shield ? Math.sqrt(progress) : progress;
-            add('effect.dust-01', event.origin.x + (endPosition.x - event.origin.x) * progress,
-              event.origin.y + (endPosition.y - event.origin.y) * progress,
-              now + event.windupMs + activeDuration * timeProgress, 96, { duration: 800 });
-          }
         }
         if (event.weapon === 'arqueiro') {
           if (event.attackVariant === 'rain') {
@@ -218,7 +208,6 @@ export function createActivityEffects() {
         if (event.hitEvents?.length) {
           for (const hit of event.hitEvents) {
             if (hit.kind === 'parry') continue;
-            add('effect.dust-02', hit.point.x, hit.point.y - contactElevation, now + hit.atMs, 64);
             if (hit.damageApplied > 0 && !['shield-bash', 'lance-charge'].includes(event.attackVariant)
                 && world.people.some(person => person.id === hit.targetId)) {
               const angle = event.attackVariant === 'rain' ? Math.PI / 2
@@ -232,8 +221,7 @@ export function createActivityEffects() {
               add('effect.explosion-01', hit.point.x, hit.point.y - contactElevation, now + hit.atMs, 128,
                 { duration: 360 });
           }
-        } else if (event.result?.point && event.result.kind !== 'parry') add('effect.dust-02', event.result.point.x,
-          event.result.point.y - contactElevation, now + event.result.atMs, 64);
+        }
       }
       const living = new Set();
       for (const person of world.people) {
@@ -265,17 +253,10 @@ export function createActivityEffects() {
           }
           // Healing visuals are supplied by the native ground magic seals.
           if (activity?.day === world.day && activityKey !== old.activityKey) {
-            if (['chop', 'mine', 'build'].includes(activity.kind)) add('effect.dust-02', activity.x, activity.y, now, 64);
             if (['drink', 'fish'].includes(activity.kind)) add('effect.water-splash', activity.x, activity.y, now, 128);
           }
-          const dx = person.x - old.x, dy = person.y - old.y;
-          const tile = world.tiles[Math.round(person.y) * world.width + Math.round(person.x)];
-          if (Math.hypot(dx, dy) > .1 && tile?.terrain === 'land') add('effect.dust-01', old.x, old.y, now, 96);
-          if (!person.combatAction && person.militaryAnimation !== 'heal' && person.militaryAnimationDay === world.day && person.militaryAnimationDay !== old.battleDay) {
-            add('effect.dust-02', person.x, person.y, now, 64);
-          }
         }
-        previous.set(person.id, { x: person.x, y: person.y, activityKey, battleDay: person.militaryAnimationDay,
+        previous.set(person.id, { x: person.x, y: person.y, activityKey,
           healingSequence: person.lastHealingSequence, arrowSequence: person.lastArrowSequence });
       }
       for (const id of previous.keys()) if (!living.has(id)) previous.delete(id);

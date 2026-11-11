@@ -1,0 +1,44 @@
+name: "JUL-293 — Territory recompute cache A/B"
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - "src/simulation/kingdoms/territories.js"
+      - "src/simulation/kingdoms/territory-cache.js"
+      - "tests/territory-recompute-cache.test.mjs"
+      - "scripts/benchmark-jul293-territory-cache.mjs"
+      - ".github/workflows/jul293-territories.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  territory-parity:
+    name: 3 seeds × 35 days, exact world replay and territory CPU
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Directed territory cache tests
+        run: node --test tests/territory-recompute-cache.test.mjs
+      - name: Run full-world cached vs always recompute A/B
+        env:
+          JUL293_DAYS: 35
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node scripts/benchmark-jul293-territory-cache.mjs out/jul293-territory-cache.json \
+            | tee out/jul293-territory-cache.log
+      - name: Preserve CPU and exact digest evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jul293-territory-cache
+          path: out/jul293-territory-cache.*
+          if-no-files-found: warn

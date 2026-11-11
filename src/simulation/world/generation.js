@@ -33,7 +33,7 @@ function ensureInitialMilitaryRecruitmentPool(world) {
   }
 }
 
-export function createWorld(seed) {
+export function createWorld(seed, options = {}) {
     const cleanSeed = (Number(seed) >>> 0) || 1;
     const w = {
       seed: cleanSeed, width: WIDTH, height: HEIGHT, day: 0, year: 1, season: 0, rngState: cleanSeed,
@@ -55,6 +55,11 @@ export function createWorld(seed) {
       },
       lastWeatherEvent: -999
     };
+    // Explicit world-creation rollback. Default is the shared policy; passing
+    // legacy retains the original individually trained dense controllers.
+    if (options.neuralController === 'legacy') {
+      w.neuralOverrides = { neuralController: 'legacy' };
+    }
     const generatedTerrain = generateIslandTerrain(WIDTH, HEIGHT, cleanSeed);
     const lakes = generatedTerrain.freshwaterLakes;
     w.lakes = lakes.map(lake => ({ ...lake }));

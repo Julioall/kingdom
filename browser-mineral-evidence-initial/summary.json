@@ -1,0 +1,144 @@
+{
+  "seed": 42,
+  "browser": "chromium",
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "scenarios": [
+    {
+      "label": "optimized",
+      "fps": 29.55477166555439,
+      "frameP95Ms": 41.80000000000018,
+      "over33MsPercent": 67.74193548387096,
+      "mapP95Ms": 38.29999999701977,
+      "mapMeanMs": 30.66984126965205,
+      "mapSamples": 63,
+      "cachedPercent": 100,
+      "renderer": "canvas2d",
+      "seed": 42,
+      "canvasWidth": 1280,
+      "canvasHeight": 724,
+      "snapshotContext": {
+        "renderer": "canvas2d",
+        "atmosphereRenderer": "webgl",
+        "referenceRendering": false,
+        "fixedEffects": true,
+        "terrainChunks": {
+          "entries": 32,
+          "bytes": 4193408,
+          "maxBytes": 33554432,
+          "hits": 0,
+          "rebuilds": 160,
+          "evictions": 0,
+          "side": 16,
+          "lastDraw": {
+            "hits": 0,
+            "rebuilds": 32,
+            "visible": 32
+          }
+        },
+        "pixelTiles": {
+          "entries": 38,
+          "bytes": 9860,
+          "maxBytes": 8388608,
+          "hits": 38239,
+          "misses": 38,
+          "evictions": 0
+        },
+        "seed": 42,
+        "day": 0,
+        "season": 0,
+        "paused": true,
+        "speed": 1,
+        "zoom": 2,
+        "cameraTransform": [
+          1.4140625,
+          0,
+          0,
+          1.4140625,
+          -84,
+          -362
+        ],
+        "viewport": {
+          "minX": 0,
+          "maxX": 127,
+          "minY": 24,
+          "maxY": 104
+        },
+        "canvasWidth": 1280,
+        "canvasHeight": 724,
+        "devicePixelRatio": 1,
+        "viewportWidth": 1280,
+        "viewportHeight": 724,
+        "visibilityState": "visible",
+        "pageHasFocus": true,
+        "worldWidth": 128,
+        "worldHeight": 128,
+        "peopleTotal": 96,
+        "animalsTotal": 24
+      },
+      "screenshot": "optimized-map.png",
+      "screenshotBytes": 620755,
+      "pageErrors": []
+    },
+    {
+      "label": "reference",
+      "fps": 28.89041230046029,
+      "frameP95Ms": 41.69999999999982,
+      "over33MsPercent": 88.13559322033898,
+      "mapP95Ms": 34.899999998509884,
+      "mapMeanMs": 31.614999999726813,
+      "mapSamples": 60,
+      "cachedPercent": 100,
+      "renderer": "canvas2d",
+      "seed": 42,
+      "canvasWidth": 1280,
+      "canvasHeight": 724,
+      "snapshotContext": {
+        "renderer": "canvas2d",
+        "atmosphereRenderer": "webgl",
+        "referenceRendering": true,
+        "fixedEffects": true,
+        "terrainChunks": null,
+        "pixelTiles": null,
+        "seed": 42,
+        "day": 0,
+        "season": 0,
+        "paused": true,
+        "speed": 1,
+        "zoom": 2,
+        "cameraTransform": [
+          1.4140625,
+          0,
+          0,
+          1.4140625,
+          -84,
+          -362
+        ],
+        "viewport": {
+          "minX": 0,
+          "maxX": 127,
+          "minY": 24,
+          "maxY": 104
+        },
+        "canvasWidth": 1280,
+        "canvasHeight": 724,
+        "devicePixelRatio": 1,
+        "viewportWidth": 1280,
+        "viewportHeight": 724,
+        "visibilityState": "visible",
+        "pageHasFocus": true,
+        "worldWidth": 128,
+        "worldHeight": 128,
+        "peopleTotal": 96,
+        "animalsTotal": 24
+      },
+      "screenshot": "reference-map.png",
+      "screenshotBytes": 644883,
+      "pageErrors": []
+    }
+  ],
+  "thresholdPolicy": "informational: no machine-specific FPS gate",
+  "notes": "Browser CPU/map submission and screenshots; no direct GPU completion timing."
+}

@@ -1,5 +1,6 @@
 import { createSimulationWorkerRuntime } from './worker-runtime.js';
 import { transferablesForSnapshot } from './render-snapshot.js';
+import { transferablesForTileDelta } from './tile-delta.js';
 import { SIMULATION_PROTOCOL_VERSION } from './protocol-version.js';
 import type { SimulationWorkerResponse } from './protocol';
 
@@ -12,5 +13,8 @@ const runtime = createSimulationWorkerRuntime();
 scope.addEventListener('message', (event: MessageEvent) => {
   const response = runtime.handle(event.data) as SimulationWorkerResponse;
   if (response.protocolVersion !== SIMULATION_PROTOCOL_VERSION) return;
-  scope.postMessage(response, transferablesForSnapshot(response.type === 'snapshot' ? response.snapshot : undefined) as Transferable[]);
+  const transfer = response.type === 'snapshot'
+    ? transferablesForSnapshot(response.snapshot)
+    : response.type === 'world-delta' ? transferablesForTileDelta(response.delta) : [];
+  scope.postMessage(response, transfer as Transferable[]);
 });

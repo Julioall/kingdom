@@ -1,6 +1,9 @@
 import engine from './engine.js';
 import { dispatchCommand } from './commands.js';
 import { createWorldSnapshot } from './render-snapshot.js';
+import { createCompactPresentationBase } from './compact-presentation.js';
+import { createTileColumnDelta, copyTileColumns } from './tile-delta.js';
+import { createFieldTileDelta } from './field-delta.js';
 import { SIMULATION_PROTOCOL_VERSION } from './protocol-version.js';
 
 const MAX_ADVANCE_DAYS = 12;
@@ -19,6 +22,10 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
   let revision = 0;
   let paused = false;
   let lastMagicEventsSequence = -1;
+  let tileDeltaTransport = false;
+  let compactActorTransport = false;
+  let lastSnapshotColumns = null;
+  let lastCaptureRevision = -1;
 
   function envelope(request, type, body = {}) {
     return {
@@ -32,7 +39,30 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
   }
 
   function capture(request, { reset = false, result } = {}) {
-    const snapshot = createWorldSnapshot(world, { reset });
+    // Retained columns are private and never transferred. Unchanged ID/type
+    // columns can be shared; packing copies before the first authoritative change.
+    const snapshot = createWorldSnapshot(world, { reset,
+      previousTileColumns: tileDeltaTransport ? lastSnapshotColumns : null });
+    if (compactActorTransport) snapshot.base = createCompactPresentationBase(snapshot.base);
+    if (!reset && request.type === 'advance' && tileDeltaTransport && lastSnapshotColumns) {
+      const tileColumns = createTileColumnDelta(snapshot.tileColumns, lastSnapshotColumns)
+        || createFieldTileDelta(snapshot.tileColumns, lastSnapshotColumns);
+      if (tileColumns) {
+        const baseRevision = lastCaptureRevision;
+        // These full local columns are NOT transferred; only changed rows are.
+        lastSnapshotColumns = snapshot.tileColumns;
+        lastCaptureRevision = revision;
+        return envelope(request, 'world-delta', {
+          delta: { base: snapshot.base, tileColumns, stats: snapshot.stats,
+            events: snapshot.events, logs: snapshot.logs,
+            baseRevision, reset: false }, result
+        });
+      }
+    }
+    // Transferred full snapshot buffers are detached after postMessage. Retain
+    // independent copies for the next comparison, never the transferred view.
+    lastSnapshotColumns = tileDeltaTransport ? copyTileColumns(snapshot.tileColumns) : null;
+    lastCaptureRevision = revision;
     return envelope(request, 'snapshot', { snapshot, result });
   }
 
@@ -54,6 +84,10 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
         if (request.epoch <= epoch) throw new Error('Época de inicialização inválida.');
         if (!request.config || request.config.scenario !== 'kingdom') throw new Error('Cenário não implementado.');
         world = createWorldImpl(request.seed);
+        tileDeltaTransport = request.transport === 'tile-delta' || request.transport === 'tile-delta-compact';
+        compactActorTransport = request.transport === 'tile-delta-compact';
+        lastSnapshotColumns = null;
+        lastCaptureRevision = -1;
         lastMagicEventsSequence = -1;
         world.magicExternalClock = true;
         epoch = request.epoch;
@@ -66,6 +100,10 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
       if (request.type === 'reset') {
         if (request.epoch <= epoch) throw new Error('Época de reset inválida.');
         world = createWorldImpl(request.seed);
+        tileDeltaTransport = request.transport === 'tile-delta' || request.transport === 'tile-delta-compact';
+        compactActorTransport = request.transport === 'tile-delta-compact';
+        lastSnapshotColumns = null;
+        lastCaptureRevision = -1;
         lastMagicEventsSequence = -1;
         world.magicExternalClock = true;
         epoch = request.epoch;
@@ -78,6 +116,10 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
 
       requireWorld(request);
       switch (request.type) {
+        case 'resync': {
+          revision++;
+          return capture(request, { reset: true });
+        }
         case 'set-paused': {
           if (typeof request.paused !== 'boolean') throw new Error('Estado de pausa inválido.');
           paused = request.paused;
@@ -181,6 +223,22 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
             : false;
           revision++;
           return capture(request, { result });
+        }
+        case 'inspect-person':
+        case 'inspect-animal': {
+          const kind = request.type === 'inspect-person' ? 'person' : 'animal';
+          const actorId = kind === 'person' ? request.personId : request.animalId;
+          if (!Number.isSafeInteger(actorId) || actorId < 0)
+            throw new Error('Identificador de personagem ou animal inválido.');
+          const collection = kind === 'person' ? world.people : world.animals;
+          const actor = collection.find(item => item.id === actorId) || null;
+          // This request is read-only and does not increment the authoritative
+          // revision. Return a detached value so callers cannot change state
+          // by editing the inspector response outside the Worker.
+          return envelope(request, 'query', {
+            result: { kind, actorId, day: world.day,
+              actor: actor ? structuredClone(actor) : null }
+          });
         }
         case 'inspect-tile': {
           return envelope(request, 'query', { result: engine.inspectTile(world, request.x, request.y) });

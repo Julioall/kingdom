@@ -1,0 +1,13 @@
+{
+  "seed": 42,
+  "browser": "chromium",
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "scenarios": [],
+  "thresholdPolicy": "informational: no machine-specific FPS gate",
+  "notes": "Browser CPU/map submission and screenshots; no direct GPU completion timing.",
+  "error": "Error: browserType.launch: Executable doesn't exist at C:\\Users\\Julio\\AppData\\Local\\ms-playwright\\chromium_headless_shell-1187\\chrome-win\\headless_shell.exe\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     npx playwright install                                              ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝",
+  "serverLog": "\n  VITE v8.3.5  ready in 307 ms\n\n  ➜  Local:   http://127.0.0.1:5178/\n"
+}

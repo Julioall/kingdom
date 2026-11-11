@@ -1,9 +1,14 @@
 import { defaultWorldConfig, type WorldConfig } from '../simulation/core/state';
 import type { WorldCommand } from '../simulation';
-import { applyWorldSnapshot } from '../simulation/render-snapshot.js';
+import { applyWorldSnapshot, applyWorldTileDelta } from '../simulation/render-snapshot.js';
+import { indexPeopleById, applyIndexedPersonUpdates } from './person-update-index.js';
+import { createTransportDiagnostics } from './worker-transport-diagnostics.js';
+import { createAdvanceBackpressureQueue } from './advance-backpressure.js';
+import { nextMaterializedWorldRevision } from './materialized-world-revision.js';
 import {
   SIMULATION_PROTOCOL_VERSION,
   type KingdomAiDecisionRequest,
+  type ActorInspectionResult,
   type SimulationWorkerRequest,
   type SimulationWorkerResponse,
   type WorldView
@@ -31,12 +36,19 @@ export class GameSession {
   private readonly worker: Worker;
   private nextRequestId = 1;
   private pending = new Map<number, PendingRequest>();
+  private peopleById = new Map<number, WorldView['people'][number]>();
   private advanceInFlight = false;
   private advanceFlightToken = 0;
-  private queuedClockDays = 0;
-  private queuedManualDays = 0;
+  private readonly advanceQueue = createAdvanceBackpressureQueue();
+  private resyncInFlight = false;
+  private readonly tileDeltaTransport: boolean;
+  readonly compactActorTransport: boolean;
+  private readonly transportDiagnostics = createTransportDiagnostics();
 
-  constructor(private readonly config: WorldConfig = defaultWorldConfig, seed = 42) {
+  constructor(private readonly config: WorldConfig = defaultWorldConfig, seed = 42,
+    options: {tileDeltaTransport?: boolean; compactActorTransport?: boolean} = {}) {
+    this.compactActorTransport = options.compactActorTransport === true;
+    this.tileDeltaTransport = options.tileDeltaTransport === true || this.compactActorTransport;
     this.worker = new Worker(new URL('../simulation/simulation.worker.ts', import.meta.url), { type: 'module' });
     this.worker.addEventListener('message', (event: MessageEvent<SimulationWorkerResponse>) => this.receive(event.data));
     this.worker.addEventListener('error', event => {
@@ -49,7 +61,8 @@ export class GameSession {
       this.failPending(error);
       this.onError?.(error);
     });
-    this.ready = this.send('initialize', { config: this.config, seed }, this.epoch).then(() => {
+    this.ready = this.send('initialize', { config: this.config, seed,
+      ...(this.tileDeltaTransport ? {transport:this.compactActorTransport ? 'tile-delta-compact' : 'tile-delta'} : {}) }, this.epoch).then(() => {
       if (!this.world) throw new Error('O Worker inicializou sem devolver o estado do mundo.');
       return this.world;
     });
@@ -65,10 +78,12 @@ export class GameSession {
     this.rejectOlderRequests(cancellation);
     this.advanceFlightToken++;
     this.advanceInFlight = false;
-    this.queuedClockDays = 0;
-    this.queuedManualDays = 0;
+    this.advanceQueue.reset();
     this.paused = false;
-    this.ready = this.send('reset', { seed, kingdomAiEnabled }, this.epoch).then(() => {
+    this.peopleById.clear();
+    this.resyncInFlight = false;
+    this.ready = this.send('reset', { seed, kingdomAiEnabled,
+      ...(this.tileDeltaTransport ? {transport:this.compactActorTransport ? 'tile-delta-compact' : 'tile-delta'} : {}) }, this.epoch).then(() => {
       if (!this.world) throw new Error('O Worker reiniciou sem devolver o estado do mundo.');
       return this.world;
     });
@@ -76,17 +91,16 @@ export class GameSession {
   }
 
   advance(days = 1, source: 'clock' | 'manual' = 'clock'): Promise<void> {
+    if (!Number.isFinite(days)) return Promise.reject(new RangeError('Quantidade de dias inválida.'));
     const safeDays = Math.max(1, Math.min(12, Math.trunc(days)));
-    if (source === 'clock') {
-      if (this.paused) return Promise.resolve();
-      this.queuedClockDays = Math.min(12, this.queuedClockDays + safeDays);
-    } else this.queuedManualDays = Math.min(12, this.queuedManualDays + safeDays);
+    if (source === 'clock' && this.paused) return Promise.resolve();
+    this.advanceQueue.enqueue(safeDays, source);
     this.drainAdvances();
     return Promise.resolve();
   }
 
   async setPaused(paused: boolean): Promise<void> {
-    if (paused) this.queuedClockDays = 0;
+    if (paused) this.advanceQueue.discardClock();
     const response = await this.send('set-paused', { paused });
     if (response.type !== 'ack') throw new Error('O Worker não confirmou o estado de pausa.');
   }
@@ -116,14 +130,52 @@ export class GameSession {
     return response.type === 'snapshot' ? !!response.result : false;
   }
 
+  // Query detailed cognition only when a selected inspector asks for it.
+  // The caller must compare epoch/revision with its current selection before
+  // displaying a delayed response; no global WorldView state is modified.
+  private async inspectActor(kind: 'person' | 'animal', actorId: number):
+    Promise<ActorInspectionResult & {epoch: number; revision: number}> {
+    if (!Number.isSafeInteger(actorId) || actorId < 0)
+      throw new RangeError('Identificador de personagem ou animal inválido.');
+    const response = await this.send(kind === 'person' ? 'inspect-person' : 'inspect-animal',
+      kind === 'person' ? { personId: actorId } : { animalId: actorId });
+    if (response.type !== 'query') throw new Error('O Worker não retornou a inspeção esperada.');
+    const result = response.result as ActorInspectionResult;
+    if (!result || result.kind !== kind || result.actorId !== actorId ||
+        !Number.isSafeInteger(result.day) || result.day < 0)
+      throw new Error('O Worker retornou uma inspeção de ator incompatível.');
+    return { ...result, epoch: response.epoch, revision: response.revision };
+  }
+
+  async inspectPerson(personId: number):
+    Promise<Extract<ActorInspectionResult, {kind: 'person'}> & {epoch: number; revision: number}> {
+    return this.inspectActor('person', personId) as Promise<
+      Extract<ActorInspectionResult, {kind: 'person'}> & {epoch: number; revision: number}>;
+  }
+
+  async inspectAnimal(animalId: number):
+    Promise<Extract<ActorInspectionResult, {kind: 'animal'}> & {epoch: number; revision: number}> {
+    return this.inspectActor('animal', animalId) as Promise<
+      Extract<ActorInspectionResult, {kind: 'animal'}> & {epoch: number; revision: number}>;
+  }
+
   async inspectTile(x: number, y: number): Promise<unknown> {
     const response = await this.send('inspect-tile', { x, y });
     return response.type === 'query' ? response.result : null;
   }
 
+  getTransportDiagnostics() {
+    return { ...this.transportDiagnostics.snapshot(), advanceQueue: {
+      ...this.advanceQueue.snapshot(), inFlight: this.advanceInFlight, pendingRequests: this.pending.size
+    } };
+  }
+
   terminate() {
     this.failPending(new Error('A sessão de simulação foi encerrada.'));
     this.worker.terminate();
+    this.peopleById.clear();
+    this.resyncInFlight = false;
+    this.advanceQueue.reset();
   }
 
   private send(type: string, payload: Record<string, unknown>, epoch = this.epoch): Promise<SimulationWorkerResponse> {
@@ -142,17 +194,10 @@ export class GameSession {
   }
 
   private drainAdvances() {
-    if (this.advanceInFlight) return;
-    let source: 'clock' | 'manual', days: number;
-    if (this.queuedManualDays > 0) {
-      source = 'manual';
-      days = Math.min(12, this.queuedManualDays);
-      this.queuedManualDays -= days;
-    } else if (!this.paused && this.queuedClockDays > 0) {
-      source = 'clock';
-      days = Math.min(3, this.queuedClockDays);
-      this.queuedClockDays -= days;
-    } else return;
+    if (this.advanceInFlight || this.resyncInFlight) return;
+    const next = this.advanceQueue.take(this.paused);
+    if (!next) return;
+    const { source, days } = next;
 
     const requestEpoch = this.epoch;
     const flightToken = ++this.advanceFlightToken;
@@ -191,10 +236,7 @@ export class GameSession {
     if (response.type === 'player-update') {
       if (this.world) {
         const updates = response.people || (response.person ? [response.person] : []);
-        for (const update of updates) {
-          const person = this.world.people.find(person => person.id === update.id);
-          if (person) Object.assign(person, update);
-        }
+        applyIndexedPersonUpdates(this.peopleById, updates);
         for (const key of ['combatEvents', 'loot', 'trainingDummyStates', 'events', 'logs', 'magicTimeMs', 'magicZones', 'magicEvents', 'magicStats'] as const) {
           if (response[key] !== undefined) (this.world as unknown as Record<string, unknown>)[key] = response[key];
         }
@@ -203,14 +245,59 @@ export class GameSession {
       pending.resolve(response);
       return;
     }
-    this.revision = response.revision;
+    if (response.type === 'world-delta') {
+      if (!this.world || response.delta.baseRevision !== this.revision) {
+        // A missed/late packet must never be applied to a different world.
+        this.transportDiagnostics.invalid();
+        this.requestResync();
+        pending.resolve(response);
+        return;
+      }
+      try {
+        const started = performance.now();
+        const nextWorld = applyWorldTileDelta(response.delta, this.world);
+        this.world = nextWorld;
+        this.peopleById = indexPeopleById(nextWorld.people);
+        this.stats = nextWorld.stats;
+        this.revision = nextMaterializedWorldRevision(this.revision, response);
+        this.transportDiagnostics.record(response, performance.now() - started);
+        this.onUpdate?.(nextWorld, nextWorld.stats, false);
+      } catch {
+        // Invalid sparse data is recoverable by requesting a fresh full
+        // authoritative snapshot. Never trust a partially applied revision.
+        this.transportDiagnostics.invalid();
+        this.requestResync();
+      }
+      pending.resolve(response);
+      return;
+    }
     if (response.type === 'snapshot') {
+      const started = performance.now();
       const nextWorld = applyWorldSnapshot(response.snapshot, response.snapshot.reset ? null : this.world);
       this.world = nextWorld;
+      this.peopleById = indexPeopleById(nextWorld.people);
       this.stats = nextWorld.stats;
+      this.revision = nextMaterializedWorldRevision(this.revision, response);
+      this.transportDiagnostics.record(response, performance.now() - started);
       this.onUpdate?.(nextWorld, nextWorld.stats, response.snapshot.reset);
     }
     pending.resolve(response);
+  }
+
+  private requestResync() {
+    if (this.resyncInFlight) return;
+    const epoch = this.epoch;
+    this.resyncInFlight = true;
+    this.transportDiagnostics.resync();
+    void this.send('resync', {}, epoch).then(response => {
+      if (response.type !== 'snapshot') throw new Error('O Worker não retornou o resync completo.');
+    }).catch(error => {
+      if (epoch === this.epoch) this.onError?.(error);
+    }).finally(() => {
+      if (epoch !== this.epoch) return;
+      this.resyncInFlight = false;
+      this.drainAdvances();
+    });
   }
 
   private rejectOlderRequests(error: Error) {

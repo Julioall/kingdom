@@ -200,8 +200,9 @@ export function chooseBuildSite(w, community, structures, builder = null) {
     const worldStructures = w.structures;
     const candidateRadius = nextType === 'curral' ? 3.5 : 2.5;
     const resourceIndex = worldCollisionIndex(w).resources;
-    const reachableWorkTiles = builder
-      ? new Set(reachableAreaAround(w, builder, builder, Math.hypot(w.width, w.height)).map(tile => tile.i)) : null;
+    // A full-map flood fill is expensive. Only evaluate reachability when a
+    // candidate survives cheaper terrain, clearance and resource checks.
+    let reachableWorkTiles = null;
     let best = null, bestScore = -Infinity;
     for (const t of w.tiles) {
       if (t.x < 2 || t.y < 2 || t.x >= w.width - 2 || t.y >= w.height - 2) continue;
@@ -249,8 +250,15 @@ export function chooseBuildSite(w, community, structures, builder = null) {
       const siteHitbox = structureHitbox({ ...sitePreview, complete: true });
       if (overlapsSiteResources(w, siteHitbox, resourceIndex)) continue;
       const workPositions = builder ? constructionWorkPositions(w, sitePreview, builder) : null;
-      if (builder && (!workPositions || workPositions.some(point =>
-        !constructionWorkpointReachable(w, builder, point, reachableWorkTiles)))) continue;
+      if (builder) {
+        if (!workPositions) continue;
+        if (!reachableWorkTiles) {
+          reachableWorkTiles = new Set(reachableAreaAround(w, builder, builder, Math.hypot(w.width, w.height))
+            .map(tile => tile.i));
+        }
+        if (workPositions.some(point =>
+          !constructionWorkpointReachable(w, builder, point, reachableWorkTiles))) continue;
+      }
       const score = Math.log1p(localBiomass) * .24 + waterAccess * .12 - t.slope * 1.4 - spacing * .045 - centerDistance * .012
         + (ownedProperty ? .42 : 0) + (nextType === 'curral' ? Math.log1p(nearbyBrowse) * .19 - flockDistance * .045 : 0)
         + (fieldTiles ? Math.min(1, fieldTiles.length / 25) * .61 : 0) + noise

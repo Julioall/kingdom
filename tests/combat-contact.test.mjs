@@ -239,18 +239,19 @@ test('effects wait for release/contact, expire, and do not replay on redraw or r
   assert.equal(effects.active(releaseAt).filter(e => e.projectile).length, 1);
   effects.observe(f.world, releaseAt + 100);
   assert.equal(effects.active(releaseAt + 100).filter(e => e.projectile).length, 1);
-  assert.equal(effects.active(1000 + f.action.result.atMs).filter(e => !e.projectile && !e.blood).length, 1);
+  assert.equal(effects.active(1000 + f.action.result.atMs).filter(e => !e.projectile && !e.blood).length, 0,
+    'body contact no longer emits a generic dust effect');
   assert.equal(effects.active(1000 + f.action.result.atMs).filter(e => e.blood).length, 1);
   effects.observe(f.world, 2000, true); assert.equal(effects.active(2000).length, 0);
 });
 
-test('body impact presentation is anchored to the confirmed contact point and simulated contact time', () => {
+test('blood impact presentation remains anchored to confirmed contact and contact time', () => {
   const f = fixture('guerreiro');
   f.resolve();
   const effects = createActivityEffects();
   effects.observe(f.world, 1000);
 
-  const impact = effects.active(1000 + f.action.result.atMs).find(effect => !effect.projectile);
+  const impact = effects.active(1000 + f.action.result.atMs).find(effect => effect.blood);
 
   assert.ok(impact);
   assert.equal(impact.startedAt, 1000 + f.action.result.atMs);
@@ -264,7 +265,8 @@ test('movement must use snapshot arrival time even while the animation clock pau
   const world = { day: 0, people: [person], animals: [] };
   movement.observe(world, 10000, { reset: true });
   person.x = 1; world.day = 1; movement.observe(world, 11000);
-  assert.ok(movement.pose('person', person, 11560).x > .4);
+  // JUL-289 keeps a 180ms visual jitter buffer, so progress is 380/1000.
+  assert.ok(Math.abs(movement.pose('person', person, 11560).x - .38) < 1e-8);
   person.x = 2; world.day = 2; movement.observe(world, 12000, { speed: 3 });
   assert.ok(movement.pose('person', person, 12560).x > 1.4);
 });

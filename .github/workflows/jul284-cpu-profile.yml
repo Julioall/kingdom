@@ -1,0 +1,46 @@
+name: "JUL-284 — Full World CPU Profile"
+on:
+  push:
+    branches:
+      - perf/jul284-full-world-cpu-profile
+permissions:
+  contents: read
+jobs:
+  profiler:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - name: Profile 500 full Kingdom people with V8 CPU samples
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node --cpu-prof --cpu-prof-dir=out --cpu-prof-name=jul284-world.cpuprofile scripts/profile-jul284-world.mjs 500 | tee out/world-cpu.txt
+      - name: Summarize sample hotspots
+        run: |
+          node --input-type=commonjs -e '
+            const fs=require("node:fs");
+            const p=JSON.parse(fs.readFileSync("out/jul284-world.cpuprofile","utf8"));
+            const map=new Map(p.nodes.map(n=>[n.id,n]));
+            const scores=new Map();
+            for(let i=0;i<p.samples.length;i++){
+              const n=map.get(p.samples[i]);
+              if(!n)continue;
+              const cf=n.callFrame, label=cf.functionName+" @ "+cf.url+":"+cf.lineNumber;
+              scores.set(label,(scores.get(label)||0)+1);
+            }
+            const total=p.samples.length, top=[...scores].sort((a,b)=>b[1]-a[1]).slice(0,30)
+              .map(([name,n])=>({name,samples:n,exclusivePercent:+(100*n/total).toFixed(2)}));
+            fs.writeFileSync("out/cpu-summary.json",JSON.stringify({samples:total,top},null,2));
+            console.log(JSON.stringify({samples:total,top},null,2));
+          ' | tee out/cpu-summary.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jul284-world-cpu-profile
+          path: out/
+          if-no-files-found: warn

@@ -1,4 +1,6 @@
 import engine from './engine.js';
+import { validTileColumnDelta } from './tile-delta.js';
+import { validFieldTileDelta } from './field-delta.js';
 
 const SCALAR_FIELDS = [
   'heightM', 'slope', 'soilCapacityMm', 'soilWaterMm', 'roadWear',
@@ -25,12 +27,18 @@ function typeCode(fieldIndex, value) {
   return code;
 }
 
-export function createWorldSnapshot(world, { reset = false } = {}) {
+export function createWorldSnapshot(world, { reset = false, previousTileColumns = null } = {}) {
   const tileCount = world.tiles.length;
   const plantCount = engine.plants.length;
   const scalars = new Float32Array(tileCount * SCALAR_FIELDS.length);
-  const ids = new Int32Array(tileCount * ID_FIELDS.length);
-  const types = new Uint8Array(tileCount * TYPE_FIELDS.length);
+  const reusable = !reset && previousTileColumns?.tileCount === tileCount
+    && previousTileColumns?.plantCount === plantCount;
+  let idsShared = reusable && previousTileColumns.ids instanceof Int32Array
+    && previousTileColumns.ids.length === tileCount * ID_FIELDS.length;
+  let typesShared = reusable && previousTileColumns.types instanceof Uint8Array
+    && previousTileColumns.types.length === tileCount * TYPE_FIELDS.length;
+  let ids = idsShared ? previousTileColumns.ids : new Int32Array(tileCount * ID_FIELDS.length);
+  let types = typesShared ? previousTileColumns.types : new Uint8Array(tileCount * TYPE_FIELDS.length);
   const plants = new Float32Array(tileCount * plantCount);
 
   for (let index = 0; index < tileCount; index++) {
@@ -39,9 +47,16 @@ export function createWorldSnapshot(world, { reset = false } = {}) {
     for (let field = 0; field < SCALAR_FIELDS.length; field++) scalars[scalarOffset + field] = tile[SCALAR_FIELDS[field]] || 0;
     for (let field = 0; field < ID_FIELDS.length; field++) {
       const value = field === STUMP_ID_INDEX ? tile.stump?.untilDay : tile[ID_FIELDS[field]];
-      ids[idOffset + field] = Number.isInteger(value) ? value : -1;
+      const encoded = Number.isInteger(value) ? value | 0 : -1;
+      const offset = idOffset + field;
+      if (idsShared && ids[offset] !== encoded) { ids = ids.slice(); idsShared = false; }
+      if (!idsShared) ids[offset] = encoded;
     }
-    for (let field = 0; field < TYPE_FIELDS.length; field++) types[typeOffset + field] = typeCode(field, tile[TYPE_FIELDS[field]]);
+    for (let field = 0; field < TYPE_FIELDS.length; field++) {
+      const encoded = typeCode(field, tile[TYPE_FIELDS[field]]), offset = typeOffset + field;
+      if (typesShared && types[offset] !== encoded) { types = types.slice(); typesShared = false; }
+      if (!typesShared) types[offset] = encoded;
+    }
     plants.set(tile.plants, index * plantCount);
   }
 
@@ -108,6 +123,136 @@ export function applyWorldSnapshot(snapshot, previous = null) {
   view.logs.splice(0, view.logs.length, ...snapshot.logs);
   view.stats = snapshot.stats;
   return view;
+}
+
+/** Apply a sparse tile-only update with the SAME field semantics as a full
+ * WorldSnapshot. The caller must verify epoch/baseRevision first.
+ * @param {import('./protocol').WorldTileDelta} delta
+ * @param {import('./protocol').WorldView} previous
+ * @returns {import('./protocol').WorldView}
+ */
+// Preflight all modified tiles before touching *any* authoritative projection.
+// An invalid packet must leave the previous view intact until resync arrives.
+function validateDeltaTileTargets(previous, columns) {
+  const tiles = previous.tiles;
+  const check = index => {
+    const tile = tiles[index];
+    if (!tile || !(tile.plants instanceof Float32Array) ||
+        tile.plants.length !== columns.plantCount)
+      throw new Error('Tile inexistente ou incompatível no delta.');
+  };
+  if (columns.schemaVersion === 1) {
+    for (const index of columns.indices) check(index);
+    return;
+  }
+  const entries = Object.values(columns.fields).flat();
+  if (entries.some(entry => entry.indices == null)) {
+    for (let index = 0; index < tiles.length; index++) check(index);
+    return;
+  }
+  const seen = new Uint8Array(tiles.length);
+  for (const entry of entries) for (const index of entry.indices) {
+    if (seen[index]) continue;
+    seen[index] = 1;
+    check(index);
+  }
+}
+function validateDeltaCollections(delta, previous) {
+  if (!Array.isArray(delta.events) || !Array.isArray(delta.logs) ||
+      !Array.isArray(previous.events) || !Array.isArray(previous.logs))
+    throw new Error('Coleções incompatíveis no delta do mundo.');
+}
+
+function applyWorldFieldTileDelta(delta, previous) {
+  const fields = delta?.tileColumns;
+  if (!previous || !delta || delta.reset || !delta.base ||
+      previous.width !== delta.base.width || previous.height !== delta.base.height ||
+      !validFieldTileDelta(fields, {
+        tileCount: previous.tiles.length, plantCount: engine.plants.length,
+        scalarFields: SCALAR_FIELDS.length, idFields: ID_FIELDS.length,
+        typeFields: TYPE_FIELDS.length
+      })) throw new Error('O delta de campos não corresponde ao estado atual.');
+  validateDeltaCollections(delta, previous);
+  validateDeltaTileTargets(previous, fields);
+  Object.assign(previous, delta.base);
+  let waterChanged = false;
+  const eachValue = (entries, apply) => {
+    for (const entry of entries) {
+      const positions = entry.indices;
+      for (let row = 0; row < entry.values.length; row++) {
+        const index = positions ? positions[row] : row;
+        const tile = previous.tiles[index];
+        if (!tile || !tile.plants || tile.plants.length !== fields.plantCount)
+          throw new Error('Tile ausente no delta de campos.');
+        apply(tile, entry.field, entry.values[row]);
+      }
+    }
+  };
+  eachValue(fields.fields.scalars, (tile, field, value) => {
+    tile[SCALAR_FIELDS[field]] = value;
+  });
+  eachValue(fields.fields.ids, (tile, field, value) => {
+    if (field === STUMP_ID_INDEX) tile.stump = value < 0 ? null : { untilDay: value };
+    else tile[ID_FIELDS[field]] = value < 0 ? null : value;
+  });
+  eachValue(fields.fields.types, (tile, field, value) => {
+    const key = TYPE_FIELDS[field];
+    const next = TYPE_VALUES[field][value] || null;
+    if (field === 0 && tile.terrain !== next) waterChanged = true;
+    tile[key] = next;
+  });
+  eachValue(fields.fields.plants, (tile, field, value) => {
+    tile.plants[field] = value;
+  });
+  if (waterChanged) previous.waterTiles = previous.tiles.filter(tile => tile.terrain === 'water');
+  previous.events.splice(0, previous.events.length, ...delta.events);
+  previous.logs.splice(0, previous.logs.length, ...delta.logs);
+  previous.stats = delta.stats;
+  return previous;
+}
+
+export function applyWorldTileDelta(delta, previous) {
+  if (delta?.tileColumns?.schemaVersion === 2) return applyWorldFieldTileDelta(delta, previous);
+  if (!previous || !delta || delta.reset || !delta.base ||
+      previous.width !== delta.base.width || previous.height !== delta.base.height ||
+      !validTileColumnDelta(delta.tileColumns, previous.tiles.length, engine.plants.length)) {
+    throw new Error('O delta de tiles não corresponde ao estado atual.');
+  }
+  const { base, tileColumns } = delta;
+  validateDeltaCollections(delta, previous);
+  validateDeltaTileTargets(previous, tileColumns);
+  Object.assign(previous, base);
+  let waterChanged = false;
+  for (let row = 0; row < tileColumns.indices.length; row++) {
+    const index = tileColumns.indices[row];
+    const tile = previous.tiles[index];
+    if (!tile || !tile.plants || tile.plants.length !== tileColumns.plantCount) {
+      throw new Error('Tile inexistente ou incompatível no delta.');
+    }
+    const oldTerrain = tile.terrain;
+    const scalarOffset = row * SCALAR_FIELDS.length;
+    const idOffset = row * ID_FIELDS.length;
+    const typeOffset = row * TYPE_FIELDS.length;
+    for (let field = 0; field < SCALAR_FIELDS.length; field++)
+      tile[SCALAR_FIELDS[field]] = tileColumns.scalars[scalarOffset + field];
+    for (let field = 0; field < ID_FIELDS.length; field++) {
+      if (field === STUMP_ID_INDEX) continue;
+      const value = tileColumns.ids[idOffset + field];
+      tile[ID_FIELDS[field]] = value < 0 ? null : value;
+    }
+    const stumpUntilDay = tileColumns.ids[idOffset + STUMP_ID_INDEX];
+    tile.stump = stumpUntilDay < 0 ? null : { untilDay: stumpUntilDay };
+    for (let field = 0; field < TYPE_FIELDS.length; field++)
+      tile[TYPE_FIELDS[field]] = TYPE_VALUES[field][tileColumns.types[typeOffset + field]] || null;
+    tile.plants.set(tileColumns.plants.subarray(row * tileColumns.plantCount,
+      (row + 1) * tileColumns.plantCount));
+    if (oldTerrain !== tile.terrain) waterChanged = true;
+  }
+  if (waterChanged) previous.waterTiles = previous.tiles.filter(tile => tile.terrain === 'water');
+  previous.events.splice(0, previous.events.length, ...delta.events);
+  previous.logs.splice(0, previous.logs.length, ...delta.logs);
+  previous.stats = delta.stats;
+  return previous;
 }
 
 export function transferablesForSnapshot(snapshot) {

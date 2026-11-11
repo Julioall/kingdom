@@ -1,0 +1,45 @@
+name: "JUL-278 — Real inspector Worker browser QA"
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - "src/ui/game.js"
+      - "src/ui/actor-inspector-details.js"
+      - "tests/actor-inspector-details.test.mjs"
+      - "scripts/qa-jul278-inspector-browser.mjs"
+      - ".github/workflows/jul278-inspector-browser.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  actor-inspector:
+    name: Person and animal inspector read-only Worker queries
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium and dependencies
+        run: npx playwright install --with-deps chromium
+      - name: Test cache invalidation and stale responses
+        run: node --test tests/actor-inspector-details.test.mjs
+      - name: Select actual characters and verify Worker query in browser
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node scripts/qa-jul278-inspector-browser.mjs out/jul278-inspector-browser.json \
+            | tee out/jul278-inspector-browser.log
+      - name: Keep UI contract evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jul278-inspector-worker-browser
+          path: out/jul278-inspector-browser.*
+          if-no-files-found: warn

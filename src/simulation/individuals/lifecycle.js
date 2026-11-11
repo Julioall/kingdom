@@ -3,6 +3,7 @@ import { formatWholeMeasure } from '../../config/whole-measures.js';
 import { rand } from '../core/random.js';
 import { magicModifiers } from '../magic/effects.js';
 import { createBrain, ensureBrainSize } from '../../controllers/individual/neural.js';
+import { createCognitiveState } from '../../ai/policy/individual-state.js';
 import { randomHabitatCell } from '../world/generation.js';
 import { clamp, distance } from '../core/math.js';
 import { cellAt } from '../world/spatial.js';
@@ -92,6 +93,7 @@ export function makePerson(w, x, y, newborn) {
       brain: createBrain(w, PEOPLE_ACTIONS, PEOPLE_INPUTS, id), lastReward: 0,
       lastLesson: 'Ainda está aprendendo com o ambiente.', state: 'observando'
     });
+    person.cognitiveState = createCognitiveState(w, person);
     return person;
   }
 

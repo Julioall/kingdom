@@ -1,0 +1,66 @@
+name: "JUL-273 — Queue metrics A/B (isolated + full world)"
+on:
+  push:
+    branches:
+      - perf/jul273-lazy-queue-metrics-20261101
+permissions:
+  contents: read
+jobs:
+  queue-ab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ca0dc6cfaf53a07f3daaa4e4e67fb71301a0e4f6
+          path: baseline
+      - uses: actions/checkout@v7.0.1
+        with:
+          path: candidate
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - name: Measure identical neural queue output and instrumented CPU time
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node candidate/scripts/benchmark-jul273-queue-metrics.mjs baseline > out/baseline-queue.txt
+          node candidate/scripts/benchmark-jul273-queue-metrics.mjs candidate > out/candidate-queue.txt
+          node --input-type=commonjs -e '
+            const fs=require("node:fs");
+            const parse=p=>fs.readFileSync(p,"utf8").split("\n")
+              .filter(s=>s.startsWith("QUEUE_AB ")).map(s=>JSON.parse(s.slice(9)));
+            const a=parse("out/baseline-queue.txt"),b=parse("out/candidate-queue.txt");
+            for(const x of a){
+              const y=b.find(z=>z.count===x.count);
+              if(!y||x.digest!==y.digest||x.consumed!==y.consumed)
+                throw Error("Neural output mismatch at "+x.count);
+              console.log("queue",x.count,"digest equal; baseline consume ms",x.consumedMs,
+                "candidate consume ms",y.consumedMs);
+            }
+          ' | tee out/queue-parity.txt
+      - name: Full-world replay A/B, no gameplay integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          node baseline/scripts/benchmark-simulation.mjs --days=6 --warmup=2 --repeats=1 --seeds=1,42,2026 --output=out/baseline-world.json > out/baseline-world.txt
+          node candidate/scripts/benchmark-simulation.mjs --days=6 --warmup=2 --repeats=1 --seeds=1,42,2026 --output=out/candidate-world.json > out/candidate-world.txt
+          node --input-type=commonjs -e '
+            const fs=require("node:fs");
+            const a=JSON.parse(fs.readFileSync("out/baseline-world.json"));
+            const b=JSON.parse(fs.readFileSync("out/candidate-world.json"));
+            for(const x of a.results){
+              const y=b.results.find(z=>z.seed===x.seed);
+              if(!y||x.stateDigest!==y.stateDigest)
+                throw Error("World replay diverged for seed "+x.seed);
+              console.log("world",x.seed,"digest equal; baseline day ms",x.meanDayMs,
+                "candidate day ms",y.meanDayMs);
+            }
+          ' | tee out/world-parity.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jul273-lazy-queue-ab
+          path: out/
+          if-no-files-found: warn

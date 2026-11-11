@@ -3,6 +3,7 @@ import { log } from '../core/events.js';
 import { cellAt } from '../world/spatial.js';
 import { reportTerritoryLoss } from './frontier-intelligence.js';
 import { invalidateNavigation } from '../individuals/navigation-cache.js';
+import { tryReuseTerritories, rememberTerritories } from './territory-cache.js';
 
 const CASTLE_RADIUS = 18;
 const TOWER_RADIUS = 13;
@@ -18,6 +19,9 @@ function structureRadius(structure) {
 }
 
 export function recomputeKingdomTerritories(world, context = null) {
+  // Still check current world cells and sources in their causal order. Only
+  // skip the expensive influence projection when its exact inputs match.
+  if (tryReuseTerritories(world, context, structureRadius)) return;
   const previousOwners = world.tiles.map(tile => tile.kingdomId);
   const kingdoms = world.kingdoms || [];
   const kingdomById = new Map();
@@ -77,6 +81,9 @@ export function recomputeKingdomTerritories(world, context = null) {
   });
   for (const loss of losses.values()) reportTerritoryLoss(world, loss.kingdomId, loss.opponentId,
     loss.tiles, loss.location, context?.day ?? world.day);
+  // Ownership, navigation revision and loss/intelligence notifications are
+  // already final. Cache the resulting projection only now, never before.
+  rememberTerritories(world, structureRadius);
 }
 
 export function kingdomRelation(world, aId, bId) {

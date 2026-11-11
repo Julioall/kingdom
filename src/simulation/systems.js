@@ -25,17 +25,27 @@ import { advanceMagic } from './magic/system.js';
 const DAYS_PER_MARKET_CYCLE = 30;
 const DAYS_PER_WORLD_REPORT = 30;
 
-function updateEnvironment(world, day) {
-  const weather = updateClimate(world, day);
+// Instrumentation is strictly opt-in. With no observer, the same simulation
+// calls run in the same sequence, without invoking a clock. This records wall
+// time of each synchronous phase (a CPU proxy, not a browser FPS measurement).
+function sampleEnvironmentPhase(observer, name, run) {
+  if (!observer) return run();
+  const start = performance.now();
+  try { return run(); }
+  finally { observer(name, performance.now() - start); }
+}
+
+function updateEnvironment(world, day, observer = null) {
+  const weather = sampleEnvironmentPhase(observer, 'climate', () => updateClimate(world, day));
 
   // Traffic influences plant recovery, so refresh roads before soil and vegetation.
-  updateRoadWear(world);
-  updateSoilAndWater(world);
-  updatePlants(world, day);
-  updateAnimals(world);
+  sampleEnvironmentPhase(observer, 'roads', () => updateRoadWear(world));
+  sampleEnvironmentPhase(observer, 'hydrology', () => updateSoilAndWater(world));
+  sampleEnvironmentPhase(observer, 'vegetation', () => updatePlants(world, day));
+  sampleEnvironmentPhase(observer, 'animals', () => updateAnimals(world));
 
   // People and animals need current ownership when they decide where to move.
-  recomputeKingdomTerritories(world);
+  sampleEnvironmentPhase(observer, 'territoriesBeforeActors', () => recomputeKingdomTerritories(world));
   return weather;
 }
 
@@ -49,10 +59,10 @@ function updateMarketMaintenance(world, day) {
   maintainKingdomFortifications(world, day);
 }
 
-function updateResourcesAndMarkets(world, day) {
-  updateLooseLogs(world);
-  decompose(world);
-  updateMarketMaintenance(world, day);
+function updateResourcesAndMarkets(world, day, observer = null) {
+  sampleEnvironmentPhase(observer, 'looseLogs', () => updateLooseLogs(world));
+  sampleEnvironmentPhase(observer, 'decomposition', () => decompose(world));
+  sampleEnvironmentPhase(observer, 'marketMaintenance', () => updateMarketMaintenance(world, day));
 }
 
 function advanceCalendar(world, day) {
@@ -110,9 +120,9 @@ function reportWorldState(world, day, stats) {
   };
 }
 
-function resolveEndOfDayConsequences(world, day) {
+function resolveEndOfDayConsequences(world, day, observer = null) {
   // Commands and construction may have changed structures during today's actions.
-  recomputeKingdomTerritories(world);
+  sampleEnvironmentPhase(observer, 'territoriesAfterActors', () => recomputeKingdomTerritories(world));
   recordKingdomFrontierOutcomes(world, day);
   observeMilitaryFrontiers(world, day);
   recordRoyalSitingOutcomes(world, day);
@@ -129,7 +139,9 @@ export function stepDay(world, options = null) {
   recoverTrainingDummyHealth(world, nextDay);
 
   // 1. Weather and ecology establish the conditions for the day.
-  const weather = updateEnvironment(world, nextDay);
+  const observer = typeof options?.onEnvironmentPhase === 'function'
+    ? options.onEnvironmentPhase : null;
+  const weather = updateEnvironment(world, nextDay, observer);
 
   // 2. Rulers may fund a neutral frontier post from their own treasury before resolving today's needs.
   updateKingdomFrontierExpansion(world, nextDay);
@@ -149,13 +161,13 @@ export function stepDay(world, options = null) {
   respondToLocalThreats(world, nextDay);
 
   // 5. Loose materials decay; market prices and fortification upkeep refresh monthly.
-  updateResourcesAndMarkets(world, nextDay);
+  updateResourcesAndMarkets(world, nextDay, observer);
 
   // 6. Border incidents use the new date and territory after today's actions.
   advanceCalendar(world, nextDay);
   advanceSocialCommitmentDeadlines(world);
   advanceKingdomProjects(world, nextDay);
-  resolveEndOfDayConsequences(world, nextDay);
+  resolveEndOfDayConsequences(world, nextDay, observer);
 
   const capturedSnapshot = options && options.includeSnapshot === false
     ? null : snapshot(world);

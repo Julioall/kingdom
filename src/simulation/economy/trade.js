@@ -551,7 +551,13 @@ export function findTradePartner(w, community, person) {
       countTradeDiagnostic(w, 'marketOpportunityBlocked', 'no-exchange-offer');
     }
     const visibleMembers = (person.perception && person.perception.people || []).filter(s => s.visible)
-      .map(s => w.people.find(p => p.id === s.id && p.alive)).filter(Boolean);
+      .map(s => {
+        if (w.peopleById instanceof Map) {
+          const member = w.peopleById.get(s.id);
+          return member?.alive ? member : undefined;
+        }
+        return w.people.find(p => p.id === s.id && p.alive);
+      }).filter(Boolean);
     return w.communities.filter(c => !c.dissolved && c.id !== community.id && visibleMembers.some(p => p.communityId === c.id))
       .map(c => {
         const other = visibleMembers.filter(p => p.communityId === c.id).sort((a, b) => distance(person, a) - distance(person, b))[0];

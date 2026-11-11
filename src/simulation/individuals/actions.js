@@ -24,6 +24,9 @@ import { changePersonHealth, killPerson, reproducePeople, updateDependent } from
 import Senses from './perception.js';
 import { ensureFoodAidPlan, findTradePartner, performShare, performTrade, resolveFoodAidRequest } from '../economy/trade.js';
 import { choosePeopleAction, updateBrain } from '../../controllers/individual/neural.js';
+import { beginCognitiveDay } from '../../ai/policy/cognitive-scheduler.js';
+import { buildPeoplePolicyInputs } from './observation-features.js';
+import { buildPeopleActionUtilities } from './action-utilities.js';
 import { drinkWater } from '../ecology/hydrology.js';
 import { recordPersonalMemory } from './strategy.js';
 import { canPatrolToday, patrolSoldier } from '../kingdoms/patrols.js';
@@ -43,6 +46,11 @@ import { consumePersonEnergy } from './energy.js';
 import { chooseMilitaryAction, learnMilitaryOutcome, militaryTrainingPairs, trainMilitaryPair } from '../kingdoms/military-learning.js';
 import { advanceSocialIntention, defineSocialIntention, maintainSocialIntentions, physicalIntentionBlockers } from '../society/social-evidence.js';
 import { foodAidEvidenceIds, selectFoodHelper, selectSocialPlanAction } from '../society/plan-execution.js';
+
+// Resolve shared policy selectors once, not as fresh closures for every actor.
+const PEOPLE_ACTION_UTILITY_SELECTORS = Object.freeze({
+  communityBuildUtility, carriedResources, communityHerd, communityFoodStock
+});
 
 const STARVATION_HEALTH_LOSS_PER_POINT = .035;
 const PERSONAL_FOOD_PRESSURE_THRESHOLD = 42;
@@ -130,6 +138,10 @@ export function personalFoodHarvestLimit(person, requested, reserveCapacity, dir
 export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
     let best = null, bestScore = -Infinity;
     let bestSurvivalTarget = null, bestSurvivalScore = -Infinity, continuingSurvivalTarget = null;
+    // Candidate evaluation is read-only: share one collision index across all
+    // food approaches in this selection, rather than reconstructing it for
+    // each promising bush/field candidate.
+    let collisionIndex = null;
     const criticalFoodPressure = person.foodReserve <= CRITICAL_FOOD_RESERVE_THRESHOLD;
     const resources = person.perception && person.perception.resources || [];
     const failedTargets = (person.failedFoodTargets || []).filter(target => Number.isInteger(target.x)
@@ -141,13 +153,16 @@ export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
     const failedTargetKeys = new Set(failedTargets.map(target => target.x + ',' + target.y));
     const harvestCapacity = clamp(1.8 + person.skills.forage * 3.2, 1.8, 5);
     for (const resource of resources) {
-      const tile = cellAt(w, resource.x, resource.y);
+      // Perception already carries terrain and distance. Avoid a world lookup
+      // for candidates that are provably ineligible.
+      if (resource.terrain !== 'land' || resource.distance > radius) continue;
       if (failedTargetKeys.has(resource.x + ',' + resource.y)) continue;
+      const tile = cellAt(w, resource.x, resource.y);
       if (fieldId != null && tile?.cropFieldId !== fieldId) continue;
-      if (tile?.cropFieldId == null && !isBushAnchor(w, tile, 'berry')) continue;
       const availableFood = resource.harvestableBiomass || resource.biomass;
       const food = HUMAN_FOOD.reduce((sum, id) => sum + (availableFood[id] || 0), 0);
-      if (resource.terrain !== 'land' || resource.distance > radius || food < .8) continue;
+      if (food < .8) continue;
+      if (tile?.cropFieldId == null && !isBushAnchor(w, tile, 'berry')) continue;
       const warningPenalty = tile && canEnterForeignTerritory(w, person, tile) ? 0 : 3;
       const expectedHarvestReserve = Math.min(food, harvestCapacity) * FOOD_DAYS_PER_UNIT;
       const expectedTravelDays = Math.ceil(Math.max(0, resource.distance - HARVEST_REACH_DISTANCE) / Math.SQRT2);
@@ -164,7 +179,8 @@ export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
       const improvesSelection = score > bestScore;
       const improvesSurvivalSelection = criticalFoodPressure && canCoverSurvivalTrip && score > bestSurvivalScore;
       if (!improvesSelection && !improvesSurvivalSelection && !(criticalFoodPressure && canCoverSurvivalTrip && matchesCurrentTarget)) continue;
-      if (!foodApproachTiles(w, person, tile).length) continue;
+      if (!collisionIndex) collisionIndex = worldCollisionIndex(w);
+      if (!foodApproachTiles(w, person, tile, collisionIndex).length) continue;
       const candidate = cellAt(w, resource.x, resource.y);
       if (improvesSelection) { best = candidate; bestScore = score; }
       if (criticalFoodPressure && canCoverSurvivalTrip) {
@@ -176,13 +192,13 @@ export function bestPeopleFoodCell(w, person, radius, fieldId = null) {
     return best;
   }
 
-function foodApproachTiles(w, person, foodTile) {
+function foodApproachTiles(w, person, foodTile, sharedCollisionIndex = null) {
   if (!w || !person || !foodTile) return [];
   const cropField = foodTile.cropFieldId != null;
   if (!cropField && !isBushAnchor(w, foodTile, 'berry')) return [];
   const harvestHitbox = cropField ? null : bushHarvestHitbox(w, foodTile, 'berry');
   if (!cropField && !harvestHitbox) return [];
-  const collisionIndex = worldCollisionIndex(w);
+  const collisionIndex = sharedCollisionIndex || worldCollisionIndex(w);
   const candidates = [];
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
     const tile = cellAt(w, foodTile.x + dx, foodTile.y + dy);
@@ -968,6 +984,9 @@ export function resolveResourceConflict(w, a, b, tile, resourceKind, patchValue)
 function updatePeopleCore(w) {
     refreshHarvestSuitability(w);
     const living = w.people.filter(p => p.alive).sort((a, b) => a.id - b.id);
+    // Only budgets neural forward passes; physical/need/command resolution
+    // continues for every actor on every day.
+    beginCognitiveDay(w, living);
     const socialMeetingParticipants = new Set();
     const trainingPairs = militaryTrainingPairs(w);
     const communityCounts = new Map();
@@ -1146,14 +1165,11 @@ function updatePeopleCore(w) {
       const browseAccess = browseFood ? clamp(plantBiomass(browseFood, ['browse']) / 90, 0, 1) : 0;
       const materialNeed = community ? communityBuildingNeed(w, community, communitySize) : 0;
       const goldNeed = community ? clamp((55 - (community.stores.gold || 0)) / 55, 0, 1) : 0;
-      const inputs = [
-        clamp((68 - p.foodReserve) / 68, 0, 1), clamp((70 - p.hydration) / 70, 0, 1),
-        clamp((70 - p.energy) / 70, 0, 1), clamp(p.socialNeed / 100, 0, 1),
-        food ? clamp(1 - distance(p, food) / 5, 0, 1) : 0, waterTarget ? clamp(1 - distance(p, waterTarget) / 32, 0, 1) : 0,
-        clamp(groupFood / 45, 0, 1), clamp(groupMaterial / 90, 0, 1), risk, clamp(p.injury / 12, 0, 1), huntAccess, deliveryNeed,
-        preyNearby ? clamp(1 - distance(p, preyNearby) / 8, 0, 1) : 0, browseAccess, feedNeed, materialNeed,
-        looseLog ? clamp(1 - looseLog.distance / 7, 0, 1) : 0, community ? clamp((community.stores.gold || 0) / 55, 0, 1) : 0
-      ];
+      const inputs = buildPeoplePolicyInputs({
+        person: p, food, waterTarget, groupFood, groupMaterial,
+        risk, huntAccess, deliveryNeed, preyNearby, browseAccess,
+        feedNeed, materialNeed, looseLog, community
+      });
       const canBuild = community && communitySize >= 3 && p.buildCooldown <= 0 && p.energy > 27 && p.hydration > 18 && p.foodReserve > 16
         && canCommunityBuild(w, community, communitySize);
       const canGather = p.perception.resources.some(resource => resource.visible && resource.terrain === 'land'
@@ -1171,29 +1187,17 @@ function updatePeopleCore(w) {
       const hasLocalHarvest = foodNeed > .35 && !!shelter && (preyNearby || herdPrey || huntGround);
       const canMigrate = !!bestHabitatCell(w, p) && (localSuitability < .1 || p.conflictRisk > .62 || hasFoodPressure || hasWaterPressure) && !hasLocalHarvest;
       const marketTrust = tradePartner && tradePartner.relation ? tradePartner.relation.trust : .35;
-      const utility = [
-        food ? inputs[0] * 1.85 + .24 + inputs[4] * .2 + (community && groupFood < 8 ? .12 : 0) + p.skills.forage * .08 : -.6,
-        shelter && (preyNearby || herdPrey || huntGround) && (p.carriedMeat || 0) <= .01 ? .1 + foodNeed * (.45 + huntAccess * .5) + p.skills.hunt * .16 + (preyNearby || herdPrey ? .28 : 0) : -.65,
-        (p.carriedMeat || 0) > .01 && shelter ? .72 + deliveryNeed * .45 : -.7,
-        waterTarget ? inputs[1] * 2.05 + .32 : -.5,
-        inputs[3] * p.sociability * .82 + (socialTarget ? .12 : -.35),
-        inputs[2] * .92 + p.injury * .045 + .04,
-        .08 + Math.max(0, .28 - localSuitability) * .7 + risk * .16 - borderRisk * .8,
-        canBuild ? communityBuildUtility(w, community, communitySize) : -1,
-        canGather ? clamp(.17 + (community && materialNeed > .05 ? .48 + materialNeed * .25 : 0) + goldNeed * .24 + p.skills.gather * .12, .12, .82) : -.55,
-        storage.destination && looseLog && !carriedResources(p) && p.carriedWood < 22
-          ? clamp(.32 + inputs[16] * .3 + materialNeed * .55 + (storage.community.stores.wood < 18 ? .18 : 0), .2, .95) : -.65,
-        community && pen && browseFood && herd.length && (community.stores.feed || 0) < 48
-          ? clamp(.12 + browseAccess * .2 + feedNeed * .62 + p.skills.care * .15, .12, .9) : -.65,
-        (communityFoodAidAvailable || voluntaryFoodAidAvailable) ? .3 + inputs[6] * .5 + p.skills.care * .16 : -.55,
-        tradePartner ? .54 + p.skills.diplomacy * .15 + marketTrust * .12 : -.55,
-        canMigrate ? .18 + risk * .58 + (1 - localSuitability) * .32 + (hasFoodPressure ? .64 : 0) + (hasWaterPressure ? .62 : 0) : -.7,
-        community && availablePen && sheepSighting && sheepSighting.visible && !p.leadingSheepId
-          ? .28 + (sheepSighting.distance <= 1.6 ? .72 : .24) + p.skills.care * .14 + (communityHerd(w, community).length < 3 ? .12 : 0) : -.8,
-        p.leadingSheepId && pen ? 1.18 : -.8,
-        raidTarget && community && communityFoodStock(community) / Math.max(1, communitySize) < 2.2
-          ? .2 + clamp(.95 - communityFoodStock(community) / Math.max(1, communitySize), 0, 1) * .7 + raidTarget.relation.tension * .28 : -.85
-      ];
+      // All observations were prepared after this actor's daily mutations.
+      // Keep the same causal boundary and preserve lazy selectors/order.
+      const utility = buildPeopleActionUtilities({
+        w, p, inputs, food, community, groupFood, shelter, preyNearby, herdPrey,
+        huntGround, foodNeed, huntAccess, deliveryNeed, waterTarget, socialTarget,
+        localSuitability, risk, borderRisk, canBuild, canGather, materialNeed, goldNeed,
+        storage, looseLog, pen, browseFood, herd, browseAccess, feedNeed,
+        communityFoodAidAvailable, voluntaryFoodAidAvailable, tradePartner,
+        marketTrust, canMigrate, hasFoodPressure, hasWaterPressure,
+        availablePen, sheepSighting, raidTarget, communitySize
+      }, PEOPLE_ACTION_UTILITY_SELECTORS);
       const assignment = currentAssignment;
       updateKingdomFoodSupplyPhase(assignment, p.foodReserve, p.carriedFood);
       const canContinueFoodFieldWork = canWorkOnFoodFieldWithReserve(p, assignment, w)

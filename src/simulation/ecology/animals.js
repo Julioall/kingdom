@@ -77,17 +77,30 @@ export function nearestThreat(w, animal, radius) {
 
 export function animalFoodCell(w, animal, profile) {
     const resources = animal.perception && animal.perception.resources || [];
-    const candidate = resources.filter(resource => (profile.aquatic ? resource.terrain === 'water' : resource.terrain !== 'water')
-      && profile.diet.some(id => (resource.biomass[id] || 0) > .5))
-      .sort((a, b) => {
-        const tileA = cellAt(w, a.x, a.y), tileB = cellAt(w, b.x, b.y);
-        const valueA = profile.diet.reduce((sum, id) => sum + (a.biomass[id] || 0), 0) - a.distance * 4
-          - resourceUsePressure(tileA) * 28;
-        const valueB = profile.diet.reduce((sum, id) => sum + (b.biomass[id] || 0), 0) - b.distance * 4
-          - resourceUsePressure(tileB) * 28;
-        return valueB - valueA;
-      })[0];
-    return candidate ? cellAt(w, candidate.x, candidate.y) : null;
+    // Sorting every visible food tile calls cellAt/pressure/diet reduction
+    // O(k log k) times. Choose the highest score in one pass, preserving the
+    // source-array tie order of stable Array.sort. Observe AFTER prior actors
+    // have consumed/moved; do not cache these scores across animal decisions.
+    let best = null, bestScore = -Infinity;
+    const eligible = resource => (profile.aquatic ? resource.terrain === 'water' : resource.terrain !== 'water')
+      && profile.diet.some(id => (resource.biomass[id] || 0) > .5);
+    const scoreOf = resource => profile.diet.reduce((sum, id) => sum + (resource.biomass[id] || 0), 0)
+      - resource.distance * 4 - resourceUsePressure(cellAt(w, resource.x, resource.y)) * 28;
+    for (const resource of resources) {
+      if (!eligible(resource)) continue;
+      const score = scoreOf(resource);
+      if (!Number.isFinite(score)) {
+        // Preserve the exact old comparator behavior on malformed/nonfinite
+        // modded resources rather than inventing an ordering for NaN/Infinity.
+        const fallback = resources.filter(eligible).sort((a, b) => scoreOf(b) - scoreOf(a))[0];
+        return fallback ? cellAt(w, fallback.x, fallback.y) : null;
+      }
+      if (!best || score > bestScore) {
+        best = resource;
+        bestScore = score;
+      }
+    }
+    return best ? cellAt(w, best.x, best.y) : null;
   }
 
 export function animalHabitatCell(w, animal, profile) {

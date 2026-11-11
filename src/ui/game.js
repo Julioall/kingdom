@@ -37,12 +37,14 @@ import { mapDecorationAt, MAP_DECORATION_SPRITES } from './map-decorations.js';
 import { MILITARY_PAY, GARRISON_RECOVERY } from '../simulation/kingdoms/service.js';
 import { MILITARY_SOURCE_LABELS } from '../simulation/kingdoms/military-sources.js';
 import { mapCamera, followCameraPan, spriteScale, BUILDING_FEET, alignedTileRect, SOURCE_TILE_PIXELS } from './map-camera.js';
+import { clampCameraPan, zoomCameraAtPoint } from './camera-pan.js';
 import { structureDepthY } from './world-depth.js';
 import { createCloudSystem, atmosphereZoomProfile } from './cloud-system.js';
 import AtmosphericLayer from './atmospheric-layer.js';
 import DirtBrush, { SOIL_PALETTE } from './dirt-brush.js';
 import { createLoadingScreen } from './loading-screen.js';
 import { renderSocialInspectorSections } from './social-inspector.js';
+import { createActorInspectorDetails } from './actor-inspector-details.js';
 import { createRenderDiagnostics } from './render-profiler-panel.js';
 import { syncHudPanelAccess } from './hud-panel-access.js';
 import { createKingThoughts } from './king-thoughts.js';
@@ -50,6 +52,9 @@ import { createTerrainChunkCache } from './terrain-chunks.js';
 import { createPixelTileCache } from './pixel-tile-cache.js';
 import { compareDepth, mergeDepthItems } from './depth-order.js';
 import { createStaticDepthSpatialIndex } from './depth-spatial-index.js';
+import { createEntityDrawProbe } from './entity-draw-probe.js';
+import { createVisibleStaticDepthCache } from './visible-static-depth-cache.js';
+import { paintMinimap } from './render/minimap.js';
 import { shouldDrawMineralAtZoom } from './mineral-lod.js';
 import { MINERAL_SPRITE_KINDS, mineralDepositVariant } from './mineral-sprites.js';
 import { CORRAL_VISUAL_SCALE, corralFenceRadius } from '../simulation/ecology/herd.js';
@@ -111,7 +116,18 @@ export function mountGame() {
   const renderDiagnostics = createRenderDiagnostics();
   const diagnosticQuery = new URLSearchParams(window.location.search);
   const referenceRendering = diagnosticQuery.get('profile') === '1' && diagnosticQuery.get('render') === 'reference';
+  // depthCache=0 is the exact baseline switch for same-browser A/B captures.
+  const optimizedDepth = !referenceRendering && diagnosticQuery.get('depthCache') !== '0';
+  // JUL-289: allow precise headful A/B against the legacy shared cadence.
+  const stabilizeMovement = diagnosticQuery.get('movementJitterFix') !== '0';
+  // JUL-288: A/B switch; only upright, unmirrored person frames use the fast path.
+  const optimizedPersonSprites = diagnosticQuery.get('personDrawFastPath') !== '0';
+  const trackPersonSpriteCoverage = diagnosticQuery.get('profile') === '1'
+    && diagnosticQuery.get('spriteCoverage') === '1';
   const fixedEffects = diagnosticQuery.get('profile') === '1' && diagnosticQuery.get('effects') === 'fixed';
+  // Profiling is opt-in: sampling every item by default would distort the hot path.
+  const entityDrawProbe = diagnosticQuery.get('profile') === '1' && diagnosticQuery.get('entityProfile') === '1'
+    ? createEntityDrawProbe({ sampleEvery: 16 }) : null;
   const combatDebug = diagnosticQuery.get('combatDebug') === '1';
   const trackedImage = () => loadingScreen.trackImage(new Image());
   const $ = id => document.getElementById(id);
@@ -185,7 +201,15 @@ export function mountGame() {
   const trailSegmentByPerson = new Map();
   const pendingPersonTrailPoints = new Map();
   let lastTrailFlushAt = -Infinity;
-  const session = new GameSession(undefined, sessionSeed);
+  // Experimental only: validate stripped render actors against the live
+  // inspector before allowing compact presentation in normal sessions.
+  const compactActorsQA = import.meta.env.DEV && diagnosticQuery.get('compactActors') === '1';
+  // JUL-278: same tile-delta transport on BOTH sides of the browser A/B.
+  // Without this independent DEV-only flag, full mode would use complete
+  // snapshots while compact mode used tile deltas, confounding measurements.
+  const tileDeltaQA = import.meta.env.DEV && diagnosticQuery.get('tileDeltaQA') === '1';
+  const session = new GameSession(undefined, sessionSeed,
+    { compactActorTransport: compactActorsQA, tileDeltaTransport: tileDeltaQA });
   if (diagnosticQuery.get('paused') === '1') {
     session.paused = true;
     session.ready.then(() => session.setPaused(true)).catch(error => session.onError?.(error));
@@ -195,6 +219,14 @@ export function mountGame() {
   let world = null, rendered = false, localAI = null;
   let peopleById = new Map(), animalsById = new Map(), communitiesById = new Map(), kingdomsById = new Map(), structuresById = new Map();
   let selection = null, showLeft = false, showRight = false, hoveredTerritoryStructureId = null, hoveredMapEntity = false, hoveredPersonId = null;
+  // Detailed perception, learned routes and neural decisions belong to the
+  // Worker. The current full snapshot remains a compatibility fallback until
+  // a separate compact render DTO has passed gameplay/inspector parity gates.
+  const actorInspectorDetails = createActorInspectorDetails({
+    session, readSelection: () => selection, readWorld: () => world,
+    onDetail: () => { if (world && selection) renderInspector(); },
+    onError: error => console.warn('[Inspetor de personagens]', error)
+  });
   let manualControlId = null, manualAimWorld = null, manualDefending = false, manualHealing = false, lastManualInputKey = '';
   const manualHeldKeys = new Set();
   let manualAttackPreview = null, lastManualPointer = null;
@@ -318,7 +350,9 @@ export function mountGame() {
   const syncPanelAccess = () => syncHudPanelAccess($('leftPanel'), $('rightPanel'), { leftOpen: showLeft, rightOpen: showRight });
   syncPanelAccess();
   const isResetCancellation = error => error && error.name === 'AbortError';
+  const snapshotCallbackCpu = { samples: 0, totalMs: 0, lastMs: 0, maxMs: 0, over16Ms: 0 };
   session.onUpdate = (nextWorld, _stats, reset) => {
+    const updateStart = performance.now();
     world = nextWorld;
     peopleById = new Map(world.people.map(person => [person.id, person]));
     animalsById = new Map(world.animals.map(animal => [animal.id, animal]));
@@ -358,6 +392,7 @@ export function mountGame() {
       pendingPersonTrailPoints.clear();
       lastTrailFlushAt = performance.now();
       selection = null;
+      actorInspectorDetails.invalidate();
       manualPrediction.reset(); manualAttackPreview = null;
       manualControlId = null; manualAimWorld = null; manualDefending = false;
       manualHeldKeys.clear(); lastManualInputKey = '';
@@ -377,6 +412,12 @@ export function mountGame() {
       loadingScreen.markWorldReady();
     } else render('snapshot');
     if (localAI) localAI.pump();
+    const cpuMs = Math.max(0, performance.now() - updateStart);
+    snapshotCallbackCpu.samples++;
+    snapshotCallbackCpu.lastMs = cpuMs;
+    snapshotCallbackCpu.totalMs += cpuMs;
+    snapshotCallbackCpu.maxMs = Math.max(snapshotCallbackCpu.maxMs, cpuMs);
+    if (cpuMs > 16.7) snapshotCallbackCpu.over16Ms++;
   };
   session.onPlayerUpdate = (combat, personIds, magic = false) => {
     if (!world) return;
@@ -391,6 +432,12 @@ export function mountGame() {
       return;
     }
     if (!combat) return;
+    if (selection?.kind === 'person' && personIds.includes(selection.id)) {
+      // A combat/player command can change actor detail without a daily
+      // snapshot. Never display cached neural/health detail after that event.
+      actorInspectorDetails.invalidate();
+      renderInspector();
+    }
     invalidateStaticDepthCache();
     if (selection?.kind === 'training-dummy') renderInspector();
     let combatPresentationAt = animationTime;
@@ -457,7 +504,7 @@ export function mountGame() {
   let animationTime = 0, lastSpriteDraw = 0, lastAtmosphereUpdate = 0, assetRenderQueued = false, groundCacheKey = '', pendingClockDays = 0;
   let pendingMapDraw = 'initial';
   let lastCloudLayerDraw = -Infinity, cloudLayerViewKey = '', fogUpdateAccumulator = 0;
-  const movementInterpolator = createMovementInterpolator();
+  const movementInterpolator = createMovementInterpolator({ stabilizeCadence: stabilizeMovement });
   document.addEventListener('visibilitychange', () => movementInterpolator.markDiscontinuity());
   const actorAnimationClock = createActorAnimationClock();
   const activityEffects = createActivityEffects();
@@ -800,11 +847,9 @@ export function mountGame() {
     }
   }
   function clampMapPan() {
-    const mapSize = Math.min(stage.clientWidth, stage.clientHeight) * mapZoom;
-    const maxX = Math.max(0, (mapSize - stage.clientWidth) / 2);
-    const maxY = Math.max(0, (mapSize - stage.clientHeight) / 2);
-    mapPanX = Math.max(-maxX, Math.min(maxX, mapPanX));
-    mapPanY = Math.max(-maxY, Math.min(maxY, mapPanY));
+    const pan = clampCameraPan(stage.clientWidth, stage.clientHeight, mapZoom, mapPanX, mapPanY);
+    mapPanX = pan.x;
+    mapPanY = pan.y;
   }
   function updateMapViewport() {
     clampMapPan();
@@ -840,53 +885,21 @@ export function mountGame() {
     const key = [world.seed, world.day, mapZoom, mapPanX.toFixed(1), mapPanY.toFixed(1), world.people.length, world.structures.length].join(':');
     if (key === miniMapRenderKey) return;
     miniMapRenderKey = key;
-    const map = miniMapContext, width = miniMapCanvas.width, height = miniMapCanvas.height;
-    map.clearRect(0, 0, width, height);
-    const tileWidth = width / W, tileHeight = height / H;
-    const colors = { blue: '#3974b8', red: '#b74f45', purple: '#8354a7', yellow: '#d5b346', black: '#59616b' };
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) {
-        const tile = cell(x, y);
-        if (!tile) continue;
-        if (tile.terrain === 'water') map.fillStyle = '#3995a8';
-        else if (tile.kingdomId != null) {
-          const kingdom = getKingdom(tile.kingdomId);
-          map.fillStyle = colors[kingdom && kingdom.palette] || '#9c8751';
-        } else {
-          const biomass = Array.isArray(tile.plants) ? tile.plants.reduce((sum, amount) => sum + amount, 0) : 0;
-          map.fillStyle = biomass > 80 ? '#78934e' : biomass > 25 ? '#879351' : '#958751';
-        }
-        map.fillRect(x * tileWidth, y * tileHeight, tileWidth + .1, tileHeight + .1);
-      }
-    }
-    for (const structure of world.structures) {
-      map.fillStyle = colors[getKingdom(structure.kingdomId)?.palette] || '#d0b36c';
-      map.fillRect(structure.x - .6, structure.y - .6, 1.4, 1.4);
-    }
-    for (const person of world.people) if (person.alive && person.restingStructureId == null) {
-      map.fillStyle = colors[getKingdom(person.kingdomId)?.palette] || '#f0e2ae';
-      map.fillRect(person.x - .35, person.y - .35, .8, .8);
-    }
-    for (const animal of world.animals) if (animal.alive) {
-      map.fillStyle = '#fff1d0';
-      map.fillRect(animal.x - .3, animal.y - .3, .7, .7);
-    }
-    const view = getMapViewport();
-    const scaleX = width / LOGICAL_SIZE, scaleY = height / LOGICAL_SIZE;
-    map.strokeStyle = '#fff4ce'; map.lineWidth = 1.25;
-    map.strokeRect(view.x * scaleX + .5, view.y * scaleY + .5,
-      Math.max(1, view.width * scaleX - 1), Math.max(1, view.height * scaleY - 1));
+    paintMinimap({
+      map: miniMapContext, width: miniMapCanvas.width, height: miniMapCanvas.height,
+      W, H, world, cell, getKingdom, view: getMapViewport(), LOGICAL_SIZE
+    });
   }
   function zoomMapTo(nextZoom, clientX, clientY) {
     const bounds = stage.getBoundingClientRect();
-    const centerX = bounds.left + bounds.width / 2, centerY = bounds.top + bounds.height / 2;
-    const focusX = Number.isFinite(clientX) ? clientX : centerX;
-    const focusY = Number.isFinite(clientY) ? clientY : centerY;
-    const mapX = (focusX - centerX - mapPanX) / mapZoom;
-    const mapY = (focusY - centerY - mapPanY) / mapZoom;
-    mapZoom = Math.max(MIN_MAP_ZOOM, Math.min(MAX_MAP_ZOOM, nextZoom));
-    mapPanX = focusX - centerX - mapX * mapZoom;
-    mapPanY = focusY - centerY - mapY * mapZoom;
+    const camera = zoomCameraAtPoint({
+      left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height,
+      zoom: mapZoom, panX: mapPanX, panY: mapPanY,
+      nextZoom, clientX, clientY, minZoom: MIN_MAP_ZOOM, maxZoom: MAX_MAP_ZOOM
+    });
+    mapZoom = camera.zoom;
+    mapPanX = camera.panX;
+    mapPanY = camera.panY;
     updateMapViewport();
     drawMap();
   }
@@ -1147,7 +1160,8 @@ export function mountGame() {
     return animationRenderer.draw(ctx, animation, drawCenterX, drawBaseY,
       { elapsedMs, scale, flipX: sprite.flip,
         rotation: (pose.rotation || 0) + leanRotation,
-        loop: battle ? loop : true });
+        loop: battle ? loop : true, directDraw: optimizedPersonSprites,
+        trackFastPath: trackPersonSpriteCoverage });
   }
 
   function drawTinySwordsPerson(person, x, y, child, pose) {
@@ -1160,7 +1174,8 @@ export function mountGame() {
     return animationRenderer.draw(ctx, animation, x + TILE / 2, y + TILE,
       { elapsedMs: actorAnimationClock.elapsed(person.id, animation.id, animationTime),
         scale: spriteScale(TILE, CHARACTER_SPRITE_SCALE * (child ? .78 : 1)),
-        flipX: sprite.flip, loop: true });
+        flipX: sprite.flip, loop: true, directDraw: optimizedPersonSprites,
+        trackFastPath: trackPersonSpriteCoverage });
   }
 
   function drawCarriedMeat(person, x, y, pose) {
@@ -1699,7 +1714,9 @@ export function mountGame() {
 
   let staticDepthCacheWorld = null, staticDepthCacheDay = -1, staticDepthItems = [];
   let staticDepthSpatialIndex = null;
+  const visibleStaticDepthCache = createVisibleStaticDepthCache();
   function invalidateStaticDepthCache() {
+    visibleStaticDepthCache.clear();
     staticDepthCacheWorld = null;
     staticDepthCacheDay = -1;
     staticDepthSpatialIndex = null;
@@ -1797,7 +1814,8 @@ export function mountGame() {
         { dummy, depthY: dummy.y });
     }
     staticDepthItems = referenceRendering ? items : items.sort(compareDepth);
-    staticDepthSpatialIndex = referenceRendering ? null : createStaticDepthSpatialIndex(staticDepthItems);
+    staticDepthSpatialIndex = referenceRendering ? null : createStaticDepthSpatialIndex(staticDepthItems, 16,
+      { fullMapFastPath: optimizedDepth });
     staticDepthCacheWorld = world;
     staticDepthCacheDay = world.day;
     return staticDepthItems;
@@ -1857,8 +1875,11 @@ export function mountGame() {
   function collectDepthItems(bounds) {
     // Only off-screen resources are culled. Camera zoom never thins deposits.
     const allStatic = collectStaticDepthItems();
-    const staticCandidates = referenceRendering ? allStatic : staticDepthSpatialIndex.query(bounds);
-    const staticItems = staticCandidates.filter(item => item.x >= bounds.minX && item.x <= bounds.maxX
+    const staticItems = optimizedDepth ? visibleStaticDepthCache.get({
+      items: allStatic, spatialIndex: staticDepthSpatialIndex, bounds, zoom: mapZoom,
+      miningSites: activeMiningSites, showMineral: shouldDrawMineralAtZoom
+    }) : (referenceRendering ? allStatic : staticDepthSpatialIndex.query(bounds)).filter(item =>
+      item.x >= bounds.minX && item.x <= bounds.maxX
       && item.y >= bounds.minY && item.y <= bounds.maxY
       && (referenceRendering || item.kind !== 'mineral'
         || shouldDrawMineralAtZoom(item, mapZoom, activeMiningSites.has(item.x + ':' + item.y))));
@@ -2069,7 +2090,9 @@ export function mountGame() {
     magicVfx.drawGround(ctx);
     const items = collectDepthItems(bounds);
     profile?.mark('depthOrder');
+    const entitySamples = profile && entityDrawProbe ? entityDrawProbe.beginFrame() : null;
     for (const item of items) {
+      const sampledAt = entitySamples?.begin(item.kind) ?? null;
       if (item.kind === 'tree') drawTreeItem(item);
       else if (item.kind === 'mineral') drawMineralDeposit(item);
       else if (item.kind === 'bush') drawTinySwordsBush(item.tile, item.plantId, item.layout);
@@ -2111,7 +2134,9 @@ export function mountGame() {
           ctx.restore();
         }
       }
+      entitySamples?.end(item.kind, sampledAt);
     }
+    if (entitySamples) profile.setEntityBreakdown(entitySamples.finish());
     magicVfx.drawAura(ctx);
     if (showHitboxes) drawHitboxOverlay(bounds);
     drawMovementBlockLabels(bounds);
@@ -3048,7 +3073,15 @@ export function mountGame() {
     profile?.end({ cacheRebuilt, day: world.day, zoom: mapZoom,
       context: { renderer: 'canvas2d', atmosphereRenderer: atmosphericLayer.rendererType,
         magic: magicVfx.stats(),
-        referenceRendering, fixedEffects, terrainChunks: referenceRendering ? null : terrainChunks.stats(),
+        referenceRendering, fixedEffects, entityProfile: !!entityDrawProbe,
+        personDrawFastPath: optimizedPersonSprites,
+        movementJitterFix: stabilizeMovement,
+        movement: movementInterpolator.stats(renderTimestamp ?? performance.now()),
+        workerTransport: session.getTransportDiagnostics(),
+        snapshotCallbackCpu: { ...snapshotCallbackCpu },
+        ...(trackPersonSpriteCoverage ? { personSpriteCoverage: animationRenderer.fastPathStats() } : {}),
+        depthCache: optimizedDepth ? visibleStaticDepthCache.stats() : null,
+        terrainChunks: referenceRendering ? null : terrainChunks.stats(),
         pixelTiles: referenceRendering ? null : pixelTiles.stats(),
         seed: world.seed, day: world.day, season: world.stats.season, paused: session.paused, speed: session.speed,
         zoom: mapZoom, cameraTransform: camera.transform.slice(), viewport: { ...view.bounds },
@@ -3183,12 +3216,32 @@ export function mountGame() {
       $('leftPanel').classList.remove('is-open');
       $('kingdomsToggle').setAttribute('aria-expanded', 'false');
     }
+    if (selection?.kind !== item?.kind || selection?.id !== item?.id)
+      actorInspectorDetails.invalidate();
     selection = item;
     showRight = !!item;
     $('rightPanel').classList.toggle('is-open', showRight);
     syncPanelAccess();
     renderInspector();
     drawMap();
+  }
+
+  // E2E test-only access: never present in production or a normal dev game.
+  // The browser QA still goes through the real selection and Worker contract.
+  if (import.meta.env.DEV && diagnosticQuery.get('inspectorQA') === '1') {
+    window.__kingdomInspectorQA = Object.freeze({
+      open(kind, id) {
+        if (!['person', 'animal'].includes(kind) || !Number.isSafeInteger(id))
+          throw new Error('Invalid inspector QA selection.');
+        openSelection({ kind, id });
+      },
+      state() {
+        return { selection: selection ? { ...selection } : null,
+          day: world?.day ?? null, epoch: session.epoch,
+          materializedRevision: session.revision,
+          detail: actorInspectorDetails.snapshot() };
+      }
+    });
   }
 
   function updateLocalAIStatus(status) {
@@ -3284,7 +3337,14 @@ export function mountGame() {
       return;
     }
     if (selection.kind === 'person') {
-      const p = getPerson(selection.id);
+      const detail = actorInspectorDetails.read('person', selection.id);
+      if (compactActorsQA && detail === undefined && getPerson(selection.id)) {
+        $('inspectEyebrow').textContent = 'PERSONAGEM · CONSULTANDO WORKER';
+        $('inspectTitle').textContent = getPerson(selection.id).name || 'Personagem';
+        root.innerHTML = '<p class="quiet">Consultando os detalhes e a memória deste personagem no Worker…</p>';
+        return;
+      }
+      const p = detail === undefined ? getPerson(selection.id) : detail;
       if (!p) { selection = null; renderInspector(); return; }
       const kingdom = p.kingdomId ? getKingdom(p.kingdomId) : null;
       const links = Object.values(world.socialLinks).filter(l => l.a === p.id || l.b === p.id).length;
@@ -3375,7 +3435,7 @@ export function mountGame() {
 
           + '<div class="data-row"><span>Próximo soldo</span><b>Dia ' + (p.nextMilitaryPayDay ?? '—') + '</b></div>' : '') +
         '<h3>Reino e fronteiras</h3><div class="note-card"><b>' + esc(kingdom ? kingdom.name : 'Terra comum') + '</b><span>' + esc(p.perception && p.perception.territorialAwareness && p.perception.territorialAwareness.warningText || (kingdom ? 'Você reconhece este domínio e os riscos de atravessar fronteiras estrangeiras.' : 'Você vive em terra comum, sem a proteção territorial de um reino.')) + '</span></div>' +
-        '<h3>Decisão e aprendizado</h3><div class="brain-box"><strong>' + (p.militaryBrain && p.role === 'soldier' ? 'Rede militar' : 'Rede individual') + ' · ' + decisionBrain.inputSize + ' → ' + decisionBrain.hiddenSize + ' → ' + decisionBrain.actionCount + '</strong><small>' + (p.role === 'soldier' ? 'Compara guarda, patrulha e treino. Campanhas e necessidades urgentes limitam as opções disponíveis; os resultados ajustam seus pesos militares.' : p.role === 'ruler' ? 'O rei usa uma rede maior para comparar necessidades, recursos e riscos do reino; seus pesos também aprendem com os resultados.' : 'Avalia necessidades, alimento, água, risco de fronteira e áreas próximas; resultados positivos e negativos ajustam decisões futuras.') + '</small><div class="brain-metrics"><span>Intenção<b>' + esc(actionLabels[p.brain.lastAction] || p.brain.lastAction) + '</b></span><span>Atualizações<b>' + fmt(decisionBrain.updates) + '</b></span><span>Recompensa média<b>' + decisionBrain.rewardMean.toFixed(2) + '</b></span><span>Memória por ação<b>individual</b></span></div></div>' +
+        '<h3>Decisão e aprendizado</h3><div class="brain-box"><strong>' + (decisionBrain.mode === 'shared' ? 'Política neural compartilhada · pesos globais' : (p.militaryBrain && p.role === 'soldier' ? 'Rede militar' : 'Rede individual') + ' · ' + decisionBrain.inputSize + ' → ' + decisionBrain.hiddenSize + ' → ' + decisionBrain.actionCount) + '</strong><small>' + (decisionBrain.mode === 'shared' ? 'O mesmo modelo humano considera o papel e a percepção deste personagem; memórias, preferências e recompensas permanecem individuais.' : p.role === 'soldier' ? 'Compara guarda, patrulha e treino. Campanhas e necessidades urgentes limitam as opções disponíveis; os resultados ajustam seus pesos militares.' : p.role === 'ruler' ? 'O rei usa uma rede maior para comparar necessidades, recursos e riscos do reino; seus pesos também aprendem com os resultados.' : 'Avalia necessidades, alimento, água, risco de fronteira e áreas próximas; resultados positivos e negativos ajustam decisões futuras.') + '</small><div class="brain-metrics"><span>Intenção<b>' + esc(actionLabels[p.brain.lastAction] || p.brain.lastAction) + '</b></span><span>Atualizações<b>' + fmt(decisionBrain.updates) + '</b></span><span>Recompensa média<b>' + decisionBrain.rewardMean.toFixed(2) + '</b></span><span>Memória por ação<b>individual</b></span></div></div>' +
         (personalMemories.length ? '<h3>Memória pessoal recente</h3>' + personalMemories.map(memory => '<div class="event">Dia ' + memory.day + ': ' + esc(memory.state) + ' — ' + esc(memory.lesson) + '</div>').join('') : '') +
         socialInspector.planSection + socialInspector.commitmentSection
         + socialInspector.memorySection + socialInspector.beliefSection +
@@ -3401,7 +3461,14 @@ export function mountGame() {
       return;
     }
     if (selection.kind === 'animal') {
-      const a = getAnimal(selection.id);
+      const detail = actorInspectorDetails.read('animal', selection.id);
+      if (compactActorsQA && detail === undefined && getAnimal(selection.id)) {
+        $('inspectEyebrow').textContent = 'FAUNA · CONSULTANDO WORKER';
+        $('inspectTitle').textContent = 'Animal';
+        root.innerHTML = '<p class="quiet">Consultando os detalhes deste animal no Worker…</p>';
+        return;
+      }
+      const a = detail === undefined ? getAnimal(selection.id) : detail;
       if (!a) { selection = null; renderInspector(); return; }
       const profile = Sim.animals.find(p => p.id === a.speciesId);
       $('inspectEyebrow').textContent = 'BIOSFERA · FAUNA';
@@ -3415,7 +3482,7 @@ export function mountGame() {
           ? '<div class="brain-box"><strong>Manejo do rebanho · IA individual desligada</strong><small>' + (a.herdPenId != null
             ? 'A ovelha está associada a um curral e recebe uma porção diária. Os moradores recolhem brotos para manter o estoque comunitário.'
             : 'A ovelha pertence ao rebanho comunitário, mas aguarda vaga em um curral. A ração vem do estoque compartilhado.') + '</small><div class="brain-metrics"><span>Ração diária<b>1 porção</b></span><span>Recebida hoje<b>' + fmtRationPortions(a.lastFeedAmount || 0) + ' porção</b></span><span>Ração no reino<b>' + fmtRationPortions((getCommunity(a.herdCommunityId) || { stores: {} }).stores.feed || 0) + ' porções</b></span><span>Aprendizado<b>desativado</b></span></div></div>'
-          : '<div class="brain-box"><strong>Controlador individual · rede ' + a.brain.inputSize + ' → ' + a.brain.hiddenSize + ' → ' + a.brain.actionCount + '</strong><small>As necessidades e o habitat limitam as ações possíveis; a rede aprende com os resultados das decisões.</small><div class="brain-metrics"><span>Última intenção<b>' + esc(a.brain.lastAction) + '</b></span><span>Decisões<b>' + a.brain.decisions + '</b></span><span>Atualizações<b>' + a.brain.updates + '</b></span><span>Pesos<b>independentes</b></span></div></div>') +
+          : '<div class="brain-box"><strong>' + (a.brain.mode === 'shared' ? 'Política da espécie · pesos compartilhados' : 'Controlador individual · rede ' + a.brain.inputSize + ' → ' + a.brain.hiddenSize + ' → ' + a.brain.actionCount) + '</strong><small>' + (a.brain.mode === 'shared' ? 'As decisões usam pesos comuns da espécie; o aprendizado de ações permanece individual.' : 'As necessidades e o habitat limitam as ações possíveis; a rede aprende com os resultados das decisões.') + '</small><div class="brain-metrics"><span>Última intenção<b>' + esc(a.brain.lastAction) + '</b></span><span>Decisões<b>' + a.brain.decisions + '</b></span><span>Atualizações<b>' + a.brain.updates + '</b></span><span>Pesos<b>' + (a.brain.mode === 'shared' ? 'compartilhados' : 'independentes') + '</b></span></div></div>') +
         '<p class="quiet">' + (profile.prey.length ? 'A dieta inclui ' + profile.prey.map(id => Sim.animals.find(s => s.id === id).name.toLowerCase()).join(', ') + '; a predação depende de encontros e do estado da presa.' : 'A dieta retira biomassa vegetal disponível; não há reposição automática de indivíduos.') + '</p>';
       return;
     }
@@ -4039,7 +4106,7 @@ export function mountGame() {
       paintMap(source);
     }
     profile?.mark('map');
-    profile?.end();
+    profile?.end({ movement: movementInterpolator.stats(now), rafTimestamp: now });
     if (renderDiagnostics.profiler.enabled) renderDiagnostics.refresh(now);
     window.requestAnimationFrame(frame);
   }

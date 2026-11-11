@@ -22,6 +22,44 @@ export type WorldSnapshot = {
   reset: boolean;
 };
 
+export type SparseTileColumns = {
+  schemaVersion: 1;
+  tileCount: number;
+  plantCount: number;
+  indices: Uint32Array;
+  scalars: Float32Array;
+  ids: Int32Array;
+  types: Uint8Array;
+  plants: Float32Array;
+};
+
+export type FieldTileColumns = {
+  schemaVersion: 2;
+  tileCount: number;
+  plantCount: number;
+  scalarFields: number;
+  idFields: number;
+  typeFields: number;
+  fields: {
+    scalars: Array<{field: number; indices?: Uint32Array; values: Float32Array}>;
+    ids: Array<{field: number; indices?: Uint32Array; values: Int32Array}>;
+    types: Array<{field: number; indices?: Uint32Array; values: Uint8Array}>;
+    plants: Array<{field: number; indices?: Uint32Array; values: Float32Array}>;
+  };
+};
+
+export type WorldTileDelta = Omit<WorldSnapshot, 'tileColumns' | 'reset'> & {
+  tileColumns: SparseTileColumns | FieldTileColumns;
+  baseRevision: number;
+  reset: false;
+};
+
+// Detailed actor data is requested only when an inspector needs it. The
+// response envelope supplies epoch/revision; result carries the precise day.
+export type ActorInspectionResult =
+  | {kind:'person'; actorId:number; day:number; actor:WorldState['people'][number] | null}
+  | {kind:'animal'; actorId:number; day:number; actor:WorldState['animals'][number] | null};
+
 export type KingdomAiDecisionRequest = {
   contractVersion: 1;
   requestId: string;
@@ -49,8 +87,9 @@ type RequestEnvelope = {
 };
 
 export type SimulationWorkerRequest = RequestEnvelope & (
-  | { type: 'initialize'; config: WorldConfig; seed: number }
-  | { type: 'reset'; seed: number; kingdomAiEnabled: boolean }
+  | { type: 'initialize'; config: WorldConfig; seed: number; transport?: 'tile-delta' | 'tile-delta-compact' }
+  | { type: 'reset'; seed: number; kingdomAiEnabled: boolean; transport?: 'tile-delta' | 'tile-delta-compact' }
+  | { type: 'resync' }
   | { type: 'set-paused'; paused: boolean }
   | { type: 'advance'; days: number; source: 'clock' | 'manual' }
   | { type: 'dispatch'; command: WorldCommand }
@@ -59,6 +98,8 @@ export type SimulationWorkerRequest = RequestEnvelope & (
   | { type: 'apply-kingdom-ai-decision'; aiRequest: KingdomAiDecisionRequest; decision: { action: string; confidence: number; reason: string }; providerMetadata?: { provider?: string; model?: string; elapsedMs?: number; inputTokens?: number; contextTokens?: number; outputTokens?: number } }
   | { type: 'fail-kingdom-ai-request'; aiRequest: KingdomAiDecisionRequest; failure?: { reason?: string; provider?: string; model?: string } }
   | { type: 'inspect-tile'; x: number; y: number }
+  | { type: 'inspect-person'; personId: number }
+  | { type: 'inspect-animal'; animalId: number }
 );
 
 type ResponseEnvelope = {
@@ -70,6 +111,7 @@ type ResponseEnvelope = {
 
 export type SimulationWorkerResponse = ResponseEnvelope & (
   | { type: 'snapshot'; snapshot: WorldSnapshot; result?: unknown }
+  | { type: 'world-delta'; delta: WorldTileDelta; result?: unknown }
   | { type: 'player-update'; person?: WorldState['people'][number] | null; people?: WorldState['people']; combatEvents?: unknown[]; loot?: unknown[]; trainingDummyStates?: WorldState['trainingDummyStates']; events?: unknown[]; logs?: unknown[]; magicTimeMs?: number; magicZones?: unknown[]; magicEvents?: unknown[]; magicStats?: unknown; result?: unknown }
   | { type: 'ack'; result?: unknown }
   | { type: 'kingdom-ai-request'; request: KingdomAiDecisionRequest | null }
