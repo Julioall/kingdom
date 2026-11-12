@@ -27,6 +27,7 @@ import {
   createFormation, formationSlot, measureFormation, recordFormationBlockedMove,
   setFormationDestination, setFormationState, setFormationType
 } from './formations.js';
+import { planSquadTactics, squadSlot } from './squad-tactics.js';
 
 const ACTIVE_STATES = new Set(['mobilizing', 'marching', 'engaged', 'withdrawing']);
 const CAMPAIGN_RATION_DAYS = 18;
@@ -624,7 +625,9 @@ export function campaignOrderFor(world, person) {
   const patient = deployed && person.militaryClass === 'monge'
     ? selectHealingTarget(person, livingSideTroops(world, side), 12) : null;
   const formation = withdrawing && side.formation ? { ...side.formation, worldSlots: null } : side.formation;
-  const engagingEnemy = !needsIndividualTarget && enemy && (!tower || distance(person, enemy) <= 6);
+  const squadIndex = side.squadTactics?.memberToSquad?.[person.id];
+  const squad = Number.isInteger(squadIndex) ? side.squadTactics.squads[squadIndex] : null;
+  const engagingEnemy = !squad?.routed && !needsIndividualTarget && enemy && (!tower || distance(person, enemy) <= 6);
   let target = formation ? campaignFormationSlot(formation, person.id, destination, geometry?.orientation)
     : towerPosition || individualTarget;
   if (patient) target = distance(person, patient) > 5 ? { x: patient.x, y: patient.y } : { x: person.x, y: person.y };
@@ -634,10 +637,28 @@ export function campaignOrderFor(world, person) {
   const commanding = person.militaryRank === 'general' && side.troopIds.length > 1 && !withdrawing && !needsIndividualTarget;
   if (commanding) target = formation?.worldSlots?.[person.id] || { x: geometry.destination.x - geometry.orientation.x * 6,
     y: geometry.destination.y - geometry.orientation.y * 6 };
-  const tactical = !needsIndividualTarget && deployed && (!!enemy || !!towerPosition || !!patient);
+  // Only the commander plans a long march. Followers seek short relative slots
+  // around the commander's real position; the existing collision/route system
+  // still handles solid obstacles, yielding, recovery and nearby enemies.
+  if (squad && !withdrawing && !needsIndividualTarget && !towerPosition && !engagingEnemy && !patient) {
+    if (person.id === squad.commanderId) {
+      const tile = cellAt(world, squad.target.x, squad.target.y);
+      if (tile?.terrain === 'land') target = squad.target;
+    } else {
+      const commander = world.people.find(other => other.id === squad.commanderId && other.alive
+        && other.kingdomId === person.kingdomId && other.campaignId === campaign.id);
+      if (commander && !commander.playerControlled) {
+        const slot = squadSlot(squad, person.id, commander);
+        target = slot && cellAt(world, slot.x, slot.y)?.terrain === 'land'
+          ? slot : { x: commander.x, y: commander.y };
+      }
+    }
+  }
+  const tactical = !squad?.routed && !needsIndividualTarget && deployed && (!!enemy || !!towerPosition || !!patient);
   const engagementRange = engagingEnemy ? combatEngagementRange(person.militaryClass) : null;
   return { campaign, side, target, destination, withdrawing, tactical: !commanding && tactical,
-    engagementRange: commanding ? null : engagementRange, commanding, formation: side.formation || null };
+    engagementRange: commanding ? null : engagementRange, commanding,
+    squadLeader: squad?.commanderId === person.id, formation: side.formation || null };
 }
 
 export function performCampaignOrder(world, person, order) {
@@ -656,7 +677,7 @@ export function performCampaignOrder(world, person, order) {
     return true;
   }
   if (order.construction) return performFrontierWork(world, person, order);
-  const { campaign, side, target, withdrawing, holding, formation, tactical, engagementRange, commanding } = order;
+  const { campaign, side, target, withdrawing, holding, formation, tactical, engagementRange, commanding, squadLeader } = order;
   if (holding) {
     person.state = side.role === 'defender' ? 'mantendo posição defensiva' : 'mantendo posição da campanha';
     person.lastLesson = 'O general ordenou manter a posição; a guarnição não avança até receber nova ordem.';
@@ -693,7 +714,10 @@ export function performCampaignOrder(world, person, order) {
   }
   if (!moved) recordFormationBlockedMove(formation);
   person.campaignMoveSucceeded = !!moved;
-  person.state = moved ? commanding ? 'deslocando posto de comando em campo' : withdrawing ? 'retornando da campanha' : 'marchando para a área disputada' : 'rota de campanha bloqueada';
+  person.state = moved ? commanding ? 'deslocando posto de comando em campo'
+    : withdrawing ? 'retornando da campanha'
+      : squadLeader ? 'liderando a formação da tropa' : 'marchando para a área disputada'
+    : 'rota de campanha bloqueada';
   person.lastLesson = moved
     ? withdrawing ? 'Retirar-se consome tempo e ração, mas devolve os soldados ao posto.'
       : 'A marcha segue o local do incidente conhecido; distância e abastecimento limitam a campanha.'
@@ -754,7 +778,8 @@ export function updateFieldCommand(world, campaign, side, day) {
       : side.role === 'attacker' ? 'Avançar sobre o objetivo da campanha com a tropa organizada.' : 'Proteger o objetivo e interceptar o avanço inimigo.';
   const command = { issuerId: leader.id, campaignId: campaign.id, day, action, formationType,
     target: { ...campaign.target }, targetStructureId: campaign.evidence?.structureId ?? null,
-    targetEnemyId: priority?.id ?? null, reason };
+    targetEnemyId: priority?.id ?? null,
+    observedEnemyIds: observed.slice(0, 12).map(enemy => enemy.id), reason };
   const previous = side.fieldCommand;
   if (!previous || previous.issuerId !== command.issuerId || previous.action !== action
     || previous.formationType !== formationType || previous.targetEnemyId !== command.targetEnemyId) {
@@ -814,6 +839,22 @@ function updateCampaignFormation(world, campaign, side, day) {
   }
   refreshCampaignFormationSlots(formation, troops);
   if (!withdrawing) fitFormationToTerrain(world, campaign, side, troops, geometry);
+  const tacticalMode = ['commanders', 'hierarchical'].includes(world.tacticalCombat?.mode)
+    ? world.tacticalCombat.mode : 'legacy';
+  if (!withdrawing && tacticalMode !== 'legacy') {
+    const kingdom = kingdomById(world, side.kingdomId);
+    const knownIds = new Set(side.fieldCommand?.observedEnemyIds || []);
+    const threats = world.people.filter(enemy => enemy.alive && knownIds.has(enemy.id));
+    side.squadTactics = planSquadTactics({
+      units: kingdom?.militaryCommand?.units || [],
+      troops: activeTroops.filter(person => !person.playerControlled),
+      generalOrder: side.fieldCommand,
+      destination: geometry.destination, home: side.home,
+      orientation: geometry.orientation, day, previous: side.squadTactics,
+      observedThreats: threats, openFront: openFormationFront(world, campaign.target),
+      sideMorale: side.morale, mode: tacticalMode
+    });
+  } else side.squadTactics = null;
   measureFormation(formation, activeTroops, day, destination || campaign.target, withdrawing ? formationSlot
     : (_formation, id, goal) => campaignOrderFor(world, activeTroops.find(person => person.id === id))?.target
       || tacticalDestination(world, activeTroops.find(person => person.id === id), goal));
