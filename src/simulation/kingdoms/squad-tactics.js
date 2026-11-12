@@ -35,7 +35,8 @@ function moraleForSquad(sideMorale, prior, strength, day, stamina) {
 
 export function planSquadTactics({ units = [], troops = [], generalOrder = null,
   destination, home, orientation = null, day, previous = null,
-  observedThreats = [], openFront = true, sideMorale = 80, mode = 'hierarchical' }) {
+  observedThreats = [], openFront = true, sideMorale = 80, mode = 'hierarchical',
+  projectTarget = position => position }) {
   if (!destination || !Number.isFinite(destination.x) || !Number.isFinite(destination.y))
     return { day, squads: [], memberToSquad: {}, mode };
   const byId = new Map(troops.filter(p => p?.alive).map(p => [p.id, p]));
@@ -98,13 +99,13 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     // behind the center until contact/pressure calls it forward.
     const atFront = dist(commander, destination) <= DEPLOY_DISTANCE;
     const side = role === 'flank-left' ? -1 : role === 'flank-right' ? 1 : 0;
-    const mustFlank = mode === 'hierarchical' && side !== 0 && contested && !!focus
+    const mustFlank = mode === 'hierarchical' && openFront && side !== 0 && contested && !!focus
       && generalOrder?.action !== 'hold_position'
       && !['assemble', 'press-front'].includes(generalOrder?.battlePlan);
-    const outerWaypoint = focus && {
-      x: focus.x + lateral.x * side * 9 - forward.x * 5,
-      y: focus.y + lateral.y * side * 9 - forward.y * 5
-    };
+    const outerWaypoint = focus && projectTarget({
+      x: focus.x + lateral.x * side * 11 - forward.x * 6,
+      y: focus.y + lateral.y * side * 11 - forward.y * 6
+    });
     // The captain reaching the waypoint is NOT enough. The shield/spear line
     // must arrive as a body before it pivots and attacks the enemy's side.
     const wingFollowers = members.filter(p => p.id !== commander.id);
@@ -130,6 +131,7 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
       y: destination.y - forward.y * 1.5
     };
     if (mission === 'hold') goal = prior?.holdPoint || { x: commander.x, y: commander.y };
+    goal = projectTarget(goal);
     const count = kind => members.filter(p => p.militaryClass === kind).length;
     const spears = count('lanceiro'), shields = count('guerreiro');
     const narrow = !openFront || generalOrder?.formationType === 'column' && !atFront;
@@ -167,6 +169,7 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
       initialStrength: prior?.initialStrength ?? members.length,
       phase, flankStage, formationChangedDay,
       holdPoint: mission === 'hold' ? goal : null,
+      flankWaypoint: mustFlank ? outerWaypoint : null,
       contactEnemyId: focus?.id ?? null
     };
     // Infantry does not sprint ahead while its formation stretches out behind.
