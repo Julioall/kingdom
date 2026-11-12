@@ -51,7 +51,7 @@ jobs:
         run: node scripts/benchmark-squad-hierarchy.mjs --days=90 --seeds=1,42,2026 --scenario=midpoint --output=out/squad-benchmark.json
 
       - name: Generate interactive medieval battlefield replay
-        if: github.event_name == 'pull_request' && github.head_ref == 'feat/commander-led-tactics-20261111'
+        if: (github.event_name == 'pull_request' && github.head_ref == 'feat/commander-led-tactics-20261111') || github.ref == 'refs/heads/codex/medieval-choreography-final-qa-20261112'
         run: |
           for seed in 1 42 2026; do
             node scripts/replay-medieval-battle.mjs --seed="$seed" --days=75 --interval=5 --output="out/battle-replay-$seed.html"
@@ -59,7 +59,7 @@ jobs:
           node scripts/replay-medieval-battle.mjs --seed=42 --days=75 --interval=2 --force-size=50 --output=out/battle-replay-reserves.html
 
       - name: Upload tactical replay and measurements for visual QA
-        if: github.event_name == 'pull_request' && github.head_ref == 'feat/commander-led-tactics-20261111'
+        if: (github.event_name == 'pull_request' && github.head_ref == 'feat/commander-led-tactics-20261111') || github.ref == 'refs/heads/codex/medieval-choreography-final-qa-20261112'
         uses: actions/upload-artifact@v4
         with:
           name: kingdom-medieval-battle-replay
