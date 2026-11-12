@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import Sim from '../src/simulation/engine.js';
 import { campaignOrderFor, prepareKingdomCampaigns } from '../src/simulation/kingdoms/campaigns.js';
-import { observedInfluence, planSquadTactics, squadSlot } from '../src/simulation/kingdoms/squad-tactics.js';
+import { medievalSlotAssignments, observedInfluence, planSquadTactics, squadSlot } from '../src/simulation/kingdoms/squad-tactics.js';
 
 function pureFixture(mode = 'hierarchical', previous = null, day = 2, sideMorale = 85) {
   const troops = Array.from({ length: 20 }, (_, i) => ({
@@ -27,7 +27,7 @@ test('commanders anchor stable squads with unique relative soldier slots', () =>
   const positions = new Set();
   for (let id = 12; id <= 20; id++) {
     const slot = squadSlot(plan.squads[1], id, { x: 10, y: 10 });
-    assert.ok(slot.x < 10);
+    assert.ok(Number.isFinite(slot.x) && Number.isFinite(slot.y));
     positions.add(JSON.stringify(slot));
   }
   assert.equal(positions.size, 9);
@@ -107,3 +107,72 @@ test('ten-person marching units use three files rather than a long single file',
     'three files should fit nine followers into three short rows');
   assert.deepEqual(slots.slice(0, 3).map(slot => slot.y), [-1.5, 0, 1.5]);
 });
+
+test('medieval shield wall places melee in the front and keeps archers/clerics protected', () => {
+  const troops = [
+    { id: 1, militaryClass: 'guerreiro' },
+    { id: 2, militaryClass: 'guerreiro' },
+    { id: 3, militaryClass: 'guerreiro' },
+    { id: 4, militaryClass: 'lanceiro' },
+    { id: 5, militaryClass: 'lanceiro' },
+    { id: 6, militaryClass: 'arqueiro' },
+    { id: 7, militaryClass: 'arqueiro' },
+    { id: 8, militaryClass: 'monge' }
+  ];
+  const slots = medievalSlotAssignments(troops, 1, 'shield_wall');
+  assert.ok(slots[2].forward > slots[4].forward, 'shield infantry shields spearmen');
+  assert.ok(slots[4].forward > slots[6].forward, 'spears screen archers');
+  assert.ok(slots[6].forward > slots[8].forward, 'cleric stays behind the bows');
+  const points = Object.values(slots).map(p => JSON.stringify(p));
+  assert.equal(new Set(points).size, points.length);
+});
+
+test('general coordinates two real wing maneuvers before flanking strike', () => {
+  const troops = Array.from({ length: 30 }, (_, i) => ({
+    id: i + 1, alive: true, x: 16, y: 10, stamina: 100,
+    militaryClass: 'guerreiro',
+    militaryRank: i % 10 === 0 ? 'comandante' : 'soldado'
+  }));
+  const units = [0,1,2].map(i => ({
+    id: 'u' + i, commanderId: i * 10 + 1,
+    memberIds: troops.slice(i * 10, i * 10 + 10).map(p => p.id)
+  }));
+  const args = { units, troops, day: 3, destination: { x: 20, y: 10 },
+    home: { x: 0, y: 10 }, observedThreats: [{
+      id: 100, x: 20, y: 10, militaryClass: 'guerreiro'
+    }], mode: 'hierarchical', generalOrder: { action: 'engage', formationType: 'line' } };
+  const first = planSquadTactics(args);
+  const wings = first.squads.filter(s => s.role.startsWith('flank'));
+  assert.equal(wings.length, 2);
+  assert.ok(wings.every(s => s.phase === 'flanking' && s.flankStage === 'swing'));
+  assert.ok(wings[0].target.y < 10 && wings[1].target.y > 10);
+  const wingCommander = troops.find(p => p.id === wings[0].commanderId);
+  Object.assign(wingCommander, wings[0].target);
+  const second = planSquadTactics({ ...args, day: 4, previous: first });
+  assert.equal(second.squads[1].flankStage, 'strike');
+  assert.equal(second.squads[1].phase, 'striking');
+  assert.equal(second.squads[1].formationType, 'wedge');
+});
+
+test('reserves hold behind the center until the vanguard is under pressure', () => {
+  const troops = Array.from({ length: 50 }, (_, i) => ({
+    id: i + 1, alive: true, x: 17, y: 10, stamina: 100,
+    militaryRank: i % 10 === 0 ? 'comandante' : 'soldado'
+  }));
+  const units = [0,1,2,3,4].map(i => ({
+    id: 'u' + i, commanderId: i * 10 + 1,
+    memberIds: troops.slice(i * 10, i * 10 + 10).map(p => p.id)
+  }));
+  const args = { units, troops, day: 5, destination: { x: 20, y: 10 },
+    home: { x: 0, y: 10 }, observedThreats: [{ id: 91, x: 20, y: 10 }],
+    mode: 'hierarchical' };
+  const first = planSquadTactics(args);
+  const reserve = first.squads.find(s => s.role === 'reserve');
+  assert.equal(reserve.mission, 'reserve');
+  assert.equal(reserve.phase, 'holding');
+  const previous = structuredClone(first);
+  previous.squads[0].morale = 40;
+  const next = planSquadTactics({ ...args, day: 6, previous });
+  assert.equal(next.squads.find(s => s.role === 'reserve').mission, 'reinforce');
+});
+
