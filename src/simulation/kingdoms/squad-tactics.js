@@ -164,7 +164,8 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     const followers = members.filter(p => p.id !== commander.id);
     const stragglers = followers.filter(p => dist(p, commander) > 6.5);
     const pacing = (phase === 'marching' || phase === 'deploying')
-      && !contested && dist(commander, destination) > DEPLOY_DISTANCE
+      && (!focus || dist(commander, focus) > 9)
+      && dist(commander, destination) > DEPLOY_DISTANCE
       && stragglers.length >= Math.max(2, Math.ceil(followers.length * 0.4))
       && day % 3 !== 0;
     if (pacing) {
