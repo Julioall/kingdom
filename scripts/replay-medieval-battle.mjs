@@ -114,6 +114,7 @@ function capture() {
     for (const squad of side?.squadTactics?.squads || []) {
       const commander = troops.find(p => p.id === squad.commanderId);
       groups.push({ id: squad.id, kingdomId: side.kingdomId, role: squad.role,
+        mission: squad.mission, reserveCommittedDay: squad.reserveCommittedDay ?? null,
         phase: squad.phase, formation: squad.formationType,
         cohesion: squad.cohesion, rankIntegrity: squad.rankIntegrity,
         commanderId: squad.commanderId,
@@ -276,7 +277,7 @@ console.log('BATTLE-REPLAY', JSON.stringify({
     sum + frame.groups.filter(group => group.role === 'reserve' && group.phase === 'holding').length, 0),
   reserveReinforceDays: snapshots.reduce((sum, frame) =>
     sum + frame.groups.filter(group => group.role === 'reserve'
-      && group.phase !== 'holding' && group.phase !== 'marching').length, 0),
+      && group.mission === 'reinforce').length, 0),
   phases: Object.fromEntries([...new Set(snapshots.flatMap(frame => frame.groups.map(s => s.phase)))]
     .map(phase => [phase, snapshots.reduce((n, frame) =>
       n + frame.groups.filter(s => s.phase === phase).length, 0)])),
