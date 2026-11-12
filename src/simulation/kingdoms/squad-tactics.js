@@ -95,6 +95,10 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
       wedge: mode === 'hierarchical' && openFront && atFront && members.length >= 4 && mission === 'flank' ? 12 : -10,
       square: mode === 'hierarchical' && openFront && atFront && contested && (mission === 'hold' || role === 'reserve') ? 11 : -10
     };
+    // The general's overall deployment is the squad's starting doctrine;
+    // local terrain and squad specialization may still override it.
+    if (generalOrder?.formationType === 'column') scores.column += 2;
+    if (generalOrder?.formationType === 'line') scores.line += 1;
     if (mode === 'hierarchical' && observedInfluence(goal, threatList) > 1.5) scores.column += 2;
     if (prior && scores[prior.formationType] != null) scores[prior.formationType] += 1;
     const formationType = Object.entries(scores).sort((a, b) => b[1] - a[1])[0][0];
