@@ -157,6 +157,20 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
       holdPoint: mission === 'hold' ? goal : null,
       contactEnemyId: focus?.id ?? null
     };
+    // Infantry does not sprint ahead while its formation stretches out behind.
+    // Keep a real moving commander, but pace long marches: if many followers
+    // lag beyond six tiles, the commander holds two days out of every three
+    // until his body of troops closes the gap. Contact and rout override pacing.
+    const followers = members.filter(p => p.id !== commander.id);
+    const stragglers = followers.filter(p => dist(p, commander) > 6.5);
+    const pacing = (phase === 'marching' || phase === 'deploying')
+      && !contested && dist(commander, destination) > DEPLOY_DISTANCE
+      && stragglers.length >= Math.max(2, Math.ceil(followers.length * 0.4))
+      && day % 3 !== 0;
+    if (pacing) {
+      squad.target = { x: commander.x, y: commander.y };
+      squad.phase = 'reforming';
+    }
     // Same class stays in the same rank. A real medieval line puts melee troops
     // in front, archers behind the shields/spears and clerics in the rear.
     if (formationType !== 'column') squad.slotAssignments = medievalSlotAssignments(
