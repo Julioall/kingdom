@@ -87,3 +87,23 @@ test('campaigns expose actual commander-led groups while legacy mode remains ava
   assert.ok(order?.target && Number.isFinite(order.target.x));
   assert.equal(order.squadLeader, false);
 });
+
+
+test('ten-person marching units use three files rather than a long single file', () => {
+  const troops = Array.from({ length: 30 }, (_, i) => ({
+    id: i + 1, alive: true, x: 0, y: 0, stamina: 80,
+    militaryRank: i % 10 === 0 ? 'comandante' : 'soldado'
+  }));
+  const units = [0, 1, 2].map(i => ({ id: 'u' + i, commanderId: 1 + i * 10,
+    memberIds: troops.slice(i * 10, i * 10 + 10).map(p => p.id) }));
+  const result = planSquadTactics({ units, troops, destination: { x: 60, y: 0 },
+    home: { x: 0, y: 0 }, day: 1, mode: 'commanders' });
+  assert.deepEqual(result.squads.map(squad => squad.role), ['vanguard', 'flank-left', 'flank-right']);
+  const squad = result.squads[0];
+  assert.equal(squad.formationType, 'column');
+  const slots = squad.memberIds.slice(1).map(id => squadSlot(squad, id, { x: 0, y: 0 }));
+  assert.equal(slots.length, 9);
+  assert.equal(Math.min(...slots.map(slot => slot.x)), -4.5,
+    'three files should fit nine followers into three short rows');
+  assert.deepEqual(slots.slice(0, 3).map(slot => slot.y), [-1.5, 0, 1.5]);
+});
