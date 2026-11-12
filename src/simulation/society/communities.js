@@ -1,4 +1,5 @@
 import { cellAt, idx } from '../world/spatial.js';
+import { createPersonSpatialIndex } from '../individuals/spatial-index.js';
 import { clamp, distance } from '../core/math.js';
 import { communityRelation, ensureCommunityGovernanceState, selectCommunityLeader } from './governance.js';
 import { COLORS, COMMUNITY_FORMS } from '../../config/ecosystem.js';
@@ -27,9 +28,15 @@ export function recordCommunityUse(w, person) {
 
 export function updateSocialLinks(w) {
     const people = w.people.filter(p => p.alive);
-    for (let i = 0; i < people.length; i++) for (let j = i + 1; j < people.length; j++) {
-      const a = people[i], b = people[j], d = distance(a, b);
-      if (d > 2.2) continue;
+    // Only encounters within 2.2 cells can change social state. Use the
+    // immutable final positions from this day, while preserving the exact
+    // original (i,j) order of eligible pairs and all side-effect ordering.
+    const spatial = createPersonSpatialIndex(people, 4);
+    const order = new Map(people.map((person, i) => [person, i]));
+    for (let i = 0; i < people.length; i++)
+      for (const b of spatial.query(people[i].x, people[i].y, 2.2)) {
+      const a = people[i], d = distance(a, b);
+      if (order.get(b) <= i || d > 2.2) continue;
       const key = a.id + ':' + b.id;
       const link = w.socialLinks[key] || (w.socialLinks[key] = { a: a.id, b: b.id, meetings: 0, trust: 0, sharedFood: 0 });
       link.meetings++;
