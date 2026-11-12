@@ -116,9 +116,13 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     // behind the center until contact/pressure calls it forward.
     const atFront = dist(commander, destination) <= DEPLOY_DISTANCE;
     const side = role === 'flank-left' ? -1 : role === 'flank-right' ? 1 : 0;
-    const mustFlank = mode === 'hierarchical' && openFront && side !== 0 && contested && !!focus
-      && generalOrder?.action !== 'hold_position'
-      && !['assemble', 'press-front'].includes(generalOrder?.battlePlan);
+    // Once the general has deployed a wing, do not cancel its maneuver
+    // merely because its captain traveled OUTSIDE the central deployment
+    // radius or the general briefly switched from envelop to press-front.
+    const mustFlank = mode === 'hierarchical' && openFront && side !== 0
+      && contested && !!focus && generalOrder?.action !== 'hold_position'
+      && (prior?.flankStage || !['assemble', 'press-front'].includes(generalOrder?.battlePlan));
+    const flankActivated = mustFlank && (atFront || armyDeployedToFront || !!prior?.flankStage);
     const outerWaypoint = focus && projectTarget({
       x: focus.x + lateral.x * side * 11 - forward.x * 6,
       y: focus.y + lateral.y * side * 11 - forward.y * 6
@@ -139,7 +143,7 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
       x: central.x + lateral.x * offset - forward.x * depth,
       y: central.y + lateral.y * offset - forward.y * depth
     };
-    if (mustFlank && atFront) goal = flankStage === 'swing' ? outerWaypoint : {
+    if (flankActivated) goal = flankStage === 'swing' ? outerWaypoint : {
       x: focus.x + lateral.x * side * 3 + forward.x * 2,
       y: focus.y + lateral.y * side * 3 + forward.y * 2
     };
@@ -160,19 +164,30 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
         y: leadCommander.y - forward.y * trail + lateral.y * file
       };
     }
+    // A reserve can FOLLOW the moving center in marching order. After
+    // reaching the battle line, lock a real rear assembly point until it is
+    // explicitly committed. Recomputing this from the front every day makes
+    // "holding" units creep directly into combat without an order.
+    const reserveHoldPoint = mission === 'reserve'
+      && (armyDeployedToFront || !!prior?.reserveHoldPoint)
+      ? prior?.reserveHoldPoint || projectTarget(goal) : null;
+    if (reserveHoldPoint) goal = reserveHoldPoint;
     goal = projectTarget(goal);
     const count = kind => members.filter(p => p.militaryClass === kind).length;
     const spears = count('lanceiro'), shields = count('guerreiro');
     const narrow = !openFront || generalOrder?.formationType === 'column' && !atFront;
-    let formationType = !atFront || narrow ? 'column'
+    let formationType = !(atFront || flankActivated) || narrow ? 'column'
       : role === 'support' ? 'line'
-      : mustFlank ? 'wedge'
+      // The wing marches around the adversary in files, then deploys
+      // a recognizably different wedge for the inward strike.
+      : flankActivated ? flankStage === 'strike' ? 'wedge' : 'column'
       : role === 'reserve' && contested ? 'square'
       : spears >= shields && spears >= 2 ? 'spear_line'
         : shields >= 2 ? 'shield_wall' : 'line';
     if (prior && prior.formationType !== formationType
       && day - (prior.formationChangedDay ?? -Infinity) < 2
-      && !routed && dist(commander, focus || destination) > 5 && openFront) {
+      && !routed && dist(commander, focus || destination) > 5 && openFront
+      && !(flankActivated && flankStage === 'strike' && prior?.flankStage !== 'strike')) {
       formationType = prior.formationType;
     }
     const formationChangedDay = formationType !== prior?.formationType ? day
@@ -192,8 +207,9 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
       });
     }
     const phase = routed ? 'rout' : regrouping ? 'rally'
-      : mission === 'hold' || mission === 'reserve' ? 'holding'
-        : mustFlank && atFront ? flankStage === 'strike' ? 'striking' : 'flanking'
+      : mission === 'hold' ? 'holding'
+        : mission === 'reserve' ? reserveHoldPoint ? 'holding' : 'marching'
+          : flankActivated ? flankStage === 'strike' ? 'striking' : 'flanking'
           : !atFront ? 'marching' : charge ? 'charging'
           : directContact ? 'contact' : 'deploying';
     // A marching body faces its travel direction; the shield wall faces the
@@ -226,7 +242,8 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
       reserveCommittedDay: releasedReserve
         ? previousCommit ?? day : null,
       holdPoint: mission === 'hold' ? goal : null,
-      flankWaypoint: mustFlank ? outerWaypoint : null,
+      reserveHoldPoint,
+      flankWaypoint: flankActivated ? outerWaypoint : null,
       contactEnemyId: focus?.id ?? null
     };
     // Infantry does not sprint ahead while its formation stretches out behind.
