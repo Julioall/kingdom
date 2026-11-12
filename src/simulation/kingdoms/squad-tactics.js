@@ -2,6 +2,8 @@
 // moving anchors. Deliberately bounded: no neural inference per soldier.
 const ROLES = ['vanguard', 'support', 'flank-left', 'flank-right', 'reserve'];
 const LIMIT_THREATS = 12;
+const DEPLOY_DISTANCE = 13;
+const CLASS_PRIORITY = Object.freeze({ lanceiro: 0, guerreiro: 1, arqueiro: 2, monge: 3 });
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const normalized = (from, to) => {
@@ -61,7 +63,13 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
   const threatList = observedThreats.filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
     .sort((a, b) => dist(a, destination) - dist(b, destination) || a.id - b.id)
     .slice(0, LIMIT_THREATS);
-  const contested = threatList.some(p => dist(p, destination) <= 12);
+  const contested = threatList.some(p => dist(p, destination) <= 14);
+  const focus = threatList[0] || null;
+  const frontsUnderPressure = (previous?.squads || []).some(squad =>
+    squad.role === 'vanguard' && (squad.morale < 60 || squad.strength < (squad.initialStrength || squad.strength)));
+  const leadUnderContact = (previous?.squads || []).some(squad =>
+    squad.role === 'vanguard' && ['contact', 'charging', 'holding'].includes(squad.phase));
+
   for (let index = 0; index < candidates.length; index++) {
     const { unit, members, commander } = candidates[index];
     const role = roles[index % roles.length];
@@ -73,45 +81,91 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
       : sideMorale;
     const routed = mode === 'hierarchical' && morale < 25;
     const regrouping = mode === 'hierarchical' && !routed && morale < 42;
+    const releasedReserve = role === 'reserve' && (frontsUnderPressure
+      || (leadUnderContact && contested));
     const mission = routed ? 'rout' : regrouping ? 'regroup'
       : generalOrder?.action === 'hold_position' ? 'hold'
         : role === 'flank-left' || role === 'flank-right' ? 'flank'
-          : role === 'reserve' ? 'reserve' : 'advance';
+          : role === 'reserve' && !releasedReserve ? 'reserve'
+            : role === 'reserve' ? 'reinforce' : 'advance';
     const offset = role === 'flank-left' ? -3 : role === 'flank-right' ? 3 : 0;
     const depth = role === 'support' ? 3 : role === 'reserve' ? 6 : 0;
+    // March to an assembly position first. At visual contact the wings make a
+    // REAL lateral maneuver, then swing onto the enemy's flank. Reserve remains
+    // behind the center until contact/pressure calls it forward.
+    const atFront = dist(commander, destination) <= DEPLOY_DISTANCE;
+    const side = role === 'flank-left' ? -1 : role === 'flank-right' ? 1 : 0;
+    const mustFlank = mode === 'hierarchical' && side !== 0 && contested && !!focus
+      && generalOrder?.action !== 'hold_position';
+    const outerWaypoint = focus && {
+      x: focus.x + lateral.x * side * 9 - forward.x * 5,
+      y: focus.y + lateral.y * side * 9 - forward.y * 5
+    };
+    const passedWing = prior?.flankStage === 'strike' || outerWaypoint
+      && dist(commander, outerWaypoint) <= 3.5;
+    const flankStage = mustFlank ? (passedWing ? 'strike' : 'swing') : null;
     const central = routed && home ? home : destination;
-    const goal = routed || regrouping ? {
+    let goal = routed || regrouping ? {
       x: central.x - forward.x * (regrouping ? 8 : 0),
       y: central.y - forward.y * (regrouping ? 8 : 0)
     } : {
       x: central.x + lateral.x * offset - forward.x * depth,
       y: central.y + lateral.y * offset - forward.y * depth
     };
-    // Hysteresis avoids oscillating between formations every simulation day.
-    const atFront = dist(commander, destination) <= 14;
-    const scores = {
-      column: atFront ? 1 : 10,
-      line: openFront && atFront ? 10 : -10,
-      wedge: mode === 'hierarchical' && openFront && atFront && members.length >= 4 && mission === 'flank' ? 12 : -10,
-      square: mode === 'hierarchical' && openFront && atFront && contested && (mission === 'hold' || role === 'reserve') ? 11 : -10
+    if (mustFlank && atFront) goal = flankStage === 'swing' ? outerWaypoint : {
+      x: focus.x + lateral.x * side * 3 + forward.x * 2,
+      y: focus.y + lateral.y * side * 3 + forward.y * 2
     };
-    // The general's overall deployment is the squad's starting doctrine;
-    // local terrain and squad specialization may still override it.
-    if (generalOrder?.formationType === 'column') scores.column += 2;
-    if (generalOrder?.formationType === 'line') scores.line += 1;
-    if (mode === 'hierarchical' && observedInfluence(goal, threatList) > 1.5) scores.column += 2;
-    if (prior && scores[prior.formationType] != null) scores[prior.formationType] += 1;
-    const formationType = Object.entries(scores).sort((a, b) => b[1] - a[1])[0][0];
-    const face = dist(commander, goal) > 2 ? normalized(commander, goal)
-      : contested ? normalized(commander, threatList[0]) : forward;
+    if (mission === 'reinforce') goal = {
+      x: destination.x - forward.x * 1.5,
+      y: destination.y - forward.y * 1.5
+    };
+    if (mission === 'hold') goal = prior?.holdPoint || { x: commander.x, y: commander.y };
+    const count = kind => members.filter(p => p.militaryClass === kind).length;
+    const spears = count('lanceiro'), shields = count('guerreiro');
+    const narrow = !openFront || generalOrder?.formationType === 'column' && !atFront;
+    let formationType = !atFront || narrow ? 'column'
+      : role === 'support' ? 'line'
+      : mustFlank ? 'wedge'
+      : role === 'reserve' && contested ? 'square'
+      : spears >= shields && spears >= 2 ? 'spear_line'
+        : shields >= 2 ? 'shield_wall' : 'line';
+    if (prior && prior.formationType !== formationType
+      && day - (prior.formationChangedDay ?? -Infinity) < 2
+      && !routed && dist(commander, focus || destination) > 5 && openFront) {
+      formationType = prior.formationType;
+    }
+    const formationChangedDay = formationType !== prior?.formationType ? day
+      : prior.formationChangedDay ?? day;
+    const phase = routed ? 'rout' : regrouping ? 'rally'
+      : mission === 'hold' || mission === 'reserve' ? 'holding'
+        : mustFlank && atFront ? flankStage === 'strike' ? 'striking' : 'flanking'
+          : !atFront ? 'marching' : contested ? 'contact' : 'deploying';
+    const face = focus && atFront ? normalized(commander, focus)
+      : dist(commander, goal) > 2 ? normalized(commander, goal) : forward;
     const squad = {
       id, unitId: unit.id, commanderId: commander.id,
       generalId: unit.generalId ?? generalOrder?.issuerId ?? null,
       memberIds: members.map(p => p.id), role, mission, formationType,
       orientation: face, target: goal, morale: Number(morale.toFixed(2)), routed,
       influence: mode === 'hierarchical' ? observedInfluence(goal, threatList) : 0,
-      day, strength: members.length
+      day, strength: members.length,
+      initialStrength: prior?.initialStrength ?? members.length,
+      phase, flankStage, formationChangedDay,
+      holdPoint: mission === 'hold' ? goal : null,
+      contactEnemyId: focus?.id ?? null
     };
+    // Same class stays in the same rank. A real medieval line puts melee troops
+    // in front, archers behind the shields/spears and clerics in the rear.
+    if (formationType !== 'column') squad.slotAssignments = medievalSlotAssignments(
+      members, commander.id, formationType);
+    let totalError = 0, evaluated = 0;
+    for (const member of members) if (member.id !== commander.id) {
+      const slot = squadSlot(squad, member.id, commander);
+      if (slot) { totalError += dist(member, slot); evaluated++; }
+    }
+    squad.cohesion = evaluated
+      ? Number(clamp(1 - totalError / (evaluated * 5), 0, 1).toFixed(3)) : 1;
     for (const member of members) memberToSquad[member.id] = squads.length;
     squads.push(squad);
   }
@@ -126,6 +180,13 @@ export function squadSlot(squad, memberId, commander, spacing = 1.5) {
   const direction = squad.orientation || { x: 1, y: 0 };
   const lateral = { x: -direction.y, y: direction.x };
   let row, column;
+  if (squad.formationType !== 'column' && squad.slotAssignments?.[memberId]) {
+    const slot = squad.slotAssignments[memberId];
+    return {
+      x: commander.x + direction.x * slot.forward + lateral.x * slot.lateral,
+      y: commander.y + direction.y * slot.forward + lateral.y * slot.lateral
+    };
+  }
   if (squad.formationType === 'column') {
     // A 3-file marching column prevents a ten-person unit from stretching
     // into a very long single-file snake behind the commander.
@@ -147,4 +208,65 @@ export function squadSlot(squad, memberId, commander, spacing = 1.5) {
     x: commander.x - direction.x * depth + lateral.x * column * spacing,
     y: commander.y - direction.y * depth + lateral.y * column * spacing
   };
+}
+
+/**
+ * Class-aware relative ranks. Commander occupies the rally center instead of
+ * walking at the tip of the spear. All offsets are geometry only: actual
+ * collision, hitboxes, stamina, arrow trajectories and damage remain in the
+ * authoritative simulation.
+ */
+export function medievalSlotAssignments(members, commanderId, formationType) {
+  const soldiers = members.filter(p => p.id !== commanderId).slice()
+    .sort((a, b) => (CLASS_PRIORITY[a.militaryClass] ?? 1)
+      - (CLASS_PRIORITY[b.militaryClass] ?? 1) || a.id - b.id);
+  const melee = soldiers.filter(p => !['arqueiro', 'monge'].includes(p.militaryClass));
+  const archers = soldiers.filter(p => p.militaryClass === 'arqueiro');
+  const clerics = soldiers.filter(p => p.militaryClass === 'monge');
+  const slots = Object.create(null);
+  const row = (people, width, forward, gap = 1.45, stepBack = 1.4) => {
+    for (let i = 0; i < people.length; i++) {
+      const r = Math.floor(i / width);
+      const count = Math.min(width, people.length - r * width);
+      slots[people[i].id] = {
+        forward: forward - r * stepBack,
+        lateral: (i % width - (count - 1) / 2) * gap
+      };
+    }
+  };
+  if (formationType === 'square') {
+    const perimeter = [
+      [2.4,-1.5],[2.4,0],[2.4,1.5],[0.9,2.4],[-0.9,2.4],
+      [-2.4,1.5],[-2.4,0],[-2.4,-1.5],[0.9,-2.4],[-0.9,-2.4]
+    ];
+    melee.forEach((p, i) => {
+      const [forward, lateral] = perimeter[i % perimeter.length];
+      slots[p.id] = { forward, lateral };
+    });
+    row(archers, 3, -0.5, 1.0, 0.9);
+    row(clerics, 2, -1.4, 0.8, 0.8);
+  } else if (formationType === 'wedge') {
+    for (let i = 0, r = 0, start = 0; i < melee.length; i++) {
+      while (i >= start + r + 1) { start += r + 1; r++; }
+      slots[melee[i].id] = { forward: 3.0 - r * 1.3,
+        lateral: (i - start - r / 2) * 2.0 };
+    }
+    row(archers, 4, -2.3);
+    row(clerics, 3, -4.1);
+  } else {
+    const spears = melee.filter(p => p.militaryClass === 'lanceiro');
+    const shields = melee.filter(p => p.militaryClass === 'guerreiro');
+    const others = melee.filter(p => !['guerreiro', 'lanceiro'].includes(p.militaryClass));
+    if (formationType === 'spear_line') {
+      row(spears, 5, 2.7, 1.35);
+      row([...shields, ...others], 5, 0.6, 1.35);
+    } else if (formationType === 'shield_wall') {
+      row(shields, 5, 2.3, 1.15);
+      row([...spears, ...others], 5, 0.7, 1.35);
+    } else row(melee, 5, 2.2, 1.35);
+    // Ranged support and healers do not squeeze into the shield line.
+    row(archers, 5, -2.3, 1.55);
+    row(clerics, 3, -4.0, 1.5);
+  }
+  return slots;
 }
