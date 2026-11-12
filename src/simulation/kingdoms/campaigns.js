@@ -136,8 +136,13 @@ function fitFormationToTerrain(world, campaign, side, troops, geometry) {
   const ground = reachableAreaAround(world, troops[0], campaign.target, TARGET_RADIUS);
   const available = new Map(ground.map(tile => [tile.i, tile]));
   const positions = {};
+  const byId = new Map(troops.map(person => [person.id, person]));
+  const leaderOnly = ['commanders', 'hierarchical'].includes(world.tacticalCombat?.mode);
+  const assignedCommanders = leaderOnly ? new Set(kingdomById(world, side.kingdomId)
+    ?.militaryCommand?.units.map(unit => unit.commanderId) || []) : null;
   for (const id of formation.memberIds) {
-    const person = troops.find(p => p.id === id);
+    const person = byId.get(id);
+    if (leaderOnly && !assignedCommanders.has(id) && person?.militaryRank !== 'general') continue;
     const ideal = person?.militaryRank === 'general' && troops.length > 1
       ? { x: geometry.destination.x - geometry.orientation.x * 6, y: geometry.destination.y - geometry.orientation.y * 6 }
       : campaignFormationSlot(formation, id, geometry.destination, geometry.orientation);
