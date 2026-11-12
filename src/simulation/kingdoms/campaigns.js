@@ -28,6 +28,7 @@ import {
   setFormationDestination, setFormationState, setFormationType
 } from './formations.js';
 import { planSquadTactics, squadSlot } from './squad-tactics.js';
+import { allocateBattlefieldSlots } from './battlefield-slots.js';
 
 const ACTIVE_STATES = new Set(['mobilizing', 'marching', 'engaged', 'withdrawing']);
 const CAMPAIGN_RATION_DAYS = 18;
@@ -675,7 +676,7 @@ export function campaignOrderFor(world, person) {
       const availableCommander = commander?.alive && commander.kingdomId === person.kingdomId
         && commander.campaignId === campaign.id;
       if (availableCommander && !commander.playerControlled) {
-        const slot = squadSlot(squad, person.id, commander);
+        const slot = squad.worldSlots?.[person.id] || squadSlot(squad, person.id, commander);
         target = slot && cellAt(world, slot.x, slot.y)?.terrain === 'land'
           ? slot : { x: commander.x, y: commander.y };
       }
@@ -797,6 +798,19 @@ function recordFormationTransition(world, campaign, side, changed, description, 
   });
 }
 
+function nearbyBattlefieldGround(world, goal, radius = 4) {
+  const original = cellAt(world, goal.x, goal.y);
+  if (original?.terrain === 'land') return goal;
+  let best = null, score = Infinity;
+  for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
+    const tile = cellAt(world, Math.round(goal.x) + dx, Math.round(goal.y) + dy);
+    if (!tile || tile.terrain !== 'land') continue;
+    const cost = (tile.x - goal.x) ** 2 + (tile.y - goal.y) ** 2;
+    if (cost < score) { best = tile; score = cost; }
+  }
+  return best ? { x: best.x, y: best.y } : goal;
+}
+
 function openFormationFront(world, target) {
   const tile = cellAt(world, target.x, target.y);
   if (!tile || tile.terrain !== 'land') return false;
@@ -910,8 +924,10 @@ function updateCampaignFormation(world, campaign, side, day) {
       destination: geometry.destination, home: side.home,
       orientation: geometry.orientation, day, previous: side.squadTactics,
       observedThreats: threats, openFront: openFormationFront(world, campaign.target),
-      sideMorale: side.morale, mode: tacticalMode
+      sideMorale: side.morale, mode: tacticalMode,
+      projectTarget: goal => nearbyBattlefieldGround(world, goal)
     });
+    allocateBattlefieldSlots(world, side.squadTactics.squads, activeTroops);
     const troopById = new Map(activeTroops.map(person => [person.id, person]));
     for (const squad of side.squadTactics.squads) {
       for (const id of squad.memberIds) {
