@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import Sim from '../src/simulation/engine.js';
 import { campaignOrderFor, prepareKingdomCampaigns } from '../src/simulation/kingdoms/campaigns.js';
+import { fightTacticalRound } from '../src/simulation/kingdoms/military.js';
 import { medievalSlotAssignments, observedInfluence, planSquadTactics, squadSlot } from '../src/simulation/kingdoms/squad-tactics.js';
 
 function pureFixture(mode = 'hierarchical', previous = null, day = 2, sideMorale = 85) {
