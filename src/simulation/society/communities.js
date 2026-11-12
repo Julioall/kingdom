@@ -31,10 +31,14 @@ export function updateSocialLinks(w) {
     // Only encounters within 2.2 cells can change social state. Use the
     // immutable final positions from this day, while preserving the exact
     // original (i,j) order of eligible pairs and all side-effect ordering.
-    const spatial = createPersonSpatialIndex(people, 4);
+    // The legacy distance check treats NaN as "not farther than radius".
+    // Preserve that unusual behavior for corrupted/fixture coordinates while
+    // keeping the fast spatial query for every real, finite-position world.
+    const spatial = people.every(person => Number.isFinite(person.x) && Number.isFinite(person.y))
+      ? createPersonSpatialIndex(people, 4) : null;
     const order = new Map(people.map((person, i) => [person, i]));
     for (let i = 0; i < people.length; i++)
-      for (const b of spatial.query(people[i].x, people[i].y, 2.2)) {
+      for (const b of spatial ? spatial.query(people[i].x, people[i].y, 2.2) : people) {
       const a = people[i], d = distance(a, b);
       if (order.get(b) <= i || d > 2.2) continue;
       const key = a.id + ':' + b.id;
