@@ -506,7 +506,13 @@ export function respondToLocalThreats(world, day = world.day + 1) {
       : (MILITARY_CLASSES[soldier.militaryClass]?.range || 0) + (soldier.towerMounted ? 6 : 0);
     if (distance(soldier, threat) > range) {
       if (manualCommand) { consumePlayerAttack(soldier, manualCommand, day); continue; }
-      if (soldier.towerMounted) continue;
+      // Combatants attached to an active campaign follow their squad command
+      // rather than leaving shield walls/reserves for unrelated local pursuit.
+      // Nearby immediate self-defense still happens in their weapon range.
+      const commandedBattlefieldSoldier = soldier.campaignId != null
+        && soldier.tacticalRole
+        && ['commanders', 'hierarchical'].includes(world.tacticalCombat?.mode);
+      if (commandedBattlefieldSoldier || soldier.towerMounted) continue;
       if (moveOne(world, soldier, threat, false, {
         allowedTile: tile => tile.kingdomId === soldier.kingdomId,
         preferRoads: true
@@ -557,6 +563,16 @@ export function fightTacticalRound(world, allies, enemies, day, objective = null
     const manualCommand = person.playerControlled && person.playerCommandUsedDay !== day
       ? pendingPlayerAttack(person, day) : null;
     if (person.playerControlled && !manualCommand) continue;
+    // Broken formations flee instead of inexplicably trading blows while
+    // their commanders order a retreat. Manual control always takes priority.
+    if (!manualCommand && person.tacticalRouted) continue;
+    // A held reserve must not quietly leave its battle position to join
+    // routine offensive targeting. It may still defend itself when enemies
+    // actually reach the reserve's own line.
+    if (!manualCommand && person.tacticalReserveHolding && !enemies.some(enemy =>
+      enemy.alive && enemy.restingStructureId == null
+        && enemy.kingdomId !== person.kingdomId
+        && distance(person, enemy) <= (person.militaryClass === 'arqueiro' ? 5 : 2.4))) continue;
     const manualProfile = manualCommand
       ? manualAttackProfile(person, manualCommand.actionKey, manualCommand.comboIndex) : null;
     if (manualCommand && !manualProfile) { consumePlayerAttack(person, manualCommand, day); continue; }

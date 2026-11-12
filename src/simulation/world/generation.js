@@ -42,6 +42,10 @@ export function createWorld(seed, options = {}) {
       market: { gold: 240, food: 110, feed: 64, wood: 90, stone: 72, sheep: 4, transactions: 0 },
       socialLinks: {}, communityRelations: {}, events: [], deaths: 0, births: 0, rainEvents: 0,
       strategicAI: { enabled: false, requests: [], pendingByKingdom: {}, nextDecisionDays: {}, nextRequestSequence: 1, enqueuedDay: -1, enqueuedToday: 0, decisions: 0, failures: 0 },
+      // A/B modes: legacy (original campaign slots), commanders (moving anchors),
+      // hierarchical (adds bounded utility, threat influence and group morale).
+      tacticalCombat: { mode: ['legacy', 'commanders', 'hierarchical'].includes(options.tacticalCombat)
+        ? options.tacticalCombat : 'hierarchical' },
       conflicts: 0, trades: 0, splits: 0, raidAttempts: 0, successfulRaids: 0,
       kingdomRelations: {}, borderIncidents: 0, wars: [], campaigns: [], territoryClaims: [], treaties: [],
       deathsByCause: { starvation: 0, dehydration: 0, age: 0, injury: 0, combat: 0, predation: 0, harvest: 0, invasion: 0 },

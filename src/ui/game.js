@@ -55,6 +55,7 @@ import { createActorViewportIndex } from './actor-viewport-index.js';
 import { createEntityDrawProbe } from './entity-draw-probe.js';
 import { createVisibleStaticDepthCache } from './visible-static-depth-cache.js';
 import { paintMinimap } from './render/minimap.js';
+import { drawBattlefieldDebug } from './battlefield-debug.js';
 import { shouldDrawMineralAtZoom } from './mineral-lod.js';
 import { MINERAL_SPRITE_KINDS, mineralDepositVariant } from './mineral-sprites.js';
 import { CORRAL_VISUAL_SCALE, corralFenceRadius } from '../simulation/ecology/herd.js';
@@ -216,6 +217,9 @@ export function mountGame() {
     : cognitiveOption !== null && /^\d+$/.test(cognitiveOption)
     && Number(cognitiveOption) >= 1 && Number(cognitiveOption) <= 4096
     ? Number(cognitiveOption) : null;
+  // Open ?battleDebug=1 to inspect true soldier positions, projected slots,
+  // commander march targets, flanking wings and held reserves on the map.
+  const showBattlefieldDebug = diagnosticQuery.get('battleDebug') === '1';
   const session = new GameSession(undefined, sessionSeed,
     { compactActorTransport: compactActorsQA, tileDeltaTransport: tileDeltaQA,
       workerProfiling: diagnosticQuery.get('profile') === '1', cognitiveBudget });
@@ -2464,6 +2468,31 @@ export function mountGame() {
     ctx.restore();
   }
 
+  function drawTacticalStandard(person, x, y) {
+    if (mapZoom < 1.5 || person.militaryRank !== 'comandante'
+        || person.campaignId == null || !person.tacticalRole) return;
+    // The order is immediately visible during normal play: gold marks the
+    // center, orange marks the wings, blue support and green the rear reserve.
+    const colors = {
+      vanguard: '#e8cf69', support: '#83c1e1', 'flank-left': '#e08a6d',
+      'flank-right': '#ddaa73', reserve: '#9fd080'
+    };
+    const color = colors[person.tacticalRole] || '#d0c0a2';
+    const waving = ['flanking', 'striking', 'charging'].includes(person.tacticalPhase);
+    ctx.save();
+    ctx.globalAlpha = .96;
+    ctx.strokeStyle = '#332d25'; ctx.lineWidth = .7;
+    ctx.beginPath(); ctx.moveTo(x + TILE * .74, y + 1);
+    ctx.lineTo(x + TILE * .74, y - 12); ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x + TILE * .74, y - 12);
+    ctx.lineTo(x + TILE * .74 + (waving ? 7 : 5), y - 10);
+    ctx.lineTo(x + TILE * .74, y - 7);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
   function drawLeaderBadge(person, x, y) {
     const kingdom = getKingdom(person.kingdomId);
     const rank = activeLeadershipRank(person, kingdom);
@@ -2667,6 +2696,7 @@ export function mountGame() {
         }
       }
       drawLeaderBadge(p, x, y);
+      drawTacticalStandard(p, x, y);
       if (p.health < 22) { ctx.fillStyle = '#bc574d'; ctx.fillRect(x + 12, y + 2, 3, 2); }
   }
 
@@ -3052,6 +3082,7 @@ export function mountGame() {
       drawHoveredStructureTerritory();
       profile?.mark('selection');
       drawDepthSortedWorld(view.bounds, profile);
+      if (showBattlefieldDebug) drawBattlefieldDebug(ctx, world, TILE);
       ctx.restore();
       const cameraCenter = camera.toWorld(stage.clientWidth / 2, stage.clientHeight / 2);
       cloudSystem.drawShadows(ctx, camera, stage.clientWidth, stage.clientHeight, cameraCenter, mapZoom);
@@ -3357,6 +3388,33 @@ export function mountGame() {
         '<div class="data-row"><span>Vínculos observados</span><b>' + links + '</b></div>' +
         (p.role === 'soldier' ? '<div class="data-row"><span>Patente / nível</span><b>' + esc(p.militaryRank || p.militaryGrade || 'soldado') + (p.militaryGrade && p.militaryRank !== p.militaryGrade ? ' · carreira: ' + esc(p.militaryGrade) : '') + ' · nível ' + (p.militaryLevel || 1) + ' · mérito ' + fmt(p.militaryMerit || 0, 1) + '</b></div><div class="data-row"><span>Função militar</span><b>' + esc((p.militaryRank || 'soldado') + ' · ' + (p.militaryClass || 'soldado')) + ' · guarnição do centro ' + (p.militaryCenterId || '—') + '</b></div>'
           + (progressionAuditText ? '<div class="data-row"><span>Progressão de classe</span><b>' + esc(progressionAuditText) + '</b></div>' : '')
+          + (p.campaignId != null ? (() => {
+            const campaign = (world.campaigns || []).find(item => item.id === p.campaignId);
+            const side = [campaign?.attacker, campaign?.defender]
+              .find(item => item?.kingdomId === p.kingdomId);
+            const index = side?.squadTactics?.memberToSquad?.[p.id];
+            const squad = Number.isInteger(index) ? side.squadTactics.squads[index] : null;
+            if (!squad) return '';
+            const names = {
+              column: 'Coluna de marcha', line: 'Linha', shield_wall: 'Muralha de escudos',
+              spear_line: 'Linha de lanças', wedge: 'Cunha', square: 'Quadrado'
+            };
+            const phases = {
+              marching: 'Marchando', deploying: 'Abrindo fileiras', contact: 'Linha em contato',
+              charging: 'Investida coordenada',
+              flanking: 'Contornando o flanco', striking: 'Investindo pelo flanco',
+              holding: 'Mantendo reserva/posição', rally: 'Reagrupando',
+              reforming: 'Aguardando os soldados atrasados', rout: 'Rompida: retirada'
+            };
+            const commander = getPerson(squad.commanderId);
+            return '<div class="note-card"><b>Formação da unidade</b><span>'
+              + esc(names[squad.formationType] || squad.formationType)
+              + ' · ' + esc(phases[squad.phase] || squad.phase)
+              + ' · função: ' + esc(squad.role)
+              + ' · comando: ' + esc(commander?.name || 'sucessor')
+              + ' · coesão ' + Math.round((squad.cohesion || 0) * 100) + '%'
+              + ' · moral ' + Math.round(squad.morale || 0) + '%</span></div>';
+          })() : '')
           + (p.campaignId != null && p.fieldCommand ? '<div class="note-card"><b>' + (p.fieldCommand.issuerId === p.id ? 'Ordem emitida' : 'Ordem recebida de ' + esc(getPerson(p.fieldCommand.issuerId)?.name || 'general')) + '</b><span>' + esc(p.fieldCommand.reason) + ' Formação: ' + (p.fieldCommand.formationType === 'line' ? 'linha' : 'coluna') + '. Alvo: ' + p.fieldCommand.target.x + ',' + p.fieldCommand.target.y + '.</span></div>' : '')
           + '<div class="data-row"><span>Soldo do rei</span><b>' + MILITARY_PAY.copper + ' cobres / ' + MILITARY_PAY.days + ' dias</b></div>'
           + '<div class="data-row"><span>Carteira / pendências</span><b>' + fmt(p.militaryWallet?.stock?.gold || 0) + ' ouro · ' + fmt(p.militaryWallet?.stock?.silver || 0) + ' prata · ' + fmt(p.militaryWallet?.stock?.copper || 0) + ' cobre; legado: ' + fmt(p.militaryPayArrears || 0, 3) + ' ouro; novo: ' + fmt(p.militaryPayArrearsCopper || 0) + ' cobres</b></div>'
