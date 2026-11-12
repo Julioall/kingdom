@@ -43,6 +43,7 @@ import DirtBrush, { SOIL_PALETTE } from './dirt-brush.js';
 import { createLoadingScreen } from './loading-screen.js';
 import { renderSocialInspectorSections } from './social-inspector.js';
 import { createActorInspectorDetails } from './actor-inspector-details.js';
+import { createHtmlDiffWriter } from './html-diff.js';
 import { createRenderDiagnostics } from './render-profiler-panel.js';
 import { syncHudPanelAccess } from './hud-panel-access.js';
 import { createKingThoughts } from './king-thoughts.js';
@@ -50,6 +51,7 @@ import { createTerrainChunkCache } from './terrain-chunks.js';
 import { createPixelTileCache } from './pixel-tile-cache.js';
 import { compareDepth, mergeDepthItems } from './depth-order.js';
 import { createStaticDepthSpatialIndex } from './depth-spatial-index.js';
+import { createActorViewportIndex } from './actor-viewport-index.js';
 import { createEntityDrawProbe } from './entity-draw-probe.js';
 import { createVisibleStaticDepthCache } from './visible-static-depth-cache.js';
 import { paintMinimap } from './render/minimap.js';
@@ -117,6 +119,7 @@ export function mountGame() {
   const referenceRendering = diagnosticQuery.get('profile') === '1' && diagnosticQuery.get('render') === 'reference';
   // depthCache=0 is the exact baseline switch for same-browser A/B captures.
   const optimizedDepth = !referenceRendering && diagnosticQuery.get('depthCache') !== '0';
+  const optimizedActorCulling = !referenceRendering && diagnosticQuery.get('actorCulling') !== '0';
   // JUL-289: allow precise headful A/B against the legacy shared cadence.
   const stabilizeMovement = diagnosticQuery.get('movementJitterFix') !== '0';
   // JUL-288: A/B switch; only upright, unmirrored person frames use the fast path.
@@ -130,6 +133,7 @@ export function mountGame() {
   const combatDebug = diagnosticQuery.get('combatDebug') === '1';
   const trackedImage = () => loadingScreen.trackImage(new Image());
   const $ = id => document.getElementById(id);
+  const updateHudHtml = createHtmlDiffWriter();
   if (surfaceComponents) {
     for (const [selector, skin] of [['.topbar', 'wood'], ['.mini-map-panel', 'wood'], ['.left-panel', 'scroll'], ['.right-panel', 'scroll'], ['.journal-panel', 'scroll'], ['.utility-drawer', 'scroll']]) {
       const panel = document.querySelector(selector);
@@ -200,18 +204,25 @@ export function mountGame() {
   const trailSegmentByPerson = new Map();
   const pendingPersonTrailPoints = new Map();
   let lastTrailFlushAt = -Infinity;
-  // Experimental only: validate stripped render actors against the live
-  // inspector before allowing compact presentation in normal sessions.
-  const compactActorsQA = import.meta.env.DEV && diagnosticQuery.get('compactActors') === '1';
-  // JUL-278: same tile-delta transport on BOTH sides of the browser A/B.
-  // Without this independent DEV-only flag, full mode would use complete
-  // snapshots while compact mode used tile deltas, confounding measurements.
-  const tileDeltaQA = import.meta.env.DEV && diagnosticQuery.get('tileDeltaQA') === '1';
+  // Both optimizations remain individually opt-in until real GPU/UX QA.
+  // In production use ?transport=compact (compact actors + tile deltas) or
+  // ?transport=delta (full actors + tile deltas) to isolate transfer costs.
+  const transportChoice = diagnosticQuery.get('transport');
+  const compactActorsQA = transportChoice === 'compact'
+    || (import.meta.env.DEV && diagnosticQuery.get('compactActors') === '1');
+  const tileDeltaQA = transportChoice === 'delta'
+    || (import.meta.env.DEV && diagnosticQuery.get('tileDeltaQA') === '1');
+  const cognitiveOption = diagnosticQuery.get('cognitiveBudget');
+  const cognitiveBudget = cognitiveOption === 'adaptive' ? 'adaptive'
+    : cognitiveOption !== null && /^\d+$/.test(cognitiveOption)
+    && Number(cognitiveOption) >= 1 && Number(cognitiveOption) <= 4096
+    ? Number(cognitiveOption) : null;
   // Open ?battleDebug=1 to inspect true soldier positions, projected slots,
   // commander march targets, flanking wings and held reserves on the map.
   const showBattlefieldDebug = diagnosticQuery.get('battleDebug') === '1';
   const session = new GameSession(undefined, sessionSeed,
-    { compactActorTransport: compactActorsQA, tileDeltaTransport: tileDeltaQA });
+    { compactActorTransport: compactActorsQA, tileDeltaTransport: tileDeltaQA,
+      workerProfiling: diagnosticQuery.get('profile') === '1', cognitiveBudget });
   if (diagnosticQuery.get('paused') === '1') {
     session.paused = true;
     session.ready.then(() => session.setPaused(true)).catch(error => session.onError?.(error));
@@ -353,6 +364,7 @@ export function mountGame() {
   syncPanelAccess();
   const isResetCancellation = error => error && error.name === 'AbortError';
   const snapshotCallbackCpu = { samples: 0, totalMs: 0, lastMs: 0, maxMs: 0, over16Ms: 0 };
+  let actorViewportIndex = null;
   session.onUpdate = (nextWorld, _stats, reset) => {
     const updateStart = performance.now();
     world = nextWorld;
@@ -369,6 +381,7 @@ export function mountGame() {
     invalidateStaticDepthCache();
 
     movementInterpolator.observe(world, performance.now(), { reset, speed: session.speed });
+    actorViewportIndex = null;
     npcDamageBars.observe(world.people, performance.now(), reset);
     structureDamageBars.observe(world.structures.map(s => ({ id: s.id, alive: s.destroyedDay == null,
       lastAttackSequence: s.lastAttackSequence })), performance.now(), reset);
@@ -422,6 +435,7 @@ export function mountGame() {
   };
   session.onPlayerUpdate = (combat, personIds, magic = false) => {
     if (!world) return;
+    actorViewportIndex = null;
     magicVfx.sync(world, animationTime);
     const controlled = currentManualPerson();
     if (controlled?.militaryClass === 'monge' && !controlled.playerHealing) manualHealing = false;
@@ -1837,8 +1851,11 @@ export function mountGame() {
     for (const [id, track] of dashPresentations) {
       if (animationTime - track.startedAt < track.action.durationMs) continue;
       const person = getPerson(id);
-      if (person && !person.playerControlled) movementInterpolator.settleActor('person', person,
-        dashPosition(track.action, track.action.durationMs), now);
+      if (person && !person.playerControlled) {
+        movementInterpolator.settleActor('person', person,
+          dashPosition(track.action, track.action.durationMs), now);
+        actorViewportIndex = null;
+      }
       dashPresentations.delete(id);
     }
     const person = currentManualPerson();
@@ -1867,14 +1884,17 @@ export function mountGame() {
       const z = tile ? Math.max(0, Math.min(1800, tile.heightM || 0)) : 0;
       items.push(Object.assign({ kind, x, y, z, depth: (y + 1) * TILE * 2048 + z, order, id: id || 0, sequence: sequence++ }, extra || {}));
     }
-    for (const a of world.animals) {
+    const movingIndex = optimizedActorCulling
+      ? (actorViewportIndex ||= createActorViewportIndex(world,
+        (kind, actor) => movementInterpolator.sweptBounds(kind, actor))) : null;
+    for (const a of movingIndex ? movingIndex.query('animal', bounds) : world.animals) {
       if (!a.alive) continue;
       const pose = visualPose('animal', a);
       if (pose.x < bounds.minX || pose.x > bounds.maxX || pose.y < bounds.minY || pose.y > bounds.maxY) continue;
       const tile = cell(Math.round(a.x), Math.round(a.y));
       add('animal', pose.x, pose.y, tile, 3, a.id, { animal: a, pose });
     }
-    for (const p of world.people) {
+    for (const p of movingIndex ? movingIndex.query('person', bounds) : world.people) {
       if (!p.alive || p.restingStructureId != null) continue;
       const pose = combatDisplayPose(p, visualPose('person', p));
       if (pose.x < bounds.minX || pose.x > bounds.maxX || pose.y < bounds.minY || pose.y > bounds.maxY) continue;
@@ -3081,6 +3101,8 @@ export function mountGame() {
         referenceRendering, fixedEffects, entityProfile: !!entityDrawProbe,
         personDrawFastPath: optimizedPersonSprites,
         movementJitterFix: stabilizeMovement,
+        actorCulling: optimizedActorCulling,
+        actorViewport: actorViewportIndex?.stats() || null,
         movement: movementInterpolator.stats(renderTimestamp ?? performance.now()),
         workerTransport: session.getTransportDiagnostics(),
         snapshotCallbackCpu: { ...snapshotCallbackCpu },
@@ -3098,7 +3120,7 @@ export function mountGame() {
   }
 
   function renderKingdomList() {
-    $('kingdomList').innerHTML = world.kingdoms.map(kingdom => {
+    updateHudHtml($('kingdomList'), world.kingdoms.map(kingdom => {
       const residents = kingdom.memberIds.map(id => getPerson(id)).filter(Boolean);
       const resources = resourceSummary(world, kingdom.id);
       const ruler = getPerson(kingdom.rulerId);
@@ -3115,26 +3137,26 @@ export function mountGame() {
       ].map(([key, label, value, title]) => '<span class="kingdom-card-stat" data-kingdom-stat="' + key + '" title="' + title + '"><small>' + label + '</small><b>' + value + '</b></span>').join('');
       return '<button class="community-card" data-kingdom="' + kingdom.id + '" title="Inspecionar reino, moradias, tesouro e mercado" style="--community:' + esc(kingdom.color) + '">' +
         '<i class="color-dot"></i><span class="kingdom-card-body"><strong>' + esc(kingdom.name) + '</strong><small>' + soldiers + ' soldados' + esc(campaignStatus) + ' · ' + (kingdom.homeIds || []).length + ' casas · ' + kingdom.towerIds.map(id => world.structures.find(structure => structure.id === id && structure.complete)).filter(Boolean).length + ' torres · rei ' + esc(ruler ? ruler.name : 'sem governante') + '</small><span class="kingdom-card-stats" aria-label="Indicadores de ' + esc(kingdom.name) + '">' + metrics + '</span></span><em>' + fmt(kingdom.territoryTileCount) + ' células</em></button>';
-    }).join('');
+    }).join(''));
     $('solitaryCount').textContent = world.kingdoms.length + ' domínios';
   }
 
   function renderSpecies(stats) {
-    $('faunaList').innerHTML = Sim.animals.map(p => {
+    updateHudHtml($('faunaList'), Sim.animals.map(p => {
       const count = stats.animalCounts[p.id] || 0;
       return '<div class="species-row" title="' + esc(p.role) + '"><i class="species-dot" style="--species:' + p.color + '"></i><span>' + esc(p.name) + '</span><b>' + count + '</b></div>';
-    }).join('');
-    $('floraList').innerHTML = Sim.plants.map((p, i) => {
+    }).join(''));
+    updateHudHtml($('floraList'), Sim.plants.map((p, i) => {
       const count = stats.plantCounts[p.id] || 0;
       return '<div class="species-row" title="' + esc(p.guild) + '"><i class="species-dot" style="--species:' + p.color + '"></i><span>' + esc(p.name) + '</span><b>' + fmt(count) + '</b></div>';
-    }).join('');
+    }).join(''));
   }
 
   function renderEvents() {
-    $('events').innerHTML = (world.chronicle || []).slice(0, 40).map(e => {
+    updateHudHtml($('events'), (world.chronicle || []).slice(0, 40).map(e => {
       const date = Sim.modules.Cosmos.calendarDate(e.day);
       return '<div class="event"><strong>' + esc(e.category) + '</strong><p>' + esc(e.text) + '</p><small>Dia ' + date.dayOfYear + ' · Ano ' + date.year + '</small></div>';
-    }).join('') || '<div class="empty-state">A história começa aqui. Nascimentos, perdas, obras e conflitos aparecerão neste diário.</div>';
+    }).join('') || '<div class="empty-state">A história começa aqui. Nascimentos, perdas, obras e conflitos aparecerão neste diário.</div>');
   }
 
   function updateWorldLine(stats) {

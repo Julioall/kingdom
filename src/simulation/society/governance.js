@@ -46,8 +46,18 @@ export function selectCommunityLeader(w, community, members) {
     return leader;
   }
 
+// The daily citizen controller already builds an ID map. Reuse it while it
+// is alive, but preserve the public API for simulations/tests without the map.
+function livingCommunityMember(world, id) {
+  if (world.peopleById instanceof Map) {
+    const person = world.peopleById.get(id);
+    return person?.alive ? person : undefined;
+  }
+  return world.people.find(person => person.id === id && person.alive);
+}
+
 export function communitySatisfaction(w, community) {
-    const members = community.memberIds.map(id => w.people.find(person => person.id === id && person.alive)).filter(Boolean);
+    const members = community.memberIds.map(id => livingCommunityMember(w, id)).filter(Boolean);
     if (!members.length) return 0;
     const meanFood = members.reduce((sum, person) => sum + person.foodReserve, 0) / members.length;
     const meanHealth = members.reduce((sum, person) => sum + person.health, 0) / members.length;
@@ -427,7 +437,7 @@ function assignSafeOngoingBuilder(w, community, leader, members) {
 export function acquireCommunityProperty(w, community) {
     if (community.isKingdomGroup) return null;
     ensureCommunityGovernanceState(community);
-    const livingMembers = community.memberIds.map(id => w.people.find(person => person.id === id && person.alive)).filter(Boolean);
+    const livingMembers = community.memberIds.map(id => livingCommunityMember(w, id)).filter(Boolean);
     const members = livingMembers.length;
     const meanPersonalFood = members ? livingMembers.reduce((sum, person) => sum + person.foodReserve, 0) / members : 0;
     if (members < 6 || community.satisfaction < .48 || w.day - community.lastPropertyDay < 90
@@ -462,7 +472,7 @@ export function updateCommunityGovernance(w, kingdomPlanner) {
     for (const community of w.communities) {
       if (community.dissolved) continue;
       ensureCommunityGovernanceState(community);
-      const members = community.memberIds.map(id => w.people.find(person => person.id === id && person.alive)).filter(Boolean);
+      const members = community.memberIds.map(id => livingCommunityMember(w, id)).filter(Boolean);
       if (!members.length) continue;
       // Gathering, selling and delivering a real seed lot can span more than
       // the default 21-day build order. Keep an active courier's assignment
@@ -574,7 +584,7 @@ export function completeCommunityTask(w, person, action, beforeState, afterState
     if (community && task.source === 'kingdom-strategy' && task.foodFieldId != null
         && ['forage', 'deliver'].includes(task.action)) {
       const kingdom = w.kingdoms.find(item => item.communityId === community.id);
-      const members = community.memberIds.map(id => w.people.find(person => person.id === id && person.alive)).filter(Boolean);
+      const members = community.memberIds.map(id => livingCommunityMember(w, id)).filter(Boolean);
       const dailyFoodNeed = kingdom ? kingdomFoodDemand(w, kingdom).dailyFoodNeed : dailyFoodNeedForMembers(members).dailyFoodNeed;
       const field = task.foodFieldId == null ? null : (w.structures || []).find(structure => structure.id === task.foodFieldId
         && structure.type === 'roça' && structure.communityId === community.id);

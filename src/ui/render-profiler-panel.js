@@ -89,7 +89,12 @@ export function createRenderDiagnostics() {
     const transport = report.context?.workerTransport;
     fields.worker.textContent = transport ? 'Worker: fila automática ' + (transport.advanceQueue?.queuedClockDays ?? '—')
       + ' · avanço em curso ' + !!transport.advanceQueue?.inFlight
-      + ' · aplicar snapshot até ' + ms(transport.maxApplyMs || 0) + ' ms' : '';
+      + ' · aplicar snapshot até ' + ms(transport.maxApplyMs || 0) + ' ms'
+      + (transport.workerTiming ? ' · simulação ' + ms(transport.workerTiming.simulationMs)
+        + ' ms/' + transport.workerTiming.days + ' dia(s) · captura ' + ms(transport.workerTiming.captureMs)
+        + ' ms · maiores etapas: ' + Object.entries(transport.workerTiming.phases)
+          .sort((a, b) => b[1] - a[1]).slice(0, 3)
+          .map(([name, time]) => name + ' ' + ms(time) + ' ms').join(', ') : '') : '';
     for (const [key, values] of Object.entries(map.stages)) {
       rows[key].average.textContent = ms(values.meanMs);
       rows[key].p95.textContent = values.executions ? ms(values.executionP95Ms) : '—';

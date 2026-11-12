@@ -11,7 +11,8 @@ import {
   type ActorInspectionResult,
   type SimulationWorkerRequest,
   type SimulationWorkerResponse,
-  type WorldView
+  type WorldView,
+  type WorkerTiming
 } from '../simulation/protocol';
 
 type PendingRequest = {
@@ -44,11 +45,18 @@ export class GameSession {
   private readonly tileDeltaTransport: boolean;
   readonly compactActorTransport: boolean;
   private readonly transportDiagnostics = createTransportDiagnostics();
+  private readonly workerProfiling: boolean;
+  private readonly cognitiveBudget: number | 'adaptive' | null;
+  private workerTiming: WorkerTiming | null = null;
 
   constructor(private readonly config: WorldConfig = defaultWorldConfig, seed = 42,
-    options: {tileDeltaTransport?: boolean; compactActorTransport?: boolean} = {}) {
+    options: {tileDeltaTransport?: boolean; compactActorTransport?: boolean; workerProfiling?: boolean; cognitiveBudget?: number | 'adaptive' | null} = {}) {
     this.compactActorTransport = options.compactActorTransport === true;
     this.tileDeltaTransport = options.tileDeltaTransport === true || this.compactActorTransport;
+    this.workerProfiling = options.workerProfiling === true;
+    this.cognitiveBudget = options.cognitiveBudget === 'adaptive' ? 'adaptive'
+      : Number.isSafeInteger(options.cognitiveBudget) && Number(options.cognitiveBudget) >= 1
+        && Number(options.cognitiveBudget) <= 4096 ? Number(options.cognitiveBudget) : null;
     this.worker = new Worker(new URL('../simulation/simulation.worker.ts', import.meta.url), { type: 'module' });
     this.worker.addEventListener('message', (event: MessageEvent<SimulationWorkerResponse>) => this.receive(event.data));
     this.worker.addEventListener('error', event => {
@@ -62,7 +70,9 @@ export class GameSession {
       this.onError?.(error);
     });
     this.ready = this.send('initialize', { config: this.config, seed,
-      ...(this.tileDeltaTransport ? {transport:this.compactActorTransport ? 'tile-delta-compact' : 'tile-delta'} : {}) }, this.epoch).then(() => {
+      ...(this.tileDeltaTransport ? {transport:this.compactActorTransport ? 'tile-delta-compact' : 'tile-delta'} : {}),
+      ...(this.workerProfiling ? {profileTiming:true} : {}),
+      ...(this.cognitiveBudget != null ? {cognitiveBudget:this.cognitiveBudget} : {}) }, this.epoch).then(() => {
       if (!this.world) throw new Error('O Worker inicializou sem devolver o estado do mundo.');
       return this.world;
     });
@@ -82,8 +92,11 @@ export class GameSession {
     this.paused = false;
     this.peopleById.clear();
     this.resyncInFlight = false;
+    this.workerTiming = null;
     this.ready = this.send('reset', { seed, kingdomAiEnabled,
-      ...(this.tileDeltaTransport ? {transport:this.compactActorTransport ? 'tile-delta-compact' : 'tile-delta'} : {}) }, this.epoch).then(() => {
+      ...(this.tileDeltaTransport ? {transport:this.compactActorTransport ? 'tile-delta-compact' : 'tile-delta'} : {}),
+      ...(this.workerProfiling ? {profileTiming:true} : {}),
+      ...(this.cognitiveBudget != null ? {cognitiveBudget:this.cognitiveBudget} : {}) }, this.epoch).then(() => {
       if (!this.world) throw new Error('O Worker reiniciou sem devolver o estado do mundo.');
       return this.world;
     });
@@ -165,7 +178,9 @@ export class GameSession {
   }
 
   getTransportDiagnostics() {
-    return { ...this.transportDiagnostics.snapshot(), advanceQueue: {
+    return { ...this.transportDiagnostics.snapshot(),
+      workerTiming: this.workerTiming ? { ...this.workerTiming, phases: { ...this.workerTiming.phases } } : null,
+      advanceQueue: {
       ...this.advanceQueue.snapshot(), inFlight: this.advanceInFlight, pendingRequests: this.pending.size
     } };
   }
@@ -233,6 +248,7 @@ export class GameSession {
       return;
     }
     this.receivedRevision = response.revision;
+    if (response.workerTiming) this.workerTiming = response.workerTiming;
     if (response.type === 'player-update') {
       if (this.world) {
         const updates = response.people || (response.person ? [response.person] : []);

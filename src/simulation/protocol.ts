@@ -87,8 +87,8 @@ type RequestEnvelope = {
 };
 
 export type SimulationWorkerRequest = RequestEnvelope & (
-  | { type: 'initialize'; config: WorldConfig; seed: number; transport?: 'tile-delta' | 'tile-delta-compact' }
-  | { type: 'reset'; seed: number; kingdomAiEnabled: boolean; transport?: 'tile-delta' | 'tile-delta-compact' }
+  | { type: 'initialize'; config: WorldConfig; seed: number; transport?: 'tile-delta' | 'tile-delta-compact'; profileTiming?: boolean; cognitiveBudget?: number | 'adaptive' }
+  | { type: 'reset'; seed: number; kingdomAiEnabled: boolean; transport?: 'tile-delta' | 'tile-delta-compact'; profileTiming?: boolean; cognitiveBudget?: number | 'adaptive' }
   | { type: 'resync' }
   | { type: 'set-paused'; paused: boolean }
   | { type: 'advance'; days: number; source: 'clock' | 'manual' }
@@ -102,11 +102,14 @@ export type SimulationWorkerRequest = RequestEnvelope & (
   | { type: 'inspect-animal'; animalId: number }
 );
 
+export type WorkerTiming = {days:number; simulationMs:number; captureMs:number; phases:Record<string,number>; cognitive?: Record<string,unknown> | null};
+
 type ResponseEnvelope = {
   protocolVersion: typeof SIMULATION_PROTOCOL_VERSION;
   requestId: number;
   epoch: number;
   revision: number;
+  workerTiming?: WorkerTiming;
 };
 
 export type SimulationWorkerResponse = ResponseEnvelope & (

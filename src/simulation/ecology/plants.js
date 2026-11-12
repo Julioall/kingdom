@@ -7,6 +7,7 @@ import { isRoadTile, resourceUsePressure } from '../world/roads.js';
 import { CULTIVATED_FOOD_PER_SEED_UNIT } from '../economy/food-policy.js';
 import { recordFoodAuditBlocked, withFoodAuditOperation } from '../economy/food-audit-ledger.js';
 import { clearWildVegetationNearCorrals } from './corral-clearance.js';
+import { treeGrowthStructureMask } from './tree-growth-structure-mask.js';
 
 const RESOURCE_REGEN_INTERVAL_DAYS = 7;
 const RESOURCE_REGEN_FACTOR = .3;
@@ -176,6 +177,7 @@ function spreadWildPlants(w, day, corralClearance) {
 export function updatePlants(w, day) {
     const { clearance: corralClearance } = clearWildVegetationNearCorrals(w);
     if (day % RESOURCE_REGEN_INTERVAL_DAYS !== 0) return;
+    const treeBlocked = treeGrowthStructureMask(w);
     invalidateNavigation(w);
     w.ecologyFlows ||= {};
     w.ecologyFlows.humanFoodRegrowth ||= 0;
@@ -216,10 +218,7 @@ export function updatePlants(w, day) {
         const cropField = p.cultivatedOnly ? cropFields.get(t.cropFieldId) : null;
         if (p.cultivatedOnly && (!cropField || cropField.cropCycleState !== 'growing')) continue;
         if (p.id === 'broadleaf' || p.id === 'conifer') {
-          const blockedByStructure = b < 150 && (w.structures || []).some(structure =>
-            Math.abs(t.x - structure.x) <= (structure.radius || 1.5)
-            && Math.abs(t.y - structure.y) <= (structure.radius || 1.5));
-          if (b < 150 && (isRoadTile(t) || blockedByStructure)) continue;
+          if (b < 150 && (isRoadTile(t) || treeBlocked[t.y * w.width + t.x])) continue;
         }
         const capacity = p.cultivatedOnly ? Math.min(p.max, cropField.cropTileCapacity) : p.max;
         const cropBudget = p.cultivatedOnly ? Math.max(0, cropField.cropYieldTarget - cropField.cropGrowthGenerated) : Infinity;

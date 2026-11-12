@@ -1,0 +1,64 @@
+name: Kingdom Performance V2 — parity and A/B
+on:
+  pull_request:
+    branches: [main]
+    paths: ["src/**", "scripts/benchmark-phase-v2.mjs", "scripts/compare-performance-v2.mjs", "tests/performance-v2-*.test.mjs", ".github/workflows/performance-v2.yml"]
+  workflow_dispatch:
+    inputs:
+      population:
+        description: "NPCs for same-host A/B (manual stress: 5000)"
+        required: true
+        default: "5000"
+        type: choice
+        options: ["500", "5000"]
+permissions:
+  contents: read
+jobs:
+  full-world:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout baseline
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.event.repository.default_branch }}
+          path: baseline
+          fetch-depth: 1
+      - name: Checkout candidate
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: candidate
+          fetch-depth: 1
+      - name: Set up Node
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - name: Same-host full-world A/B — verify every complete authoritative digest
+        shell: bash
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/perf-results"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            POPULATIONS="${{ inputs.population }}"
+          else
+            POPULATIONS="100 500"
+          fi
+          for count in $POPULATIONS; do
+            for seed in 1 42; do
+              (cd baseline && node scripts/benchmark-m1.mjs "$count" "$seed" 1 "$GITHUB_WORKSPACE/perf-results/baseline-$count-$seed.json")
+              (cd candidate && node scripts/benchmark-m1.mjs "$count" "$seed" 1 "$GITHUB_WORKSPACE/perf-results/candidate-$count-$seed.json")
+            done
+          done
+          node candidate/scripts/compare-performance-v2.mjs "$GITHUB_WORKSPACE/perf-results"
+      - name: Profile production simulation stages with exact parity
+        shell: bash
+        run: |
+          cd candidate
+          KINGDOM_V2_SEEDS=1,42,2026 KINGDOM_V2_DAYS=7 node scripts/benchmark-phase-v2.mjs "$GITHUB_WORKSPACE/perf-results/phases.json"
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: kingdom-performance-v2
+          path: perf-results/
+          retention-days: 14

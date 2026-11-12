@@ -51,6 +51,18 @@ test('bounded normal forwards, deterministic rotations and eventual service for 
   assert.equal(cognitiveMaxWaitDays(5000,128),40);
 });
 
+test('adaptive budget gives a 5k adult population an eight-day normal refresh window',()=>{
+  const people=Array.from({length:5000},(_,i)=>({id:i+1,ageDays:9000,alive:true,brain:{}}));
+  const w={seed:42,day:0,epoch:1,neuralOverrides:{cognitiveSchedule:{
+    mode:'budgeted',budget:'adaptive'}},people};
+  beginCognitiveDay(w,people);
+  const metrics=cognitiveDayMetrics(w);
+  assert.equal(metrics.eligible,5000);
+  assert.equal(metrics.budget,625);
+  assert.equal(metrics.planned,625);
+  assert.equal(metrics.maxRoutineWaitDays,8);
+});
+
 test('emergency bypasses neural budget while all actors still decide every simulated day',()=>{
   const w=setup(48,1);
   w.people[30].foodReserve=4;
