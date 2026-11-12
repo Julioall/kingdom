@@ -641,6 +641,7 @@ export function campaignOrderFor(world, person) {
   const formation = withdrawing && side.formation ? { ...side.formation, worldSlots: null } : side.formation;
   const squadIndex = side.squadTactics?.memberToSquad?.[person.id];
   const squad = Number.isInteger(squadIndex) ? side.squadTactics.squads[squadIndex] : null;
+  let rejoining = false;
   const weaponRange = combatEngagementRange(person.militaryClass) || 2;
   // Preserve the ranks when contact is distant. A commander only abandons
   // the anchor for immediate self-defense; frontliners may charge once in
@@ -681,6 +682,7 @@ export function campaignOrderFor(world, person) {
         // navigable route. Chasing a constantly rotating personal slot near
         // the front makes distant stragglers oscillate or become stuck.
         const detached = distance(person, commander) > 10;
+        rejoining = detached;
         target = detached ? { x: commander.x, y: commander.y }
           : slot && cellAt(world, slot.x, slot.y)?.terrain === 'land'
             ? slot : { x: commander.x, y: commander.y };
@@ -692,7 +694,8 @@ export function campaignOrderFor(world, person) {
   return { campaign, side, target, destination, withdrawing, tactical: !commanding && tactical,
     engagementRange: commanding ? null : engagementRange, commanding,
     squadLeader: squad?.commanderId === person.id, squadPhase: squad?.phase || null,
-    squadFacing: squad?.orientation || null, formation: side.formation || null };
+    squadFacing: squad?.orientation || null, rejoining,
+    formation: side.formation || null };
 }
 
 export function performCampaignOrder(world, person, order) {
@@ -712,7 +715,7 @@ export function performCampaignOrder(world, person, order) {
   }
   if (order.construction) return performFrontierWork(world, person, order);
   const { campaign, side, target, withdrawing, holding, formation, tactical, engagementRange,
-    commanding, squadLeader, squadPhase, squadFacing } = order;
+    commanding, squadLeader, squadPhase, squadFacing, rejoining } = order;
   if (squadFacing && !withdrawing && !engagementRange) {
     person.militaryFacingX = squadFacing.x;
     person.militaryFacingY = squadFacing.y;
@@ -752,7 +755,8 @@ export function performCampaignOrder(world, person, order) {
     return true;
   }
   let moved = moveOne(world, person, cellAt(world, target.x, target.y), false,
-    engagementRange ? { arrivalRadius: engagementRange } : null);
+    rejoining ? { arrivalRadius: 4 } :
+      engagementRange ? { arrivalRadius: engagementRange } : null);
   // A formation slot may fall on a tree, cliff, fence or occupied tile.
   // Seek a reachable nearby position instead of retrying that exact slot forever.
   if (!moved && !withdrawing) {
@@ -769,7 +773,8 @@ export function performCampaignOrder(world, person, order) {
   person.campaignMoveSucceeded = !!moved;
   person.state = moved ? commanding ? 'deslocando posto de comando em campo'
     : withdrawing ? 'retornando da campanha'
-      : squadPhase === 'reforming' ? 'alcançando o comandante para reagrupar'
+      : rejoining ? 'reencontrando o comandante da unidade'
+        : squadPhase === 'reforming' ? 'alcançando o comandante para reagrupar'
         : squadPhase === 'rout' ? 'fugindo após quebra da moral'
         : squadPhase === 'rally' ? 'reagrupando formação'
           : squadPhase === 'flanking' ? 'executando marcha pelo flanco'
