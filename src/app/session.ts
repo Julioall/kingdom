@@ -46,16 +46,17 @@ export class GameSession {
   readonly compactActorTransport: boolean;
   private readonly transportDiagnostics = createTransportDiagnostics();
   private readonly workerProfiling: boolean;
-  private readonly cognitiveBudget: number | null;
+  private readonly cognitiveBudget: number | 'adaptive' | null;
   private workerTiming: WorkerTiming | null = null;
 
   constructor(private readonly config: WorldConfig = defaultWorldConfig, seed = 42,
-    options: {tileDeltaTransport?: boolean; compactActorTransport?: boolean; workerProfiling?: boolean; cognitiveBudget?: number | null} = {}) {
+    options: {tileDeltaTransport?: boolean; compactActorTransport?: boolean; workerProfiling?: boolean; cognitiveBudget?: number | 'adaptive' | null} = {}) {
     this.compactActorTransport = options.compactActorTransport === true;
     this.tileDeltaTransport = options.tileDeltaTransport === true || this.compactActorTransport;
     this.workerProfiling = options.workerProfiling === true;
-    this.cognitiveBudget = Number.isSafeInteger(options.cognitiveBudget) && (options.cognitiveBudget ?? 0) >= 1
-      && (options.cognitiveBudget ?? 0) <= 4096 ? Number(options.cognitiveBudget) : null;
+    this.cognitiveBudget = options.cognitiveBudget === 'adaptive' ? 'adaptive'
+      : Number.isSafeInteger(options.cognitiveBudget) && Number(options.cognitiveBudget) >= 1
+        && Number(options.cognitiveBudget) <= 4096 ? Number(options.cognitiveBudget) : null;
     this.worker = new Worker(new URL('../simulation/simulation.worker.ts', import.meta.url), { type: 'module' });
     this.worker.addEventListener('message', (event: MessageEvent<SimulationWorkerResponse>) => this.receive(event.data));
     this.worker.addEventListener('error', event => {

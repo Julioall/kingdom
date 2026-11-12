@@ -11,13 +11,16 @@ const DEFAULT_BUDGET = 256;
 function enabled(world) {
   return sharedPolicyEnabled(world) && world?.neuralOverrides?.cognitiveSchedule?.mode === 'budgeted';
 }
-function budgetFor(world) {
+function budgetFor(world, adultCount) {
   const raw = world?.neuralOverrides?.cognitiveSchedule?.budget;
+  // Optional adaptive preset: update every ordinary adult in approximately
+  // eight days at stable population. Emergencies are never budget-limited.
+  if (raw === 'adaptive') return Math.max(128, Math.min(4096, Math.ceil(adultCount / 8)));
   return Number.isSafeInteger(raw) && raw >= 1 && raw <= 100000 ? raw : DEFAULT_BUDGET;
 }
 function freshDay(world, people) {
-  const budget = budgetFor(world);
   const adults = people.filter(p => p.alive && p.ageDays >= 12 * 365);
+  const budget = budgetFor(world, adults.length);
   // updatePeople already passes ID-sorted adults. Avoid sorting the hot path,
   // but preserve deterministic order if the scheduler is used independently.
   if (adults.some((person, i) => i > 0 && adults[i - 1].id > person.id))
