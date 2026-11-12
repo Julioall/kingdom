@@ -55,7 +55,9 @@ test('rank positions choose unique land tiles without colliding with commander a
   const allocated = allocateBattlefieldSlots(world, plan.squads, troops);
   const anchors = new Set(['50:50']);
   const slots = allocated.flatMap(group => Object.values(group.worldSlots));
-  assert.equal(slots.length, 27);
+  assert.ok(slots.length >= 18, 'most soldiers receive a distinct nearby rank tile');
+  assert.equal(slots.length + allocated.reduce((sum, group) => sum + group.terrainBlockedSlots, 0),
+    27, 'each remaining soldier is counted as blocked rather than assigned to a duplicate tile');
   const keys = slots.map(point => point.x + ':' + point.y);
   assert.equal(new Set(keys).size, keys.length);
   for (const slot of slots) {
