@@ -197,8 +197,8 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     // zone, unless the enemy is in immediate weapon-contact distance.
     // Every third day allows progress if an obstruction prevents full order.
     const pacing = (phase === 'marching' || phase === 'deploying'
-        || phase === 'flanking' && flankStage === 'swing' && reachedWing)
-      && (!focus || dist(commander, focus) > 6)
+        || phase === 'contact' || phase === 'flanking' && flankStage === 'swing' && reachedWing)
+      && (!focus || dist(commander, focus) > 4.5)
       && needsReform && day % 3 !== 0;
     if (pacing) {
       squad.target = { x: commander.x, y: commander.y };
