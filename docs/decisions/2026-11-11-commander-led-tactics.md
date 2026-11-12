@@ -39,7 +39,10 @@ Sim.createWorld(42, { tacticalCombat: 'commanders' });   // âncoras reais; linh
 Sim.createWorld(42, { tacticalCombat: 'hierarchical' }); // utilidade/moral/influência
 ```
 
-O padrão experimental desta branch é `commanders`. Em mundos antigos sem
+O padrão experimental desta branch é `hierarchical`, escolhido após os testes
+multissemente de 90 dias (seeds 1, 42 e 2026) como o menor p95 de CPU. Não foi
+observada vitória militar conclusiva; `legacy` continua disponível para regressão.
+Em mundos antigos sem
 `tacticalCombat`, o sistema volta para `legacy` (compatibilidade).
 
 `node --test tests/squad-tactics.test.mjs`
