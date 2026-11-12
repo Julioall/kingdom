@@ -48,13 +48,15 @@ export function createActorViewportIndex(world, getSweptBounds, chunkSize = 12) 
       return all;
     }
     const touched=new Set(),records=[];
-    function consider(record) {
+    function consider(record, force = false) {
       if (touched.has(record)) return;
       touched.add(record);
-      if (record.xmax >= bounds.minX && record.xmin <= bounds.maxX
-          && record.ymax >= bounds.minY && record.ymin <= bounds.maxY) records.push(record);
+      if (force || (record.xmax >= bounds.minX && record.xmin <= bounds.maxX
+          && record.ymax >= bounds.minY && record.ymin <= bounds.maxY)) records.push(record);
     }
-    for (const record of globalActors[kind]) consider(record);
+    // Combat presentation and player prediction can move independently from
+    // snapshot interpolation. Never broad-phase-cull these actors.
+    for (const record of globalActors[kind]) consider(record, true);
     for (let y=Math.floor(bounds.minY/chunkSize);y<=Math.floor(bounds.maxY/chunkSize);y++)
       for (let x=Math.floor(bounds.minX/chunkSize);x<=Math.floor(bounds.maxX/chunkSize);x++){
         const recordsInBin=bins[kind].get(x+':'+y);
