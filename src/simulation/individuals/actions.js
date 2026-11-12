@@ -1263,7 +1263,8 @@ function updatePeopleCore(w) {
       // commander keeps marching. Only critical wounds require evacuation;
       // everyone else rests WITH the field formation and then rejoins ranks.
       const servingInField = p.role === 'soldier' && !!campaignOrder?.campaign
-        && !campaignOrder.withdrawing;
+        && !campaignOrder.withdrawing
+        && ['commanders', 'hierarchical'].includes(w.tacticalCombat?.mode);
       const seriousWound = p.tacticalRecovering || p.health < 28 || p.injury >= 10;
       const fieldRest = servingInField && !seriousWound
         && (p.energy < GARRISON_RECOVERY.energy
