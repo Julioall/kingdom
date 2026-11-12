@@ -1,0 +1,54 @@
+name: Kingdom V3 — 5k actors and browser culling
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/ui/actor-viewport-index.js"
+      - "src/ui/movement-interpolation.js"
+      - "src/ui/game.js"
+      - "src/simulation/individuals/**"
+      - "scripts/benchmark-actor-culling-browser.mjs"
+      - ".github/workflows/performance-v3.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  stress-and-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Candidate checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          path: candidate
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Baseline checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          path: baseline
+          ref: ${{ github.event.pull_request.base.sha || github.event.repository.default_branch }}
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - name: A/B authoritative 5,000 NPC stress with exact digest parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/results"
+          (cd baseline && node scripts/benchmark-m1.mjs 5000 42 1 "$GITHUB_WORKSPACE/results/baseline-5000-42.json")
+          (cd candidate && node scripts/benchmark-m1.mjs 5000 42 1 "$GITHUB_WORKSPACE/results/candidate-5000-42.json")
+          node candidate/scripts/compare-performance-v2.mjs "$GITHUB_WORKSPACE/results"
+      - name: Install browser tooling
+        working-directory: candidate
+        run: npm ci && npx playwright install --with-deps chromium
+      - name: Compare browser culling enabled and disabled
+        working-directory: candidate
+        shell: bash
+        run: node scripts/benchmark-actor-culling-browser.mjs --duration=3200 --repeats=1 --output="$GITHUB_WORKSPACE/results/actor-culling-browser.json"
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: kingdom-v3-cpu-and-browser
+          path: results/
+          retention-days: 14
