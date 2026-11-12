@@ -53,6 +53,7 @@ import { createStaticDepthSpatialIndex } from './depth-spatial-index.js';
 import { createEntityDrawProbe } from './entity-draw-probe.js';
 import { createVisibleStaticDepthCache } from './visible-static-depth-cache.js';
 import { paintMinimap } from './render/minimap.js';
+import { drawBattlefieldDebug } from './battlefield-debug.js';
 import { shouldDrawMineralAtZoom } from './mineral-lod.js';
 import { MINERAL_SPRITE_KINDS, mineralDepositVariant } from './mineral-sprites.js';
 import { CORRAL_VISUAL_SCALE, corralFenceRadius } from '../simulation/ecology/herd.js';
@@ -206,6 +207,9 @@ export function mountGame() {
   // Without this independent DEV-only flag, full mode would use complete
   // snapshots while compact mode used tile deltas, confounding measurements.
   const tileDeltaQA = import.meta.env.DEV && diagnosticQuery.get('tileDeltaQA') === '1';
+  // Open ?battleDebug=1 to inspect true soldier positions, projected slots,
+  // commander march targets, flanking wings and held reserves on the map.
+  const showBattlefieldDebug = diagnosticQuery.get('battleDebug') === '1';
   const session = new GameSession(undefined, sessionSeed,
     { compactActorTransport: compactActorsQA, tileDeltaTransport: tileDeltaQA });
   if (diagnosticQuery.get('paused') === '1') {
@@ -3032,6 +3036,7 @@ export function mountGame() {
       drawHoveredStructureTerritory();
       profile?.mark('selection');
       drawDepthSortedWorld(view.bounds, profile);
+      if (showBattlefieldDebug) drawBattlefieldDebug(ctx, world, TILE);
       ctx.restore();
       const cameraCenter = camera.toWorld(stage.clientWidth / 2, stage.clientHeight / 2);
       cloudSystem.drawShadows(ctx, camera, stage.clientWidth, stage.clientHeight, cameraCenter, mapZoom);
