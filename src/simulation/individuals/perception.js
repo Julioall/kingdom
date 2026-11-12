@@ -12,17 +12,17 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
     }
     return Math.max(0, Math.min(.95, cover));
   }
-  function inFieldOfView(observer, target, fieldOfViewDegrees) {
+  function inFieldOfView(observer, target, fieldOfViewDegrees, cached = null) {
     const hx = observer.headingX || 0, hy = observer.headingY || 0;
-    const headingLength = Math.hypot(hx, hy);
+    const headingLength = cached ? cached.headingLength : Math.hypot(hx, hy);
     if (headingLength < .01 || fieldOfViewDegrees >= 359) return true;
     const dx = target.x - observer.x, dy = target.y - observer.y;
     const length = Math.hypot(dx, dy);
     if (length < .01) return true;
     const dot = (hx * dx + hy * dy) / (headingLength * length);
-    return dot >= Math.cos(fieldOfViewDegrees * Math.PI / 360);
+    return dot >= (cached ? cached.minDot : Math.cos(fieldOfViewDegrees * Math.PI / 360));
   }
-  function lineOfSight(world, observer, target, plantProfiles) {
+  function lineOfSight(world, observer, target, plantProfiles, canopyCache = null) {
     let x0 = Math.round(observer.x), y0 = Math.round(observer.y);
     const x1 = Math.round(target.x), y1 = Math.round(target.y);
     const dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
@@ -33,7 +33,13 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
       if (twice >= dy) { error += dy; x0 += sx; }
       if (twice <= dx) { error += dx; y0 += sy; }
       if (x0 === x1 && y0 === y1) break;
-      if (canopyAt(tileAt(world, x0, y0), plantProfiles) >= .61) return false;
+      const tile = tileAt(world, x0, y0);
+      let cover = tile && canopyCache?.get(tile);
+      if (cover === undefined) {
+        cover = canopyAt(tile, plantProfiles);
+        if (tile && canopyCache) canopyCache.set(tile, cover);
+      }
+      if (cover >= .61) return false;
     }
     return true;
   }
@@ -49,6 +55,11 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
     const animal = kind === 'animal';
     const baseRange = animal ? 7 : 10;
     const fieldOfView = animal ? 300 : 210;
+    // All line-of-sight reads during this observation see the same plants.
+    // Never persist the cache across actors: harvesting can alter cover mid-day.
+    const canopyCache = new Map();
+    const fovCache = { headingLength: Math.hypot(observer.headingX || 0, observer.headingY || 0),
+      minDot: Math.cos(fieldOfView * Math.PI / 360) };
     const range = baseRange * visibilityFactor(world, observer);
     const resourceRange = animal ? 5 : 8;
     const memoryDays = animal ? 3 : 5;
@@ -60,8 +71,8 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
       for (const target of list) {
         if (!target.alive || target.id === observer.id) continue;
         const d = distance(observer, target);
-        if (d > range || !inFieldOfView(observer, target, fieldOfView)
-            || !lineOfSight(world, observer, target, plantProfiles)) continue;
+        if (d > range || !inFieldOfView(observer, target, fieldOfView, fovCache)
+            || !lineOfSight(world, observer, target, plantProfiles, canopyCache)) continue;
         const key = targetKind + ':' + target.id;
         seenKeys.add(key);
         const sighting = { id: target.id, kind: targetKind, speciesId: target.speciesId || null,
@@ -111,8 +122,8 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
       const tile = tileAt(world, x, y);
       if (!tile) continue;
       const d = Math.hypot(x - observer.x, y - observer.y);
-      if (d > resourceRange || !inFieldOfView(observer, { x, y }, fieldOfView)
-          || !lineOfSight(world, observer, { x, y }, plantProfiles)) continue;
+      if (d > resourceRange || !inFieldOfView(observer, { x, y }, fieldOfView, fovCache)
+          || !lineOfSight(world, observer, { x, y }, plantProfiles, canopyCache)) continue;
       const biomass = {};
       const harvestableBiomass = {};
       for (let i = 0; i < plantProfiles.length; i++) {
@@ -147,8 +158,8 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
     for (const item of world.logs || []) {
       if (!item.available || item.amount <= .01) continue;
       const d = distance(observer, item);
-      if (d > resourceRange || !inFieldOfView(observer, item, fieldOfView)
-          || !lineOfSight(world, observer, item, plantProfiles)) continue;
+      if (d > resourceRange || !inFieldOfView(observer, item, fieldOfView, fovCache)
+          || !lineOfSight(world, observer, item, plantProfiles, canopyCache)) continue;
       const seen = { id: item.id, x: item.x, y: item.y, amount: item.amount, distance: d,
         visible: true, confidence: 1, lastSeenDay: world.day };
       memory.logs[item.id] = seen;
@@ -173,15 +184,15 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
       for (const shelter of world.structures || []) {
         if (!shelter.complete || shelter.type !== 'abrigo') continue;
         const d = distance(observer, shelter);
-        if (d > 22 || !inFieldOfView(observer, shelter, fieldOfView)
-            || !lineOfSight(world, observer, shelter, plantProfiles)) continue;
+        if (d > 22 || !inFieldOfView(observer, shelter, fieldOfView, fovCache)
+            || !lineOfSight(world, observer, shelter, plantProfiles, canopyCache)) continue;
         sites.push({ id: shelter.id, communityId: shelter.communityId, kind: 'shelter', x: shelter.x, y: shelter.y });
       }
       for (const community of world.communities || []) {
         if (community.dissolved) continue;
         const d = distance(observer, community);
-        if (d > 16 || !inFieldOfView(observer, community, fieldOfView)
-            || !lineOfSight(world, observer, community, plantProfiles)) continue;
+        if (d > 16 || !inFieldOfView(observer, community, fieldOfView, fovCache)
+            || !lineOfSight(world, observer, community, plantProfiles, canopyCache)) continue;
         sites.push({ id: community.id, communityId: community.id, kind: 'community', x: community.x, y: community.y });
       }
       for (const site of sites) {
@@ -211,8 +222,8 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
         const tile = tileAt(world, observer.x + dx, observer.y + dy);
         if (!tile || tile.kingdomId == null || tile.kingdomId === observer.kingdomId) continue;
         const d = distance(observer, tile);
-        if (d > range || !inFieldOfView(observer, tile, fieldOfView)
-            || !lineOfSight(world, observer, tile, plantProfiles)) continue;
+        if (d > range || !inFieldOfView(observer, tile, fieldOfView, fovCache)
+            || !lineOfSight(world, observer, tile, plantProfiles, canopyCache)) continue;
         if (!nearestForeign || d < nearestForeign.distance) {
           const owner = world.kingdoms.find(kingdom => kingdom.id === tile.kingdomId);
           nearestForeign = { kingdomId: tile.kingdomId, name: owner ? owner.name : 'outro reino', distance: d };

@@ -361,28 +361,42 @@ function findLivingAnimalById(world, id) {
 
 export function nearestHuntable(w, person, radius) {
     const observations = person.perception && person.perception.animals || [];
-    return observations.filter(sighting => sighting.visible && sighting.distance <= radius
-      && species(sighting.speciesId, ANIMALS)?.huntable)
-      .map(sighting => findLivingAnimalById(w, sighting.id))
-      .filter(animal => animal && animal.herdCommunityId == null && !animal.beingLedBy)
-      .sort((a, b) => distance(person, a) - distance(person, b))[0] || null;
+    let best = null, bestDistance = Infinity;
+    for (const sighting of observations) {
+      if (!sighting.visible || sighting.distance > radius
+          || !species(sighting.speciesId, ANIMALS)?.huntable) continue;
+      const animal = findLivingAnimalById(w, sighting.id);
+      if (!animal || animal.herdCommunityId != null || animal.beingLedBy) continue;
+      const d = distance(person, animal);
+      if (d < bestDistance) { best = animal; bestDistance = d; }
+    }
+    return best;
   }
 
 export function nearestKnownHuntable(w, person, radius) {
-    return (person.perception && person.perception.animals || [])
-      .filter(sighting => sighting.speciesId && species(sighting.speciesId, ANIMALS)?.huntable && sighting.distance <= radius)
-      .filter(sighting => {
-        const animal = findLivingAnimalById(w, sighting.id);
-        return animal && animal.herdCommunityId == null && !animal.beingLedBy;
-      })
-      .sort((a, b) => (b.confidence - a.confidence) || (a.distance - b.distance))[0] || null;
+    let best = null;
+    for (const sighting of person.perception?.animals || []) {
+      if (!sighting.speciesId || !species(sighting.speciesId, ANIMALS)?.huntable
+          || sighting.distance > radius) continue;
+      const animal = findLivingAnimalById(w, sighting.id);
+      if (!animal || animal.herdCommunityId != null || animal.beingLedBy) continue;
+      if (!best || ((best.confidence - sighting.confidence)
+        || (sighting.distance - best.distance)) < 0) best = sighting;
+    }
+    return best;
   }
 
 export function nearestFish(w, person, radius) {
-    const sightings = person.perception && person.perception.animals || [];
-    return sightings.filter(s => s.visible && s.distance <= radius && species(s.speciesId, ANIMALS)?.fishable)
-      .map(s => findLivingAnimalById(w, s.id))
-      .filter(Boolean).sort((a, b) => distance(person, a) - distance(person, b))[0] || null;
+    let best = null, bestDistance = Infinity;
+    for (const sighting of person.perception?.animals || []) {
+      if (!sighting.visible || sighting.distance > radius
+          || !species(sighting.speciesId, ANIMALS)?.fishable) continue;
+      const animal = findLivingAnimalById(w, sighting.id);
+      if (!animal) continue;
+      const d = distance(person, animal);
+      if (d < bestDistance) { best = animal; bestDistance = d; }
+    }
+    return best;
   }
 
 export function bestHuntingGround(w, person, radius) {
@@ -1834,18 +1848,30 @@ export function updatePeople(w, phaseObserver = null) {
     }
   }
 export function nearestPerson(w, p, radius, excludedIds = null) {
-    const sightings = p.perception && p.perception.people || [];
-    return sightings.filter(s => s.visible && s.distance <= radius && !excludedIds?.has(s.id))
-      .map(s => findPersonById(w, s.id))
-      .filter(Boolean).sort((a, b) => distance(p, a) - distance(p, b))[0] || null;
+    let best = null, bestDistance = Infinity;
+    for (const sighting of p.perception?.people || []) {
+      if (!sighting.visible || sighting.distance > radius || excludedIds?.has(sighting.id)) continue;
+      const candidate = findPersonById(w, sighting.id);
+      if (!candidate) continue;
+      const d = distance(p, candidate);
+      if (d < bestDistance) { best = candidate; bestDistance = d; }
+    }
+    return best;
   }
 
 export function nearestWater(w, p, radius) {
-    const known = p.perception && p.perception.knownWater || [];
-    return known.filter(point => point.distance <= (radius || Infinity))
-      .sort((a, b) => (a.distance - b.distance) || (b.confidence - a.confidence))
-      .map(point => cellAt(w, point.x, point.y))
-      .find(tile => tile && (tile.terrain === 'water' || (tile.surfaceWaterMm || 0) >= 1.5)) || null;
+    let bestPoint = null, bestTile = null;
+    const limit = radius || Infinity;
+    for (const point of p.perception?.knownWater || []) {
+      if (point.distance > limit) continue;
+      const tile = cellAt(w, point.x, point.y);
+      if (!tile || (tile.terrain !== 'water' && (tile.surfaceWaterMm || 0) < 1.5)) continue;
+      if (!bestPoint || ((point.distance - bestPoint.distance)
+        || (bestPoint.confidence - point.confidence)) < 0) {
+        bestPoint = point; bestTile = tile;
+      }
+    }
+    return bestTile;
   }
 
 export function bestHabitatCell(w, p) {
