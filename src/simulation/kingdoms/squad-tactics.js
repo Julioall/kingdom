@@ -92,11 +92,13 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     if (mode === 'hierarchical' && observedInfluence(goal, threatList) > 1.5) scores.column += 2;
     if (prior && scores[prior.formationType] != null) scores[prior.formationType] += 1;
     const formationType = Object.entries(scores).sort((a, b) => b[1] - a[1])[0][0];
+    const face = dist(commander, goal) > 2 ? normalized(commander, goal)
+      : contested ? normalized(commander, threatList[0]) : forward;
     const squad = {
       id, unitId: unit.id, commanderId: commander.id,
       generalId: unit.generalId ?? generalOrder?.issuerId ?? null,
       memberIds: members.map(p => p.id), role, mission, formationType,
-      orientation: forward, target: goal, morale: Number(morale.toFixed(2)), routed,
+      orientation: face, target: goal, morale: Number(morale.toFixed(2)), routed,
       influence: mode === 'hierarchical' ? observedInfluence(goal, threatList) : 0,
       day, strength: members.length
     };
