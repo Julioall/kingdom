@@ -59,6 +59,10 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
       : candidates.length === 3 ? ['vanguard', 'flank-left', 'flank-right']
         : candidates.length === 4 ? ['vanguard', 'support', 'flank-left', 'flank-right']
           : ROLES;
+  // Unit identity survives losses. Otherwise every casualty eliminating a
+  // unit would renumber the wings and make entire bodies reverse direction.
+  const survivingVanguard = candidates.some(({ unit }) =>
+    previousById.get(String(unit.id))?.role === 'vanguard');
   const forward = orientation || normalized(home || destination, destination);
   const lateral = { x: -forward.y, y: forward.x };
   // Marches obey the vanguard's ACTUAL position, not a common far-away
@@ -78,9 +82,10 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
 
   for (let index = 0; index < candidates.length; index++) {
     const { unit, members, commander } = candidates[index];
-    const role = roles[index % roles.length];
     const id = String(unit.id);
     const prior = previousById.get(id);
+    const role = prior?.role === 'vanguard' || !survivingVanguard && index === 0
+      ? 'vanguard' : prior?.role || roles[index % roles.length];
     const avgStamina = members.reduce((sum, p) => sum + (Number(p.stamina) || 0), 0) / members.length;
     const morale = mode === 'hierarchical'
       ? moraleForSquad(sideMorale, prior, members.length, day, avgStamina)
