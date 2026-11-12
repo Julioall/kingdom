@@ -53,8 +53,8 @@ function updateEnvironment(world, day, observer = null) {
   return weather;
 }
 
-function updateSociety(world) {
-  updatePeople(world);
+function updateSociety(world, phaseObserver = null) {
+  updatePeople(world, phaseObserver);
 }
 
 function updateMarketMaintenance(world, day) {
@@ -160,7 +160,7 @@ export function stepDay(world, options = null) {
 
   // 4. Residents respond to current needs, resources, territory, and military orders.
   measure('militarySalaries', () => payMilitarySalaries(world, nextDay));
-  measure('societyAndNpcActions', () => updateSociety(world));
+  measure('societyAndNpcActions', () => updateSociety(world, simulationObserver));
   measure('clericHealing', () => updateClericHealing(world, nextDay));
   measure('battlefieldSkirmishes', () => fightBattlefieldSkirmishes(world, nextDay));
   measure('campaignResolution', () => resolveKingdomCampaigns(world, nextDay));
