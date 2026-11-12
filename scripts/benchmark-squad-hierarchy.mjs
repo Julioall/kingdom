@@ -55,7 +55,8 @@ for (const [seedIndex, seed] of seeds.entries())
   const world = Sim.createWorld(seed, { tacticalCombat: mode });
   const { attackerId, defenderId, id } = warFixture(world);
   const timings = [], cohesions = [], squadCounts = [], routed = [];
-  const followerDistances = [], objectiveDistances = [];
+  const followerDistances = [], objectiveDistances = [], squadCohesions = [];
+  const phases = {}, formations = {};
   let firstEngagementDay = null, firstDeploymentDay = null;
   for (let i = 0; i < days; i++) {
     const start = performance.now();
@@ -79,6 +80,11 @@ for (const [seedIndex, seed] of seeds.entries())
       if (Number.isFinite(side.formation?.metrics?.cohesion)) cohesions.push(side.formation.metrics.cohesion);
       squadCounts.push(side.squadTactics?.squads?.length ?? 0);
       routed.push(side.squadTactics?.squads?.filter(s => s.routed).length ?? 0);
+      for (const squad of side.squadTactics?.squads || []) {
+        phases[squad.phase] = (phases[squad.phase] || 0) + 1;
+        formations[squad.formationType] = (formations[squad.formationType] || 0) + 1;
+        if (Number.isFinite(squad.cohesion)) squadCohesions.push(squad.cohesion);
+      }
     }
   }
   const campaign = world.campaigns.find(c => c.warId === id);
@@ -97,7 +103,15 @@ for (const [seedIndex, seed] of seeds.entries())
     meanSquads: stats(squadCounts)?.mean ?? 0,
     followerDistance: stats(followerDistances), objectiveDistance: stats(objectiveDistances),
     finalObjectiveDistance: objectiveDistances.length ? +objectiveDistances.at(-1).toFixed(3) : null,
-    totalRoutSquadDays: routed.reduce((sum, count) => sum + count, 0)
+    totalRoutSquadDays: routed.reduce((sum, count) => sum + count, 0),
+    tactical: {
+      phaseSquadDays: phases,
+      formationSquadDays: formations,
+      localSquadCohesion: stats(squadCohesions),
+      flankManeuverDays: (phases.flanking || 0) + (phases.striking || 0),
+      heldReserveDays: phases.holding || 0,
+      brokenFormationDays: phases.rout || 0
+    }
   };
   measures.push(result);
   console.log('SQUAD-TRIAL', JSON.stringify(result));
@@ -107,6 +121,7 @@ const report = {
   seeds, days, scenario, modes, results: measures,
   notes: [
     'The same deterministic seeds, scenario and observation policy are used in every controller.',
+    'Prioritize visible battle phases, unit formation types, flanking, reserve timing, cohesion and engagement outcomes over CPU.',
     'Combat outcomes and campaign arrival are measured independently of CPU cost; no automatic winner is declared.',
     'Wall-clock times are Node CPU proxies, not renderer FPS; run multiple warm replicates and browser QA.',
     'An absent battle/deployment yields null: it is not evidence of tactical victory.',
