@@ -61,6 +61,10 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
           : ROLES;
   const forward = orientation || normalized(home || destination, destination);
   const lateral = { x: -forward.y, y: forward.x };
+  // Marches obey the vanguard's ACTUAL position, not a common far-away
+  // destination. Wings open out only when the center reaches deployment range.
+  const leadCommander = candidates[0]?.commander || destination;
+  const armyDeployedToFront = dist(leadCommander, destination) <= DEPLOY_DISTANCE;
   const threatList = observedThreats.filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
     .sort((a, b) => dist(a, destination) - dist(b, destination) || a.id - b.id)
     .slice(0, LIMIT_THREATS);
@@ -131,6 +135,18 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
       y: destination.y - forward.y * 1.5
     };
     if (mission === 'hold') goal = prior?.holdPoint || { x: commander.x, y: commander.y };
+    if (!armyDeployedToFront && !['vanguard'].includes(role)
+        && !['hold', 'rout', 'regroup'].includes(mission)) {
+      // Columns behind the general: 2-file wing offsets on the road, support
+      // behind the shield center and the reserve last. No wing is allowed
+      // to race unaccompanied to its final battlefield slot.
+      const file = role === 'flank-left' ? -2.5 : role === 'flank-right' ? 2.5 : 0;
+      const trail = role === 'reserve' ? 9 : role === 'support' ? 4.5 : 2;
+      goal = {
+        x: leadCommander.x - forward.x * trail + lateral.x * file,
+        y: leadCommander.y - forward.y * trail + lateral.y * file
+      };
+    }
     goal = projectTarget(goal);
     const count = kind => members.filter(p => p.militaryClass === kind).length;
     const spears = count('lanceiro'), shields = count('guerreiro');
