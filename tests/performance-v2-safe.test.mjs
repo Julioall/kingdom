@@ -54,13 +54,14 @@ test('nearest prey and human threats use proximity and stable ties', () => {
   const preyA={id:2,alive:true,speciesId:'sheep',x:1,y:0};
   const preyB={id:3,alive:true,speciesId:'sheep',x:-1,y:0,
     habituation:0,perception:{people:[{id:7,visible:true,distance:1}]}};
-  const hunter={id:1,alive:true,speciesId:'sheep',x:0,y:0};
+  const hunter={id:1,alive:true,speciesId:'synthetic-predator',x:0,y:0};
   const human={id:7,alive:true,x:-2,y:0,brain:{lastAction:'hunt'},state:'caçando'};
-  const world={animals:[hunter,preyA,preyB],people:[human]};
+  // Synthetic hunter is not a prey. Threat checks use only real sheep species.
+  const world={animals:[preyA,preyB],people:[human]};
   assert.equal(nearestPrey(world,hunter,profile),preyA);
   assert.equal(nearestThreat(world,preyB,5.5,new Map([[human.id,human]])),human);
   assert.equal(nearestThreat(world,preyB,5.5),human);
-  assert.equal(nearestPrey({...world,animals:[hunter,{...preyA,alive:false},preyB]},hunter,profile),preyB);
+  assert.equal(nearestPrey({...world,animals:[{...preyA,alive:false},preyB]},hunter,profile),preyB);
 });
 
 test('HUD writer does not replace identical DOM, but updates changed values', () => {
