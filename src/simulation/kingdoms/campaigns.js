@@ -677,8 +677,13 @@ export function campaignOrderFor(world, person) {
         && commander.campaignId === campaign.id;
       if (availableCommander && !commander.playerControlled) {
         const slot = squad.worldSlots?.[person.id] || squadSlot(squad, person.id, commander);
-        target = slot && cellAt(world, slot.x, slot.y)?.terrain === 'land'
-          ? slot : { x: commander.x, y: commander.y };
+        // A separated soldier must first catch his captain by a long-range
+        // navigable route. Chasing a constantly rotating personal slot near
+        // the front makes distant stragglers oscillate or become stuck.
+        const detached = distance(person, commander) > 10;
+        target = detached ? { x: commander.x, y: commander.y }
+          : slot && cellAt(world, slot.x, slot.y)?.terrain === 'land'
+            ? slot : { x: commander.x, y: commander.y };
       }
     }
   }
