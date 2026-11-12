@@ -285,3 +285,20 @@ test('separated infantry seeks its captain before a rotating formation rank', ()
   assert.deepEqual(squadFollowerTarget({ id: 3, x: 47, y: 48 }, commander, null),
     { target: { x: 50, y: 50 }, rejoining: false });
 });
+
+test('uncommitted reserve archers do not fire offensive volleys from the rear', () => {
+  const world = Sim.createWorld(42);
+  const archer = world.people.find(p => p.alive && p.role === 'soldier'
+    && p.militaryClass === 'arqueiro');
+  const foe = world.people.find(p => p.alive && p.role === 'soldier'
+    && p.kingdomId !== archer.kingdomId);
+  assert.ok(archer && foe);
+  Object.assign(archer, { tacticalReserveHolding: true, playerControlled: false,
+    stamina: 160, restingStructureId: null, militaryRestTargetId: null });
+  Object.assign(foe, { x: archer.x + 6, y: archer.y,
+    restingStructureId: null, health: 100 });
+  const before = world.combatSequence || 0;
+  fightTacticalRound(world, [archer], [foe], 5);
+  assert.equal(world.combatSequence || 0, before);
+  assert.equal(foe.health, 100);
+});
