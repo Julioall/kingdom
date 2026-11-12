@@ -647,7 +647,7 @@ export function campaignOrderFor(world, person) {
   // striking distance. Archers continue firing from behind the infantry.
   const engageDistance = squad
     ? person.id === squad.commanderId ? weaponRange + 0.5
-      : squad.phase === 'striking' && ['guerreiro', 'lanceiro'].includes(person.militaryClass)
+      : ['striking', 'charging'].includes(squad.phase) && ['guerreiro', 'lanceiro'].includes(person.militaryClass)
         ? Math.max(weaponRange + 1, 4)
         : weaponRange + 0.7
     : 12;
@@ -735,7 +735,8 @@ export function performCampaignOrder(world, person, order) {
     person.state = commanding ? 'comandando tropas em campo' : engagementRange ? 'sustentando a linha de combate'
       : withdrawing ? 'retornando da campanha'
         : squadPhase === 'reforming' ? 'reunindo os soldados para avançar em formação'
-          : squadPhase === 'flanking' ? 'contornando o flanco adversário'
+          : squadPhase === 'charging' ? 'investindo em formação contra a frente adversária'
+            : squadPhase === 'flanking' ? 'contornando o flanco adversário'
           : squadPhase === 'holding' ? 'sustentando a formação medieval'
             : squadPhase === 'contact' || squadPhase === 'striking' ? 'mantendo a frente de batalha'
               : side.role === 'defender' ? 'defendendo a área disputada' : 'ocupando a área disputada';
@@ -767,7 +768,8 @@ export function performCampaignOrder(world, person, order) {
         : squadPhase === 'rout' ? 'fugindo após quebra da moral'
         : squadPhase === 'rally' ? 'reagrupando formação'
           : squadPhase === 'flanking' ? 'executando marcha pelo flanco'
-            : squadPhase === 'striking' ? 'investindo contra o flanco'
+            : squadPhase === 'charging' ? 'executando avanço coordenado da linha'
+              : squadPhase === 'striking' ? 'investindo contra o flanco'
               : squadPhase === 'holding' ? 'mantendo posição na reserva'
                 : squadLeader ? 'conduzindo a formação da tropa' : 'avançando em formação'
     : 'rota de campanha bloqueada';
@@ -948,6 +950,7 @@ function updateCampaignFormation(world, campaign, side, day) {
           flanking: 'marchar pela ala para contornar a defesa',
           striking: 'atacar o flanco inimigo',
           contact: 'fechar a linha e enfrentar o adversário',
+          charging: 'avançar em investida coordenada com a primeira linha',
           rout: 'retirada após a quebra da moral',
           rally: 'reagrupar os sobreviventes',
           holding: 'sustentar a reserva em posição'
