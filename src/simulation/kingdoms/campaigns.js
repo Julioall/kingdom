@@ -645,9 +645,11 @@ export function campaignOrderFor(world, person) {
       const tile = cellAt(world, squad.target.x, squad.target.y);
       if (tile?.terrain === 'land') target = squad.target;
     } else {
-      const commander = world.people.find(other => other.id === squad.commanderId && other.alive
-        && other.kingdomId === person.kingdomId && other.campaignId === campaign.id);
-      if (commander && !commander.playerControlled) {
+      const indexed = world.peopleById instanceof Map ? world.peopleById.get(squad.commanderId) : null;
+      const commander = indexed || world.people.find(other => other.id === squad.commanderId);
+      const availableCommander = commander?.alive && commander.kingdomId === person.kingdomId
+        && commander.campaignId === campaign.id;
+      if (availableCommander && !commander.playerControlled) {
         const slot = squadSlot(squad, person.id, commander);
         target = slot && cellAt(world, slot.x, slot.y)?.terrain === 'land'
           ? slot : { x: commander.x, y: commander.y };
