@@ -18,11 +18,6 @@ function stop(code = 0) {
 process.on('SIGINT', () => stop(0));
 process.on('SIGTERM', () => stop(0));
 
-const service = spawn(node, [resolve(root, 'src/ai/ollama-service.mjs')], { cwd: root, stdio: 'inherit', windowsHide: true });
-children.push(service);
-service.on('error', error => { console.error('Não foi possível iniciar o serviço de IA:', error.message); stop(1); });
-service.on('exit', code => { if (!stopping && code !== 0) stop(code || 1); });
-
 const viteArgs = [vite, ...(preview ? ['preview'] : []), '--host', '127.0.0.1'];
 const web = spawn(node, viteArgs, { cwd: root, stdio: 'inherit', windowsHide: true });
 children.push(web);

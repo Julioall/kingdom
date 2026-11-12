@@ -288,8 +288,10 @@ export function updateAnimals(w) {
       a.perception = Senses.observe(w, a, 'animal', PLANTS);
       a.energy = clamp(a.energy - (p.aquatic ? .42 : .68 + p.mass * .003), 0, 100);
       if (p.water) a.hydration = clamp(a.hydration - .48, 0, 100);
-      const water = p.water ? nearestWater(w, a, 32) : null;
+      // A valid source within five cells is necessarily the first valid
+      // source of the larger ordered search. Avoid repeating the same sort.
       const localWater = p.water ? nearestWater(w, a, 5) : null;
+      const water = p.water ? (localWater || nearestWater(w, a, 32)) : null;
       const wildSheep = a.speciesId === 'sheep' && a.herdCommunityId == null;
       const flockFood = wildSheep ? wildSheepTargets.get(a.id) : null;
       const food = flockFood || animalFoodCell(w, a, p);
@@ -311,11 +313,19 @@ export function updateAnimals(w) {
         .22 + rand(w) * .12 + (!water && p.water && a.hydration < 68 ? .52 : 0),
         threat ? .98 : -.65
       ];
-      let action = chooseAnimalAction(w, a, inputs, utilities);
+      let action;
       if (wildSheep) {
+        // Wild sheep always follow this survival policy; the previous neural
+        // forward was immediately overwritten and could never choose an action.
         action = threat ? 'flee'
           : a.hydration < 62 && water ? 'drink'
             : flockFood && distance(a, flockFood) <= 1.6 ? 'feed' : 'explore';
+        a.brain.pending = null;
+        a.brain.lastAction = action;
+        a.brain.decisions = (a.brain.decisions || 0) + 1;
+        a.brain.actionCounts[action] = (a.brain.actionCounts[action] || 0) + 1;
+      } else {
+        action = chooseAnimalAction(w, a, inputs, utilities);
       }
       const here = cellAt(w, a.x, a.y);
       if (p.aquatic && here.terrain !== 'water') action = 'explore';
@@ -349,7 +359,7 @@ export function updateAnimals(w) {
         a.state = p.aquatic && here.terrain !== 'water' ? 'buscando água' : 'explorando';
       }
       const after = a.energy + (p.water ? a.hydration * .35 : 0);
-      updateBrain(a, clamp((after - before) / 20, -.8, .8));
+      if (!wildSheep) updateBrain(a, clamp((after - before) / 20, -.8, .8));
       if (a.energy <= .1 || (p.water && a.hydration <= .1) || a.ageDays > p.life) resolveAnimalDeath(w, a, p);
     }
     reproduceAnimals(w);

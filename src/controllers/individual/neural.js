@@ -14,7 +14,7 @@ export function createBrain(w, actions, inputSize, entityId, requestedHiddenSize
       // shared policy bank, never to individual NPCs or animals.
       return {
         mode: 'shared', schemaVersion: 1, inputSize: inputSize || 6, actionCount: actions.length,
-        hiddenSize: actions === ANIMAL_ACTIONS ? 16 : Number(w.neuralOverrides?.sharedHiddenSize || 24),
+        hiddenSize: actions === ANIMAL_ACTIONS ? 16 : Number(w.neuralOverrides?.sharedHiddenSize || 16),
         learningRate: .027, actionValues: Array(actions.length).fill(0),
         actionCounts: Object.fromEntries(actions.map(action => [action, 0])),
         baseline: 0, rewardMean: 0, decisions: 0, updates: 0,
