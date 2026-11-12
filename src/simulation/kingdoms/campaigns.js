@@ -599,6 +599,13 @@ export function campaignOrderFor(world, person) {
       && !['commanders', 'hierarchical'].includes(world.tacticalCombat?.mode)) {
     return { campaign, side, target: null, withdrawing: false, holding: true };
   }
+  // Lightweight callers and old saves may contain a holding campaign without
+  // an observed objective. In that case never invent a destination.
+  if (campaign.status !== 'withdrawing' && (!Number.isFinite(campaign.target?.x)
+    || !Number.isFinite(campaign.target?.y))) {
+    return side.aiOrder?.action === 'hold_position'
+      ? { campaign, side, target: null, withdrawing: false, holding: true } : null;
+  }
   const withdrawing = campaign.status === 'withdrawing';
   const geometry = withdrawing ? null : campaignFormationGeometry(campaign, side);
   const destination = withdrawing ? side.home : geometry.destination;
