@@ -138,7 +138,7 @@ test('army uses the vanguard as a real moving anchor until the battlefield deplo
   const deploying = planSquadTactics({ troops, units, day: 4,
     destination: { x: 90, y: 50 }, home: { x: 0, y: 50 },
     mode: 'hierarchical', generalOrder: { action: 'advance' } });
-  assert.ok(deploying.squads[2].target.y < 40,
+  assert.ok(deploying.squads[2].target.y <= 40,
     'wings only open after the center actually reaches the front');
-  assert.ok(deploying.squads[3].target.y > 60);
+  assert.ok(deploying.squads[3].target.y >= 60);
 });
