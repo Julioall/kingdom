@@ -110,7 +110,13 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     // five abreast). A three-tile offset overlapped the center and caused
     // competing destinations. Reserve remains visibly BEHIND the army.
     const offset = !openFront ? 0 : role === 'flank-left' ? -10 : role === 'flank-right' ? 10 : 0;
-    const depth = role === 'support' ? 5 : role === 'reserve' ? 11 : 0;
+    // At a bridge or narrow crossing, separate whole units by marching
+    // depth instead of trying to fit the center and both wings into the
+    // same three cells. Wide deployment is postponed until open ground.
+    const depth = !openFront
+      ? role === 'support' ? 5 : role === 'flank-left' ? 10
+        : role === 'flank-right' ? 15 : role === 'reserve' ? 21 : 0
+      : role === 'support' ? 5 : role === 'reserve' ? 11 : 0;
     // March to an assembly position first. At visual contact the wings make a
     // REAL lateral maneuver, then swing onto the enemy's flank. Reserve remains
     // behind the center until contact/pressure calls it forward.
@@ -167,8 +173,12 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
       // Columns behind the general: 2-file wing offsets on the road, support
       // behind the shield center and the reserve last. No wing is allowed
       // to race unaccompanied to its final battlefield slot.
-      const file = role === 'flank-left' ? -2.5 : role === 'flank-right' ? 2.5 : 0;
-      const trail = role === 'reserve' ? 9 : role === 'support' ? 4.5 : 2;
+      const file = !openFront ? 0
+        : role === 'flank-left' ? -2.5 : role === 'flank-right' ? 2.5 : 0;
+      const trail = !openFront
+        ? role === 'support' ? 5 : role === 'flank-left' ? 10
+          : role === 'flank-right' ? 15 : role === 'reserve' ? 21 : 0
+        : role === 'reserve' ? 9 : role === 'support' ? 4.5 : 2;
       goal = {
         x: leadCommander.x - forward.x * trail + lateral.x * file,
         y: leadCommander.y - forward.y * trail + lateral.y * file
