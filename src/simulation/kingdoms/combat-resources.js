@@ -62,7 +62,13 @@ export function updateCombatResources(world, day) {
     initializeCombatResources(person);
     const resting = person.brain?.lastAction === 'rest' || person.towerRecovering;
     const fighting = day - (person.lastMilitaryAttackDay ?? -Infinity) <= 3;
-    person.stamina = Math.min(person.maxStamina, person.stamina + (resting ? 12 : fighting ? 2 : 6));
+    // Combat stamina is distinct from daily energy. Trained troops in active
+    // campaigns regain enough to sustain a prolonged clash without permitting
+    // attacks for free or changing the 400-point maximum.
+    const inCampaign = person.campaignId != null;
+    const recovery = inCampaign ? (resting ? 18 : fighting ? 6 : 10)
+      : (resting ? 12 : fighting ? 2 : 6);
+    person.stamina = Math.min(person.maxStamina, person.stamina + recovery);
     if (person.militaryClass === 'monge' && !person.magicCast)
       person.mana = Math.min(person.maxMana, person.mana + (resting ? 30 : 10));
   }
