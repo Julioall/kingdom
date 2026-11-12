@@ -88,8 +88,11 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
         : role === 'flank-left' || role === 'flank-right' ? 'flank'
           : role === 'reserve' && !releasedReserve ? 'reserve'
             : role === 'reserve' ? 'reinforce' : 'advance';
-    const offset = role === 'flank-left' ? -3 : role === 'flank-right' ? 3 : 0;
-    const depth = role === 'support' ? 3 : role === 'reserve' ? 6 : 0;
+    // Wings must clear the entire infantry frontage (roughly 7 tiles for
+    // five abreast). A three-tile offset overlapped the center and caused
+    // competing destinations. Reserve remains visibly BEHIND the army.
+    const offset = !openFront ? 0 : role === 'flank-left' ? -10 : role === 'flank-right' ? 10 : 0;
+    const depth = role === 'support' ? 5 : role === 'reserve' ? 11 : 0;
     // March to an assembly position first. At visual contact the wings make a
     // REAL lateral maneuver, then swing onto the enemy's flank. Reserve remains
     // behind the center until contact/pressure calls it forward.
@@ -102,8 +105,13 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
       x: focus.x + lateral.x * side * 9 - forward.x * 5,
       y: focus.y + lateral.y * side * 9 - forward.y * 5
     };
-    const passedWing = prior?.flankStage === 'strike' || outerWaypoint
-      && dist(commander, outerWaypoint) <= 3.5;
+    // The captain reaching the waypoint is NOT enough. The shield/spear line
+    // must arrive as a body before it pivots and attacks the enemy's side.
+    const wingFollowers = members.filter(p => p.id !== commander.id);
+    const assembledFollowers = wingFollowers.filter(p => dist(p, commander) <= 5.5).length;
+    const wingReady = assembledFollowers >= Math.ceil(wingFollowers.length * .65);
+    const reachedWing = outerWaypoint && dist(commander, outerWaypoint) <= 3.5;
+    const passedWing = prior?.flankStage === 'strike' || (reachedWing && wingReady);
     const flankStage = mustFlank ? (passedWing ? 'strike' : 'swing') : null;
     const central = routed && home ? home : destination;
     let goal = routed || regrouping ? {
@@ -143,8 +151,12 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
       : mission === 'hold' || mission === 'reserve' ? 'holding'
         : mustFlank && atFront ? flankStage === 'strike' ? 'striking' : 'flanking'
           : !atFront ? 'marching' : directContact ? 'contact' : 'deploying';
-    const face = focus && atFront ? normalized(commander, focus)
-      : dist(commander, goal) > 2 ? normalized(commander, goal) : forward;
+    // A marching body faces its travel direction; the shield wall faces the
+    // opponent once it stops. Do not have wedge troops march sideways while
+    // their sprites stare at a distant enemy.
+    const face = ['contact', 'holding', 'striking'].includes(phase) && focus
+      ? normalized(commander, focus) : dist(commander, goal) > 2
+        ? normalized(commander, goal) : forward;
     const squad = {
       id, unitId: unit.id, commanderId: commander.id,
       generalId: unit.generalId ?? generalOrder?.issuerId ?? null,
@@ -163,11 +175,14 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     // until his body of troops closes the gap. Contact and rout override pacing.
     const followers = members.filter(p => p.id !== commander.id);
     const stragglers = followers.filter(p => dist(p, commander) > 6.5);
-    const pacing = (phase === 'marching' || phase === 'deploying')
-      && (!focus || dist(commander, focus) > 9)
-      && dist(commander, destination) > DEPLOY_DISTANCE
-      && stragglers.length >= Math.max(2, Math.ceil(followers.length * 0.4))
-      && day % 3 !== 0;
+    const needsReform = stragglers.length >= Math.max(2, Math.ceil(followers.length * .4));
+    // A captain should assemble troops even after reaching the deployment
+    // zone, unless the enemy is in immediate weapon-contact distance.
+    // Every third day allows progress if an obstruction prevents full order.
+    const pacing = (phase === 'marching' || phase === 'deploying'
+        || phase === 'flanking' && flankStage === 'swing' && reachedWing)
+      && (!focus || dist(commander, focus) > 6)
+      && needsReform && day % 3 !== 0;
     if (pacing) {
       squad.target = { x: commander.x, y: commander.y };
       squad.phase = 'reforming';
