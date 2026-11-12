@@ -1259,7 +1259,24 @@ function updatePeopleCore(w) {
         + (p.carriedSeeds || 0) + (p.carriedCommunitySeeds || 0) > .01;
       const foodDuty = assignedFoodField && assignment.action === 'forage' && !assignmentConflict && food ? 'forage' : null;
       const patrolDuty = !survivalAction && !campaignOrder && !carryingGoods && canPatrolToday(w, p, !!assignment);
+      // Ordinary fatigue must not send an entire campaign home while its
+      // commander keeps marching. Only critical wounds require evacuation;
+      // everyone else rests WITH the field formation and then rejoins ranks.
+      const servingInField = p.role === 'soldier' && !!campaignOrder?.campaign
+        && !campaignOrder.withdrawing;
+      const seriousWound = p.tacticalRecovering || p.health < 28 || p.injury >= 10;
+      const fieldRest = servingInField && !seriousWound
+        && (p.energy < GARRISON_RECOVERY.energy
+          || p.health < GARRISON_RECOVERY.health
+          || p.injury >= GARRISON_RECOVERY.restInjury);
+      if (servingInField && !seriousWound) {
+        // A stale peacetime home-rest route must not remove soldiers from
+        // the next day's squad composition.
+        p.militaryRestTargetId = null;
+        p.restingStructureId = null;
+      }
       const soldierHomeRest = p.role === 'soldier' && (!campaignOrder?.withdrawing || campaignOrder.returning)
+        && (!servingInField || seriousWound)
         && (p.energy < GARRISON_RECOVERY.energy || p.tacticalRecovering
           || p.health < GARRISON_RECOVERY.health || p.injury >= GARRISON_RECOVERY.restInjury
           || p.militaryRestTargetId != null && (p.restingStructureId == null
@@ -1333,7 +1350,8 @@ function updatePeopleCore(w) {
         && !homeRest && survivalAction !== 'drink'
         ? 'campaign'
         : returnToGarrison && peacetimeSoldierAction === 'return_garrison' ? peacetimeSoldierAction
-        : survivalAction || carrierMaintenanceAction || (homeRest ? 'rest' : socialPlan ? socialPlan.action : peacetimeSoldier ? peacetimeSoldierAction : (droppedLoot && (!assignment || droppedLoot.mineralKind && assignment.action === 'gather') && !carryingGoods && p.energy >= 9
+        : survivalAction || carrierMaintenanceAction || (fieldRest ? 'field_rest'
+          : homeRest ? 'rest' : socialPlan ? socialPlan.action : peacetimeSoldier ? peacetimeSoldierAction : (droppedLoot && (!assignment || droppedLoot.mineralKind && assignment.action === 'gather') && !carryingGoods && p.energy >= 9
           && (!campaignOrder || !campaignOrder.withdrawing && distance(p, droppedLoot) <= 1.6) ? 'collect_loot'
           : campaignOrder ? militaryAction || 'campaign' : seedCourierDuty ? 'build'
           : personalMarketCargoTrade ? 'trade' : cargoAction || foodDuty || (p.leadingSheepId ? 'lead_sheep'
@@ -1580,6 +1598,29 @@ function updatePeopleCore(w) {
             : meeting?.reason === 'participant-busy'
               ? 'A pessoa já participou de outro encontro neste dia.'
               : 'O encontro exige uma pessoa viva e visível dentro do alcance.';
+        }
+      } else if (action === 'field_rest') {
+        // A marching soldier recovers locally rather than traversing the
+        // entire map to a house. Returning to a distant commander comes first,
+        // so tired troops do not remain indefinitely abandoned at the rear.
+        const unit = w.kingdoms.find(k => k.id === p.kingdomId)?.militaryCommand?.units
+          .find(unit => unit.id === p.militaryUnitId);
+        const commander = unit && w.people.find(other => other.id === unit.commanderId
+          && other.alive && other.kingdomId === p.kingdomId);
+        const separated = commander && commander.id !== p.id && distance(p, commander) > 8;
+        if (separated) {
+          const moved = moveOne(w, p, commander, false, { arrivalRadius: 5 });
+          p.state = moved ? 'retornando à unidade para recuperar o fôlego'
+            : 'aguardando passagem até a própria unidade';
+          p.lastLesson = 'A recuperação em campanha exige reencontrar a unidade antes de descansar.';
+        } else {
+          p.energy = clamp(p.energy + 12, 0, 100);
+          p.injury = Math.max(0, p.injury - .2);
+          if (p.health < GARRISON_RECOVERY.health)
+            changePersonHealth(w, p, 1.1, 'field-recovery');
+          p.restingOutdoors = false;
+          p.state = 'recuperando o fôlego junto à formação';
+          p.lastLesson = 'A tropa faz uma pausa curta em campo, preservando a posição e as rações da campanha.';
         }
       } else if (action === 'rest') {
         const indoors = restPersonInHouse(w, p);
