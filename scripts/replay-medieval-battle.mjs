@@ -12,6 +12,75 @@ const output = resolve(args.output || 'out/battle-replay.html');
 const radius = Math.max(14, Math.min(32, Number(args.radius) || 23));
 const world = Sim.createWorld(seed, { tacticalCombat: 'hierarchical' });
 
+// Optional QA fixture for a five-unit battle. These additional soldiers are
+// genuine simulation actors (movement/collision/combat/needs unchanged), not
+// display-only points. This staging fixture does NOT test recruitment or the
+// kingdom economy; the default replay continues to use organically generated
+// troops without injected reinforcements.
+const forceSize = Math.max(0, Math.min(55, Number(args['force-size']) || 0));
+function stageReinforcements(world, countPerKingdom) {
+  if (!countPerKingdom) return;
+  const occupied = new Set(world.people.filter(p => p.alive)
+    .map(p => Math.round(p.x) + ':' + Math.round(p.y)));
+  for (const kingdom of world.kingdoms.slice(0, 2)) {
+    const existing = world.people.filter(person => person.alive
+      && person.role === 'soldier' && person.kingdomId === kingdom.id);
+    const needed = Math.max(0, countPerKingdom - existing.length);
+    if (!needed) continue;
+    const safe = world.tiles.filter(tile => tile.terrain === 'land'
+      && Math.hypot(tile.x - kingdom.x, tile.y - kingdom.y) >= 4
+      && Math.hypot(tile.x - kingdom.x, tile.y - kingdom.y) <= 18
+      && !occupied.has(tile.x + ':' + tile.y)
+      && !world.structures.some(structure =>
+        structure.complete && Math.hypot(tile.x - structure.x, tile.y - structure.y) < 2.5))
+      .sort((a, b) => Math.hypot(a.x - kingdom.x, a.y - kingdom.y)
+        - Math.hypot(b.x - kingdom.x, b.y - kingdom.y) || a.i - b.i);
+    if (safe.length < needed) throw Error('Insufficient clear garrison space for reserve staging');
+    for (let index = 0; index < needed; index++) {
+      const template = existing[index % existing.length];
+      const point = safe[index];
+      const person = structuredClone(template);
+      person.id = world.nextId++;
+      person.name = 'Reforço ' + kingdom.id + '-' + (index + 1);
+      person.x = point.x;
+      person.y = point.y;
+      person.ageDays = Math.max(18 * 365, person.ageDays || 18 * 365);
+      person.playerControlled = false;
+      person.energy = 95;
+      person.health = 100;
+      person.hydration = 100;
+      person.foodReserve = 90;
+      person.injury = 0;
+      person.stamina = person.maxStamina || 200;
+      person.campaignId = null;
+      person.militaryRestTargetId = null;
+      person.restingStructureId = null;
+      person.tacticalRecovering = false;
+      person.towerMounted = false;
+      person.towerDutyId = null;
+      person.militaryUnitId = null;
+      person.militaryRank = 'soldado';
+      person.commanderId = null;
+      person.generalId = null;
+      person.militaryBrain = null;
+      person.combatAction = null;
+      person.combatTargetId = null;
+      person.navigationRoute = null;
+      person.navigationCongestion = null;
+      person.lastDecision = null;
+      person.passageRequest = null;
+      world.people.push(person);
+      occupied.add(point.x + ':' + point.y);
+      if (Array.isArray(kingdom.memberIds) && !kingdom.memberIds.includes(person.id))
+        kingdom.memberIds.push(person.id);
+      const community = world.communities.find(group => group.id === person.communityId);
+      if (community?.memberIds && !community.memberIds.includes(person.id))
+        community.memberIds.push(person.id);
+    }
+  }
+}
+stageReinforcements(world, forceSize);
+
 function conflictAtMidpoint(world) {
   const [attacker, defender] = world.kingdoms;
   if (!attacker || !defender) throw Error('Kingdom replay requires two kingdoms');
@@ -200,7 +269,14 @@ A câmera mostra somente a área disputada; tropas fora dela continuam simuladas
 mkdirSync(dirname(output), { recursive: true });
 writeFileSync(output, html, 'utf8');
 console.log('BATTLE-REPLAY', JSON.stringify({
-  output, seed, days, frames: snapshots.length, viewport: [minX,minY,maxX,maxY],
+  output, seed, days, forceSize, frames: snapshots.length, viewport: [minX,minY,maxX,maxY],
+  reserveSquadDays: snapshots.reduce((sum, frame) =>
+    sum + frame.groups.filter(group => group.role === 'reserve').length, 0),
+  reserveHoldDays: snapshots.reduce((sum, frame) =>
+    sum + frame.groups.filter(group => group.role === 'reserve' && group.phase === 'holding').length, 0),
+  reserveReinforceDays: snapshots.reduce((sum, frame) =>
+    sum + frame.groups.filter(group => group.role === 'reserve'
+      && group.phase !== 'holding' && group.phase !== 'marching').length, 0),
   phases: Object.fromEntries([...new Set(snapshots.flatMap(frame => frame.groups.map(s => s.phase)))]
     .map(phase => [phase, snapshots.reduce((n, frame) =>
       n + frame.groups.filter(s => s.phase === phase).length, 0)])),
