@@ -3350,7 +3350,7 @@ export function mountGame() {
               marching: 'Marchando', deploying: 'Abrindo fileiras', contact: 'Linha em contato',
               flanking: 'Contornando o flanco', striking: 'Investindo pelo flanco',
               holding: 'Mantendo reserva/posição', rally: 'Reagrupando',
-              rout: 'Rompida: retirada'
+              reforming: 'Aguardando os soldados atrasados', rout: 'Rompida: retirada'
             };
             const commander = getPerson(squad.commanderId);
             return '<div class="note-card"><b>Formação da unidade</b><span>'
