@@ -27,7 +27,7 @@ import {
   createFormation, formationSlot, measureFormation, recordFormationBlockedMove,
   setFormationDestination, setFormationState, setFormationType
 } from './formations.js';
-import { planSquadTactics, squadSlot } from './squad-tactics.js';
+import { planSquadTactics, squadSlot, squadFollowerTarget } from './squad-tactics.js';
 import { allocateBattlefieldSlots } from './battlefield-slots.js';
 
 const ACTIVE_STATES = new Set(['mobilizing', 'marching', 'engaged', 'withdrawing']);
@@ -679,13 +679,12 @@ export function campaignOrderFor(world, person) {
       if (availableCommander && !commander.playerControlled) {
         const slot = squad.worldSlots?.[person.id] || squadSlot(squad, person.id, commander);
         // A separated soldier must first catch his captain by a long-range
-        // navigable route. Chasing a constantly rotating personal slot near
-        // the front makes distant stragglers oscillate or become stuck.
-        const detached = distance(person, commander) > 10;
-        rejoining = detached;
-        target = detached ? { x: commander.x, y: commander.y }
-          : slot && cellAt(world, slot.x, slot.y)?.terrain === 'land'
-            ? slot : { x: commander.x, y: commander.y };
+        // navigable route. Do not chase a rotating personal slot from afar.
+        const reachableSlot = slot && cellAt(world, slot.x, slot.y)?.terrain === 'land'
+          ? slot : null;
+        const follow = squadFollowerTarget(person, commander, reachableSlot);
+        rejoining = follow.rejoining;
+        target = follow.target;
       }
     }
   }
