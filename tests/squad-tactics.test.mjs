@@ -150,9 +150,15 @@ test('general coordinates two real wing maneuvers before flanking strike', () =>
   const wingCommander = troops.find(p => p.id === wings[0].commanderId);
   Object.assign(wingCommander, wings[0].target);
   const second = planSquadTactics({ ...args, day: 4, previous: first });
-  assert.equal(second.squads[1].flankStage, 'strike');
-  assert.equal(second.squads[1].phase, 'striking');
-  assert.equal(second.squads[1].formationType, 'wedge');
+  assert.equal(second.squads[1].flankStage, 'swing',
+    'commander alone cannot trigger a medieval flanking charge');
+  assert.equal(second.squads[1].phase, 'reforming');
+  for (const follower of troops.slice(11, 20)) Object.assign(follower,
+    { x: wingCommander.x - 2, y: wingCommander.y });
+  const assembled = planSquadTactics({ ...args, day: 5, previous: second });
+  assert.equal(assembled.squads[1].flankStage, 'strike');
+  assert.equal(assembled.squads[1].phase, 'striking');
+  assert.equal(assembled.squads[1].formationType, 'wedge');
 });
 
 test('reserves hold behind the center until the vanguard is under pressure', () => {
