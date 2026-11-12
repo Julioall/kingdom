@@ -18,8 +18,6 @@ import { createDamageBarTracker } from './health-bars.js';
 import { GameSession } from '../app/session.ts';
 import { SimulationClock } from '../app/simulation-loop.ts';
 import Sim from './simulation-view.js';
-import LocalAI from '../ai/local-engine.js';
-import { readLocalAiPreference, writeLocalAiPreference } from '../ai/preference.js';
 import { DOMESTIC_SHEEP_DAILY_FEED, SHEEP_ADULT_AGE_DAYS, SHEEP_JUVENILE_MIN_SCALE } from '../config/ecosystem.js';
 import { isRoadTile, ROAD_RULES } from '../simulation/world/roads.js';
 import { trainingDummiesForWorld } from '../simulation/world/training-dummies.js';
@@ -216,7 +214,7 @@ export function mountGame() {
   }
   const clock = new SimulationClock();
 
-  let world = null, rendered = false, localAI = null;
+  let world = null, rendered = false;
   let peopleById = new Map(), animalsById = new Map(), communitiesById = new Map(), kingdomsById = new Map(), structuresById = new Map();
   let selection = null, showLeft = false, showRight = false, hoveredTerritoryStructureId = null, hoveredMapEntity = false, hoveredPersonId = null;
   // Detailed perception, learned routes and neural decisions belong to the
@@ -411,7 +409,6 @@ export function mountGame() {
       window.requestAnimationFrame(frame);
       loadingScreen.markWorldReady();
     } else render('snapshot');
-    if (localAI) localAI.pump();
     const cpuMs = Math.max(0, performance.now() - updateStart);
     snapshotCallbackCpu.samples++;
     snapshotCallbackCpu.lastMs = cpuMs;
@@ -466,29 +463,6 @@ export function mountGame() {
   session.ready.catch(error => {
     if (!isResetCancellation(error)) loadingScreen.fail(error);
   });
-  localAI = LocalAI ? LocalAI.create({
-    getWorld: () => world,
-    getWorldEpoch: () => session.epoch,
-    setKingdomAiEnabled: enabled => session.setKingdomAiEnabled(enabled),
-    pullKingdomAiRequest: limit => session.pullKingdomAiRequest(limit),
-    applyKingdomAiDecision: (request, decision, metadata) => session.applyKingdomAiDecision(request, decision, metadata),
-    failKingdomAiRequest: (request, failure) => session.failKingdomAiRequest(request, failure),
-    onStatus: updateLocalAIStatus
-  }) : null;
-  if (localAI) updateLocalAIStatus(localAI.getStatus());
-  if (localAI) {
-    let preferenceEnabled = false;
-    try {
-      preferenceEnabled = readLocalAiPreference(window.localStorage);
-    } catch (error) {
-      console.error('[Kingdom IA local] não foi possível ler a preferência:', error);
-    }
-    if (preferenceEnabled) {
-      localAI.enable().catch(error => {
-        console.error('[Kingdom IA local] não foi possível ativar a preferência salva:', error);
-      });
-    }
-  }
   const visualPack = 'tiny-swords';
   // Spring, summer, autumn, winter: the four terrain palettes currently used on the map.
   const SEASON_TERRAIN_PALETTES = Object.freeze([0, 2, 3, 4]);
@@ -3114,52 +3088,6 @@ export function mountGame() {
     $('solitaryCount').textContent = world.kingdoms.length + ' domínios';
   }
 
-  function renderLocalAiHistory() {
-    const list = $('localAiHistoryList');
-    if (!list || !world) return;
-    const kingdomsById = new Map(world.kingdoms.map(kingdom => [kingdom.id, kingdom]));
-    const choiceLabels = {
-      trade_for_food: 'trocar excedentes por alimento',
-      forage_for_food: 'buscar alimento para a reserva comum',
-      repair_damaged_structures: 'reparar construções danificadas',
-      secure_herd_feed: 'repor a ração do rebanho',
-      build_project: 'avançar a construção comunitária',
-      gather_materials: 'reunir materiais de construção',
-      recruit_soldier: 'recrutar um soldado',
-      patrol_borders: 'patrulhar as fronteiras',
-      reserve_garrison: 'manter a guarnição em reserva',
-      maintain_autonomy: 'manter a iniciativa local'
-    };
-    const decisions = [];
-    for (const kingdom of world.kingdoms) {
-      for (const decision of kingdom.strategy?.aiHistory || []) {
-        decisions.push({
-          day: decision.day,
-          role: 'Rei',
-          kingdomName: kingdom.name,
-          action: choiceLabels[decision.choice] || String(decision.choice || decision.action || 'ordem estratégica').replaceAll('_', ' ')
-        });
-      }
-    }
-    for (const decision of world.campaignGeneralAi?.events || []) {
-      if (decision.type !== 'applied' || decision.role !== 'general' || !decision.decision?.action) continue;
-      const kingdom = kingdomsById.get(decision.kingdomId);
-      if (!kingdom) continue;
-      const actionLabels = { advance: 'avançar ao objetivo', hold_position: 'manter posição', withdraw: 'retirada ordenada' };
-      decisions.push({
-        day: decision.day,
-        role: 'General',
-        kingdomName: kingdom.name,
-        action: actionLabels[decision.decision.action] || String(decision.decision.action).replaceAll('_', ' ')
-      });
-    }
-    decisions.sort((a, b) => b.day - a.day);
-    list.innerHTML = decisions.slice(0, 4).map(decision =>
-      '<li><span>Dia ' + fmt(decision.day) + ' · ' + decision.role + ' de ' + esc(decision.kingdomName) + '</span><b>'
-      + esc(decision.action) + '</b></li>'
-    ).join('') || '<li class="quiet">Nenhuma decisão registrada nesta partida.</li>';
-  }
-
   function renderSpecies(stats) {
     $('faunaList').innerHTML = Sim.animals.map(p => {
       const count = stats.animalCounts[p.id] || 0;
@@ -3242,28 +3170,6 @@ export function mountGame() {
           detail: actorInspectorDetails.snapshot() };
       }
     });
-  }
-
-  function updateLocalAIStatus(status) {
-    if (!$('localAiState')) return;
-    const labels = { idle: 'desligada', loading: 'carregando', ready: 'ativa', working: 'pensando', error: 'indisponível' };
-    $('localAiState').textContent = labels[status.phase] || status.phase;
-    $('localAiStatus').textContent = status.text || '';
-    $('localAiToggle').textContent = status.phase === 'loading' ? 'Carregando modelo…' : status.phase === 'ready' || status.phase === 'working' ? 'Desativar IA local' : 'Ativar IA local';
-    $('localAiToggle').disabled = status.phase === 'loading';
-    $('localAiProgress').hidden = status.phase !== 'loading';
-    $('localAiProgress').value = status.progress || 0;
-  }
-
-  function persistLocalAIPreference(enabled) {
-    try {
-      writeLocalAiPreference(window.localStorage, enabled);
-      return true;
-    } catch (error) {
-      console.error('[Kingdom IA local] não foi possível salvar a preferência:', error);
-      $('localAiStatus').textContent = 'Não foi possível salvar a preferência de IA neste navegador.';
-      return false;
-    }
   }
 
   let lastInspectorSelection = '';
@@ -3580,7 +3486,6 @@ export function mountGame() {
     drawMap(source);
     renderMiniMap();
     renderKingdomList();
-    renderLocalAiHistory();
     renderSpecies(stats);
     renderEvents();
     renderInspector();
@@ -3905,19 +3810,6 @@ export function mountGame() {
     advanceWorld(1, 'manual');
     render();
   });
-  $('localAiToggle').addEventListener('click', async () => {
-    if (!localAI) return;
-    if (localAI.isEnabled()) {
-      if (!persistLocalAIPreference(false)) return;
-      localAI.disable();
-      return;
-    }
-    if (!persistLocalAIPreference(true)) return;
-    try { await localAI.enable(); } catch (error) {
-      console.error('[Kingdom IA local] não foi possível ativar a IA:', error);
-      render();
-    }
-  });
   $('speedCycle').addEventListener('click', event => {
     flushClockDays();
     const speeds = [1, 2, 3];
@@ -3934,7 +3826,7 @@ export function mountGame() {
     $('seedInput').value = ''; 
     pendingClockDays = 0;
     clock.reset();
-    session.reset(seed, !!(localAI && localAI.isEnabled())).catch(error => {
+    session.reset(seed, false).catch(error => {
       if (!isResetCancellation(error)) console.error('[Kingdom Worker de simulação]', error);
     });
   });

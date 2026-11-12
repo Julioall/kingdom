@@ -17,7 +17,7 @@ export const HUMAN_POLICY_ACTIONS = Object.freeze([
 ]);
 const EXTRA_FEATURES = 16;
 const HUMAN_INPUT_SIZE = PEOPLE_INPUTS + COGNITIVE_ROLES.length + EXTRA_FEATURES;
-const HIDDEN_WIDTHS = new Set([24, 32, 64, 128, 256, 512, 1024]);
+const HIDDEN_WIDTHS = new Set([16, 24, 32, 64, 128, 256, 512, 1024]);
 
 function randomWeights(seed) {
   let state = (seed >>> 0) || 1;
@@ -47,13 +47,13 @@ export function sharedPolicyEnabled(world) {
 }
 
 function policyWidth(world, domain) {
-  const proposed = Number(world?.neuralOverrides?.sharedHiddenSize || (domain === 'human' ? 24 : 16));
-  return domain === 'human' && HIDDEN_WIDTHS.has(proposed) ? proposed : domain === 'animal' ? 16 : 24;
+  const proposed = Number(world?.neuralOverrides?.sharedHiddenSize || 16);
+  return domain === 'human' && HIDDEN_WIDTHS.has(proposed) ? proposed : 16;
 }
 
 function createPolicy(seed, domain, actionIds, inputDimension, width) {
-  // A single role-conditioned trunk + logits. 24 hidden units is the safe
-  // initial rollout; benchmark 64/128/256 before increasing inference FLOPs.
+  // The default uses 16 units in both hidden layers; explicit historical
+  // widths remain available for controlled A/B and legacy replay compatibility.
   const layerWidths = [inputDimension, width, width, actionIds.length];
   const weightCount = layerWidths.slice(1).reduce((sum, next, layer) =>
     sum + layerWidths[layer] * next, 0);

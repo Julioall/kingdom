@@ -12,9 +12,6 @@
     "dev:vite": "vite --host 127.0.0.1",
     "build": "npm run assets:check && tsc --noEmit && vite build && node scripts/optimize-images.mjs",
     "preview": "node scripts/run-local.mjs --preview",
-    "ai:prepare": "node scripts/prepare-ai-models.mjs",
-    "ai:serve": "node src/ai/ollama-service.mjs",
-    "bench:ai": "node scripts/benchmark-ai-models.mjs",
     "typecheck": "tsc --noEmit",
     "bench:simulation": "node scripts/benchmark-simulation.mjs",
     "verify:images": "node scripts/verify-build-images.mjs",
@@ -25,9 +22,5 @@
     "sharp": "^0.35.5",
     "typescript": "^7.0.2",
     "vite": "^8.3.5"
-  },
-  "dependencies": {
-    "@huggingface/transformers": "^4.3.1",
-    "@huggingface/transformers-structured-output": "^4.3.1"
   }
 }

@@ -11,9 +11,9 @@ npm install
 npm run dev
 ```
 
-`npm run dev` inicia o Vite e o serviço de IA local. O Ollama precisa estar instalado e aberto. Confira os modelos com `npm run ai:prepare -- --check`; `npm run ai:prepare -- --pull` baixa somente os modelos que faltam. Os pesos ficam no armazenamento do Ollama e o registro local de digest fica em `.local/`, fora do Git.
+`npm run dev` inicia apenas o Vite. A integração com modelos de linguagem locais foi removida: o jogo não exige Ollama, WebGPU para LLM, nem download de pesos. Reis e generais usam o planejamento determinístico e os personagens preservam a política neural leve compartilhada.
 
-Para validar o build de produção com o mesmo serviço local, execute `npm run build` e depois `npm run preview`.
+Para validar o build de produção, execute `npm run build` e depois `npm run preview`.
 
 Durante o build, as imagens PNG publicadas são convertidas para WebP sem perdas apenas em `dist`, reduzindo o tráfego sem alterar os arquivos-fonte.
 
@@ -32,3 +32,9 @@ O terreno usa chunks de até 16 × 16 células, com raster em resolução físic
 Para comparar com o caminho de renderização sem chunks no mesmo build, use `?profile=1&render=reference&seed=42&paused=1&effects=fixed`. A mesma URL sem `render=reference` usa as otimizações. `seed` fixa o mundo; `paused=1` inicia pausado; `effects=fixed`, disponível no modo de profiling, congela a deriva atmosférica para comparações visuais. Essas opções não alteram a inicialização padrão do jogo.
 
 `npm run verify:images`, depois do build, compara os pixels RGBA de todos os PNGs-fonte com os WebP publicados. `npm run bench:simulation -- --output=reports/optimization/simulation.json` registra tempos por dia e hashes do estado para detectar mudanças na simulação.
+
+## Perfil leve de processamento
+
+A rede neural compartilhada usa 16 neurônios por camada oculta (em vez de 24 para pessoas), sem remover as necessidades, o controle tático ou as decisões individuais. Animais silvestres cujas decisões já são inteiramente determinadas pelas regras de sobrevivência não precisam executar uma inferência neural descartada. A procura por água reutiliza a busca local antes de procurar a uma distância maior.
+
+**Atenção:** a largura menor altera as decisões aprendidas/geradas e pode mudar partidas futuras. O clima, a hidrologia, o metabolismo diário e o ciclo semanal das plantas foram mantidos: desacelerá-los sem validação mudaria a causalidade ecológica. Ganho de FPS, CPU e memória deve ser medido em navegador real e mundo de mesma semente; o ganho de desempenho geral ainda não foi quantificado.
