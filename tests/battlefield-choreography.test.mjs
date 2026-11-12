@@ -142,3 +142,15 @@ test('army uses the vanguard as a real moving anchor until the battlefield deplo
     'wings only open after the center actually reaches the front');
   assert.ok(deploying.squads[3].target.y >= 60);
 });
+
+test('battle ranks hold their facing when the target shifts by a tiny angle', () => {
+  const { troops, units } = army(1);
+  for (const person of troops) { person.x = 49; person.y = 50; }
+  const base = { troops, units, home: { x: 20, y: 50 }, day: 2,
+    mode: 'hierarchical', generalOrder: { action: 'advance', formationType: 'line' } };
+  const original = planSquadTactics({ ...base, destination: { x: 54, y: 50 } });
+  const next = planSquadTactics({ ...base, day: 3, previous: original,
+    destination: { x: 54, y: 50.6 } });
+  assert.deepEqual(next.squads[0].orientation, original.squads[0].orientation,
+    'small target oscillations must not continuously reshuffle all infantry slots');
+});
