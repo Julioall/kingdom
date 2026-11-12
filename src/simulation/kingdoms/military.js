@@ -557,6 +557,9 @@ export function fightTacticalRound(world, allies, enemies, day, objective = null
     const manualCommand = person.playerControlled && person.playerCommandUsedDay !== day
       ? pendingPlayerAttack(person, day) : null;
     if (person.playerControlled && !manualCommand) continue;
+    // Broken formations flee instead of inexplicably trading blows while
+    // their commanders order a retreat. Manual control always takes priority.
+    if (!manualCommand && person.tacticalRouted) continue;
     const manualProfile = manualCommand
       ? manualAttackProfile(person, manualCommand.actionKey, manualCommand.comboIndex) : null;
     if (manualCommand && !manualProfile) { consumePlayerAttack(person, manualCommand, day); continue; }
