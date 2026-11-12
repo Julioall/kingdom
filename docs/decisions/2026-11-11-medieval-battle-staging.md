@@ -89,3 +89,57 @@ not add hidden damage or invulnerability.
   historical doctrines per kingdom. The goals are behavior and choreography,
   not a verified reconstruction of one medieval army.
 - Keep PR #115 as draft until graphical and large-battle verification.
+
+## Practical visual inspection (this iteration)
+
+Run `npm run dev:vite` and open the development build with
+`?battleDebug=1` in the URL. This optional overlay draws:
+
+- Each commander's **actual** world position and march destination,
+  color-coded as center, support, left/right wing, or reserve
+- The actual locations of subordinate soldiers and their **projected
+  terrain-safe rank tiles**, with thin gap lines
+- The outward staging waypoint for flanks and per-unit cohesion values
+- A warning count for nominal slots with no nearby usable land tile
+
+During normal gameplay, leaders also carry a tiny role-colored pennant
+so that the structure of the army is legible without the debug overlay.
+
+For a reproducible view of **real simulated battles on the terrain map**,
+run the following command and open the resulting HTML file locally:
+
+```sh
+node scripts/replay-medieval-battle.mjs --seed=42 --days=75 --interval=5 --output=out/battle-replay.html
+```
+
+The replay uses the same war-at-midpoint fixture as the tactical benchmark,
+records real troop positions and projected ranks, and lets the tester scrub
+through campaign days. This is an evidence aid, not a fake animated mockup
+or a claim of finished browser sprite QA. The PR CI uploads this replay
+along with the JSON tactics measurements as the artifact
+`kingdom-medieval-battle-replay`.
+
+### Corrections made after observation planning
+
+- Widened left and right wing spacing from a dangerously overlapping 3
+  cells to 10 cells when the terrain has an open front.
+- Increased rear support and reserve depth to make distinct echelons.
+- A wing must reach its outward waypoint **and** assemble at least 65%
+  of its troops near the commander before switching to the inward strike.
+- Commanders temporarily slow down for stragglers during open marching
+  and flank assembly, but maintain the existing contact/retreat priorities.
+- Physical rank slots now receive nearby, distinct walkable land
+  destinations when possible. Soldiers continue using actual navigation,
+  collision, attack and healing rules; there is **no teleportation**.
+- Per-unit diagnostics now distinguish slot error, rank integrity and
+  distance from commander, instead of implying CPU improvements are
+  sufficient evidence of battlefield quality.
+
+### Unfinished QA
+
+Automated tests cannot prove the battle looks authentic. Inspect
+multiple seeds, bridges and narrow crossings, obstacles, siege targets
+and open fronts with the debug overlay. Prior to merging, verify that
+units keep identifiable ranks, wings make a genuinely lateral march,
+reserves remain distinguishable, wounded/routed troops get through
+terrain safely, and actual combat finishes rather than stalemating.
