@@ -25,6 +25,7 @@ import Senses from './perception.js';
 import { ensureFoodAidPlan, findTradePartner, performShare, performTrade, resolveFoodAidRequest } from '../economy/trade.js';
 import { choosePeopleAction, updateBrain } from '../../controllers/individual/neural.js';
 import { beginCognitiveDay } from '../../ai/policy/cognitive-scheduler.js';
+import { createNearbyStructureIndex } from './nearby-structure-index.js';
 import { buildPeoplePolicyInputs } from './observation-features.js';
 import { buildPeopleActionUtilities } from './action-utilities.js';
 import { drinkWater } from '../ecology/hydrology.js';
@@ -990,6 +991,7 @@ export function resolveResourceConflict(w, a, b, tile, resourceKind, patchValue)
   }
 
 function updatePeopleCore(w, phaseObserver = null) {
+    const nearbyStructures = createNearbyStructureIndex(w);
     let perceptionMs = 0, socialIntentionMs = 0;
     refreshHarvestSuitability(w);
     const living = w.people.filter(p => p.alive).sort((a, b) => a.id - b.id);
@@ -1040,7 +1042,7 @@ function updatePeopleCore(w, phaseObserver = null) {
       const returnToGarrison = peacetimeSoldier && p.foodReserve < GARRISON_RECOVERY.food
         && garrisonFoodAvailable > .01 && militaryCenter && distance(p, militaryCenter) > 2;
       const communitySize = community ? (communityCounts.get(community.id) || 0) : 0;
-      const sheltered = w.structures.some(s => s.complete && s.type === 'abrigo' && community && p.communityId === s.communityId && distance(p, s) <= 4);
+      const sheltered = nearbyStructures.hasShelterNearby(p, community, 4);
       consumePersonEnergy(p, (peacetimeSoldier ? .18 : sheltered ? .4 : .48) + p.injury * .006);
       p.hydration = clamp(p.hydration - .3, 0, 100);
       const campaignRation = drawCampaignRation(w, p, dailyFoodNeed);
