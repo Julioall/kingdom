@@ -52,7 +52,10 @@ jobs:
 
       - name: Generate interactive medieval battlefield replay
         if: github.event_name == 'pull_request' && github.head_ref == 'feat/commander-led-tactics-20261111'
-        run: node scripts/replay-medieval-battle.mjs --seed=42 --days=75 --interval=5 --output=out/battle-replay.html
+        run: |
+          for seed in 1 42 2026; do
+            node scripts/replay-medieval-battle.mjs --seed="$seed" --days=75 --interval=5 --output="out/battle-replay-$seed.html"
+          done
 
       - name: Upload tactical replay and measurements for visual QA
         if: github.event_name == 'pull_request' && github.head_ref == 'feat/commander-led-tactics-20261111'
@@ -60,6 +63,6 @@ jobs:
         with:
           name: kingdom-medieval-battle-replay
           path: |
-            out/battle-replay.html
+            out/battle-replay-*.html
             out/squad-benchmark.json
           retention-days: 14
