@@ -256,8 +256,13 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     // A captain should assemble troops even after reaching the deployment
     // zone, unless the enemy is in immediate weapon-contact distance.
     // Every third day allows progress if an obstruction prevents full order.
+    // Wing commanders must keep their soldiers with them DURING the outer
+    // maneuver, not merely after arriving at the waypoint. Once the wedge
+    // pivots inward, pause again if its rear rank loses contact. Immediate
+    // melee, rout and manual control still take precedence.
     const pacing = (phase === 'marching' || phase === 'deploying'
-        || phase === 'contact' || phase === 'flanking' && flankStage === 'swing' && reachedWing)
+        || phase === 'contact' || phase === 'flanking'
+        || phase === 'striking' && !wingReady)
       && (!focus || dist(commander, focus) > 4.5)
       && needsReform && day % 3 !== 0;
     if (pacing) {
