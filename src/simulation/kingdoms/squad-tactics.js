@@ -96,7 +96,8 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     const atFront = dist(commander, destination) <= DEPLOY_DISTANCE;
     const side = role === 'flank-left' ? -1 : role === 'flank-right' ? 1 : 0;
     const mustFlank = mode === 'hierarchical' && side !== 0 && contested && !!focus
-      && generalOrder?.action !== 'hold_position';
+      && generalOrder?.action !== 'hold_position'
+      && !['assemble', 'press-front'].includes(generalOrder?.battlePlan);
     const outerWaypoint = focus && {
       x: focus.x + lateral.x * side * 9 - forward.x * 5,
       y: focus.y + lateral.y * side * 9 - forward.y * 5
@@ -137,10 +138,11 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     }
     const formationChangedDay = formationType !== prior?.formationType ? day
       : prior.formationChangedDay ?? day;
+    const directContact = focus && dist(commander, focus) <= 9;
     const phase = routed ? 'rout' : regrouping ? 'rally'
       : mission === 'hold' || mission === 'reserve' ? 'holding'
         : mustFlank && atFront ? flankStage === 'strike' ? 'striking' : 'flanking'
-          : !atFront ? 'marching' : contested ? 'contact' : 'deploying';
+          : !atFront ? 'marching' : directContact ? 'contact' : 'deploying';
     const face = focus && atFront ? normalized(commander, focus)
       : dist(commander, goal) > 2 ? normalized(commander, goal) : forward;
     const squad = {
