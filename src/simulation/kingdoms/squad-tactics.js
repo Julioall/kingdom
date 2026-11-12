@@ -86,8 +86,8 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     const scores = {
       column: atFront ? 1 : 10,
       line: openFront && atFront ? 10 : -10,
-      wedge: openFront && atFront && members.length >= 4 && mission === 'flank' ? 12 : -10,
-      square: openFront && atFront && contested && (mission === 'hold' || role === 'reserve') ? 11 : -10
+      wedge: mode === 'hierarchical' && openFront && atFront && members.length >= 4 && mission === 'flank' ? 12 : -10,
+      square: mode === 'hierarchical' && openFront && atFront && contested && (mission === 'hold' || role === 'reserve') ? 11 : -10
     };
     if (mode === 'hierarchical' && observedInfluence(goal, threatList) > 1.5) scores.column += 2;
     if (prior && scores[prior.formationType] != null) scores[prior.formationType] += 1;
