@@ -241,3 +241,27 @@ test('wing captain waits for the body of troops halfway through an outward march
     'the captain must wait for followers before reaching the outer waypoint');
   assert.deepEqual(waiting.target, { x: captain.x, y: captain.y });
 });
+
+test('flank rally waypoint does not slide with minor enemy scouting movements', () => {
+  const { troops, units } = army(3);
+  for (const person of troops) { person.x = 48; person.y = 50; }
+  const args = { troops, units, day: 3, mode: 'hierarchical',
+    destination: { x: 50, y: 50 }, home: { x: 0, y: 50 },
+    generalOrder: { action: 'engage', battlePlan: 'envelop' } };
+  const initial = planSquadTactics({ ...args,
+    observedThreats: [{ id: 5000, x: 42, y: 50 }] });
+  const firstWing = initial.squads.find(s => s.role === 'flank-left');
+  assert.equal(firstWing.flankStage, 'swing');
+  const movingEnemy = planSquadTactics({ ...args, day: 4, previous: initial,
+    observedThreats: [{ id: 5000, x: 43.5, y: 51 }] });
+  const wing = movingEnemy.squads.find(s => s.role === 'flank-left');
+  assert.equal(wing.flankStage, 'swing');
+  assert.deepEqual(wing.flankWaypoint, firstWing.flankWaypoint,
+    'minor enemy movement cannot drag the captain waypoint out of reach');
+  assert.deepEqual(wing.target, firstWing.target);
+  const relocatedEnemy = planSquadTactics({ ...args, day: 5, previous: movingEnemy,
+    observedThreats: [{ id: 5000, x: 50, y: 61 }] });
+  const replanned = relocatedEnemy.squads.find(s => s.role === 'flank-left');
+  assert.notDeepEqual(replanned.flankWaypoint, firstWing.flankWaypoint,
+    'an actual opponent relocation should trigger a new flanking route');
+});
