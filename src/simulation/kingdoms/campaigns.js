@@ -733,7 +733,8 @@ export function performCampaignOrder(world, person, order) {
   if (distance(person, target) <= (engagementRange || 1.25)) {
     person.state = commanding ? 'comandando tropas em campo' : engagementRange ? 'sustentando a linha de combate'
       : withdrawing ? 'retornando da campanha'
-        : squadPhase === 'flanking' ? 'contornando o flanco adversário'
+        : squadPhase === 'reforming' ? 'reunindo os soldados para avançar em formação'
+          : squadPhase === 'flanking' ? 'contornando o flanco adversário'
           : squadPhase === 'holding' ? 'sustentando a formação medieval'
             : squadPhase === 'contact' || squadPhase === 'striking' ? 'mantendo a frente de batalha'
               : side.role === 'defender' ? 'defendendo a área disputada' : 'ocupando a área disputada';
@@ -761,7 +762,8 @@ export function performCampaignOrder(world, person, order) {
   person.campaignMoveSucceeded = !!moved;
   person.state = moved ? commanding ? 'deslocando posto de comando em campo'
     : withdrawing ? 'retornando da campanha'
-      : squadPhase === 'rout' ? 'fugindo após quebra da moral'
+      : squadPhase === 'reforming' ? 'alcançando o comandante para reagrupar'
+        : squadPhase === 'rout' ? 'fugindo após quebra da moral'
         : squadPhase === 'rally' ? 'reagrupando formação'
           : squadPhase === 'flanking' ? 'executando marcha pelo flanco'
             : squadPhase === 'striking' ? 'investindo contra o flanco'
