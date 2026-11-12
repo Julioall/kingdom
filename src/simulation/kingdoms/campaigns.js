@@ -885,6 +885,7 @@ function updateCampaignFormation(world, campaign, side, day) {
     const kingdom = kingdomById(world, side.kingdomId);
     const knownIds = new Set(side.fieldCommand?.observedEnemyIds || []);
     const threats = world.people.filter(enemy => enemy.alive && knownIds.has(enemy.id));
+    const previousSquads = new Map((side.squadTactics?.squads || []).map(squad => [squad.id, squad]));
     side.squadTactics = planSquadTactics({
       units: kingdom?.militaryCommand?.units || [],
       troops: activeTroops.filter(person => !person.playerControlled),
@@ -894,13 +895,33 @@ function updateCampaignFormation(world, campaign, side, day) {
       observedThreats: threats, openFront: openFormationFront(world, campaign.target),
       sideMorale: side.morale, mode: tacticalMode
     });
-    for (const squad of side.squadTactics.squads) for (const id of squad.memberIds) {
-      const person = activeTroops.find(soldier => soldier.id === id);
-      if (person) person.tacticalRouted = squad.routed;
+    const troopById = new Map(activeTroops.map(person => [person.id, person]));
+    for (const squad of side.squadTactics.squads) {
+      for (const id of squad.memberIds) {
+        const person = troopById.get(id);
+        if (person) person.tacticalRouted = squad.routed;
+      }
+      const old = previousSquads.get(squad.id);
+      if (old && (old.phase !== squad.phase || old.formationType !== squad.formationType)
+          && ['flanking', 'striking', 'contact', 'rout', 'rally', 'holding'].includes(squad.phase)) {
+        const name = troopById.get(squad.commanderId)?.name || 'Comandante';
+        const message = name + ' ordenou ' + ({
+          flanking: 'marchar pela ala para contornar a defesa',
+          striking: 'atacar o flanco inimigo',
+          contact: 'fechar a linha e enfrentar o adversário',
+          rout: 'retirada após a quebra da moral',
+          rally: 'reagrupar os sobreviventes',
+          holding: 'sustentar a reserva em posição'
+        }[squad.phase] || 'reformar as fileiras') + '.';
+        recordCampaignEvent(world, campaign, day, 'squad-maneuver', message, {
+          kingdomId: side.kingdomId, commanderId: squad.commanderId,
+          unitId: squad.unitId, role: squad.role, phase: squad.phase,
+          formationType: squad.formationType, morale: squad.morale, cohesion: squad.cohesion
+        });
+      }
     }
-    for (const person of troops) if (!side.squadTactics.memberToSquad.hasOwnProperty?.(person.id)
-      && !Object.prototype.hasOwnProperty.call(side.squadTactics.memberToSquad, person.id))
-      person.tacticalRouted = false;
+    for (const person of troops) if (!Object.prototype.hasOwnProperty.call(
+      side.squadTactics.memberToSquad, person.id)) person.tacticalRouted = false;
   } else {
     side.squadTactics = null;
     for (const person of troops) person.tacticalRouted = false;
