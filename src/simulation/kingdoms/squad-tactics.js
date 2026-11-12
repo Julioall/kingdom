@@ -194,9 +194,17 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     // A marching body faces its travel direction; the shield wall faces the
     // opponent once it stops. Do not have wedge troops march sideways while
     // their sprites stare at a distant enemy.
-    const face = ['contact', 'charging', 'holding', 'striking'].includes(phase) && focus
+    const desiredFacing = ['contact', 'charging', 'holding', 'striking'].includes(phase) && focus
       ? normalized(commander, focus) : dist(commander, goal) > 2
         ? normalized(commander, goal) : forward;
+    // A shield wall is not a weather vane. Tiny changes to a commander goal
+    // or reported enemy should not rotate every soldier's desired position
+    // each day. Allow a deliberate turn for a real change of direction.
+    const priorFacing = prior?.orientation;
+    const dot = priorFacing ? priorFacing.x * desiredFacing.x
+      + priorFacing.y * desiredFacing.y : -1;
+    const face = priorFacing && prior?.formationType === formationType && dot >= .90
+      ? priorFacing : desiredFacing;
     const squad = {
       id, unitId: unit.id, commanderId: commander.id,
       generalId: unit.generalId ?? generalOrder?.issuerId ?? null,
