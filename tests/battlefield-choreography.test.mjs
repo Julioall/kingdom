@@ -217,3 +217,27 @@ test('reserve follows the vanguard while marching, then locks its rear rally poi
   assert.notDeepEqual(called.target, reserve.target,
     'a committed reserve must actually receive a new destination');
 });
+
+test('wing captain waits for the body of troops halfway through an outward march', () => {
+  const { troops, units } = army(3);
+  for (const person of troops) { person.x = 48; person.y = 50; }
+  const args = { units, troops, day: 3, mode: 'hierarchical',
+    destination: { x: 50, y: 50 }, home: { x: 0, y: 50 },
+    observedThreats: [{ id: 5000, x: 42, y: 50 }],
+    generalOrder: { action: 'engage', battlePlan: 'envelop' } };
+  const first = planSquadTactics(args);
+  const wing = first.squads.find(s => s.role === 'flank-left');
+  const captain = troops.find(p => p.id === wing.commanderId);
+  // The captain has begun the detour; the rest of the unit is still in the
+  // center. This is an intermediate waypoint, not the final staging tile.
+  captain.x = (captain.x + wing.target.x) / 2;
+  captain.y = (captain.y + wing.target.y) / 2;
+  assert.ok(Math.hypot(captain.x - wing.target.x, captain.y - wing.target.y) > 3.5);
+  assert.ok(Math.hypot(captain.x - 48, captain.y - 50) > 6.5);
+  const second = planSquadTactics({ ...args, day: 4, previous: first });
+  const waiting = second.squads.find(s => s.role === 'flank-left');
+  assert.equal(waiting.flankStage, 'swing');
+  assert.equal(waiting.phase, 'reforming',
+    'the captain must wait for followers before reaching the outer waypoint');
+  assert.deepEqual(waiting.target, { x: captain.x, y: captain.y });
+});
