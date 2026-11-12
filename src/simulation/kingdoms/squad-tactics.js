@@ -49,6 +49,13 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     candidates.push({ unit, members: soldiers, commander });
   }
   const squads = [], memberToSquad = {};
+  // Distribute small armies symmetrically instead of assigning a left flank
+  // before there is a right one. Keep roles stable with unit order.
+  const roles = candidates.length === 1 ? ['vanguard']
+    : candidates.length === 2 ? ['vanguard', 'support']
+      : candidates.length === 3 ? ['vanguard', 'flank-left', 'flank-right']
+        : candidates.length === 4 ? ['vanguard', 'support', 'flank-left', 'flank-right']
+          : ROLES;
   const forward = orientation || normalized(home || destination, destination);
   const lateral = { x: -forward.y, y: forward.x };
   const threatList = observedThreats.filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
@@ -57,7 +64,7 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
   const contested = threatList.some(p => dist(p, destination) <= 12);
   for (let index = 0; index < candidates.length; index++) {
     const { unit, members, commander } = candidates[index];
-    const role = ROLES[index % ROLES.length];
+    const role = roles[index % roles.length];
     const id = String(unit.id);
     const prior = previousById.get(id);
     const avgStamina = members.reduce((sum, p) => sum + (Number(p.stamina) || 0), 0) / members.length;
@@ -70,8 +77,7 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
       : generalOrder?.action === 'hold_position' ? 'hold'
         : role === 'flank-left' || role === 'flank-right' ? 'flank'
           : role === 'reserve' ? 'reserve' : 'advance';
-    const offset = role === 'flank-left' ? -4 : role === 'flank-right' ? 4
-      : (role === 'support' ? -2.2 : role === 'reserve' ? 0 : 1.5);
+    const offset = role === 'flank-left' ? -3 : role === 'flank-right' ? 3 : 0;
     const depth = role === 'support' ? 3 : role === 'reserve' ? 6 : 0;
     const central = routed && home ? home : destination;
     const goal = routed || regrouping ? {
@@ -117,7 +123,11 @@ export function squadSlot(squad, memberId, commander, spacing = 1.5) {
   const lateral = { x: -direction.y, y: direction.x };
   let row, column;
   if (squad.formationType === 'column') {
-    row = index; column = 0;
+    // A 3-file marching column prevents a ten-person unit from stretching
+    // into a very long single-file snake behind the commander.
+    const width = Math.min(3, followers.length);
+    row = Math.floor(index / width);
+    column = index % width - (Math.min(width, followers.length - row * width) - 1) / 2;
   } else if (squad.formationType === 'wedge') {
     row = 0;
     let start = 0;
