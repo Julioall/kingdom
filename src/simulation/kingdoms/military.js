@@ -560,6 +560,13 @@ export function fightTacticalRound(world, allies, enemies, day, objective = null
     // Broken formations flee instead of inexplicably trading blows while
     // their commanders order a retreat. Manual control always takes priority.
     if (!manualCommand && person.tacticalRouted) continue;
+    // A held reserve must not quietly leave its battle position to join
+    // routine offensive targeting. It may still defend itself when enemies
+    // actually reach the reserve's own line.
+    if (!manualCommand && person.tacticalReserveHolding && !enemies.some(enemy =>
+      enemy.alive && enemy.restingStructureId == null
+        && enemy.kingdomId !== person.kingdomId
+        && distance(person, enemy) <= (person.militaryClass === 'arqueiro' ? 5 : 2.4))) continue;
     const manualProfile = manualCommand
       ? manualAttackProfile(person, manualCommand.actionKey, manualCommand.comboIndex) : null;
     if (manualCommand && !manualProfile) { consumePlayerAttack(person, manualCommand, day); continue; }
