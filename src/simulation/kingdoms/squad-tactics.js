@@ -194,11 +194,18 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     // in front, archers behind the shields/spears and clerics in the rear.
     if (formationType !== 'column') squad.slotAssignments = medievalSlotAssignments(
       members, commander.id, formationType);
-    let totalError = 0, evaluated = 0;
+    let totalError = 0, evaluated = 0, rankReady = 0, nearCommander = 0;
     for (const member of members) if (member.id !== commander.id) {
       const slot = squadSlot(squad, member.id, commander);
-      if (slot) { totalError += dist(member, slot); evaluated++; }
+      if (!slot) continue;
+      const error = dist(member, slot);
+      totalError += error; evaluated++;
+      if (error <= 3.25) rankReady++;
+      if (dist(member, commander) <= 8) nearCommander++;
     }
+    squad.meanRankError = evaluated ? Number((totalError / evaluated).toFixed(2)) : 0;
+    squad.rankIntegrity = evaluated ? Number((rankReady / evaluated).toFixed(3)) : 1;
+    squad.commanderCoverage = evaluated ? Number((nearCommander / evaluated).toFixed(3)) : 1;
     squad.cohesion = evaluated
       ? Number(clamp(1 - totalError / (evaluated * 5), 0, 1).toFixed(3)) : 1;
     for (const member of members) memberToSquad[member.id] = squads.length;
