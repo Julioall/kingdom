@@ -99,6 +99,17 @@ export function createMovementInterpolator({ stabilizeCadence = true } = {}) {
       dirX, dirY, facingX: actor.facingX
     };
   }
+  // Superset of every retained interpolation segment for snapshot-scoped
+  // viewport culling. It may be larger than the currently visible segment,
+  // but must never omit an actor while their animation catches up.
+  function sweptBounds(kind, agent) {
+    let minX = agent.x, maxX = agent.x, minY = agent.y, maxY = agent.y;
+    for (const point of actors.get(kind+':'+agent.id)?.points || []) {
+      minX = Math.min(minX,point.x); maxX = Math.max(maxX,point.x);
+      minY = Math.min(minY,point.y); maxY = Math.max(maxY,point.y);
+    }
+    return {minX,maxX,minY,maxY};
+  }
   function snapActor(kind, agent, now) {
     actors.set(kind + ':' + agent.id, { facingX: agent.militaryFacingX || 1,
       points: [{ x: agent.x, y: agent.y, time: now - cadence - bufferMs }] });
@@ -119,5 +130,5 @@ export function createMovementInterpolator({ stabilizeCadence = true } = {}) {
         ? Math.max(0, snapshotAgeMs - cadence - bufferMs) : 0,
       bufferMs, stabilizeCadence };
   }
-  return { observe, pose, markDiscontinuity, snapActor, settleActor, stats };
+  return { observe, pose, sweptBounds, markDiscontinuity, snapActor, settleActor, stats };
 }
