@@ -179,6 +179,28 @@ test('reserves hold behind the center until the vanguard is under pressure', () 
 
 
 
+test('commanders pace their march when followers fall too far behind', () => {
+  const troops = Array.from({ length: 10 }, (_, i) => ({
+    id: i + 1, alive: true, x: i === 0 ? 15 : 0, y: 10, stamina: 100,
+    militaryClass: 'guerreiro',
+    militaryRank: i === 0 ? 'comandante' : 'soldado'
+  }));
+  const args = {
+    units: [{ id: 'infantry', commanderId: 1, memberIds: troops.map(p => p.id) }],
+    troops, destination: { x: 60, y: 10 }, home: { x: 0, y: 10 },
+    day: 2, mode: 'hierarchical', observedThreats: []
+  };
+  const gathering = planSquadTactics(args).squads[0];
+  assert.equal(gathering.phase, 'reforming');
+  assert.deepEqual(gathering.target, { x: 15, y: 10 });
+  const advancing = planSquadTactics({ ...args, day: 3 }).squads[0];
+  assert.equal(advancing.phase, 'marching');
+  assert.ok(advancing.target.x > 15);
+  for (const follower of troops.slice(1)) follower.x = 14;
+  const together = planSquadTactics({ ...args, day: 4 }).squads[0];
+  assert.equal(together.phase, 'marching');
+});
+
 test('a broken formation flees instead of performing offensive actions', () => {
   const world = Sim.createWorld(42);
   const person = world.people.find(p => p.alive && p.role === 'soldier' && p.militaryClass === 'guerreiro');
