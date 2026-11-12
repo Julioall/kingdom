@@ -652,8 +652,10 @@ export function campaignOrderFor(world, person) {
         ? Math.max(weaponRange + 1, 4)
         : weaponRange + 0.7
     : 12;
+  const holdingReserve = squad?.role === 'reserve' && squad.mission === 'reserve';
   const engagingEnemy = !squad?.routed && !needsIndividualTarget && enemy
-    && distance(person, enemy) <= engageDistance && (!tower || distance(person, enemy) <= 6);
+    && distance(person, enemy) <= (holdingReserve ? Math.min(2.4, engageDistance) : engageDistance)
+    && (!tower || distance(person, enemy) <= 6);
   let target = formation ? campaignFormationSlot(formation, person.id, destination, geometry?.orientation)
     : towerPosition || individualTarget;
   if (patient) target = distance(person, patient) > 5 ? { x: patient.x, y: patient.y } : { x: person.x, y: person.y };
@@ -945,6 +947,7 @@ function updateCampaignFormation(world, campaign, side, day) {
         const person = troopById.get(id);
         if (person) {
           person.tacticalRouted = squad.routed;
+          person.tacticalReserveHolding = squad.role === 'reserve' && squad.mission === 'reserve';
           person.tacticalPhase = squad.phase;
           person.tacticalRole = squad.role;
           person.tacticalFormation = squad.formationType;
@@ -974,6 +977,7 @@ function updateCampaignFormation(world, campaign, side, day) {
     for (const person of troops) if (!Object.prototype.hasOwnProperty.call(
       side.squadTactics.memberToSquad, person.id)) {
       person.tacticalRouted = false;
+      person.tacticalReserveHolding = false;
       person.tacticalPhase = null;
       person.tacticalRole = null;
       person.tacticalFormation = null;
@@ -983,6 +987,7 @@ function updateCampaignFormation(world, campaign, side, day) {
     side.squadTactics = null;
     for (const person of troops) {
       person.tacticalRouted = false;
+      person.tacticalReserveHolding = false;
       person.tacticalPhase = null;
       person.tacticalRole = null;
       person.tacticalFormation = null;
@@ -1519,6 +1524,7 @@ function releaseCampaignTroop(world, side, person, preserveService = false) {
   } else { person.state = 'recuperando-se após a campanha'; person.militaryReturningHome = true; }
   person.campaignId = null;
   person.tacticalRouted = false;
+  person.tacticalReserveHolding = false;
   person.tacticalPhase = null;
   person.tacticalRole = null;
   person.tacticalFormation = null;
