@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import Sim from '../src/simulation/engine.js';
 import { campaignOrderFor, prepareKingdomCampaigns } from '../src/simulation/kingdoms/campaigns.js';
 import { fightTacticalRound } from '../src/simulation/kingdoms/military.js';
-import { medievalSlotAssignments, observedInfluence, planSquadTactics, squadSlot } from '../src/simulation/kingdoms/squad-tactics.js';
+import { medievalSlotAssignments, observedInfluence, planSquadTactics, squadSlot, squadFollowerTarget } from '../src/simulation/kingdoms/squad-tactics.js';
 
 function pureFixture(mode = 'hierarchical', previous = null, day = 2, sideMorale = 85) {
   const troops = Array.from({ length: 20 }, (_, i) => ({
@@ -273,4 +273,15 @@ test('surviving wings and reserves keep their role after the original vanguard f
   const next = planSquadTactics({ ...args, day: 5, troops: survivors, previous: original });
   assert.deepEqual(next.squads.map(squad => squad.role),
     ['vanguard', 'flank-left', 'flank-right', 'reserve']);
+});
+
+test('separated infantry seeks its captain before a rotating formation rank', () => {
+  const commander = { id: 1, x: 50, y: 50 };
+  const slot = { x: 47, y: 52 };
+  assert.deepEqual(squadFollowerTarget({ id: 2, x: 20, y: 20 }, commander, slot),
+    { target: { x: 50, y: 50 }, rejoining: true });
+  assert.deepEqual(squadFollowerTarget({ id: 2, x: 47, y: 48 }, commander, slot),
+    { target: slot, rejoining: false });
+  assert.deepEqual(squadFollowerTarget({ id: 3, x: 47, y: 48 }, commander, null),
+    { target: { x: 50, y: 50 }, rejoining: false });
 });
