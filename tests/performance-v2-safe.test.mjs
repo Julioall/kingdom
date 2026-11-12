@@ -46,20 +46,21 @@ test('tree blocker mask preserves previous structure checks at borders and fract
   }
 });
 
-test('nearest prey and threats use the original stable proximity priority', () => {
-  const hunter=ANIMALS.find(p=>p.prey?.length);
-  assert.ok(hunter);
-  const preySpecies=hunter.prey[0];
-  const preyA={id:2,alive:true,speciesId:preySpecies,x:1,y:0};
-  const preyB={id:3,alive:true,speciesId:preySpecies,x:-1,y:0,
+test('nearest prey and human threats use proximity and stable ties', () => {
+  // The production ecosystem presently has only sheep. Exercise generic
+  // predator selection with a synthetic profile, without adding new species.
+  assert.ok(ANIMALS.some(animal=>animal.id==='sheep'));
+  const profile={prey:['sheep']};
+  const preyA={id:2,alive:true,speciesId:'sheep',x:1,y:0};
+  const preyB={id:3,alive:true,speciesId:'sheep',x:-1,y:0,
     habituation:0,perception:{people:[{id:7,visible:true,distance:1}]}};
-  const predator={id:1,alive:true,speciesId:hunter.id,x:0,y:0,habituation:0};
+  const hunter={id:1,alive:true,speciesId:'sheep',x:0,y:0};
   const human={id:7,alive:true,x:-2,y:0,brain:{lastAction:'hunt'},state:'caçando'};
-  const world={animals:[predator,preyA,preyB],people:[human]};
-  assert.equal(nearestPrey(world,predator,hunter),preyA);
-  assert.equal(nearestThreat(world,preyB,5.5,new Map([[human.id,human]])),predator);
-  assert.equal(nearestThreat(world,preyB,5.5),predator);
-  assert.equal(nearestPrey({...world,animals:[predator,{...preyA,alive:false},preyB]},predator,hunter),preyB);
+  const world={animals:[hunter,preyA,preyB],people:[human]};
+  assert.equal(nearestPrey(world,hunter,profile),preyA);
+  assert.equal(nearestThreat(world,preyB,5.5,new Map([[human.id,human]])),human);
+  assert.equal(nearestThreat(world,preyB,5.5),human);
+  assert.equal(nearestPrey({...world,animals:[hunter,{...preyA,alive:false},preyB]},hunter,profile),preyB);
 });
 
 test('HUD writer does not replace identical DOM, but updates changed values', () => {
