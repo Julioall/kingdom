@@ -123,10 +123,20 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
       && contested && !!focus && generalOrder?.action !== 'hold_position'
       && (prior?.flankStage || !['assemble', 'press-front'].includes(generalOrder?.battlePlan));
     const flankActivated = mustFlank && (atFront || armyDeployedToFront || !!prior?.flankStage);
-    const outerWaypoint = focus && projectTarget({
+    // Enemy scouts may report a slightly different position each day.
+    // Keep the outward waypoint fixed while this specific wing marches to it;
+    // otherwise the captain chases a sliding destination and never pivots.
+    // Replan only if the enemy has displaced far enough to invalidate the
+    // original approach or the general is now tracking a new opponent.
+    const stableWing = mustFlank && prior?.flankStage === 'swing'
+      && prior?.flankWaypoint && prior?.flankFocus
+      && prior.contactEnemyId === focus.id && dist(prior.flankFocus, focus) <= 8;
+    const outerWaypoint = stableWing ? prior.flankWaypoint : focus && projectTarget({
       x: focus.x + lateral.x * side * 11 - forward.x * 6,
       y: focus.y + lateral.y * side * 11 - forward.y * 6
     });
+    const flankFocus = mustFlank
+      ? stableWing ? prior.flankFocus : { x: focus.x, y: focus.y } : null;
     // The captain reaching the waypoint is NOT enough. The shield/spear line
     // must arrive as a body before it pivots and attacks the enemy's side.
     const wingFollowers = members.filter(p => p.id !== commander.id);
@@ -244,6 +254,7 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
       holdPoint: mission === 'hold' ? goal : null,
       reserveHoldPoint,
       flankWaypoint: flankActivated ? outerWaypoint : null,
+      flankFocus: flankActivated ? flankFocus : null,
       contactEnemyId: focus?.id ?? null
     };
     // Infantry does not sprint ahead while its formation stretches out behind.
