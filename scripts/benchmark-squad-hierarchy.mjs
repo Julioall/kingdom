@@ -50,7 +50,8 @@ function stats(values) {
     mean: +(values.reduce((sum, v) => sum + v, 0) / values.length).toFixed(3) };
 }
 
-for (const seed of seeds) for (const mode of modes) {
+for (const [seedIndex, seed] of seeds.entries())
+  for (const mode of [...modes.slice(seedIndex % modes.length), ...modes.slice(0, seedIndex % modes.length)]) {
   const world = Sim.createWorld(seed, { tacticalCombat: mode });
   const { attackerId, defenderId, id } = warFixture(world);
   const timings = [], cohesions = [], squadCounts = [], routed = [];
