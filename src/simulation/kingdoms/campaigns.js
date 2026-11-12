@@ -711,6 +711,14 @@ export function performCampaignOrder(world, person, order) {
     person.militaryFacingX = squadFacing.x;
     person.militaryFacingY = squadFacing.y;
   }
+  // A stationary shield/lantern line visibly braces before contact. The
+  // combat resolver can still override this with actual attack animations.
+  if (target && !engagementRange && ['holding', 'deploying', 'contact'].includes(squadPhase)
+      && ['guerreiro', 'lanceiro'].includes(person.militaryClass)
+      && distance(person, target) <= 2.2) {
+    person.militaryAnimation = 'defend';
+    person.militaryAnimationDay = world.day;
+  }
   if (holding) {
     person.state = side.role === 'defender' ? 'mantendo posição defensiva' : 'mantendo posição da campanha';
     person.lastLesson = 'O general ordenou manter a posição; a guarnição não avança até receber nova ordem.';
