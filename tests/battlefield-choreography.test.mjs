@@ -102,3 +102,22 @@ test('battlefield debug data follows true soldier positions and squad targets', 
   world.campaigns[0].status = 'withdrawing';
   assert.deepEqual(battlefieldDebugData(world), []);
 });
+
+test('cohesive center performs a bounded charge instead of stalling outside spear range', () => {
+  const { troops, units } = army(1);
+  troops.forEach((person, i) => { person.x = i === 0 ? 50 : 49; person.y = 50; });
+  const target = { x: 56, y: 50 };
+  const order = { action: 'engage', battlePlan: 'press-front', formationType: 'line' };
+  const charging = planSquadTactics({ troops, units, day: 7, destination: target,
+    home: { x: 20, y: 50 }, observedThreats: [{ id: 200, ...target }],
+    generalOrder: order, mode: 'hierarchical' }).squads[0];
+  assert.equal(charging.phase, 'charging');
+  assert.ok(charging.target.x > troops[0].x && charging.target.x < target.x,
+    'the commander advances a bounded step without abandoning the infantry');
+  for (const follower of troops.slice(1)) { follower.x = 20; follower.y = 20; }
+  const waiting = planSquadTactics({ troops, units, day: 8, destination: target,
+    home: { x: 20, y: 50 }, observedThreats: [{ id: 200, ...target }],
+    generalOrder: order, mode: 'hierarchical' }).squads[0];
+  assert.notEqual(waiting.phase, 'charging',
+    'no unit charge is ordered when the soldiers have been left far behind');
+});
