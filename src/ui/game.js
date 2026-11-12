@@ -2448,6 +2448,31 @@ export function mountGame() {
     ctx.restore();
   }
 
+  function drawTacticalStandard(person, x, y) {
+    if (mapZoom < 1.5 || person.militaryRank !== 'comandante'
+        || person.campaignId == null || !person.tacticalRole) return;
+    // The order is immediately visible during normal play: gold marks the
+    // center, orange marks the wings, blue support and green the rear reserve.
+    const colors = {
+      vanguard: '#e8cf69', support: '#83c1e1', 'flank-left': '#e08a6d',
+      'flank-right': '#ddaa73', reserve: '#9fd080'
+    };
+    const color = colors[person.tacticalRole] || '#d0c0a2';
+    const waving = ['flanking', 'striking'].includes(person.tacticalPhase);
+    ctx.save();
+    ctx.globalAlpha = .96;
+    ctx.strokeStyle = '#332d25'; ctx.lineWidth = .7;
+    ctx.beginPath(); ctx.moveTo(x + TILE * .74, y + 1);
+    ctx.lineTo(x + TILE * .74, y - 12); ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x + TILE * .74, y - 12);
+    ctx.lineTo(x + TILE * .74 + (waving ? 7 : 5), y - 10);
+    ctx.lineTo(x + TILE * .74, y - 7);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
   function drawLeaderBadge(person, x, y) {
     const kingdom = getKingdom(person.kingdomId);
     const rank = activeLeadershipRank(person, kingdom);
@@ -2651,6 +2676,7 @@ export function mountGame() {
         }
       }
       drawLeaderBadge(p, x, y);
+      drawTacticalStandard(p, x, y);
       if (p.health < 22) { ctx.fillStyle = '#bc574d'; ctx.fillRect(x + 12, y + 2, 3, 2); }
   }
 
