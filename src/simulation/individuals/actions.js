@@ -1296,7 +1296,7 @@ function updatePeopleCore(w, phaseObserver = null) {
         && ['commanders', 'hierarchical'].includes(w.tacticalCombat?.mode);
       const seriousWound = p.tacticalRecovering || p.health < 28 || p.injury >= 10;
       const fieldRest = servingInField && !seriousWound
-        && (p.energy < GARRISON_RECOVERY.energy
+        && (p.energy < 30
           || p.health < GARRISON_RECOVERY.health
           || p.injury >= GARRISON_RECOVERY.restInjury);
       if (servingInField && !seriousWound) {
