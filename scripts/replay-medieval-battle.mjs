@@ -63,7 +63,12 @@ function capture() {
     people: troops.map(p => ({ id: p.id, x: p.x, y: p.y,
       kingdomId: p.kingdomId, militaryClass: p.militaryClass,
       militaryRank: p.militaryRank, tacticalRole: p.tacticalRole,
-      tacticalPhase: p.tacticalPhase }))
+      tacticalPhase: p.tacticalPhase, state: p.state,
+      energy: Number((p.energy || 0).toFixed(1)),
+      health: Number((p.health || 0).toFixed(1)),
+      decision: p.lastDecision?.action || null,
+      restTargetId: p.militaryRestTargetId ?? null,
+      tacticalRecovering: !!p.tacticalRecovering }))
   });
 }
 capture();
@@ -194,5 +199,24 @@ console.log('BATTLE-REPLAY', JSON.stringify({
   phases: Object.fromEntries([...new Set(snapshots.flatMap(frame => frame.groups.map(s => s.phase)))]
     .map(phase => [phase, snapshots.reduce((n, frame) =>
       n + frame.groups.filter(s => s.phase === phase).length, 0)])),
-  maxBattles: Math.max(...snapshots.map(frame => frame.battleCount))
+  maxBattles: Math.max(...snapshots.map(frame => frame.battleCount)),
+  snapshots: snapshots.map(frame => ({
+    day: frame.day,
+    avgRankIntegrity: frame.groups.length
+      ? Number((frame.groups.reduce((sum, group) =>
+        sum + (group.rankIntegrity || 0), 0) / frame.groups.length).toFixed(3)) : 0,
+    groupCount: frame.groups.length,
+    fieldRest: frame.people.filter(person =>
+      person.state?.includes('recuperando o fôlego junto à formação')).length,
+    homeRest: frame.people.filter(person =>
+      person.restTargetId != null && !person.tacticalRecovering).length,
+    widelySeparated: frame.groups.reduce((total, group) => {
+      if (!group.commander) return total;
+      const peopleById = new Map(frame.people.map(person => [person.id, person]));
+      return total + group.soldiers.filter(item => {
+        const p = peopleById.get(item.id);
+        return p && Math.hypot(p.x - group.commander.x, p.y - group.commander.y) > 9;
+      }).length;
+    }, 0)
+  }))
 }));
