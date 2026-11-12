@@ -148,9 +148,26 @@ export function communityName(w, members) {
   }
 
 export function updateCommunityStages(w) {
+    // Build ordered member groups once, then accumulate links in their
+    // insertion order. All sums and community decisions remain unchanged.
+    const membersByCommunity = new Map(), communityByPersonId = new Map();
+    for (const person of w.people) {
+      if (!person.alive) continue;
+      communityByPersonId.set(person.id, person.communityId);
+      let members = membersByCommunity.get(person.communityId);
+      if (!members) membersByCommunity.set(person.communityId, members = []);
+      members.push(person);
+    }
+    const cohesionTotals = new Map(), cohesionCounts = new Map();
+    for (const link of Object.values(w.socialLinks)) {
+      const a = communityByPersonId.get(link.a), b = communityByPersonId.get(link.b);
+      if (a == null || a !== b) continue;
+      cohesionTotals.set(a, (cohesionTotals.get(a) ?? 0) + link.trust);
+      cohesionCounts.set(a, (cohesionCounts.get(a) || 0) + 1);
+    }
     for (const c of w.communities) {
       if (c.dissolved) continue;
-      const members = w.people.filter(p => p.alive && p.communityId === c.id);
+      const members = membersByCommunity.get(c.id) || [];
       c.memberIds = members.map(p => p.id);
       if (!members.length) {
         if (c.isKingdomGroup) continue;
@@ -167,8 +184,8 @@ export function updateCommunityStages(w) {
       }
       for (const p of members) recordCommunityUse(w, p);
       if (c.isKingdomGroup) continue;
-      const links = Object.values(w.socialLinks).filter(l => members.some(p => p.id === l.a) && members.some(p => p.id === l.b));
-      c.cohesion = links.length ? links.reduce((s, l) => s + l.trust, 0) / links.length : .1;
+      const linkCount = cohesionCounts.get(c.id) || 0;
+      c.cohesion = linkCount ? cohesionTotals.get(c.id) / linkCount : .1;
       const next = members.length >= 12 && c.cohesion > .24 ? 'reino'
         : members.length >= 6 ? 'tribo' : members.length >= 3 ? 'grupo' : 'vínculo';
       if (next !== c.stage) {
@@ -183,9 +200,12 @@ export function updateCommunityStages(w) {
   }
 
 export function splitCommunities(w) {
+    const aliveById = new Map();
+    for (const person of w.people) if (person.alive && !aliveById.has(person.id))
+      aliveById.set(person.id, person);
     for (const c of w.communities) {
       if (c.dissolved || c.isKingdomGroup || c.splitCooldown > 0) continue;
-      const members = c.memberIds.map(id => w.people.find(p => p.id === id && p.alive)).filter(Boolean);
+      const members = c.memberIds.map(id => aliveById.get(id)).filter(Boolean);
       if (members.length < 8) continue;
       const distant = members.filter(p => distance(p, c) > 9.5);
       if (distant.length < 3 || distant.length >= members.length - 2) continue;
