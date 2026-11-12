@@ -2458,7 +2458,7 @@ export function mountGame() {
       'flank-right': '#ddaa73', reserve: '#9fd080'
     };
     const color = colors[person.tacticalRole] || '#d0c0a2';
-    const waving = ['flanking', 'striking'].includes(person.tacticalPhase);
+    const waving = ['flanking', 'striking', 'charging'].includes(person.tacticalPhase);
     ctx.save();
     ctx.globalAlpha = .96;
     ctx.strokeStyle = '#332d25'; ctx.lineWidth = .7;
@@ -3379,6 +3379,7 @@ export function mountGame() {
             };
             const phases = {
               marching: 'Marchando', deploying: 'Abrindo fileiras', contact: 'Linha em contato',
+              charging: 'Investida coordenada',
               flanking: 'Contornando o flanco', striking: 'Investindo pelo flanco',
               holding: 'Mantendo reserva/posição', rally: 'Reagrupando',
               reforming: 'Aguardando os soldados atrasados', rout: 'Rompida: retirada'
