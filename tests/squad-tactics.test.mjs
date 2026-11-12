@@ -185,6 +185,36 @@ test('reserves hold behind the center until the vanguard is under pressure', () 
 
 
 
+
+test('reserve joins after sustained contact and does not immediately retreat when orders fluctuate', () => {
+  const troops = Array.from({ length: 50 }, (_, i) => ({
+    id: i + 1, alive: true, x: 17, y: 10, stamina: 95,
+    militaryRank: i % 10 === 0 ? 'comandante' : 'soldado'
+  }));
+  const units = [0, 1, 2, 3, 4].map(i => ({
+    id: 'u' + i, commanderId: i * 10 + 1,
+    memberIds: troops.slice(i * 10, i * 10 + 10).map(p => p.id)
+  }));
+  const args = { units, troops, destination: { x: 20, y: 10 }, home: { x: 0, y: 10 },
+    observedThreats: [{ id: 100, x: 20, y: 10 }], mode: 'hierarchical' };
+  const first = planSquadTactics({ ...args, day: 2 });
+  assert.equal(first.squads[4].mission, 'reserve');
+  const contact = structuredClone(first);
+  contact.squads[0].phase = 'contact';
+  contact.squads[0].contactSinceDay = 3;
+  // First contact is not enough to order an immediate reserve charge.
+  const firstContact = planSquadTactics({ ...args, previous: contact, day: 4 });
+  assert.equal(firstContact.squads[4].mission, 'reserve');
+  const committed = planSquadTactics({ ...args, previous: contact, day: 6 });
+  assert.equal(committed.squads[4].mission, 'reinforce');
+  assert.equal(committed.squads[4].reserveCommittedDay, 6);
+  const quiet = structuredClone(committed);
+  quiet.squads[0].phase = 'deploying';
+  const stillAdvancing = planSquadTactics({ ...args, previous: quiet, day: 7 });
+  assert.equal(stillAdvancing.squads[4].mission, 'reinforce');
+  assert.equal(stillAdvancing.squads[4].reserveCommittedDay, 6);
+});
+
 test('commanders pace their march when followers fall too far behind', () => {
   const troops = Array.from({ length: 10 }, (_, i) => ({
     id: i + 1, alive: true, x: i === 0 ? 15 : 0, y: 10, stamina: 100,
