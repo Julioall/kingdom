@@ -177,3 +177,22 @@ test('reserves hold behind the center until the vanguard is under pressure', () 
   assert.equal(next.squads.find(s => s.role === 'reserve').mission, 'reinforce');
 });
 
+
+
+test('a broken formation flees instead of performing offensive actions', () => {
+  const world = Sim.createWorld(42);
+  const person = world.people.find(p => p.alive && p.role === 'soldier' && p.militaryClass === 'guerreiro');
+  const opponent = world.people.find(p => p.alive && p.role === 'soldier'
+    && p.kingdomId !== person.kingdomId);
+  assert.ok(person && opponent);
+  person.tacticalRouted = true;
+  person.health = 100;
+  person.stamina = 100;
+  person.restingStructureId = null;
+  person.militaryRestTargetId = null;
+  opponent.health = 100;
+  const before = world.combatSequence || 0;
+  fightTacticalRound(world, [person], [opponent], 10);
+  assert.equal(world.combatSequence || 0, before);
+  assert.equal(opponent.health, 100);
+});
