@@ -47,11 +47,11 @@ try {
           return document.querySelector('.app')?.inert===false&&perf?.frames.samples>=12
             &&perf?.context?.peopleTotal===96&&perf.context.animalsTotal===24;
         },null,{timeout:150000});
-        for(let i=0;i<5;i++) await page.locator('#mapZoomIn').click();
+        for(let i=0;i<12;i++) await page.locator('#mapZoomIn').click();
         await page.waitForTimeout(900);
         const start=await page.evaluate(()=>window.kingdomProfiler.snapshot());
         assert.equal(start.context.actorCulling,mode!=='baseline','actor-culling switch mismatch');
-        assert.ok(start.context.zoom>.5,'zoom must create a partial viewport');
+        assert.ok(start.context.zoom>4,'zoom must create a narrow partial viewport');
         await page.evaluate(()=>window.kingdomProfiler.reset());
         await page.waitForTimeout(duration);
         const observed=await page.evaluate(()=>window.kingdomProfiler.snapshot());
@@ -61,6 +61,8 @@ try {
           assert.equal(c.actorViewport.people,96);
           assert.equal(c.actorViewport.animals,24);
           assert.ok(c.actorViewport.lastReturned<=c.actorViewport.lastExamined);
+          assert.ok(c.actorViewport.lastExamined<c.actorViewport.people,
+            'the zoomed camera must eliminate at least one offscreen person');
         }
         if(errors.length)throw Error('Browser errors: '+errors.join(' | '));
         const record={pair:pair+1,mode,frames:frames.samples,fps:frames.fps,
