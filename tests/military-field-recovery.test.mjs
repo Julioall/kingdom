@@ -35,7 +35,7 @@ test('tired medieval troops recover in the field instead of walking to their hom
   assert.ok(enlisted.length >= 2);
   for (const soldier of enlisted) {
     Object.assign(soldier, {
-      energy: 32, health: 80, hydration: 80, foodReserve: 85, injury: 0,
+      energy: 22, health: 80, hydration: 80, foodReserve: 85, injury: 0,
       tacticalRecovering: false, militaryRestTargetId: null, restingStructureId: null
     });
   }
