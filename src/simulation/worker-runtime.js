@@ -26,6 +26,19 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
   let compactActorTransport = false;
   let lastSnapshotColumns = null;
   let lastCaptureRevision = -1;
+  let profileTiming = false;
+  let lastWorkerTiming = null;
+
+  function configurePerformance(request) {
+    profileTiming = request.profileTiming === true;
+    lastWorkerTiming = null;
+    if (request.cognitiveBudget !== undefined) {
+      if (!Number.isSafeInteger(request.cognitiveBudget) || request.cognitiveBudget < 1 || request.cognitiveBudget > 4096)
+        throw new Error('Orçamento cognitivo inválido.');
+      world.neuralOverrides = { ...world.neuralOverrides,
+        cognitiveSchedule: { mode: 'budgeted', budget: request.cognitiveBudget } };
+    }
+  }
 
   function envelope(request, type, body = {}) {
     return {
@@ -34,11 +47,18 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
       epoch: Number.isSafeInteger(request?.epoch) ? request.epoch : epoch,
       revision,
       type,
+      ...(profileTiming && request?.type === 'advance' && lastWorkerTiming
+        ? { workerTiming: { ...lastWorkerTiming, phases: { ...lastWorkerTiming.phases } } } : {}),
       ...body
     };
   }
 
   function capture(request, { reset = false, result } = {}) {
+    const captureStart = profileTiming && request.type === 'advance' ? performance.now() : null;
+    const finishCapture = () => {
+      if (captureStart !== null && lastWorkerTiming)
+        lastWorkerTiming.captureMs = performance.now() - captureStart;
+    };
     // Retained columns are private and never transferred. Unchanged ID/type
     // columns can be shared; packing copies before the first authoritative change.
     const snapshot = createWorldSnapshot(world, { reset,
@@ -52,6 +72,7 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
         // These full local columns are NOT transferred; only changed rows are.
         lastSnapshotColumns = snapshot.tileColumns;
         lastCaptureRevision = revision;
+        finishCapture();
         return envelope(request, 'world-delta', {
           delta: { base: snapshot.base, tileColumns, stats: snapshot.stats,
             events: snapshot.events, logs: snapshot.logs,
@@ -63,6 +84,7 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
     // independent copies for the next comparison, never the transferred view.
     lastSnapshotColumns = tileDeltaTransport ? copyTileColumns(snapshot.tileColumns) : null;
     lastCaptureRevision = revision;
+    finishCapture();
     return envelope(request, 'snapshot', { snapshot, result });
   }
 
@@ -84,6 +106,7 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
         if (request.epoch <= epoch) throw new Error('Época de inicialização inválida.');
         if (!request.config || request.config.scenario !== 'kingdom') throw new Error('Cenário não implementado.');
         world = createWorldImpl(request.seed);
+        configurePerformance(request);
         tileDeltaTransport = request.transport === 'tile-delta' || request.transport === 'tile-delta-compact';
         compactActorTransport = request.transport === 'tile-delta-compact';
         lastSnapshotColumns = null;
@@ -100,6 +123,7 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
       if (request.type === 'reset') {
         if (request.epoch <= epoch) throw new Error('Época de reset inválida.');
         world = createWorldImpl(request.seed);
+        configurePerformance(request);
         tileDeltaTransport = request.transport === 'tile-delta' || request.transport === 'tile-delta-compact';
         compactActorTransport = request.transport === 'tile-delta-compact';
         lastSnapshotColumns = null;
@@ -133,9 +157,17 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
           const source = request.source || 'manual';
           if (source !== 'clock' && source !== 'manual') throw new Error('Origem do avanço inválida.');
           if (paused && source === 'clock') throw new Error('A simulação está pausada.');
+          const phaseTotals = profileTiming ? Object.create(null) : null;
+          const start = profileTiming ? performance.now() : 0;
+          lastWorkerTiming = null;
           for (let day = 0; day < request.days; day++) {
-            engine.stepDay(world, { includeSnapshot: includeDailySnapshots, advanceMagic: source === 'manual' });
+            engine.stepDay(world, { includeSnapshot: includeDailySnapshots, advanceMagic: source === 'manual',
+              ...(phaseTotals ? { onSimulationPhase: (name, elapsedMs) => {
+                phaseTotals[name] = (phaseTotals[name] || 0) + elapsedMs;
+              } } : {}) });
           }
+          if (phaseTotals) lastWorkerTiming = { days: request.days,
+            simulationMs: performance.now() - start, captureMs: 0, phases: phaseTotals };
           revision++;
           return capture(request);
         }

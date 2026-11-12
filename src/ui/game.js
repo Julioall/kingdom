@@ -201,15 +201,21 @@ export function mountGame() {
   const trailSegmentByPerson = new Map();
   const pendingPersonTrailPoints = new Map();
   let lastTrailFlushAt = -Infinity;
-  // Experimental only: validate stripped render actors against the live
-  // inspector before allowing compact presentation in normal sessions.
-  const compactActorsQA = import.meta.env.DEV && diagnosticQuery.get('compactActors') === '1';
-  // JUL-278: same tile-delta transport on BOTH sides of the browser A/B.
-  // Without this independent DEV-only flag, full mode would use complete
-  // snapshots while compact mode used tile deltas, confounding measurements.
-  const tileDeltaQA = import.meta.env.DEV && diagnosticQuery.get('tileDeltaQA') === '1';
+  // Both optimizations remain individually opt-in until real GPU/UX QA.
+  // In production use ?transport=compact (compact actors + tile deltas) or
+  // ?transport=delta (full actors + tile deltas) to isolate transfer costs.
+  const transportChoice = diagnosticQuery.get('transport');
+  const compactActorsQA = transportChoice === 'compact'
+    || (import.meta.env.DEV && diagnosticQuery.get('compactActors') === '1');
+  const tileDeltaQA = transportChoice === 'delta'
+    || (import.meta.env.DEV && diagnosticQuery.get('tileDeltaQA') === '1');
+  const cognitiveOption = diagnosticQuery.get('cognitiveBudget');
+  const cognitiveBudget = cognitiveOption !== null && /^\d+$/.test(cognitiveOption)
+    && Number(cognitiveOption) >= 1 && Number(cognitiveOption) <= 4096
+    ? Number(cognitiveOption) : null;
   const session = new GameSession(undefined, sessionSeed,
-    { compactActorTransport: compactActorsQA, tileDeltaTransport: tileDeltaQA });
+    { compactActorTransport: compactActorsQA, tileDeltaTransport: tileDeltaQA,
+      workerProfiling: diagnosticQuery.get('profile') === '1', cognitiveBudget });
   if (diagnosticQuery.get('paused') === '1') {
     session.paused = true;
     session.ready.then(() => session.setPaused(true)).catch(error => session.onError?.(error));
