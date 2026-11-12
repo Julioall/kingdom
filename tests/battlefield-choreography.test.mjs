@@ -265,3 +265,29 @@ test('flank rally waypoint does not slide with minor enemy scouting movements', 
   assert.notDeepEqual(replanned.flankWaypoint, firstWing.flankWaypoint,
     'an actual opponent relocation should trigger a new flanking route');
 });
+
+test('bridge passage queues the wings behind the center instead of overlapping units', () => {
+  const { troops, units } = army(5);
+  for (const person of troops) { person.x = 46; person.y = 50; }
+  const args = { units, troops, destination: { x: 50, y: 50 },
+    home: { x: 0, y: 50 }, openFront: false, mode: 'hierarchical',
+    day: 3, observedThreats: [{ id: 900, x: 50, y: 50 }],
+    generalOrder: { action: 'engage', battlePlan: 'envelop' } };
+  const prepared = planSquadTactics(args);
+  const formation = prepared.squads;
+  assert.deepEqual(formation.map(s => s.formationType),
+    ['column', 'column', 'column', 'column', 'column']);
+  assert.ok(formation.every(s => s.target.y === 50), 'all units use the passage axis');
+  for (let i = 1; i < formation.length; i++)
+    assert.ok(formation[i].target.x < formation[i - 1].target.x - 3,
+      'each unit must clear a separate rear section of the narrow passage');
+  assert.ok(formation.filter(s => s.role.startsWith('flank'))
+    .every(s => s.flankStage === null),
+  'no wing can pretend to flank across a narrow bridge');
+  for (const person of troops) { person.x = 0; person.y = 50; }
+  const approaching = planSquadTactics({ ...args, day: 4 });
+  assert.ok(approaching.squads.every(s => s.target.y === 50),
+    'the same staggered queue must apply before center reaches the bridge');
+  assert.ok(new Set(approaching.squads.map(s => s.target.x)).size === 5,
+    'all five commanders receive distinct crossing destinations');
+});
