@@ -212,7 +212,8 @@ export function mountGame() {
   const tileDeltaQA = transportChoice === 'delta'
     || (import.meta.env.DEV && diagnosticQuery.get('tileDeltaQA') === '1');
   const cognitiveOption = diagnosticQuery.get('cognitiveBudget');
-  const cognitiveBudget = cognitiveOption !== null && /^\d+$/.test(cognitiveOption)
+  const cognitiveBudget = cognitiveOption === 'adaptive' ? 'adaptive'
+    : cognitiveOption !== null && /^\d+$/.test(cognitiveOption)
     && Number(cognitiveOption) >= 1 && Number(cognitiveOption) <= 4096
     ? Number(cognitiveOption) : null;
   const session = new GameSession(undefined, sessionSeed,

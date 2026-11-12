@@ -31,6 +31,17 @@ test('Worker reports simulation and snapshot timing only when enabled', () => {
   assert.equal(reset.snapshot.base.neuralOverrides.cognitiveSchedule.budget,64);
 });
 
+test('adaptive cognition must be explicit and reports effective budget',()=>{
+  const rt=createSimulationWorkerRuntime();
+  const init=send(rt,'initialize',{config:{scenario:'kingdom'},seed:42,
+    profileTiming:true,cognitiveBudget:'adaptive'});
+  assert.equal(init.type,'snapshot');
+  assert.equal(init.snapshot.base.neuralOverrides.cognitiveSchedule.budget,'adaptive');
+  const next=send(rt,'advance',{days:1,source:'manual'},2);
+  assert.equal(next.workerTiming.cognitive.budget,128);
+  assert.ok(next.workerTiming.cognitive.maxRoutineWaitDays<=8);
+});
+
 test('default Worker remains unprofiled and uses full rendering state', () => {
   const rt=createSimulationWorkerRuntime();
   const init=send(rt,'initialize',{config:{scenario:'kingdom'},seed:1});

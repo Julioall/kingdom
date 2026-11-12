@@ -32,3 +32,7 @@ não testa a GPU local. Repetições e avaliação em máquina real ainda são
 necessárias para confirmar ganhos duradouros de FPS e p95. O transporte compacto
 (`transport=compact`) e o scheduler neural (`cognitiveBudget=128`) continuam
 opcionais para evitar alterações não homologadas no comportamento padrão.
+
+## Orçamento neural adaptativo
+
+`?cognitiveBudget=adaptive` é um modo opcional que seleciona a cada dia `max(128, ceil(adultos/8))` inferências rotineiras, com limite de 4096. Para 5.000 adultos o valor efetivo é 625, reduzindo o intervalo de aproximadamente 40 para cerca de 8 dias em população estável. Reis, generais, combate, perigo e fome continuam prioritários, fora desse orçamento; física e necessidades continuam diárias. Esse modo muda decisões dos NPCs e **não está habilitado por padrão**. Seu custo e benefícios precisam de A/B próprio; a execução perfilada informa o orçamento realmente escolhido.
