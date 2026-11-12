@@ -121,3 +121,24 @@ test('cohesive center performs a bounded charge instead of stalling outside spea
   assert.notEqual(waiting.phase, 'charging',
     'no unit charge is ordered when the soldiers have been left far behind');
 });
+
+test('army uses the vanguard as a real moving anchor until the battlefield deployment', () => {
+  const { troops, units } = army(5);
+  for (const person of troops) { person.x = 20; person.y = 50; }
+  const initial = planSquadTactics({ troops, units, day: 3,
+    destination: { x: 90, y: 50 }, home: { x: 0, y: 50 },
+    mode: 'hierarchical', generalOrder: { action: 'advance' } });
+  const [lead, support, left, right, reserve] = initial.squads;
+  assert.equal(lead.target.x, 90, 'only the leader plans the full strategic march');
+  assert.ok(support.target.x < 20, 'support follows physical vanguard rather than rushing the target');
+  assert.ok(reserve.target.x < support.target.x, 'reserve stays behind the support group');
+  assert.ok(Math.abs(left.target.y - 50) <= 3 && Math.abs(right.target.y - 50) <= 3,
+    'wings use narrow marching files before they deploy');
+  troops.find(p => p.id === 1).x = 84;
+  const deploying = planSquadTactics({ troops, units, day: 4,
+    destination: { x: 90, y: 50 }, home: { x: 0, y: 50 },
+    mode: 'hierarchical', generalOrder: { action: 'advance' } });
+  assert.ok(deploying.squads[2].target.y < 40,
+    'wings only open after the center actually reaches the front');
+  assert.ok(deploying.squads[3].target.y > 60);
+});
