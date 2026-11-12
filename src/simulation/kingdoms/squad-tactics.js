@@ -73,7 +73,8 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
   const frontsUnderPressure = (previous?.squads || []).some(squad =>
     squad.role === 'vanguard' && (squad.morale < 60 || squad.strength < (squad.initialStrength || squad.strength)));
   const leadUnderContact = (previous?.squads || []).some(squad =>
-    squad.role === 'vanguard' && ['contact', 'charging', 'holding'].includes(squad.phase));
+    squad.role === 'vanguard' && ['contact', 'charging'].includes(squad.phase)
+      && day - (squad.contactSinceDay ?? day) >= 2);
 
   for (let index = 0; index < candidates.length; index++) {
     const { unit, members, commander } = candidates[index];
@@ -86,8 +87,15 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
       : sideMorale;
     const routed = mode === 'hierarchical' && morale < 25;
     const regrouping = mode === 'hierarchical' && !routed && morale < 42;
-    const releasedReserve = role === 'reserve' && (frontsUnderPressure
-      || (leadUnderContact && contested));
+    const previousCommit = role === 'reserve' ? prior?.reserveCommittedDay : null;
+    const releaseTriggered = frontsUnderPressure || (leadUnderContact && contested);
+    // A reserve does not yo-yo between its original holding position and
+    // the melee whenever the front briefly changes phase. Once committed,
+    // finish the reinforcement while enemy contact persists.
+    const previouslyCommitted = Number.isFinite(previousCommit)
+      && (contested || day - previousCommit < 6);
+    const releasedReserve = role === 'reserve' && mode === 'hierarchical'
+      && (releaseTriggered || previouslyCommitted);
     const mission = routed ? 'rout' : regrouping ? 'regroup'
       : generalOrder?.action === 'hold_position' ? 'hold'
         : role === 'flank-left' || role === 'flank-right' ? 'flank'
@@ -198,6 +206,12 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
       day, strength: members.length,
       initialStrength: prior?.initialStrength ?? members.length,
       phase, flankStage, formationChangedDay,
+      contactSinceDay: ['contact', 'charging'].includes(phase)
+        ? prior && ['contact', 'charging'].includes(prior.phase)
+          ? prior.contactSinceDay ?? day : day
+        : null,
+      reserveCommittedDay: releasedReserve
+        ? previousCommit ?? day : null,
       holdPoint: mission === 'hold' ? goal : null,
       flankWaypoint: mustFlank ? outerWaypoint : null,
       contactEnemyId: focus?.id ?? null
