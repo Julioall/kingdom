@@ -350,11 +350,19 @@ export function bestSheepFeedCell(w, person, radius) {
       .map(resource => cellAt(w, resource.x, resource.y))[0] || null;
   }
 
+// Hot-path ID lookup exists only during the per-day citizen phase.
+// External callers still get the original linear search.
+function findLivingAnimalById(world, id) {
+  const actor = world.animalsById instanceof Map ? world.animalsById.get(id)
+    : world.animals.find(animal => animal.id === id && animal.alive);
+  return actor?.alive ? actor : null;
+}
+
 export function nearestHuntable(w, person, radius) {
     const observations = person.perception && person.perception.animals || [];
     return observations.filter(sighting => sighting.visible && sighting.distance <= radius
       && species(sighting.speciesId, ANIMALS)?.huntable)
-      .map(sighting => w.animals.find(a => a.id === sighting.id && a.alive))
+      .map(sighting => findLivingAnimalById(w, sighting.id))
       .filter(animal => animal && animal.herdCommunityId == null && !animal.beingLedBy)
       .sort((a, b) => distance(person, a) - distance(person, b))[0] || null;
   }
@@ -363,7 +371,7 @@ export function nearestKnownHuntable(w, person, radius) {
     return (person.perception && person.perception.animals || [])
       .filter(sighting => sighting.speciesId && species(sighting.speciesId, ANIMALS)?.huntable && sighting.distance <= radius)
       .filter(sighting => {
-        const animal = w.animals.find(item => item.id === sighting.id && item.alive);
+        const animal = findLivingAnimalById(w, sighting.id);
         return animal && animal.herdCommunityId == null && !animal.beingLedBy;
       })
       .sort((a, b) => (b.confidence - a.confidence) || (a.distance - b.distance))[0] || null;
@@ -372,7 +380,7 @@ export function nearestKnownHuntable(w, person, radius) {
 export function nearestFish(w, person, radius) {
     const sightings = person.perception && person.perception.animals || [];
     return sightings.filter(s => s.visible && s.distance <= radius && species(s.speciesId, ANIMALS)?.fishable)
-      .map(s => w.animals.find(a => a.id === s.id && a.alive))
+      .map(s => findLivingAnimalById(w, s.id))
       .filter(Boolean).sort((a, b) => distance(person, a) - distance(person, b))[0] || null;
   }
 
@@ -981,7 +989,8 @@ export function resolveResourceConflict(w, a, b, tile, resourceKind, patchValue)
     return { winner, loser, loserGroup };
   }
 
-function updatePeopleCore(w) {
+function updatePeopleCore(w, phaseObserver = null) {
+    let perceptionMs = 0, socialIntentionMs = 0;
     refreshHarvestSuitability(w);
     const living = w.people.filter(p => p.alive).sort((a, b) => a.id - b.id);
     // Only budgets neural forward passes; physical/need/command resolution
@@ -1005,8 +1014,12 @@ function updatePeopleCore(w) {
         continue;
       }
       let emergencyCarriedRationToday = 0;
+      const perceiveAt = phaseObserver ? performance.now() : 0;
       p.perception = Senses.observe(w, p, 'person', PLANTS);
+      if (phaseObserver) perceptionMs += performance.now() - perceiveAt;
+      const intentionAt = phaseObserver ? performance.now() : 0;
       maintainSocialIntentions(w, p);
+      if (phaseObserver) socialIntentionMs += performance.now() - intentionAt;
       if (p.role === 'soldier') resolveMilitaryServiceEvaluation(w, p);
 
       const community = activeCommunity(w, p);
@@ -1795,16 +1808,22 @@ function updatePeopleCore(w) {
     splitCommunities(w);
     updateCommunityGovernance(w);
     reproducePeople(w);
+    if (phaseObserver) {
+      phaseObserver('npcPerception', perceptionMs);
+      phaseObserver('npcSocialIntentions', socialIntentionMs);
+    }
   }
 
 
-export function updatePeople(w) {
-    const saved = ['peopleById', 'peopleSpatialIndex']
+export function updatePeople(w, phaseObserver = null) {
+    const saved = ['peopleById', 'peopleSpatialIndex', 'animalsById']
       .map(key => ({ key, hadValue: Object.prototype.hasOwnProperty.call(w, key), value: w[key] }));
     w.peopleById = new Map((w.people || []).map(person => [person.id, person]));
     w.peopleSpatialIndex = createPersonSpatialIndex(w.people);
+    w.animalsById = new Map();
+    for (const animal of w.animals || []) if (!w.animalsById.has(animal.id)) w.animalsById.set(animal.id, animal);
     try {
-      return updatePeopleCore(w);
+      return updatePeopleCore(w, phaseObserver);
     } finally {
       for (const { key, hadValue, value } of saved) {
         if (hadValue) w[key] = value;

@@ -62,17 +62,33 @@ export function findFoodCell(w, agent, diet, radius) {
   }
 
 export function nearestPrey(w, animal, profile) {
-    return w.animals.filter(b => b.alive && profile.prey.includes(b.speciesId) && distance(animal, b) < 7)
-      .sort((a, b) => distance(animal, a) - distance(animal, b))[0] || null;
+    let nearest = null, bestDistance = 7;
+    for (const candidate of w.animals) {
+      if (!candidate.alive || !profile.prey.includes(candidate.speciesId)) continue;
+      const d = distance(animal, candidate);
+      // Strict comparison preserves the stable order of equal-distance ties.
+      if (d < bestDistance) { nearest = candidate; bestDistance = d; }
+    }
+    return nearest;
   }
 
-export function nearestThreat(w, animal, radius) {
-    const animalThreat = w.animals.filter(b => b.alive && b.id !== animal.id && species(b.speciesId, ANIMALS).prey.includes(animal.speciesId) && distance(animal, b) <= radius);
-    const humanThreat = animal.habituation < .68 ? (animal.perception && animal.perception.people || [])
-      .filter(sighting => sighting.visible && sighting.distance <= radius)
-      .map(sighting => w.people.find(p => p.id === sighting.id && p.alive && (p.brain.lastAction === 'hunt' || p.state.includes('caç'))))
-      .filter(Boolean) : [];
-    return animalThreat.concat(humanThreat).sort((a, b) => distance(animal, a) - distance(animal, b))[0] || null;
+export function nearestThreat(w, animal, radius, peopleById = null) {
+    let nearest = null, bestDistance = Infinity;
+    for (const candidate of w.animals) {
+      if (!candidate.alive || candidate.id === animal.id
+          || !species(candidate.speciesId, ANIMALS).prey.includes(animal.speciesId)) continue;
+      const d = distance(animal, candidate);
+      if (d <= radius && d < bestDistance) { nearest = candidate; bestDistance = d; }
+    }
+    if (animal.habituation < .68) for (const sighting of animal.perception?.people || []) {
+      if (!sighting.visible || sighting.distance > radius) continue;
+      const candidate = peopleById ? peopleById.get(sighting.id)
+        : w.people.find(person => person.id === sighting.id);
+      if (!candidate?.alive || !(candidate.brain.lastAction === 'hunt' || candidate.state.includes('caç'))) continue;
+      const d = distance(animal, candidate);
+      if (d < bestDistance) { nearest = candidate; bestDistance = d; }
+    }
+    return nearest;
   }
 
 export function animalFoodCell(w, animal, profile) {
@@ -196,6 +212,10 @@ export function updateAnimals(w) {
     for (const communityId of communityIds) reconcileCommunityHerdPens(w, communityId);
     feedCommunalHerds(w);
     const living = w.animals.filter(a => a.alive).sort((a, b) => a.id - b.id);
+    // People do not move until after the environmental phase. One daily index
+    // replaces a full people scan for each animal's human-threat sighting.
+    const peopleById = new Map();
+    for (const person of w.people) if (!peopleById.has(person.id)) peopleById.set(person.id, person);
     const wildSheepTargets = wildSheepForageTargets(w, living);
     for (const a of living) {
       if (!a.alive) continue;
@@ -296,7 +316,7 @@ export function updateAnimals(w) {
       const flockFood = wildSheep ? wildSheepTargets.get(a.id) : null;
       const food = flockFood || animalFoodCell(w, a, p);
       const prey = p.prey.length ? nearestPrey(w, a, p) : null;
-      const threat = nearestThreat(w, a, 5.5);
+      const threat = nearestThreat(w, a, 5.5, peopleById);
       const waterCue = !water && a.hydration < 62 ? bestPerceivedWaterCue(w, a) : null;
       const foodSignal = food ? clamp(1 - distance(a, food) / 5, 0, 1) : 0;
       const waterSignal = localWater ? clamp(1 - distance(a, localWater) / 5, 0, 1) : 0;

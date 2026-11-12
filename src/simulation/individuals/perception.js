@@ -94,7 +94,8 @@ function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
       if (age > memoryDays) { delete memory.actors[key]; continue; }
       const rememberedPerson = world.peopleById && world.peopleById.get(last.id);
       const entityStillAlive = last.kind === 'animal'
-        ? world.animals.some(a => a.id === last.id && a.alive)
+        ? world.animalsById instanceof Map ? !!world.animalsById.get(last.id)?.alive
+          : world.animals.some(a => a.id === last.id && a.alive)
         : world.peopleById instanceof Map ? !!rememberedPerson?.alive
           : world.people.some(p => p.id === last.id && p.alive);
       if (!entityStillAlive) { delete memory.actors[key]; continue; }
