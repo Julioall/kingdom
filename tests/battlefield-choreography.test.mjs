@@ -154,3 +154,66 @@ test('battle ranks hold their facing when the target shifts by a tiny angle', ()
   assert.deepEqual(next.squads[0].orientation, original.squads[0].orientation,
     'small target oscillations must not continuously reshuffle all infantry slots');
 });
+
+test('flank maneuver stays committed after its captain leaves the center deployment radius', () => {
+  const { troops, units } = army(3);
+  for (const person of troops) { person.x = 48; person.y = 50; }
+  const args = {
+    units, troops, day: 3, mode: 'hierarchical',
+    destination: { x: 50, y: 50 }, home: { x: 0, y: 50 },
+    observedThreats: [{ id: 5000, x: 42, y: 50 }],
+    generalOrder: { action: 'engage', battlePlan: 'envelop' }
+  };
+  const first = planSquadTactics(args);
+  const wing = first.squads.find(squad => squad.role === 'flank-left');
+  assert.equal(wing.phase, 'flanking');
+  assert.equal(wing.formationType, 'column',
+    'wing must march in files before the inward wedge strike');
+  const captain = troops.find(person => person.id === wing.commanderId);
+  Object.assign(captain, wing.target);
+  assert.ok(Math.hypot(captain.x - args.destination.x,
+    captain.y - args.destination.y) > 13);
+  // Followers were able to catch the real waypoint.
+  for (const id of wing.memberIds.filter(id => id !== wing.commanderId)) {
+    const soldier = troops.find(p => p.id === id);
+    soldier.x = captain.x - 2; soldier.y = captain.y;
+  }
+  const second = planSquadTactics({ ...args, day: 4, previous: first });
+  const committed = second.squads.find(squad => squad.role === 'flank-left');
+  assert.equal(committed.phase, 'striking',
+    'the flank may not collapse into an ordinary march outside the central radius');
+  assert.equal(committed.flankStage, 'strike');
+  assert.equal(committed.formationType, 'wedge');
+  assert.ok(Math.hypot(committed.target.x - wing.target.x,
+    committed.target.y - wing.target.y) > 2);
+});
+
+test('reserve follows the vanguard while marching, then locks its rear rally point', () => {
+  const { troops, units } = army(5);
+  for (const person of troops) { person.x = 0; person.y = 50; }
+  const args = { troops, units, day: 2, mode: 'hierarchical',
+    destination: { x: 50, y: 50 }, home: { x: -30, y: 50 } };
+  const road = planSquadTactics(args);
+  const marchingReserve = road.squads.find(squad => squad.role === 'reserve');
+  assert.equal(marchingReserve.phase, 'marching');
+  assert.equal(marchingReserve.reserveHoldPoint, null);
+  for (const person of troops) { person.x = 47; person.y = 50; }
+  const deployed = planSquadTactics({ ...args, day: 3, previous: road });
+  const reserve = deployed.squads.find(squad => squad.role === 'reserve');
+  assert.equal(reserve.phase, 'holding');
+  assert.deepEqual(reserve.reserveHoldPoint, reserve.target);
+  const shiftingFront = planSquadTactics({ ...args, day: 4, previous: deployed,
+    destination: { x: 53, y: 55 } });
+  const stationary = shiftingFront.squads.find(squad => squad.role === 'reserve');
+  assert.deepEqual(stationary.target, reserve.target,
+    'battle contact must not drag an uncommitted reserve forward by moving its goal');
+  const pressure = structuredClone(shiftingFront);
+  pressure.squads.find(squad => squad.role === 'vanguard').morale = 40;
+  const orderedForward = planSquadTactics({ ...args, day: 5,
+    previous: pressure, destination: { x: 53, y: 55 } });
+  const called = orderedForward.squads.find(squad => squad.role === 'reserve');
+  assert.equal(called.mission, 'reinforce');
+  assert.equal(called.reserveHoldPoint, null);
+  assert.notDeepEqual(called.target, reserve.target,
+    'a committed reserve must actually receive a new destination');
+});
