@@ -932,7 +932,13 @@ function updateCampaignFormation(world, campaign, side, day) {
     for (const squad of side.squadTactics.squads) {
       for (const id of squad.memberIds) {
         const person = troopById.get(id);
-        if (person) person.tacticalRouted = squad.routed;
+        if (person) {
+          person.tacticalRouted = squad.routed;
+          person.tacticalPhase = squad.phase;
+          person.tacticalRole = squad.role;
+          person.tacticalFormation = squad.formationType;
+          person.tacticalRankIntegrity = squad.rankIntegrity;
+        }
       }
       const old = previousSquads.get(squad.id);
       if (old && (old.phase !== squad.phase || old.formationType !== squad.formationType)
@@ -954,10 +960,22 @@ function updateCampaignFormation(world, campaign, side, day) {
       }
     }
     for (const person of troops) if (!Object.prototype.hasOwnProperty.call(
-      side.squadTactics.memberToSquad, person.id)) person.tacticalRouted = false;
+      side.squadTactics.memberToSquad, person.id)) {
+      person.tacticalRouted = false;
+      person.tacticalPhase = null;
+      person.tacticalRole = null;
+      person.tacticalFormation = null;
+      person.tacticalRankIntegrity = null;
+    }
   } else {
     side.squadTactics = null;
-    for (const person of troops) person.tacticalRouted = false;
+    for (const person of troops) {
+      person.tacticalRouted = false;
+      person.tacticalPhase = null;
+      person.tacticalRole = null;
+      person.tacticalFormation = null;
+      person.tacticalRankIntegrity = null;
+    }
   }
   measureFormation(formation, activeTroops, day, destination || campaign.target, withdrawing ? formationSlot
     : (_formation, id, goal) => campaignOrderFor(world, activeTroops.find(person => person.id === id))?.target
@@ -1489,6 +1507,10 @@ function releaseCampaignTroop(world, side, person, preserveService = false) {
   } else { person.state = 'recuperando-se após a campanha'; person.militaryReturningHome = true; }
   person.campaignId = null;
   person.tacticalRouted = false;
+  person.tacticalPhase = null;
+  person.tacticalRole = null;
+  person.tacticalFormation = null;
+  person.tacticalRankIntegrity = null;
   person.campaignMoveSucceeded = false;
   person.campaignMoveAttempted = false;
   person.campaignReturnStallDays = 0;
