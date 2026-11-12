@@ -254,3 +254,23 @@ test('a broken formation flees instead of performing offensive actions', () => {
   assert.equal(world.combatSequence || 0, before);
   assert.equal(opponent.health, 100);
 });
+
+test('surviving wings and reserves keep their role after the original vanguard falls', () => {
+  const troops = Array.from({ length: 50 }, (_, i) => ({
+    id: i + 1, alive: true, x: 20, y: 15, stamina: 95,
+    militaryRank: i % 10 === 0 ? 'comandante' : 'soldado'
+  }));
+  const units = [0, 1, 2, 3, 4].map(i => ({
+    id: 'battle' + i, commanderId: i * 10 + 1,
+    memberIds: troops.slice(i * 10, i * 10 + 10).map(p => p.id)
+  }));
+  const args = { units, troops, destination: { x: 30, y: 15 },
+    home: { x: 0, y: 15 }, mode: 'hierarchical', day: 4 };
+  const original = planSquadTactics(args);
+  assert.deepEqual(original.squads.map(squad => squad.role),
+    ['vanguard', 'support', 'flank-left', 'flank-right', 'reserve']);
+  const survivors = troops.filter(p => p.id > 10);
+  const next = planSquadTactics({ ...args, day: 5, troops: survivors, previous: original });
+  assert.deepEqual(next.squads.map(squad => squad.role),
+    ['vanguard', 'flank-left', 'flank-right', 'reserve']);
+});
