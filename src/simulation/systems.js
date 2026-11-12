@@ -35,6 +35,10 @@ function sampleEnvironmentPhase(observer, name, run) {
   finally { observer(name, performance.now() - start); }
 }
 
+// Times the synchronous full-world stages only when profiling is enabled.
+// No clock sampling, RNG use or persistent mutations on the normal path.
+const sampleSimulationPhase = sampleEnvironmentPhase;
+
 function updateEnvironment(world, day, observer = null) {
   const weather = sampleEnvironmentPhase(observer, 'climate', () => updateClimate(world, day));
 
@@ -141,33 +145,36 @@ export function stepDay(world, options = null) {
   // 1. Weather and ecology establish the conditions for the day.
   const observer = typeof options?.onEnvironmentPhase === 'function'
     ? options.onEnvironmentPhase : null;
-  const weather = updateEnvironment(world, nextDay, observer);
+  const simulationObserver = typeof options?.onSimulationPhase === 'function'
+    ? options.onSimulationPhase : null;
+  const measure = (name, run) => sampleSimulationPhase(simulationObserver, name, run);
+  const weather = measure('environment', () => updateEnvironment(world, nextDay, observer));
 
   // 2. Rulers may fund a neutral frontier post from their own treasury before resolving today's needs.
-  updateKingdomFrontierExpansion(world, nextDay);
+  measure('frontierExpansion', () => updateKingdomFrontierExpansion(world, nextDay));
 
   // 3. Known war incidents mobilize forces and make field rations available before needs resolve.
-  updateCombatResources(world, nextDay);
-  updateTowerShifts(world, nextDay);
-  prepareKingdomCampaigns(world, nextDay);
+  measure('combatResources', () => updateCombatResources(world, nextDay));
+  measure('towerShifts', () => updateTowerShifts(world, nextDay));
+  measure('campaignPreparation', () => prepareKingdomCampaigns(world, nextDay));
 
   // 4. Residents respond to current needs, resources, territory, and military orders.
-  payMilitarySalaries(world, nextDay);
-  updateSociety(world);
-  updateClericHealing(world, nextDay);
-  fightBattlefieldSkirmishes(world, nextDay);
-  resolveKingdomCampaigns(world, nextDay);
-  defendTowers(world, nextDay);
-  respondToLocalThreats(world, nextDay);
+  measure('militarySalaries', () => payMilitarySalaries(world, nextDay));
+  measure('societyAndNpcActions', () => updateSociety(world));
+  measure('clericHealing', () => updateClericHealing(world, nextDay));
+  measure('battlefieldSkirmishes', () => fightBattlefieldSkirmishes(world, nextDay));
+  measure('campaignResolution', () => resolveKingdomCampaigns(world, nextDay));
+  measure('towerDefense', () => defendTowers(world, nextDay));
+  measure('localThreatResponse', () => respondToLocalThreats(world, nextDay));
 
   // 5. Loose materials decay; market prices and fortification upkeep refresh monthly.
-  updateResourcesAndMarkets(world, nextDay, observer);
+  measure('resourcesAndMarkets', () => updateResourcesAndMarkets(world, nextDay, observer));
 
   // 6. Border incidents use the new date and territory after today's actions.
-  advanceCalendar(world, nextDay);
-  advanceSocialCommitmentDeadlines(world);
-  advanceKingdomProjects(world, nextDay);
-  resolveEndOfDayConsequences(world, nextDay, observer);
+  measure('calendar', () => advanceCalendar(world, nextDay));
+  measure('socialDeadlines', () => advanceSocialCommitmentDeadlines(world));
+  measure('kingdomProjects', () => advanceKingdomProjects(world, nextDay));
+  measure('endOfDay', () => resolveEndOfDayConsequences(world, nextDay, observer));
 
   const capturedSnapshot = options && options.includeSnapshot === false
     ? null : snapshot(world);
