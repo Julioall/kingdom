@@ -506,7 +506,13 @@ export function respondToLocalThreats(world, day = world.day + 1) {
       : (MILITARY_CLASSES[soldier.militaryClass]?.range || 0) + (soldier.towerMounted ? 6 : 0);
     if (distance(soldier, threat) > range) {
       if (manualCommand) { consumePlayerAttack(soldier, manualCommand, day); continue; }
-      if (soldier.towerMounted) continue;
+      // Combatants attached to an active campaign follow their squad command
+      // rather than leaving shield walls/reserves for unrelated local pursuit.
+      // Nearby immediate self-defense still happens in their weapon range.
+      const commandedBattlefieldSoldier = soldier.campaignId != null
+        && soldier.tacticalRole
+        && ['commanders', 'hierarchical'].includes(world.tacticalCombat?.mode);
+      if (commandedBattlefieldSoldier || soldier.towerMounted) continue;
       if (moveOne(world, soldier, threat, false, {
         allowedTile: tile => tile.kingdomId === soldier.kingdomId,
         preferRoads: true
