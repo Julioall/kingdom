@@ -68,7 +68,12 @@ function capture() {
       health: Number((p.health || 0).toFixed(1)),
       decision: p.lastDecision?.action || null,
       restTargetId: p.militaryRestTargetId ?? null,
-      tacticalRecovering: !!p.tacticalRecovering }))
+      tacticalRecovering: !!p.tacticalRecovering,
+      moveSucceeded: p.campaignMoveSucceeded ?? null,
+      congestionDays: p.navigationCongestion?.blockedDays || 0,
+      militaryUnitId: p.militaryUnitId ?? null,
+      terrain: world.tiles[Math.round(p.y) * world.width + Math.round(p.x)]?.terrain || null,
+      elevation: world.tiles[Math.round(p.y) * world.width + Math.round(p.x)]?.elevationLevel || 0 }))
   });
 }
 capture();
