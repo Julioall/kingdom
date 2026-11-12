@@ -56,6 +56,7 @@ jobs:
           for seed in 1 42 2026; do
             node scripts/replay-medieval-battle.mjs --seed="$seed" --days=75 --interval=5 --output="out/battle-replay-$seed.html"
           done
+          node scripts/replay-medieval-battle.mjs --seed=42 --days=75 --interval=5 --force-size=50 --output=out/battle-replay-reserves.html
 
       - name: Upload tactical replay and measurements for visual QA
         if: github.event_name == 'pull_request' && github.head_ref == 'feat/commander-led-tactics-20261111'
