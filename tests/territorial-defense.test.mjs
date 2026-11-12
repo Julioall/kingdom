@@ -259,3 +259,18 @@ test('a notified general leads one local response to a reported civilian and rec
   cellAt(world, intruder.x, intruder.y).kingdomId = enemyKingdom.id;
   assert.deepEqual(respondToLocalThreats(world, day + 1), [], 'the general stops responding after the intruder leaves');
 });
+
+test('territorial patrol cannot drag a commander or held reserve out of an organized medieval campaign', () => {
+  for (const role of ['vanguard', 'reserve']) {
+    const { world, guard, day } = defenseFixture({ guardClass: 'guerreiro', distance: 5 });
+    world.tacticalCombat = { mode: 'hierarchical' };
+    Object.assign(guard, {
+      militaryRank: 'comandante', campaignId: 903,
+      tacticalRole: role, tacticalReserveHolding: role === 'reserve'
+    });
+    const before = { x: guard.x, y: guard.y };
+    const response = respondToLocalThreats(world, day);
+    assert.deepEqual(response, [], role + ' must not abandon its camp position for territorial chasing');
+    assert.deepEqual({ x: guard.x, y: guard.y }, before);
+  }
+});
