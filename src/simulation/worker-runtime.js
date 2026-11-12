@@ -5,6 +5,7 @@ import { createCompactPresentationBase } from './compact-presentation.js';
 import { createTileColumnDelta, copyTileColumns } from './tile-delta.js';
 import { createFieldTileDelta } from './field-delta.js';
 import { SIMULATION_PROTOCOL_VERSION } from './protocol-version.js';
+import { cognitiveDayMetrics } from '../ai/policy/cognitive-scheduler.js';
 
 const MAX_ADVANCE_DAYS = 12;
 // Magic pulses do not resend brains, inventories or navigation histories.
@@ -33,7 +34,8 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
     profileTiming = request.profileTiming === true;
     lastWorkerTiming = null;
     if (request.cognitiveBudget !== undefined) {
-      if (!Number.isSafeInteger(request.cognitiveBudget) || request.cognitiveBudget < 1 || request.cognitiveBudget > 4096)
+      if (request.cognitiveBudget !== 'adaptive' &&
+          (!Number.isSafeInteger(request.cognitiveBudget) || request.cognitiveBudget < 1 || request.cognitiveBudget > 4096))
         throw new Error('Orçamento cognitivo inválido.');
       world.neuralOverrides = { ...world.neuralOverrides,
         cognitiveSchedule: { mode: 'budgeted', budget: request.cognitiveBudget } };
@@ -167,7 +169,8 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
               } } : {}) });
           }
           if (phaseTotals) lastWorkerTiming = { days: request.days,
-            simulationMs: performance.now() - start, captureMs: 0, phases: phaseTotals };
+            simulationMs: performance.now() - start, captureMs: 0, phases: phaseTotals,
+            cognitive: cognitiveDayMetrics(world) };
           revision++;
           return capture(request);
         }
