@@ -149,14 +149,28 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     const formationChangedDay = formationType !== prior?.formationType ? day
       : prior.formationChangedDay ?? day;
     const directContact = focus && dist(commander, focus) <= 9;
+    const readyToCharge = wingFollowers.length === 0
+      || assembledFollowers >= Math.ceil(wingFollowers.length * .6);
+    const charge = mode === 'hierarchical' && role === 'vanguard'
+      && mission === 'advance' && atFront && directContact && readyToCharge
+      && dist(commander, focus) > 4.3;
+    if (charge) {
+      const towardEnemy = normalized(commander, focus);
+      const step = Math.min(3.5, dist(commander, focus) - 3.25);
+      goal = projectTarget({
+        x: commander.x + towardEnemy.x * step,
+        y: commander.y + towardEnemy.y * step
+      });
+    }
     const phase = routed ? 'rout' : regrouping ? 'rally'
       : mission === 'hold' || mission === 'reserve' ? 'holding'
         : mustFlank && atFront ? flankStage === 'strike' ? 'striking' : 'flanking'
-          : !atFront ? 'marching' : directContact ? 'contact' : 'deploying';
+          : !atFront ? 'marching' : charge ? 'charging'
+          : directContact ? 'contact' : 'deploying';
     // A marching body faces its travel direction; the shield wall faces the
     // opponent once it stops. Do not have wedge troops march sideways while
     // their sprites stare at a distant enemy.
-    const face = ['contact', 'holding', 'striking'].includes(phase) && focus
+    const face = ['contact', 'charging', 'holding', 'striking'].includes(phase) && focus
       ? normalized(commander, focus) : dist(commander, goal) > 2
         ? normalized(commander, goal) : forward;
     const squad = {
