@@ -271,6 +271,13 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
   return { mode, day, squads, memberToSquad, observedThreatCount: threatList.length };
 }
 
+export function squadFollowerTarget(member, commander, slot, separationLimit = 10) {
+  if (!commander) return { target: slot || null, rejoining: false };
+  const rejoining = dist(member, commander) > separationLimit;
+  return { target: rejoining || !slot
+    ? { x: commander.x, y: commander.y } : slot, rejoining };
+}
+
 export function squadSlot(squad, memberId, commander, spacing = 1.5) {
   if (!squad || !commander || squad.commanderId === memberId) return null;
   const followers = squad.memberIds.filter(id => id !== squad.commanderId);
