@@ -33,7 +33,7 @@ test('authoritative simulation and AI cannot import browser rendering or UI modu
 });
 
 test('realm and military presenters remain pure and do not own DOM or simulation actions', () => {
-  for (const relative of ['ui/kingdom-list.js', 'ui/inspectors/tactical-inspector.js']) {
+  for (const relative of ['ui/kingdom-list.js', 'ui/inspectors/tactical-inspector.js', 'ui/presenters/world-sidebar.js']) {
     const content = readFileSync(resolve(src, relative), 'utf8');
     assert.doesNotMatch(content, /\b(?:window|document|localStorage|session\.dispatch|requestAnimationFrame)\b/);
     assert.ok(content.split('\n').length < 180, relative + ' has become another controller');
