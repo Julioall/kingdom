@@ -14,7 +14,8 @@ permissions:
   contents: read
 jobs:
   stress-and-browser:
-    runs-on: ubuntu-latest
+    # Playwright 1.55.0 ships Chromium for Ubuntu 24.04, not 26.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
       - name: Candidate checkout
