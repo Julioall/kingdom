@@ -9,7 +9,8 @@ import { ANIMALS } from '../src/config/ecosystem.js';
 
 const STAGES = [
   'environment','frontierExpansion','combatResources','towerShifts',
-  'campaignPreparation','militarySalaries','npcPerception','npcSocialIntentions','societyAndNpcActions',
+  'campaignPreparation','militarySalaries','npcPerception','npcSocialIntentions',
+  'npcPreparation','npcOtherActorWork','npcSocietyMaintenance','societyAndNpcActions',
   'clericHealing','battlefieldSkirmishes','campaignResolution',
   'towerDefense','localThreatResponse','resourcesAndMarkets','calendar',
   'socialDeadlines','kingdomProjects','endOfDay'
