@@ -29,7 +29,7 @@ function captureHitbox(hitbox) {
 }
 
 function sameHitbox(hitbox, saved) {
-  if (hitbox === false !== saved.disabled
+  if ((hitbox === false) !== saved.disabled
       || !same(hitbox?.enabled, saved.enabled)
       || !same(hitbox?.halfWidth, saved.halfWidth)
       || !same(hitbox?.halfDepth, saved.halfDepth)
