@@ -1,3 +1,4 @@
+import { activeCommunityMemberCount } from './member-count.js';
 import { rearProjection, safeCorralFootprint } from '../kingdoms/rear-sites.js';
 import { hasBuildingResourceClearance } from '../world/building-clearance.js';
 import { initializeStructureHealth } from '../kingdoms/fortifications.js';
@@ -192,7 +193,7 @@ function overlapsSiteResources(w, hitbox, resourceIndex) {
 
 export function chooseBuildSite(w, community, structures, builder = null) {
     const completed = structures.filter(s => s.complete);
-    const size = community.memberIds.filter(id => w.people.some(p => p.id === id && p.alive)).length;
+    const size = activeCommunityMemberCount(w, community);
     const plan = nextCommunityStructure(w, community, size, structures);
     if (!plan) return null;
     const nextType = plan.type;
