@@ -3084,7 +3084,7 @@ export function mountGame() {
   }
 
   function renderSpecies(stats) {
-    updateHudHtml($('faunaList'), speciesRowsHtml(Sim.animals, stats.animalCounts, esc, fmt, 'role'));
+    updateHudHtml($('faunaList'), speciesRowsHtml(Sim.animals, stats.animalCounts, esc, String, 'role'));
     updateHudHtml($('floraList'), speciesRowsHtml(Sim.plants, stats.plantCounts, esc, fmt, 'guild'));
   }
 
