@@ -20,7 +20,7 @@ test('first-match keeps original population order even when buckets are visited 
   const index = createPersonSpatialIndex(people, 8);
   assert.equal(index.findFirst(8, 8, 16, person => person.alive), people[0]);
   assert.deepEqual(index.query(8, 8, 16), people);
-  people[0].x = -7;
+  people[0].x = -27;
   index.move(people[0]);
   assert.equal(index.findFirst(8, 8, 16, person => person.alive), people[1]);
   people[1].alive = false;
