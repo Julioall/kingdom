@@ -1,3 +1,4 @@
+import { activeCommunityMemberCount } from './member-count.js';
 import { rearProjection, safeCorralFootprint } from '../kingdoms/rear-sites.js';
 import { hasBuildingResourceClearance } from '../world/building-clearance.js';
 import { initializeStructureHealth } from '../kingdoms/fortifications.js';
@@ -192,7 +193,7 @@ function overlapsSiteResources(w, hitbox, resourceIndex) {
 
 export function chooseBuildSite(w, community, structures, builder = null) {
     const completed = structures.filter(s => s.complete);
-    const size = community.memberIds.filter(id => w.people.some(p => p.id === id && p.alive)).length;
+    const size = activeCommunityMemberCount(w, community);
     const plan = nextCommunityStructure(w, community, size, structures);
     if (!plan) return null;
     const nextType = plan.type;
@@ -200,6 +201,14 @@ export function chooseBuildSite(w, community, structures, builder = null) {
     const worldStructures = w.structures;
     const candidateRadius = nextType === 'curral' ? 3.5 : 2.5;
     const resourceIndex = worldCollisionIndex(w).resources;
+    // Invariant for this synchronous search: plan, structures and animal set
+    // do not change until the winning candidate has been selected.
+    const properties = community.properties || [];
+    const spacingTarget = isFarm ? 7 : 9;
+    const corralKingdom = nextType === 'curral'
+      ? w.kingdoms.find(k => k.id === community.kingdomId) : null;
+    const liveSheep = nextType === 'curral'
+      ? w.animals.filter(a => a.alive && a.speciesId === 'sheep') : null;
     // A full-map flood fill is expensive. Only evaluate reachability when a
     // candidate survives cheaper terrain, clearance and resource checks.
     let reachableWorkTiles = null;
@@ -207,9 +216,26 @@ export function chooseBuildSite(w, community, structures, builder = null) {
     for (const t of w.tiles) {
       if (t.x < 2 || t.y < 2 || t.x >= w.width - 2 || t.y >= w.height - 2) continue;
       if (t.terrain !== 'land' || t.slope > .8 || t.waterDist < 3 || t.kingdomId !== community.kingdomId) continue;
-      if (nextType === 'curral') {
-        const kingdom = w.kingdoms.find(k => k.id === community.kingdomId);
-        if (kingdom && (rearProjection(w, kingdom, t) < 6 || !safeCorralFootprint(w, t))) continue;
+      // Reject distant tiles before checking all structures and their hitboxes.
+      // The same pure predicates are applied below, only in cheaper order.
+      const centerDistance = Math.hypot(t.x - community.x, t.y - community.y);
+      if (!completed.length && centerDistance > 5) continue;
+      const ownedProperty = properties.find(property =>
+        distance(t, property) <= (property.radius || 5));
+      if (completed.length && centerDistance > (isFarm ? 16 : 22) && !ownedProperty) continue;
+      if (nextType === 'curral' && corralKingdom
+          && (rearProjection(w, corralKingdom, t) < 6 || !safeCorralFootprint(w, t))) continue;
+      // Reuse each distance for minimum separation and spacing preference.
+      let nearest = Infinity, spacing = centerDistance;
+      if (completed.length) {
+        spacing = Infinity;
+        for (const structure of completed) {
+          const length = distance(t, structure);
+          if (length < nearest) nearest = length;
+          const spacingDifference = Math.abs(length - spacingTarget);
+          if (spacingDifference < spacing) spacing = spacingDifference;
+        }
+        if (nearest < 6 || (nearest > (isFarm ? 16 : 17) && !ownedProperty)) continue;
       }
       const overlapsStructure = worldStructures.some(structure => {
         if (structure.destroyedDay != null) return false;
@@ -217,19 +243,9 @@ export function chooseBuildSite(w, community, structures, builder = null) {
         return distance(t, structure) < candidateRadius + existingRadius + .75;
       });
       if (overlapsStructure) continue;
-      const centerDistance = Math.hypot(t.x - community.x, t.y - community.y);
-      const ownedProperty = (community.properties || []).find(property => distance(t, property) <= (property.radius || 5));
-      if (!completed.length && centerDistance > 5) continue;
-      if (completed.length) {
-        const nearest = Math.min(...completed.map(s => distance(t, s)));
-        if (nearest < 6 || (nearest > (isFarm ? 16 : 17) && !ownedProperty)
-            || (centerDistance > (isFarm ? 16 : 22) && !ownedProperty)) continue;
-      }
       const localBiomass = cellsWithin(w, t.x, t.y, 2, q => q.terrain === 'land').reduce((sum, q) => sum + plantBiomass(q, ['grass', 'berry', 'broadleaf', 'conifer']), 0);
       if (localBiomass < 160) continue;
       const waterAccess = Math.max(0, 6 - t.waterDist);
-      const spacingTarget = isFarm ? 7 : 9;
-      const spacing = completed.length ? Math.min(...completed.map(s => Math.abs(distance(t, s) - spacingTarget))) : centerDistance;
       const noise = hash01(w.seed + community.id * 31, t.x, t.y) * .08;
       // Prefer the same block rhythm as the initial residential district.
       // This is a preference: terrain, resources and reachable workpoints still
@@ -242,9 +258,12 @@ export function chooseBuildSite(w, community, structures, builder = null) {
         && q.slope <= .65 && q.soilType !== 'sandy' && q.waterDist <= 20 && q.cropFieldId == null) : null;
       if (fieldTiles && fieldTiles.length < 16) continue;
       if (!hasBuildingResourceClearance(w, t, candidateRadius)) continue;
-      const nearbyBrowse = cellsWithin(w, t.x, t.y, 3.5, q => q.terrain === 'land')
-        .reduce((sum, q) => sum + plantBiomass(q, ['browse']), 0);
-      const flockDistance = Math.min(...w.animals.filter(a => a.alive && a.speciesId === 'sheep').map(a => distance(a, t)), 22);
+      // Animal and browse scores are irrelevant to non-corral sites.
+      const nearbyBrowse = nextType === 'curral'
+        ? cellsWithin(w, t.x, t.y, 3.5, q => q.terrain === 'land')
+          .reduce((sum, q) => sum + plantBiomass(q, ['browse']), 0) : 0;
+      const flockDistance = nextType === 'curral'
+        ? Math.min(...liveSheep.map(a => distance(a, t)), 22) : 22;
       const sitePreview = { type: nextType, x: t.x, y: t.y,
         radius: nextType === 'curral' ? 3.5 : undefined, complete: false };
       const siteHitbox = structureHitbox({ ...sitePreview, complete: true });
