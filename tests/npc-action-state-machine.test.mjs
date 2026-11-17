@@ -27,7 +27,7 @@ function legacyAction(p, c, selectRoutine) {
       : assignedBuildDuty ? 'build'
       : patrolDuty ? 'patrol' : p.role === 'soldier'
         ? p.hydration < 40 && waterTarget ? 'drink' : p.energy < 30 || p.health < 42 || p.injury >= 5 ? 'rest' : 'guard'
-        : selectRoutine()))));
+        : selectRoutine())));
 }
 
 function nextRandom(seed) {
