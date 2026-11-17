@@ -14,6 +14,7 @@
     "preview": "node scripts/run-local.mjs --preview",
     "typecheck": "tsc --noEmit",
     "bench:simulation": "node scripts/benchmark-simulation.mjs",
+    "bench:ai": "node scripts/evaluate-ai-behavior.mjs",
     "verify:images": "node scripts/verify-build-images.mjs",
     "assets:check": "node scripts/check-assets.mjs"
   },
