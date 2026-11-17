@@ -37,7 +37,8 @@ import {
 } from '../kingdoms/service.js';
 import { campaignOrderFor, drawCampaignRation, performCampaignOrder, recordCampaignPersonalRation } from '../kingdoms/campaigns.js';
 import { canEnterForeignTerritory, kingdomRelation } from '../kingdoms/territories.js';
-import { createPersonSpatialIndex, peopleNear } from './spatial-index.js';
+import { peopleNear } from './spatial-index.js';
+import { withIndividualDayIndexes } from './day-index-context.js';
 import { invalidateNavigation } from './navigation-cache.js';
 import { clearMilitaryCommand } from '../kingdoms/military-identity.js';
 import { updateResidencyAbsence } from '../society/residency.js';
@@ -1005,6 +1006,7 @@ export function resolveResourceConflict(w, a, b, tile, resourceKind, patchValue)
   }
 
 function updatePeopleCore(w, phaseObserver = null) {
+    const preparationAt = phaseObserver ? performance.now() : 0;
     const nearbyStructures = createNearbyStructureIndex(w);
     let perceptionMs = 0, socialIntentionMs = 0;
     refreshHarvestSuitability(w);
@@ -1017,6 +1019,8 @@ function updatePeopleCore(w, phaseObserver = null) {
     const communityCounts = new Map();
     w.resourceClaims = new Map(); w.contestedResources = new Set();
     for (const p of living) if (p.communityId !== null) communityCounts.set(p.communityId, (communityCounts.get(p.communityId) || 0) + 1);
+    const preparationMs = phaseObserver ? performance.now() - preparationAt : 0;
+    const actorWorkAt = phaseObserver ? performance.now() : 0;
     for (const p of living) {
       if (!p.alive) continue;
       p.ageDays++;
@@ -1861,34 +1865,28 @@ function updatePeopleCore(w, phaseObserver = null) {
         killPerson(w, p, cause);
       }
     }
+    const actorWorkMs = phaseObserver ? performance.now() - actorWorkAt : 0;
+    const societyAt = phaseObserver ? performance.now() : 0;
     updateSocialLinks(w);
     updateCommunityStages(w);
     splitCommunities(w);
     updateCommunityGovernance(w);
     reproducePeople(w);
     if (phaseObserver) {
+      const maintenanceMs = performance.now() - societyAt;
       phaseObserver('npcPerception', perceptionMs);
       phaseObserver('npcSocialIntentions', socialIntentionMs);
+      phaseObserver('npcPreparation', preparationMs);
+      phaseObserver('npcOtherActorWork', Math.max(0, actorWorkMs - perceptionMs - socialIntentionMs));
+      phaseObserver('npcSocietyMaintenance', maintenanceMs);
     }
   }
 
 
 export function updatePeople(w, phaseObserver = null) {
-    const saved = ['peopleById', 'peopleSpatialIndex', 'animalsById']
-      .map(key => ({ key, hadValue: Object.prototype.hasOwnProperty.call(w, key), value: w[key] }));
-    w.peopleById = new Map((w.people || []).map(person => [person.id, person]));
-    w.peopleSpatialIndex = createPersonSpatialIndex(w.people);
-    w.animalsById = new Map();
-    for (const animal of w.animals || []) if (!w.animalsById.has(animal.id)) w.animalsById.set(animal.id, animal);
-    try {
-      return updatePeopleCore(w, phaseObserver);
-    } finally {
-      for (const { key, hadValue, value } of saved) {
-        if (hadValue) w[key] = value;
-        else delete w[key];
-      }
-    }
-  }
+  return withIndividualDayIndexes(w, () => updatePeopleCore(w, phaseObserver));
+}
+
 export function nearestPerson(w, p, radius, excludedIds = null) {
     let best = null, bestDistance = Infinity;
     for (const sighting of p.perception?.people || []) {
