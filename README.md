@@ -4,6 +4,8 @@ Simulação de dois reinos, seus moradores, território e ecologia, executada no
 
 O padrão de organização e integração dos recursos está em [Arquitetura dos assets](docs/architecture/assets.md). Sprites, interface e áudio são separados pelo uso no jogo; `npm run assets:check` valida os arquivos registrados antes do build.
 
+> **Direção de produto (17/11/2026):** priorizar economia, política, guerras e comportamento auditável de IAs. Ecologia detalhada e compatibilidade com saves históricos deixam de orientar novas funcionalidades. A substituição dos sistemas ecológicos existentes será incremental para não quebrar produção e suprimento. [Decisão e plano de desempenho](docs/decisions/2026-11-17-focus-economy-politics-military-ai.md).
+
 ## Executar localmente
 
 ```sh
@@ -16,6 +18,12 @@ npm run dev
 Para validar o build de produção, execute `npm run build` e depois `npm run preview`.
 
 Durante o build, as imagens PNG publicadas são convertidas para WebP sem perdas apenas em `dist`, reduzindo o tráfego sem alterar os arquivos-fonte.
+
+## Testes de renderização acima de 60 Hz
+
+O limite tradicional de 60 desenhos de mapa por segundo pode ser alterado **somente para comparação**: `?renderHz=144&seed=42&profile=1` solicita até 144 desenhos/s, enquanto `?renderHz=display&seed=42&profile=1` acompanha cada callback de `requestAnimationFrame`. Sem o parâmetro, o limite segue em 60. Eventos urgentes de redesenho continuam atendidos. A frequência real é limitada pelo monitor e pelo custo do quadro; esse parâmetro **não garante** 144 FPS.
+
+Compare o mesmo cenário/zoom/resolução com e sem o parâmetro, observando FPS de RAF, `desenhos/s`, p95 do desenho e tempo de aplicação de snapshots. `npm test` inclui regressões do escalonador e do índice de atores. Para a metodologia e as metas, consulte [a decisão de produto e desempenho](docs/decisions/2026-11-17-focus-economy-politics-military-ai.md).
 
 ## Medir a renderização
 
