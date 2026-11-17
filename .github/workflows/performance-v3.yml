@@ -7,6 +7,8 @@ on:
       - "src/ui/movement-interpolation.js"
       - "src/ui/game.js"
       - "src/simulation/individuals/**"
+      - "src/simulation/physics/**"
+      - "src/simulation/world/training-dummies.js"
       - "scripts/benchmark-actor-culling-browser.mjs"
       - ".github/workflows/performance-v3.yml"
   workflow_dispatch:

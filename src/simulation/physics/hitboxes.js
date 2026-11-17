@@ -3,6 +3,7 @@ import { isTreeAnchor } from '../ecology/plants.js';
 import { STRUCTURE_COLLISION_PROFILES } from './collision-profiles.js';
 import { dominantMetalKind } from '../../config/mineral-deposits.js';
 import { trainingDummiesForWorld } from '../world/training-dummies.js';
+import { captureStructureCollisionSources, sameStructureCollisionSources } from './structure-source-snapshot.js';
 
 // Collision masks live on the ground plane. Building artwork rises above
 // these footprints, so its full sprite rectangle must never block movement.
@@ -36,6 +37,7 @@ let structureIndexCache = new WeakMap();
 let resourceIndexCache = new WeakMap();
 let worldIndexCache = new WeakMap();
 const structureGeometryCache = new WeakMap();
+const structureSourceCache = new WeakMap();
 
 function sameHitboxGeometry(current, previous) {
   if (!previous || current.length !== previous.length) return false;
@@ -427,16 +429,25 @@ function spatialIndex(world, hitboxes, signature) {
 }
 
 export function structureCollisionIndex(world) {
+  const cached = structureIndexCache.get(world);
+  // Construction, destruction, custom footprints, terrain-independent center
+  // movement and training-dummy placement are checked on EVERY lookup.
+  // A stable scene skips the old allocation-heavy conversion/signature work.
+  if (cached && cached.width === world.width && cached.height === world.height
+      && sameStructureCollisionSources(world, structureSourceCache.get(world))) return cached;
   const buildingHitboxes = (world.structures || []).map(structureHitbox).filter(Boolean);
   const trainingDummyHitboxes = trainingDummiesForWorld(world).map(dummy => ({
     ...npcHitbox(dummy), structureId: dummy.id, trainingDummyId: dummy.id
   }));
   const hitboxes = [...buildingHitboxes, ...trainingDummyHitboxes];
-  const cached = structureIndexCache.get(world);
   if (cached && cached.width === world.width && cached.height === world.height
-      && sameHitboxGeometry(hitboxes, structureGeometryCache.get(world))) return cached;
+      && sameHitboxGeometry(hitboxes, structureGeometryCache.get(world))) {
+    structureSourceCache.set(world, captureStructureCollisionSources(world));
+    return cached;
+  }
   const signature = hitboxSignature(hitboxes);
   rememberHitboxGeometry(world, hitboxes);
+  structureSourceCache.set(world, captureStructureCollisionSources(world));
   if (cached?.signature === signature && cached.width === world.width && cached.height === world.height) return cached;
   const result = spatialIndex(world, hitboxes, signature);
   structureIndexCache.set(world, result);
