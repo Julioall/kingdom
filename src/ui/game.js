@@ -58,6 +58,7 @@ import { parseRenderHz, shouldPaintFrame, nextPaintTimestamp } from './frame-cad
 import { createEntityDrawProbe } from './entity-draw-probe.js';
 import { createVisibleStaticDepthCache } from './visible-static-depth-cache.js';
 import { paintMinimap } from './render/minimap.js';
+import { createWaterLayer } from './render/water-layer.js';
 import { drawBattlefieldDebug } from './battlefield-debug.js';
 import { shouldDrawMineralAtZoom } from './mineral-lod.js';
 import { MINERAL_SPRITE_KINDS, mineralDepositVariant } from './mineral-sprites.js';
@@ -2891,67 +2892,19 @@ export function mountGame() {
     ctx.restore();
   }
 
-  const oceanPatterns = new WeakMap();
-  const oceanBackdropCache = document.createElement('canvas');
-  const waterLayerCache = document.createElement('canvas');
-  let oceanBackdropKey = '', waterLayerKey = '';
-  function drawCachedWater(camera, view) {
-    const oceanKey = [camera.width, camera.height, camera.transform[0],
-      autoTileWaterBackground.naturalWidth, world.seed].join(':');
-    const period = Math.max(1, camera.transform[0] * TILE);
-    if (oceanBackdropKey !== oceanKey) {
-      oceanBackdropCache.width = camera.width + Math.ceil(period * 2);
-      oceanBackdropCache.height = camera.height + Math.ceil(period * 2);
-      drawOceanBackdrop(oceanBackdropCache.getContext('2d'),
-        { ...camera, transform: [camera.transform[0], 0, 0, camera.transform[3], 0, 0] });
-      oceanBackdropKey = oceanKey;
-    }
-    const viewKey = [oceanKey, ...camera.transform].join(':');
-    const key = [viewKey, Math.floor(animationTime / 110), world.day, assetRevision].join(':');
-    if (waterLayerKey !== key) {
-      if (waterLayerCache.width !== camera.width || waterLayerCache.height !== camera.height) {
-        waterLayerCache.width = camera.width; waterLayerCache.height = camera.height;
-      }
+  const waterLayer = createWaterLayer({
+    tileSize: TILE, texture: autoTileWaterBackground, referenceRendering,
+    drawDecorations(context, bounds) {
+      // The existing rock/foam artists still draw through the local Canvas
+      // pointer. Restrict the temporary redirection to this synchronous call.
       const previousContext = ctx;
       try {
-        ctx = waterLayerCache.getContext('2d');
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        const offsetX = ((camera.transform[4] % period) + period) % period - period;
-        const offsetY = ((camera.transform[5] % period) + period) % period - period;
-        ctx.drawImage(oceanBackdropCache, offsetX, offsetY);
-        ctx.setTransform(...camera.transform);
-        ctx.imageSmoothingEnabled = false;
-        ctx.save();
-        ctx.beginPath(); ctx.rect(view.x, view.y, view.width, view.height); ctx.clip();
-        drawWaterRocks(view.bounds); drawTinyWaterFoam(view.bounds);
-        ctx.restore();
+        ctx = context;
+        drawWaterRocks(bounds);
+        drawTinyWaterFoam(bounds);
       } finally { ctx = previousContext; }
-      waterLayerKey = key;
     }
-    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.drawImage(waterLayerCache, 0, 0); ctx.restore();
-  }
-
-  function drawOceanBackdrop(context, camera) {
-    context.fillStyle = '#16536e';
-    context.fillRect(0, 0, context.canvas.width, context.canvas.height);
-    if (!autoTileWaterBackground.complete || !autoTileWaterBackground.naturalWidth) return;
-    let pattern = referenceRendering ? null : oceanPatterns.get(context);
-    if (!pattern) {
-      pattern = context.createPattern(autoTileWaterBackground, 'repeat');
-      if (pattern && !referenceRendering) oceanPatterns.set(context, pattern);
-    }
-    if (!pattern) return;
-    const patternScale = camera.transform[0] * TILE / autoTileWaterBackground.naturalWidth;
-    if (pattern.setTransform && typeof DOMMatrix === 'function') {
-      pattern.setTransform(new DOMMatrix([
-        patternScale, 0, 0, patternScale, camera.transform[4], camera.transform[5]
-      ]));
-    }
-    context.fillStyle = pattern;
-    context.fillRect(0, 0, context.canvas.width, context.canvas.height);
-  }
-
+  });
 
   function drawCloudOverlay(camera, center) {
     const width = stage.clientWidth, height = stage.clientHeight;
@@ -3048,12 +3001,13 @@ export function mountGame() {
     ctx = displayContext;
     ctx.imageSmoothingEnabled = false;
     profile?.mark('preparation');
-    if (!referenceRendering) drawCachedWater(camera, view);
+    if (!referenceRendering) waterLayer.drawCached(ctx, camera, view,
+      { seed: world.seed, day: world.day, animationTime, assetRevision });
     else {
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawOceanBackdrop(ctx, camera);
+    waterLayer.drawBackdrop(ctx, camera);
     ctx.restore();
     if (view.width > 0 && view.height > 0) {
       ctx.save();
