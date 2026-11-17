@@ -11,6 +11,8 @@ import { createManualMovementPrediction } from './manual-movement-prediction.js'
 import { resourceSummary } from './gameplay-data.js';
 import { formatWholeMeasure } from './whole-measures.js';
 import { buildingCard, kingdomOverview } from './building-card.js';
+import { kingdomCardsHtml } from './kingdom-list.js';
+import { formationInspectionHtml, fieldCommandInspectionHtml } from './inspectors/tactical-inspector.js';
 import { towerVitality } from '../simulation/kingdoms/fortifications.js';
 import { activeLeadershipRank } from '../simulation/kingdoms/military-identity.js';
 import { createMovementInterpolator } from './movement-interpolation.js';
@@ -3122,24 +3124,7 @@ export function mountGame() {
   }
 
   function renderKingdomList() {
-    updateHudHtml($('kingdomList'), world.kingdoms.map(kingdom => {
-      const residents = kingdom.memberIds.map(id => getPerson(id)).filter(Boolean);
-      const resources = resourceSummary(world, kingdom.id);
-      const ruler = getPerson(kingdom.rulerId);
-      const soldiers = residents.filter(person => person.role === 'soldier').length;
-      const campaign = (world.campaigns || []).find(item => item.status !== 'complete'
-        && (item.attackerId === kingdom.id || item.defenderId === kingdom.id));
-      const campaignStatus = campaign ? ' · campanha ' + (campaign.status === 'engaged' ? 'em combate' : campaign.status === 'withdrawing' ? 'retirada' : 'em marcha') : '';
-      const metrics = [
-        ['food', 'Comida', fmt(resources.food), 'Comida disponível nas contas vinculadas ao reino, em dias alimentares equivalentes.'],
-        ['wealth', 'Riqueza', fmt(resources.gold, 0), 'Ouro nas contas vinculadas ao reino e com moradores vivos.'],
-        ['people', 'Pessoas', fmt(resources.people), 'Moradores vivos deste reino.'],
-        ['births', 'Nascimentos', fmt(resources.births), 'Nascimentos registrados para este reino desde o início.'],
-        ['deaths', 'Mortes', fmt(resources.deaths), 'Mortes registradas para este reino desde o início.']
-      ].map(([key, label, value, title]) => '<span class="kingdom-card-stat" data-kingdom-stat="' + key + '" title="' + title + '"><small>' + label + '</small><b>' + value + '</b></span>').join('');
-      return '<button class="community-card" data-kingdom="' + kingdom.id + '" title="Inspecionar reino, moradias, tesouro e mercado" style="--community:' + esc(kingdom.color) + '">' +
-        '<i class="color-dot"></i><span class="kingdom-card-body"><strong>' + esc(kingdom.name) + '</strong><small>' + soldiers + ' soldados' + esc(campaignStatus) + ' · ' + (kingdom.homeIds || []).length + ' casas · ' + kingdom.towerIds.map(id => world.structures.find(structure => structure.id === id && structure.complete)).filter(Boolean).length + ' torres · rei ' + esc(ruler ? ruler.name : 'sem governante') + '</small><span class="kingdom-card-stats" aria-label="Indicadores de ' + esc(kingdom.name) + '">' + metrics + '</span></span><em>' + fmt(kingdom.territoryTileCount) + ' células</em></button>';
-    }).join(''));
+    updateHudHtml($('kingdomList'), kingdomCardsHtml(world, { getPerson, resourceSummary, fmt, esc }));
     $('solitaryCount').textContent = world.kingdoms.length + ' domínios';
   }
 
@@ -3390,34 +3375,8 @@ export function mountGame() {
         '<div class="data-row"><span>Vínculos observados</span><b>' + links + '</b></div>' +
         (p.role === 'soldier' ? '<div class="data-row"><span>Patente / nível</span><b>' + esc(p.militaryRank || p.militaryGrade || 'soldado') + (p.militaryGrade && p.militaryRank !== p.militaryGrade ? ' · carreira: ' + esc(p.militaryGrade) : '') + ' · nível ' + (p.militaryLevel || 1) + ' · mérito ' + fmt(p.militaryMerit || 0, 1) + '</b></div><div class="data-row"><span>Função militar</span><b>' + esc((p.militaryRank || 'soldado') + ' · ' + (p.militaryClass || 'soldado')) + ' · guarnição do centro ' + (p.militaryCenterId || '—') + '</b></div>'
           + (progressionAuditText ? '<div class="data-row"><span>Progressão de classe</span><b>' + esc(progressionAuditText) + '</b></div>' : '')
-          + (p.campaignId != null ? (() => {
-            const campaign = (world.campaigns || []).find(item => item.id === p.campaignId);
-            const side = [campaign?.attacker, campaign?.defender]
-              .find(item => item?.kingdomId === p.kingdomId);
-            const index = side?.squadTactics?.memberToSquad?.[p.id];
-            const squad = Number.isInteger(index) ? side.squadTactics.squads[index] : null;
-            if (!squad) return '';
-            const names = {
-              column: 'Coluna de marcha', line: 'Linha', shield_wall: 'Muralha de escudos',
-              spear_line: 'Linha de lanças', wedge: 'Cunha', square: 'Quadrado'
-            };
-            const phases = {
-              marching: 'Marchando', deploying: 'Abrindo fileiras', contact: 'Linha em contato',
-              charging: 'Investida coordenada',
-              flanking: 'Contornando o flanco', striking: 'Investindo pelo flanco',
-              holding: 'Mantendo reserva/posição', rally: 'Reagrupando',
-              reforming: 'Aguardando os soldados atrasados', rout: 'Rompida: retirada'
-            };
-            const commander = getPerson(squad.commanderId);
-            return '<div class="note-card"><b>Formação da unidade</b><span>'
-              + esc(names[squad.formationType] || squad.formationType)
-              + ' · ' + esc(phases[squad.phase] || squad.phase)
-              + ' · função: ' + esc(squad.role)
-              + ' · comando: ' + esc(commander?.name || 'sucessor')
-              + ' · coesão ' + Math.round((squad.cohesion || 0) * 100) + '%'
-              + ' · moral ' + Math.round(squad.morale || 0) + '%</span></div>';
-          })() : '')
-          + (p.campaignId != null && p.fieldCommand ? '<div class="note-card"><b>' + (p.fieldCommand.issuerId === p.id ? 'Ordem emitida' : 'Ordem recebida de ' + esc(getPerson(p.fieldCommand.issuerId)?.name || 'general')) + '</b><span>' + esc(p.fieldCommand.reason) + ' Formação: ' + (p.fieldCommand.formationType === 'line' ? 'linha' : 'coluna') + '. Alvo: ' + p.fieldCommand.target.x + ',' + p.fieldCommand.target.y + '.</span></div>' : '')
+          + formationInspectionHtml(p, world, getPerson, esc)
+          + fieldCommandInspectionHtml(p, getPerson, esc)
           + '<div class="data-row"><span>Soldo do rei</span><b>' + MILITARY_PAY.copper + ' cobres / ' + MILITARY_PAY.days + ' dias</b></div>'
           + '<div class="data-row"><span>Carteira / pendências</span><b>' + fmt(p.militaryWallet?.stock?.gold || 0) + ' ouro · ' + fmt(p.militaryWallet?.stock?.silver || 0) + ' prata · ' + fmt(p.militaryWallet?.stock?.copper || 0) + ' cobre; legado: ' + fmt(p.militaryPayArrears || 0, 3) + ' ouro; novo: ' + fmt(p.militaryPayArrearsCopper || 0) + ' cobres</b></div>'
 
