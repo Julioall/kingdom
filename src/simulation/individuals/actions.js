@@ -28,6 +28,7 @@ import { beginCognitiveDay } from '../../ai/policy/cognitive-scheduler.js';
 import { createNearbyStructureIndex } from './nearby-structure-index.js';
 import { buildPeoplePolicyInputs } from './observation-features.js';
 import { buildPeopleActionUtilities } from './action-utilities.js';
+import { constructionTaskProgress } from './construction-task-progress.js';
 import { drinkWater } from '../ecology/hydrology.js';
 import { recordPersonalMemory } from './strategy.js';
 import { canPatrolToday, patrolSoldier } from '../kingdoms/patrols.js';
@@ -96,17 +97,6 @@ function findPersonById(w, id) {
     return w.people.find(person => person.id === key && person.alive);
   }
 
-
-function kingdomRepairProgress(w, community) {
-    if (!community) return 0;
-    return (w.structures || []).filter(structure => structure.kingdomId === community.kingdomId && structure.complete
-      && structure.destroyedDay == null).reduce((sum, structure) => {
-      const integrity = Number.isFinite(structure.integrity) ? structure.integrity : 1;
-      const health = Number.isFinite(structure.maxHealth) && structure.maxHealth > 0
-        ? (Number.isFinite(structure.health) ? structure.health / structure.maxHealth : 1) : 0;
-      return sum + integrity + health;
-    }, 0);
-  }
 
 function recordPlantFoodBiomass(w, amount, cultivatedAmount = 0, tile = null) {
     if (!(amount > 0)) return;
@@ -1408,14 +1398,15 @@ function updatePeopleCore(w, phaseObserver = null) {
         }
       }
       const actionOrigin = { x: p.x, y: p.y };
+      const constructionBefore = constructionTaskProgress(w, community, action);
       const taskStateBefore = {
         foodReserve: p.foodReserve, carriedFood: p.carriedFood || 0, carriedFeed: p.carriedFeed || 0, carriedWood: p.carriedWood || 0,
         carriedStone: p.carriedStone || 0, carriedGold: p.carriedGold || 0,
         food: community ? community.stores.food || 0 : 0, feed: community ? community.stores.feed || 0 : 0,
         wood: community ? community.stores.wood || 0 : 0, stone: community ? community.stores.stone || 0 : 0, gold: community ? community.stores.gold || 0 : 0,
         tradeCount: community ? community.tradeCount || 0 : 0,
-        buildProgress: w.structures.filter(structure => structure.communityId === (community && community.id)).reduce((sum, structure) => sum + (structure.progress || 0), 0),
-        repairProgress: kingdomRepairProgress(w, community),
+        buildProgress: constructionBefore?.buildProgress ?? 0,
+        repairProgress: constructionBefore?.repairProgress ?? 0,
         leadingSheepId: p.leadingSheepId
       };
       p.travelCost = 0;
@@ -1745,14 +1736,15 @@ function updatePeopleCore(w, phaseObserver = null) {
           moveCarriedResource(p, 'carriedFruit', community, 'food', p.carriedFruit);
         }
       }
+      const constructionAfter = constructionTaskProgress(w, community, action);
       const taskStateAfter = {
         foodReserve: p.foodReserve, carriedFood: p.carriedFood || 0, carriedFeed: p.carriedFeed || 0, carriedWood: p.carriedWood || 0,
         carriedStone: p.carriedStone || 0, carriedGold: p.carriedGold || 0,
         food: community ? community.stores.food || 0 : 0, feed: community ? community.stores.feed || 0 : 0,
         wood: community ? community.stores.wood || 0 : 0, stone: community ? community.stores.stone || 0 : 0, gold: community ? community.stores.gold || 0 : 0,
         tradeCount: community ? community.tradeCount || 0 : 0,
-        buildProgress: w.structures.filter(structure => structure.communityId === (community && community.id)).reduce((sum, structure) => sum + (structure.progress || 0), 0),
-        repairProgress: kingdomRepairProgress(w, community),
+        buildProgress: constructionAfter?.buildProgress ?? 0,
+        repairProgress: constructionAfter?.repairProgress ?? 0,
         leadingSheepId: p.leadingSheepId
       };
       completeCommunityTask(w, p, action, taskStateBefore, taskStateAfter);
