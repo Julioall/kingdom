@@ -218,10 +218,12 @@ function ledSheepFor(w, person) {
   if (person.leadingSheepId == null) return null;
   // Individual updates already build a per-day animal ID index. Preserve
   // the array .find fallback for standalone movement/world setup tests.
-  const animal = w.animalsById instanceof Map
-    ? w.animalsById.get(person.leadingSheepId)
-    : w.animals.find(item => item.id === person.leadingSheepId);
-  return animal?.alive && animal.beingLedBy === person.id ? animal : null;
+  const indexed = w.animalsById instanceof Map ? w.animalsById.get(person.leadingSheepId) : null;
+  if (indexed?.alive && indexed.beingLedBy === person.id) return indexed;
+  // Preserve first qualifying match if a synthetic test contains duplicate
+  // IDs, or if callers supply a partial/stale map outside the day context.
+  return w.animals.find(animal => animal.id === person.leadingSheepId
+    && animal.alive && animal.beingLedBy === person.id) || null;
 }
 
 function syncLedSheepPosition(w, person) {
