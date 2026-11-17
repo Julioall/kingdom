@@ -3098,7 +3098,7 @@ export function mountGame() {
       profile?.mark('clouds');
     }
     profile?.end({ cacheRebuilt, day: world.day, zoom: mapZoom,
-      context: { renderer: 'canvas2d', atmosphereRenderer: atmosphericLayer.rendererType,
+      context: { renderer: 'canvas2d', renderHz, atmosphereRenderer: atmosphericLayer.rendererType,
         magic: magicVfx.stats(),
         referenceRendering, fixedEffects, entityProfile: !!entityDrawProbe,
         personDrawFastPath: optimizedPersonSprites,
