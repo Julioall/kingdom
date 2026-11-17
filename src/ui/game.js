@@ -12,6 +12,7 @@ import { resourceSummary } from './gameplay-data.js';
 import { formatWholeMeasure } from './whole-measures.js';
 import { buildingCard, kingdomOverview } from './building-card.js';
 import { kingdomCardsHtml } from './kingdom-list.js';
+import { speciesRowsHtml, chronicleHtml } from './presenters/world-sidebar.js';
 import { formationInspectionHtml, fieldCommandInspectionHtml } from './inspectors/tactical-inspector.js';
 import { towerVitality } from '../simulation/kingdoms/fortifications.js';
 import { activeLeadershipRank } from '../simulation/kingdoms/military-identity.js';
@@ -3083,21 +3084,12 @@ export function mountGame() {
   }
 
   function renderSpecies(stats) {
-    updateHudHtml($('faunaList'), Sim.animals.map(p => {
-      const count = stats.animalCounts[p.id] || 0;
-      return '<div class="species-row" title="' + esc(p.role) + '"><i class="species-dot" style="--species:' + p.color + '"></i><span>' + esc(p.name) + '</span><b>' + count + '</b></div>';
-    }).join(''));
-    updateHudHtml($('floraList'), Sim.plants.map((p, i) => {
-      const count = stats.plantCounts[p.id] || 0;
-      return '<div class="species-row" title="' + esc(p.guild) + '"><i class="species-dot" style="--species:' + p.color + '"></i><span>' + esc(p.name) + '</span><b>' + fmt(count) + '</b></div>';
-    }).join(''));
+    updateHudHtml($('faunaList'), speciesRowsHtml(Sim.animals, stats.animalCounts, esc, fmt, 'role'));
+    updateHudHtml($('floraList'), speciesRowsHtml(Sim.plants, stats.plantCounts, esc, fmt, 'guild'));
   }
 
   function renderEvents() {
-    updateHudHtml($('events'), (world.chronicle || []).slice(0, 40).map(e => {
-      const date = Sim.modules.Cosmos.calendarDate(e.day);
-      return '<div class="event"><strong>' + esc(e.category) + '</strong><p>' + esc(e.text) + '</p><small>Dia ' + date.dayOfYear + ' · Ano ' + date.year + '</small></div>';
-    }).join('') || '<div class="empty-state">A história começa aqui. Nascimentos, perdas, obras e conflitos aparecerão neste diário.</div>');
+    updateHudHtml($('events'), chronicleHtml(world.chronicle, Sim.modules.Cosmos.calendarDate, esc));
   }
 
   function updateWorldLine(stats) {
