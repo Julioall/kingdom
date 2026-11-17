@@ -7,6 +7,9 @@ export function createActorViewportIndex(world, getSweptBounds, chunkSize = 12) 
   const bins = {person: new Map(), animal: new Map()};
   const globalActors = {person: [], animal: []};
   let lastExamined = 0, lastReturned = 0;
+  // The index belongs to one snapshot. A stationary camera can reuse the
+  // broad-phase result without allocating and sorting actors every frame.
+  const cachedQueries = {person: null, animal: null};
   for (const [kind, actors] of Object.entries(types)) {
     actors.forEach((actor, order) => {
       if (!actor.alive) return;
@@ -35,17 +38,30 @@ export function createActorViewportIndex(world, getSweptBounds, chunkSize = 12) 
         }
     });
   }
+  function remember(kind, bounds, result) {
+    cachedQueries[kind] = {minX: bounds.minX, maxX: bounds.maxX,
+      minY: bounds.minY, maxY: bounds.maxY,
+      examined: lastExamined, returned: lastReturned, result};
+    return result;
+  }
   function query(kind, bounds) {
     const all=types[kind];
     if (!all) throw Error('Unsupported actor kind');
     if (!bounds || ![bounds.minX,bounds.maxX,bounds.minY,bounds.maxY].every(Number.isFinite))
       return [];
     if (bounds.minX > bounds.maxX || bounds.minY > bounds.maxY) return [];
+    const cached = cachedQueries[kind];
+    if (cached && cached.minX === bounds.minX && cached.maxX === bounds.maxX
+        && cached.minY === bounds.minY && cached.maxY === bounds.maxY) {
+      lastExamined = cached.examined;
+      lastReturned = cached.returned;
+      return cached.result;
+    }
     // Full-world zoom already has all actors in insertion order.
     if (bounds.minX <= 0 && bounds.maxX >= world.width-1
         && bounds.minY <= 0 && bounds.maxY >= world.height-1) {
       lastExamined = all.length; lastReturned = all.length;
-      return all;
+      return remember(kind, bounds, all);
     }
     const touched=new Set(),records=[];
     function consider(record, force = false) {
@@ -64,7 +80,7 @@ export function createActorViewportIndex(world, getSweptBounds, chunkSize = 12) 
       }
     records.sort((a,b)=>a.order-b.order);
     lastExamined = touched.size; lastReturned = records.length;
-    return records.map(record=>record.actor);
+    return remember(kind, bounds, records.map(record=>record.actor));
   }
   return {query, stats:()=>({
     people:types.person.length,animals:types.animal.length,
