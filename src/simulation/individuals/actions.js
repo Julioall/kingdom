@@ -39,6 +39,7 @@ import { campaignOrderFor, drawCampaignRation, performCampaignOrder, recordCampa
 import { canEnterForeignTerritory, kingdomRelation } from '../kingdoms/territories.js';
 import { peopleNear } from './spatial-index.js';
 import { withIndividualDayIndexes } from './day-index-context.js';
+import { npcControlState, NPC_CONTROL, selectNpcActivity, prepareNpcLearningTransition } from './action-state-machine.js';
 import { invalidateNavigation } from './navigation-cache.js';
 import { clearMilitaryCommand } from '../kingdoms/military-identity.js';
 import { updateResidencyAbsence } from '../society/residency.js';
@@ -1029,7 +1030,8 @@ function updatePeopleCore(w, phaseObserver = null) {
       p.conflictRisk = Math.max(0, p.conflictRisk - .05);
       p.injury = Math.max(0, p.injury - .018);
       if (p.role === 'soldier' && p.health >= 60) p.tacticalRecovering = false;
-      if (p.ageDays < 12 * 365) {
+      const controlState = npcControlState(p);
+      if (controlState === NPC_CONTROL.DEPENDENT) {
         updateDependent(w, p);
         continue;
       }
@@ -1110,7 +1112,7 @@ function updatePeopleCore(w, phaseObserver = null) {
         -(unmetFood / dailyFoodNeed) * 10 * STARVATION_HEALTH_LOSS_PER_POINT, 'starvation');
       if (p.hydration < 10) changePersonHealth(w, p, -.62, 'dehydration');
       if (p.injury > 0) changePersonHealth(w, p, -p.injury * .012, 'injury');
-      if (p.playerControlled) {
+      if (controlState === NPC_CONTROL.PLAYER) {
         const input = p.playerInput || {};
         if (Array.isArray(p.playerCommandQueue)) {
           p.playerCommandQueue = p.playerCommandQueue.filter(command => command.expiresDay >= w.day);
@@ -1379,39 +1381,21 @@ function updatePeopleCore(w, phaseObserver = null) {
         ? chooseMilitaryAction(w, p, { campaign: !!campaignOrder?.campaign, resupply: returnToGarrison,
           thirst: p.hydration < 40 && !!waterTarget, patrol: patrolDuty,
           training: !campaignOrder && trainingPairs.has(p.id) }) : null;
-      const peacetimeSoldierAction = militaryAction;
-      const action = campaignOrder && (campaignOrder.withdrawing || campaignOrder.towerDuty)
-        && !homeRest && survivalAction !== 'drink'
-        ? 'campaign'
-        : returnToGarrison && peacetimeSoldierAction === 'return_garrison' ? peacetimeSoldierAction
-        : survivalAction || carrierMaintenanceAction || (fieldRest ? 'field_rest'
-          : homeRest ? 'rest' : socialPlan ? socialPlan.action : peacetimeSoldier ? peacetimeSoldierAction : (droppedLoot && (!assignment || droppedLoot.mineralKind && assignment.action === 'gather') && !carryingGoods && p.energy >= 9
-          && (!campaignOrder || !campaignOrder.withdrawing && distance(p, droppedLoot) <= 1.6) ? 'collect_loot'
-          : campaignOrder ? militaryAction || 'campaign' : seedCourierDuty ? 'build'
-          : personalMarketCargoTrade ? 'trade' : cargoAction || foodDuty || (p.leadingSheepId ? 'lead_sheep'
-          : assignedBuildDuty ? 'build'
-          : patrolDuty ? 'patrol' : p.role === 'soldier'
-            ? p.hydration < 40 && waterTarget ? 'drink' : p.energy < 30 || p.health < 42 || p.injury >= 5 ? 'rest' : 'guard'
-            : choosePeopleAction(w, p, inputs, utility))));
-      if (p.militaryBrain && action !== militaryAction) p.militaryBrain.pending = null;
-      if (action === 'patrol' || action === 'guard' || action === 'collect_loot' || p.role === 'soldier') {
-        // Patrol is a duty rather than a neural-network action; do not train the last learned action on it.
-        p.brain.pending = null;
-        p.brain.lastAction = action;
-        if (militaryAction !== action) p.lastDecision = { action, scores: null, inputs: inputs.slice(), day: w.day };
-      }
-      if (survivalAction || homeRest || carryingGoods || foodDuty || assignedBuildDuty || socialPlan) {
-        // Forced survival and recovery actions bypass the neural policy; discard
-        // interrupted samples so rewards cannot train the wrong action.
-        p.brain.pending = null;
-        p.brain.lastAction = action;
-        p.lastDecision = { action, scores: null, inputs: inputs.slice(), day: w.day };
-      }
-      if (action === 'campaign') {
-        p.brain.pending = null;
-        p.brain.lastAction = 'campaign';
-        if (militaryAction !== action) p.lastDecision = { action, scores: null, inputs: inputs.slice(), day: w.day };
-      }
+      // The state machine resolves one authoritative action after all guards
+      // and observations, but before any execution or reinforcement learning.
+      // The civilian neural policy remains lazy and is never evaluated when
+      // a military, survival, cargo, or social guard already won.
+      const { action } = selectNpcActivity(p, {
+        campaignOrder, homeRest, survivalAction, returnToGarrison,
+        militaryAction, carrierMaintenanceAction, fieldRest, socialPlan,
+        peacetimeSoldier, droppedLoot, assignment, carryingGoods,
+        seedCourierDuty, personalMarketCargoTrade, cargoAction, foodDuty,
+        assignedBuildDuty, patrolDuty, waterTarget
+      }, () => choosePeopleAction(w, p, inputs, utility));
+      prepareNpcLearningTransition(p, action, {
+        militaryAction, survivalAction, homeRest, carryingGoods,
+        foodDuty, assignedBuildDuty, socialPlan, inputs, day: w.day
+      });
       const trainingBefore = p.militaryTraining || 0;
       if (action !== 'train') p.militaryTrainingPartnerId = null;
       const before = p.energy * .28 + p.hydration * .25 + p.foodReserve * .3 + p.health * .17 + (100 - p.socialNeed) * .04;
