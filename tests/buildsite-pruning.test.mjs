@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import Sim from '../src/simulation/engine.js';
 import { chooseBuildSite, communityStructures, nextCommunityStructure }
   from '../src/simulation/settlements/construction.js';
+import { activeCommunityMemberCount } from '../src/simulation/settlements/member-count.js';
 
 function inspectCandidate(world, community) {
   const structures = communityStructures(world, community);
@@ -51,4 +52,20 @@ test('failed site selection never spends resources or reserves an ID', () => {
   } finally {
     community.kingdomId = previousKingdomId;
   }
+});
+
+test('live community count reuses transient actor IDs and matches fallback scans', () => {
+  const world = {
+    people: [
+      {id: 1, alive: true}, {id: 2, alive: false},
+      {id: 3, alive: true}, {id: 4, alive: true}
+    ]
+  };
+  const community = { memberIds: [1, 2, 3, 3, 99] };
+  // Duplicated member references retain the original array-filter semantics.
+  assert.equal(activeCommunityMemberCount(world, community), 3);
+  world.peopleById = new Map(world.people.map(person => [person.id, person]));
+  assert.equal(activeCommunityMemberCount(world, community), 3);
+  assert.equal(activeCommunityMemberCount(world, {memberIds: []}), 0);
+  assert.deepEqual(world.people.map(person => person.alive), [true, false, true, true]);
 });
