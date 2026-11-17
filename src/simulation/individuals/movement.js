@@ -8,7 +8,7 @@ import { canEnterForeignTerritory, markTerritoryStep } from '../kingdoms/territo
 import { isRoadTile, recordFootstep } from '../world/roads.js';
 import { canTraverseElevation } from '../world/island-terrain.js';
 import { congestionRouteStep, rememberedRouteStep, rememberRouteArrival } from './navigation.js';
-import { peopleNear } from './spatial-index.js';
+import { firstPersonNear } from './spatial-index.js';
 import { consumePersonEnergy } from './energy.js';
 import { collidesWithWorldAt, hitboxesOverlap, mineralHitbox, npcHitbox, worldCollisionIndex } from '../physics/hitboxes.js';
 import { assignedHerdPen, corralFenceRadius, herdPenRadius } from '../ecology/herd.js';
@@ -201,7 +201,7 @@ export function reachableAreaAround(w, agent, center, radius) {
 function personOnTile(w, tile, except = null) {
   if (!tile) return null;
   const destinationHitbox = npcHitbox(except || { x: tile.x, y: tile.y }, tile.x, tile.y);
-  return peopleNear(w, tile.x, tile.y, 1).find(person => person !== except && person.alive
+  return firstPersonNear(w, tile.x, tile.y, 1, person => person !== except && person.alive
     && person.restingStructureId == null
     && hitboxesOverlap(destinationHitbox, npcHitbox(person))) || null;
 }
@@ -215,7 +215,14 @@ function personById(w, id) {
 }
 
 function ledSheepFor(w, person) {
-  return person.leadingSheepId == null ? null : w.animals.find(animal => animal.id === person.leadingSheepId
+  if (person.leadingSheepId == null) return null;
+  // Individual updates already build a per-day animal ID index. Preserve
+  // the array .find fallback for standalone movement/world setup tests.
+  const indexed = w.animalsById instanceof Map ? w.animalsById.get(person.leadingSheepId) : null;
+  if (indexed?.alive && indexed.beingLedBy === person.id) return indexed;
+  // Preserve first qualifying match if a synthetic test contains duplicate
+  // IDs, or if callers supply a partial/stale map outside the day context.
+  return w.animals.find(animal => animal.id === person.leadingSheepId
     && animal.alive && animal.beingLedBy === person.id) || null;
 }
 

@@ -1,0 +1,40 @@
+name: Kingdom NPC occupancy query benchmark
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/simulation/individuals/spatial-index.js"
+      - "src/simulation/individuals/movement.js"
+      - "scripts/benchmark-spatial-first-match.mjs"
+      - ".github/workflows/npc-occupancy-bench.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  occupancy:
+    name: Ordered occupancy query parity and CPU comparison
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Compare sorted candidates vs first match
+        run: |
+          node --test tests/spatial-first-match.test.mjs
+          node scripts/benchmark-spatial-first-match.mjs \
+            --population=5000 --queries=25000 --repeats=5 \
+            --output=out/occupancy-benchmark.json
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kingdom-npc-occupancy-benchmark
+          path: out/occupancy-benchmark.json
+          retention-days: 14
