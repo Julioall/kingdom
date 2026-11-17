@@ -33,7 +33,7 @@ import { recordPersonalMemory } from './strategy.js';
 import { canPatrolToday, patrolSoldier } from '../kingdoms/patrols.js';
 import {
   buyMilitaryMeal, clearCivilianDuties, drawGarrisonRation, GARRISON_RATION_TARGET,
-  GARRISON_RECOVERY, militaryDutyCenterFor, PEACETIME_SOLDIER_FOOD_NEED, resolveMilitaryServiceEvaluation, restPersonInHouse
+  GARRISON_RECOVERY, militaryDutyCenterFor, PEACETIME_SOLDIER_FOOD_NEED, resolveMilitaryServiceEvaluation
 } from '../kingdoms/service.js';
 import { campaignOrderFor, drawCampaignRation, performCampaignOrder, recordCampaignPersonalRation } from '../kingdoms/campaigns.js';
 import { canEnterForeignTerritory, kingdomRelation } from '../kingdoms/territories.js';
@@ -49,6 +49,7 @@ import { consumePersonEnergy } from './energy.js';
 import { chooseMilitaryAction, learnMilitaryOutcome, militaryTrainingPairs, trainMilitaryPair } from '../kingdoms/military-learning.js';
 import { advanceSocialIntention, defineSocialIntention, maintainSocialIntentions, physicalIntentionBlockers } from '../society/social-evidence.js';
 import { foodAidEvidenceIds, selectFoodHelper, selectSocialPlanAction } from '../society/plan-execution.js';
+import { executeFieldRecovery, executeHomeRecovery, executeGarrisonReturn } from './recovery-actions.js';
 
 // Resolve shared policy selectors once, not as fresh closures for every actor.
 const PEOPLE_ACTION_UTILITY_SELECTORS = Object.freeze({
@@ -1618,54 +1619,9 @@ function updatePeopleCore(w, phaseObserver = null) {
               : 'O encontro exige uma pessoa viva e visível dentro do alcance.';
         }
       } else if (action === 'field_rest') {
-        // A marching soldier recovers locally rather than traversing the
-        // entire map to a house. Returning to a distant commander comes first,
-        // so tired troops do not remain indefinitely abandoned at the rear.
-        const unit = w.kingdoms.find(k => k.id === p.kingdomId)?.militaryCommand?.units
-          .find(unit => unit.id === p.militaryUnitId);
-        const commander = unit && w.people.find(other => other.id === unit.commanderId
-          && other.alive && other.kingdomId === p.kingdomId);
-        const separated = commander && commander.id !== p.id && distance(p, commander) > 8;
-        if (separated) {
-          const moved = moveOne(w, p, commander, false, { arrivalRadius: 5 });
-          p.state = moved ? 'retornando à unidade para recuperar o fôlego'
-            : 'aguardando passagem até a própria unidade';
-          p.lastLesson = 'A recuperação em campanha exige reencontrar a unidade antes de descansar.';
-        } else {
-          p.energy = clamp(p.energy + 12, 0, 100);
-          p.injury = Math.max(0, p.injury - .2);
-          if (p.health < GARRISON_RECOVERY.health)
-            changePersonHealth(w, p, 1.1, 'field-recovery');
-          p.restingOutdoors = false;
-          p.state = 'recuperando o fôlego junto à formação';
-          p.lastLesson = 'A tropa faz uma pausa curta em campo, preservando a posição e as rações da campanha.';
-        }
+        executeFieldRecovery(w, p);
       } else if (action === 'rest') {
-        const indoors = restPersonInHouse(w, p);
-        const resting = indoors || p.militaryRestTargetId == null && p.homeRestTargetId == null;
-        if (resting) p.energy = clamp(p.energy + (indoors ? GARRISON_RECOVERY.energyPerDay : 4.2), 0, 100);
-        p.restingOutdoors = !indoors && resting && p.energy < GARRISON_RECOVERY.restEnergy;
-        if (indoors) {
-          p.injury = Math.max(0, p.injury - GARRISON_RECOVERY.injuryPerDay);
-          changePersonHealth(w, p, GARRISON_RECOVERY.healthPerDay, 'recovery');
-        } else if (resting && p.injury > 0) {
-          p.injury = Math.max(0, p.injury - .035);
-          changePersonHealth(w, p, .08, 'recovery');
-        }
-        if (indoors) p.state = 'descansando dentro da casa';
-        else if (p.militaryRestTargetId != null || p.homeRestTargetId != null) p.state = 'indo descansar na casa';
-        else p.state = 'descansando';
-        if (p.constructionRetreating && !indoors) p.state = 'retirando-se da obra para tratar ferimentos';
-        if (p.constructionRetreating && p.health >= (p.constructionRecoveryHealth || 85)
-          && p.energy >= GARRISON_RECOVERY.restEnergy && p.injury < 2) {
-          p.constructionRetreating = false;
-          p.constructionRecoveryHealth = null;
-        }
-        p.lastLesson = indoors
-          ? 'A pessoa entrou em casa para recuperar energia e tratar ferimentos antes de retomar suas atividades.'
-          : p.militaryRestTargetId != null || p.homeRestTargetId != null
-            ? 'A pessoa segue para sua casa; o descanso começa ao entrar.'
-            : 'O descanso recuperou energia enquanto não há uma casa disponível.';
+        executeHomeRecovery(w, p);
       } else if (action === 'build') {
         const assignedProject = assignment && assignment.source === 'community-project'
           ? w.structures.find(structure => structure.id === assignment.structureId && !structure.complete && !structure.kingdomProject
@@ -1709,15 +1665,7 @@ function updatePeopleCore(w, phaseObserver = null) {
           if (p.state !== 'indo ao treino de combate simulado') p.state = 'aguardando colega para treino';
         }
       } else if (action === 'return_garrison') {
-        const moved = militaryCenter && moveOne(w, p, militaryCenter, false, { preferRoads: true });
-        p.towerMounted = false;
-        if (p.towerDutyId != null) {
-          const tower = w.structures.find(structure => structure.id === p.towerDutyId);
-          if (tower?.archerId === p.id) tower.archerId = null;
-          p.towerRecovering = true;
-        }
-        p.state = moved ? 'retornando ao centro militar para repouso' : 'aguardando repouso na guarnição';
-        p.lastLesson = 'Em paz, o soldado volta ao centro militar quando precisa de comida ou descanso; a ração reduzida vem do estoque do reino.';
+        executeGarrisonReturn(w, p, militaryCenter);
       } else if (action === 'campaign') {
         performCampaignOrder(w, p, campaignOrder);
       } else {
