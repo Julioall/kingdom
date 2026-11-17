@@ -1,0 +1,41 @@
+name: Kingdom NPC CPU hotspots
+
+on:
+  push:
+    branches: ["perf/kingdom-npc-cpu-profile-20261117"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  npc-profiler:
+    name: Sample the actual NPC simulation without rendering
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Capture same-seed V8 CPU profile
+        run: |
+          mkdir -p out/npc-profile
+          node --cpu-prof --cpu-prof-dir=out/npc-profile --cpu-prof-name=npc.cpuprofile \
+            scripts/benchmark-simulation.mjs --days=7 --warmup=2 --repeats=1 --seeds=42 \
+            --output=out/npc-profile/benchmark.json > out/npc-profile/benchmark-summary.log
+          node scripts/summarize-cpu-profile.mjs \
+            --input=out/npc-profile/npc.cpuprofile --output=out/npc-profile/hotspots.json
+      - name: Upload hotspot diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kingdom-npc-hotspots
+          path: out/npc-profile/
+          retention-days: 7
+          if-no-files-found: warn
