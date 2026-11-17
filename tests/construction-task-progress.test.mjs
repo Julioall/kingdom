@@ -52,10 +52,10 @@ test('construction recovery counts damage improvements, not unrelated work', () 
   assert.equal(after.buildProgress - before.buildProgress, 0);
 });
 
-test('unaffiliated builders preserve the former undefined-community building tally', () => {
+test('unaffiliated builders preserve the former null-community building tally', () => {
   const world = { structures: [
-    { id: 1, progress: 3 }, { id: 2, progress: 10, communityId: 2 },
-    { id: 3, progress: 4 }
+    { id: 1, progress: 3, communityId: null }, { id: 2, progress: 10, communityId: 2 },
+    { id: 3, progress: 4, communityId: null }
   ] };
   assert.deepEqual(constructionTaskProgress(world, null, 'build'),
     { buildProgress: 7, repairProgress: 0 });
