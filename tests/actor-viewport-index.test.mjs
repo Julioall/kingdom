@@ -46,3 +46,16 @@ test('index does not expose dead actors or accept invalid cells/chunk sizes',()=
   assert.deepEqual(createActorViewportIndex(w).query('animal',bounds(0,16,0,16)),[]);
   assert.throws(()=>createActorViewportIndex(w,null,0));
 });
+
+
+test('stable camera bounds reuse broad-phase candidates until the snapshot index changes',()=>{
+  const w=world(0,[actor(1,5,5),actor(2,90,80)]);
+  const view=bounds(0,20,0,20);
+  const firstIndex=createActorViewportIndex(w,()=>null);
+  const first=firstIndex.query('person',view);
+  assert.deepEqual(first.map(person=>person.id),[1]);
+  assert.strictEqual(firstIndex.query('person',{...view}),first);
+  assert.deepEqual(firstIndex.query('person',bounds(70,100,70,90)).map(person=>person.id),[2]);
+  const nextIndex=createActorViewportIndex(world(1,[actor(1,5,5),actor(2,90,80)]),()=>null);
+  assert.notStrictEqual(nextIndex.query('person',view),first);
+});

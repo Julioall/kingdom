@@ -52,6 +52,7 @@ import { createPixelTileCache } from './pixel-tile-cache.js';
 import { compareDepth, mergeDepthItems } from './depth-order.js';
 import { createStaticDepthSpatialIndex } from './depth-spatial-index.js';
 import { createActorViewportIndex } from './actor-viewport-index.js';
+import { parseRenderHz, shouldPaintFrame, nextPaintTimestamp } from './frame-cadence.js';
 import { createEntityDrawProbe } from './entity-draw-probe.js';
 import { createVisibleStaticDepthCache } from './visible-static-depth-cache.js';
 import { paintMinimap } from './render/minimap.js';
@@ -116,6 +117,7 @@ export function mountGame() {
   const loadingScreen = createLoadingScreen();
   const renderDiagnostics = createRenderDiagnostics();
   const diagnosticQuery = new URLSearchParams(window.location.search);
+  const renderHz = parseRenderHz(diagnosticQuery.get('renderHz'));
   const referenceRendering = diagnosticQuery.get('profile') === '1' && diagnosticQuery.get('render') === 'reference';
   // depthCache=0 is the exact baseline switch for same-browser A/B captures.
   const optimizedDepth = !referenceRendering && diagnosticQuery.get('depthCache') !== '0';
@@ -2683,7 +2685,7 @@ export function mountGame() {
       }
       drawCarriedMeat(p, x, y, pose);
       drawCarriedWood(p, x, y, pose);
-      const now = performance.now();
+      const now = renderTimestamp ?? performance.now();
       const isMonk = p.role === 'soldier' && p.militaryClass === 'monge';
       if (npcDamageBars.visible(p.id, now)) {
         const ratio = p.health < 30 ? 'red' : p.health < 60 ? 'yellow' : 'green';
@@ -3096,7 +3098,7 @@ export function mountGame() {
       profile?.mark('clouds');
     }
     profile?.end({ cacheRebuilt, day: world.day, zoom: mapZoom,
-      context: { renderer: 'canvas2d', atmosphereRenderer: atmosphericLayer.rendererType,
+      context: { renderer: 'canvas2d', renderHz, atmosphereRenderer: atmosphericLayer.rendererType,
         magic: magicVfx.stats(),
         referenceRendering, fixedEffects, entityProfile: !!entityDrawProbe,
         personDrawFastPath: optimizedPersonSprites,
@@ -4069,10 +4071,8 @@ export function mountGame() {
     const days = clock.advance(now, session.paused, session.speed);
     if (days > 0) submitClockDays(days);
     profile?.mark('simulationDispatch');
-    const frameInterval = 1000 / 60;
-    if (pendingMapDraw || now - lastSpriteDraw >= frameInterval - .5) {
-      const elapsed = now - lastSpriteDraw;
-      lastSpriteDraw = elapsed >= frameInterval ? now - elapsed % frameInterval : now;
+    if (shouldPaintFrame(now, lastSpriteDraw, !!pendingMapDraw, renderHz)) {
+      lastSpriteDraw = nextPaintTimestamp(now, lastSpriteDraw, renderHz);
       const source = pendingMapDraw || 'animation';
       pendingMapDraw = null;
       paintMap(source);
