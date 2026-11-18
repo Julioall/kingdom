@@ -256,6 +256,14 @@ export function chooseBuildSite(w, community, structures, builder = null) {
         radius: nextType === 'curral' ? 3.5 : undefined, complete: false };
       const siteHitbox = structureHitbox({ ...sitePreview, complete: true });
       if (overlapsSiteResources(w, siteHitbox, resourceIndex)) continue;
+      const score = Math.log1p(localBiomass) * .24 + waterAccess * .12 - t.slope * 1.4 - spacing * .045 - centerDistance * .012
+        + (ownedProperty ? .42 : 0) + (nextType === 'curral' ? Math.log1p(nearbyBrowse) * .19 - flockDistance * .045 : 0)
+        + (fieldTiles ? Math.min(1, fieldTiles.length / 25) * .61 : 0) + noise
+        - blockOffset * .16 - circulationPenalty;
+      // Workstation checks and the flood fill cannot make a worse-scoring
+      // candidate win. Preserve the strict > tie-break and full collision/
+      // material screening above, but skip expensive path tests for losers.
+      if (!(score > bestScore)) continue;
       const workPositions = builder ? constructionWorkPositions(w, sitePreview, builder) : null;
       if (builder) {
         if (!workPositions) continue;
@@ -266,11 +274,8 @@ export function chooseBuildSite(w, community, structures, builder = null) {
         if (workPositions.some(point =>
           !constructionWorkpointReachable(w, builder, point, reachableWorkTiles))) continue;
       }
-      const score = Math.log1p(localBiomass) * .24 + waterAccess * .12 - t.slope * 1.4 - spacing * .045 - centerDistance * .012
-        + (ownedProperty ? .42 : 0) + (nextType === 'curral' ? Math.log1p(nearbyBrowse) * .19 - flockDistance * .045 : 0)
-        + (fieldTiles ? Math.min(1, fieldTiles.length / 25) * .61 : 0) + noise
-        - blockOffset * .16 - circulationPenalty;
-      if (score > bestScore) { best = { tile: t, fieldTileIndices: fieldTiles && fieldTiles.map(q => q.i), workPositions }; bestScore = score; }
+      best = { tile: t, fieldTileIndices: fieldTiles && fieldTiles.map(q => q.i), workPositions };
+      bestScore = score;
     }
     if (!best) return null;
     return {
