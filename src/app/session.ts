@@ -46,14 +46,16 @@ export class GameSession {
   readonly compactActorTransport: boolean;
   private readonly transportDiagnostics = createTransportDiagnostics();
   private readonly workerProfiling: boolean;
+  private readonly npcBehavior: 'legacy' | 'hybrid';
   private readonly cognitiveBudget: number | 'adaptive' | null;
   private workerTiming: WorkerTiming | null = null;
 
   constructor(private readonly config: WorldConfig = defaultWorldConfig, seed = 42,
-    options: {tileDeltaTransport?: boolean; compactActorTransport?: boolean; workerProfiling?: boolean; cognitiveBudget?: number | 'adaptive' | null} = {}) {
+    options: {tileDeltaTransport?: boolean; compactActorTransport?: boolean; workerProfiling?: boolean; cognitiveBudget?: number | 'adaptive' | null; npcBehavior?: 'legacy' | 'hybrid'} = {}) {
     this.compactActorTransport = options.compactActorTransport === true;
     this.tileDeltaTransport = options.tileDeltaTransport === true || this.compactActorTransport;
     this.workerProfiling = options.workerProfiling === true;
+    this.npcBehavior = options.npcBehavior === 'hybrid' ? 'hybrid' : 'legacy';
     this.cognitiveBudget = options.cognitiveBudget === 'adaptive' ? 'adaptive'
       : Number.isSafeInteger(options.cognitiveBudget) && Number(options.cognitiveBudget) >= 1
         && Number(options.cognitiveBudget) <= 4096 ? Number(options.cognitiveBudget) : null;
@@ -72,7 +74,8 @@ export class GameSession {
     this.ready = this.send('initialize', { config: this.config, seed,
       ...(this.tileDeltaTransport ? {transport:this.compactActorTransport ? 'tile-delta-compact' : 'tile-delta'} : {}),
       ...(this.workerProfiling ? {profileTiming:true} : {}),
-      ...(this.cognitiveBudget != null ? {cognitiveBudget:this.cognitiveBudget} : {}) }, this.epoch).then(() => {
+      ...(this.cognitiveBudget != null ? {cognitiveBudget:this.cognitiveBudget} : {}),
+      ...(this.npcBehavior === 'hybrid' ? {npcBehavior:'hybrid' as const} : {}) }, this.epoch).then(() => {
       if (!this.world) throw new Error('O Worker inicializou sem devolver o estado do mundo.');
       return this.world;
     });
@@ -96,7 +99,8 @@ export class GameSession {
     this.ready = this.send('reset', { seed, kingdomAiEnabled,
       ...(this.tileDeltaTransport ? {transport:this.compactActorTransport ? 'tile-delta-compact' : 'tile-delta'} : {}),
       ...(this.workerProfiling ? {profileTiming:true} : {}),
-      ...(this.cognitiveBudget != null ? {cognitiveBudget:this.cognitiveBudget} : {}) }, this.epoch).then(() => {
+      ...(this.cognitiveBudget != null ? {cognitiveBudget:this.cognitiveBudget} : {}),
+      ...(this.npcBehavior === 'hybrid' ? {npcBehavior:'hybrid' as const} : {}) }, this.epoch).then(() => {
       if (!this.world) throw new Error('O Worker reiniciou sem devolver o estado do mundo.');
       return this.world;
     });

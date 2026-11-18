@@ -122,6 +122,8 @@ export function mountGame() {
   const renderDiagnostics = createRenderDiagnostics();
   const diagnosticQuery = new URLSearchParams(window.location.search);
   const renderHz = parseRenderHz(diagnosticQuery.get('renderHz'));
+  // Explicit A/B rollout: hybrid uses Utility continuity + task HFSM + bounded Boids.
+  const npcBehavior = diagnosticQuery.get('npcBehavior') === 'hybrid' ? 'hybrid' : 'legacy';
   const referenceRendering = diagnosticQuery.get('profile') === '1' && diagnosticQuery.get('render') === 'reference';
   // depthCache=0 is the exact baseline switch for same-browser A/B captures.
   const optimizedDepth = !referenceRendering && diagnosticQuery.get('depthCache') !== '0';
@@ -228,7 +230,7 @@ export function mountGame() {
   const showBattlefieldDebug = diagnosticQuery.get('battleDebug') === '1';
   const session = new GameSession(undefined, sessionSeed,
     { compactActorTransport: compactActorsQA, tileDeltaTransport: tileDeltaQA,
-      workerProfiling: diagnosticQuery.get('profile') === '1', cognitiveBudget });
+      workerProfiling: diagnosticQuery.get('profile') === '1', cognitiveBudget, npcBehavior });
   if (diagnosticQuery.get('paused') === '1') {
     session.paused = true;
     session.ready.then(() => session.setPaused(true)).catch(error => session.onError?.(error));
@@ -3055,7 +3057,7 @@ export function mountGame() {
       profile?.mark('clouds');
     }
     profile?.end({ cacheRebuilt, day: world.day, zoom: mapZoom,
-      context: { renderer: 'canvas2d', renderHz, atmosphereRenderer: atmosphericLayer.rendererType,
+      context: { renderer: 'canvas2d', renderHz, npcBehavior, atmosphereRenderer: atmosphericLayer.rendererType,
         magic: magicVfx.stats(),
         referenceRendering, fixedEffects, entityProfile: !!entityDrawProbe,
         personDrawFastPath: optimizedPersonSprites,
