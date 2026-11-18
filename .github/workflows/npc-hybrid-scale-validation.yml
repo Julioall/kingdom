@@ -1,0 +1,139 @@
+name: Kingdom PR138 hybrid scale and longitudinal behavior
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/validate-npc-hybrid-scale.mjs"
+      - "scripts/support/npc-hybrid-quality.mjs"
+      - "scripts/profile-render-worker-browser.mjs"
+      - "tests/npc-hybrid-quality.test.mjs"
+      - ".github/workflows/npc-hybrid-scale-validation.yml"
+      - "package.json"
+      - "docs/verification/npc-hybrid-scale-validation.md"
+  workflow_dispatch:
+    inputs:
+      longDays:
+        description: "100 NPC long-run horizon; same-mode replay is checked twice"
+        type: choice
+        options: ["30", "90", "180"]
+        default: "30"
+        required: true
+      stressPopulation:
+        description: "Hybrid-only large population (authoritative stepDay)"
+        type: choice
+        options: ["1000", "5000"]
+        default: "5000"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  scale:
+    name: Repeated hybrid/legacy economy, routes and HFSM (100/500/1000)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Validate longitudinal observation and counters
+        run: node --test tests/npc-hybrid-quality.test.mjs tests/npc-hybrid-worker.test.mjs
+      - name: Same-seed, same-mode exact replay at increasing scale
+        run: |
+          node scripts/validate-npc-hybrid-scale.mjs \
+            --populations=100,500,1000 --seeds=1,42 \
+            --days=2 --repeats=2 --checkpoint-every=1 \
+            --output=out/pr138/scale.json
+      - name: Archive reproducible scale evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kingdom-pr138-scale
+          path: out/pr138/scale.json
+          retention-days: 14
+
+  longitudinal:
+    name: 30/90/180-day HFSM, task and economy audit (100 NPC)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Full-world longitudinal legacy/hybrid behavioral replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          DAYS=30
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            DAYS="${{ inputs.longDays }}"
+          fi
+          node scripts/validate-npc-hybrid-scale.mjs \
+            --populations=100 --seeds=42 \
+            --days="$DAYS" --repeats=2 --checkpoint-every=10 \
+            --output=out/pr138/longitudinal.json
+      - name: Archive per-day task/navigation/health metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kingdom-pr138-longitudinal
+          path: out/pr138/longitudinal.json
+          retention-days: 14
+
+  stress:
+    name: Hybrid 5,000 actors deterministic replay (NOT legacy-only)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Repeat 5,000 actor hybrid world with exact snapshot digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          POPULATION=5000
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            POPULATION="${{ inputs.stressPopulation }}"
+          fi
+          node scripts/validate-npc-hybrid-scale.mjs \
+            --populations="$POPULATION" --seeds=42 --modes=hybrid \
+            --days=1 --repeats=2 --checkpoint-every=1 \
+            --output=out/pr138/stress.json
+      - name: Archive genuine hybrid stress evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kingdom-pr138-hybrid-5k
+          path: out/pr138/stress.json
+          retention-days: 14
+
+  browser:
+    name: Paired legacy/hybrid Canvas, RAF, Worker and snapshots
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install browser dependencies
+        run: npm ci && npx playwright install --with-deps chromium
+      - name: Alternate paused/live scenarios for BOTH NPC modes
+        run: |
+          node scripts/profile-render-worker-browser.mjs \
+            --npc-behaviors=legacy,hybrid \
+            --duration=3500 --repeats=2 \
+            --output=out/pr138/browser-worker-canvas.json
+      - name: Archive isolated Worker/Canvas profiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kingdom-pr138-browser-worker-canvas
+          path: out/pr138/browser-worker-canvas.json
+          retention-days: 14
