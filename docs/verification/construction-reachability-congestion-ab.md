@@ -22,7 +22,7 @@ O novo BFS usa marcadores `Uint8Array` de visita e uma cache de passabilidade lo
 
 O registro `person.navigationCongestion` não é a prova de um impasse permanente. O novo auditor `inspectNpcCongestion` observa, fora do custo de `stepDay`:
 
-- Registros do **dia corrente** vs registros antigos;
+- Registros do **passo recém-concluído** vs registros antigos (o movimento grava `world.day` antes do incremento do calendário no fim de `stepDay`); solicitações de passagem seguem a mesma convenção;
 - Duração registrada (1, 2, 3–5 ou 6+ dias), distância entre o ponto de origem registrado e a posição atual e data da próxima tentativa de rota;
 - Se a **próxima célula da rota** está ocupada por outro NPC na grade arredondada (heurística, não colisor físico exato);
 - Papel e última atividade dos agentes com congestionamento;
