@@ -24,6 +24,11 @@ const durationMs = integer('duration', 3500, 2000, 8500);
 const repeats = integer('repeats', 2, 1, 5);
 const output = resolve(args.output ?? 'out/npc-workloads/render-worker.json');
 const headful = args.headful === '1';
+const npcBehaviors = String(args['npc-behaviors'] || 'legacy').split(',');
+assert.ok(npcBehaviors.length >= 1 && npcBehaviors.length <= 2
+  && npcBehaviors.every(mode => ['legacy', 'hybrid'].includes(mode))
+  && new Set(npcBehaviors).size === npcBehaviors.length,
+  'Invalid --npc-behaviors');
 const url = 'http://127.0.0.1:' + port + '/';
 const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js',
   '--host', '127.0.0.1', '--port', String(port), '--strictPort'],
@@ -39,7 +44,7 @@ const report = {
     'renderOnly: paused simulation, RAF and Canvas remain active',
     'workerAndRender: unpaused authoritative simulation and Canvas both active'
   ],
-  seed: 42, renderHz: 144, resolution: '1440x900 DPR1', durationMs, repeats,
+  seed: 42, renderHz: 144, npcBehaviors, resolution: '1440x900 DPR1', durationMs, repeats,
   measurements: [], errors: [],
   caveats: [
     'RAF cadence is bounded by display/compositor cadence; renderHz=144 is a ceiling, NOT proof of 144 FPS.',
@@ -47,7 +52,8 @@ const report = {
     'Worker round-trip includes queueing/transport/processing; Worker simulationMs excludes captureMs.',
     'Both scenarios render the same initial seed and viewport but active world changes with time.',
     'Paused Canvas may redraw fewer layers due to caching; never subtract paused FPS from active FPS to infer Worker cost.',
-    'Performance instrumentation itself incurs overhead.'
+    'Performance instrumentation itself incurs overhead.',
+    'Legacy/hybrid comparisons are paired by seed, viewport and repeat, but different behavior may change scene contents and snapshot sizes.'
   ]
 };
 const summarize = values => {
@@ -70,7 +76,7 @@ try {
     '--no-sandbox', '--disable-dev-shm-usage',
     ...(headful ? [] : ['--use-gl=angle', '--use-angle=swiftshader'])
   ]});
-  for (let repeat = 1; repeat <= repeats; repeat++) {
+  for (const npcBehavior of npcBehaviors) for (let repeat = 1; repeat <= repeats; repeat++) {
     const order = repeat % 2 ? ['renderOnly', 'workerAndRender']
       : ['workerAndRender', 'renderOnly'];
     for (const mode of order) {
@@ -114,6 +120,7 @@ try {
         });
         const paused = mode === 'renderOnly';
         await page.goto(url + '?seed=42&profile=1&effects=fixed&renderHz=144'
+          + '&npcBehavior=' + npcBehavior
           + (paused ? '&paused=1' : ''), {waitUntil: 'domcontentloaded', timeout: 60000});
         await page.waitForFunction(() => {
           const snapshot = window.kingdomProfiler?.snapshot();
@@ -123,6 +130,7 @@ try {
         }, null, {timeout: 150000});
         const initial = await page.evaluate(() => window.kingdomProfiler.snapshot().context);
         assert.equal(initial.paused, paused, 'simulation pause contract');
+        assert.equal(initial.npcBehavior, npcBehavior, 'requested NPC AI mode');
         for (let zoom = 0; zoom < 4; zoom++) await page.locator('#mapZoomIn').click();
         await page.waitForTimeout(650);
         await page.evaluate(() => {
@@ -139,7 +147,7 @@ try {
         const advances = captured.messages.filter(item => item.days > 0
           && Number.isFinite(item.simulationMs));
         const record = {
-          repeat, mode, worldDay: captured.render.context?.day,
+          repeat, mode, npcBehavior, worldDay: captured.render.context?.day,
           render: {
             rafFps: frames.fps, frameIntervals: {
               count: frames.samples, meanMs: frames.meanMs,
@@ -163,7 +171,7 @@ try {
         };
         report.measurements.push(record);
         console.log('NPC-RENDER-WORKER', JSON.stringify({
-          repeat, mode, rafFps: record.render.rafFps,
+          repeat, mode, npcBehavior, rafFps: record.render.rafFps,
           frameP95Ms: record.render.frameIntervals.p95Ms,
           mapMeanMs: record.render.mapCanvasMs.meanMs,
           workerSimulationMeanMs: record.worker.simulationMs.meanMs,
@@ -176,6 +184,24 @@ try {
       } finally {
         await page.close();
       }
+    }
+  }
+  if (npcBehaviors.length === 2) {
+    report.pairedComparisons = [];
+    for (let repeat = 1; repeat <= repeats; repeat++) for (const mode of ['renderOnly', 'workerAndRender']) {
+      const legacy = report.measurements.find(item => item.repeat === repeat
+        && item.mode === mode && item.npcBehavior === 'legacy');
+      const hybrid = report.measurements.find(item => item.repeat === repeat
+        && item.mode === mode && item.npcBehavior === 'hybrid');
+      if (!legacy || !hybrid) continue;
+      report.pairedComparisons.push({repeat, mode,
+        legacyFps: legacy.render.rafFps, hybridFps: hybrid.render.rafFps,
+        legacyFrameP95Ms: legacy.render.frameIntervals.p95Ms,
+        hybridFrameP95Ms: hybrid.render.frameIntervals.p95Ms,
+        legacyWorkerSimulationMs: legacy.worker.simulationMs.meanMs,
+        hybridWorkerSimulationMs: hybrid.worker.simulationMs.meanMs,
+        legacyWorkerCaptureMs: legacy.worker.snapshotCaptureMs.meanMs,
+        hybridWorkerCaptureMs: hybrid.worker.snapshotCaptureMs.meanMs});
     }
   }
 } finally {
