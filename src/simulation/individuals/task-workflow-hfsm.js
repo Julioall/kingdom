@@ -88,7 +88,7 @@ export function beginNpcWorkflow(world, person, choice, community) {
         && day - previous.lastDay <= MAX_INTERRUPTION_DAYS) {
       resumeAction = previous.resumeAction;
       resumeIdentity = identity;
-    } else if (assignmentValid && previous?.assignmentIdentity === identity
+    } else if (assignmentCurrent && previous?.assignmentIdentity === identity
         && RESUMABLE.has(previous.action)) {
       resumeAction = previous.action;
       resumeIdentity = identity;
@@ -130,7 +130,8 @@ export function beginNpcWorkflow(world, person, choice, community) {
 export function completeNpcWorkflow(world, person, action, community) {
   const flow = person.activityWorkflow;
   if (!flow || flow.action !== action || flow.lastDay !== world.day) return;
-  const identity = hasValidAssignment(person, world.day)
+  // An assignment paused by emergency is still valid for the bookmark.
+  const identity = hasCurrentAssignment(person, world.day)
     ? npcAssignmentIdentity(person.assignment) : null;
   if (flow.assignmentIdentity && !identity && flow.status === 'active') {
     flow.status = 'released';
