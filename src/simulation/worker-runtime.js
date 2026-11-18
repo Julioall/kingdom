@@ -33,6 +33,19 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
   function configurePerformance(request) {
     profileTiming = request.profileTiming === true;
     lastWorkerTiming = null;
+    if (request.npcBehavior !== undefined
+        && request.npcBehavior !== 'legacy' && request.npcBehavior !== 'hybrid')
+      throw new Error('Modo de comportamento dos NPCs inválido.');
+    if (request.npcBehavior === 'hybrid') {
+      // Explicit opt-in only. The legacy AI, military priority and navigation
+      // remain unchanged for existing saves, sessions and benchmark gates.
+      world.neuralOverrides = {
+        ...world.neuralOverrides,
+        utilityContinuity: true,
+        taskWorkflow: true,
+        steeringBoids: true
+      };
+    }
     if (request.cognitiveBudget !== undefined) {
       if (request.cognitiveBudget !== 'adaptive' &&
           (!Number.isSafeInteger(request.cognitiveBudget) || request.cognitiveBudget < 1 || request.cognitiveBudget > 4096))

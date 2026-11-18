@@ -87,8 +87,8 @@ type RequestEnvelope = {
 };
 
 export type SimulationWorkerRequest = RequestEnvelope & (
-  | { type: 'initialize'; config: WorldConfig; seed: number; transport?: 'tile-delta' | 'tile-delta-compact'; profileTiming?: boolean; cognitiveBudget?: number | 'adaptive' }
-  | { type: 'reset'; seed: number; kingdomAiEnabled: boolean; transport?: 'tile-delta' | 'tile-delta-compact'; profileTiming?: boolean; cognitiveBudget?: number | 'adaptive' }
+  | { type: 'initialize'; config: WorldConfig; seed: number; transport?: 'tile-delta' | 'tile-delta-compact'; profileTiming?: boolean; cognitiveBudget?: number | 'adaptive'; npcBehavior?: 'legacy' | 'hybrid' }
+  | { type: 'reset'; seed: number; kingdomAiEnabled: boolean; transport?: 'tile-delta' | 'tile-delta-compact'; profileTiming?: boolean; cognitiveBudget?: number | 'adaptive'; npcBehavior?: 'legacy' | 'hybrid' }
   | { type: 'resync' }
   | { type: 'set-paused'; paused: boolean }
   | { type: 'advance'; days: number; source: 'clock' | 'manual' }

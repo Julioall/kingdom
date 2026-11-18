@@ -1,0 +1,60 @@
+name: Kingdom hybrid NPC behavior and determinism
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/simulation/individuals/**"
+      - "src/controllers/individual/**"
+      - "src/simulation/worker-runtime.js"
+      - "src/simulation/protocol.ts"
+      - "src/app/session.ts"
+      - "src/ui/game.js"
+      - "scripts/benchmark-npc-hybrid.mjs"
+      - "tests/npc-hybrid-worker.test.mjs"
+      - ".github/workflows/npc-hybrid-behavior.yml"
+  workflow_dispatch:
+    inputs:
+      population:
+        description: "Maximum population in A/B (5000 requires a long run)"
+        type: choice
+        options: ["500", "5000"]
+        default: "500"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  hybrid:
+    name: Hybrid replay parity and legacy-vs-hybrid CPU/outcomes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Contract and replay tests
+        run: node --test tests/npc-hybrid-worker.test.mjs tests/utility-continuity.test.mjs
+      - name: Repeat authoritative hybrid and legacy scenarios
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [ "${{ inputs.population }}" = "5000" ]; then
+            POPULATIONS=5000
+            SEEDS=42
+          else
+            POPULATIONS=100,500
+            SEEDS=1,42
+          fi
+          node scripts/benchmark-npc-hybrid.mjs \
+            --populations="$POPULATIONS" --seeds="$SEEDS" --days=2 --repeats=2 \
+            --output=out/npc-hybrid-ab.json
+      - name: Archive reproducible outcomes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kingdom-npc-hybrid-ab
+          path: out/npc-hybrid-ab.json
+          retention-days: 14
