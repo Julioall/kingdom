@@ -58,7 +58,8 @@ test('counts task completion, constructed structures, retries and stalled travel
   p.navigationCacheHits = 7;
   p.navigationFailureCacheHits = 1;
   p.navigationCongestion = {blockedDays: 4};
-  p.passageRequestSent = {day: 2};
+  // Movement is stamped with the day BEFORE end-of-day calendar advance.
+  p.passageRequestSent = {day: 1};
   p.activityWorkflow = {action: 'build', status: 'active', stage: 'work'};
   const second = sampleHybridQuality(w, tracker);
   assert.equal(second.behavior.dailyObservedTaskCompletions, 1);
@@ -74,7 +75,7 @@ test('counts task completion, constructed structures, retries and stalled travel
   assert.equal(second.navigation.longBlockedRouteActors, 1);
   assert.equal(second.navigation.maxBlockedDays, 4);
   w.day++;
-  p.passageRequestSent = {day: 2};
+  p.passageRequestSent = {day: 1};
   const third = sampleHybridQuality(w, tracker);
   assert.equal(third.behavior.dailyObservedTaskCompletions, 0);
   assert.equal(third.behavior.dailyNewCompletedStructures, 0);
