@@ -19,7 +19,9 @@ test('qualifies real route, congestion, collision, decision and delegation symbo
     ['selectNpcActivity', 'src/simulation/individuals/action-state-machine.js', 'activitySelection'],
     ['choosePeopleAction', 'src/simulation/individuals/actions.js', 'activitySelection'],
     ['completeCommunityTask', 'src/simulation/society/governance.js', 'taskDelegation'],
-    ['constructionTaskProgress', 'src/simulation/individuals/construction-task-progress.js', 'taskDelegation']
+    ['constructionTaskProgress', 'src/simulation/individuals/construction-task-progress.js', 'taskDelegation'],
+    ['chooseBuildSite', 'src/simulation/settlements/construction.js', 'constructionPlanning'],
+    ['hasBuildingResourceClearance', 'src/simulation/world/building-clearance.js', 'constructionPlanning']
   ];
   for (const [name, path, expected] of cases)
     assert.equal(npcHotspotArea(frame(name, path)), expected, name);
