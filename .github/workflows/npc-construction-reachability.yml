@@ -1,0 +1,124 @@
+name: Kingdom construction reachability A/B and congestion audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/simulation/settlements/construction.js"
+      - "src/simulation/individuals/movement.js"
+      - "scripts/support/npc-congestion-diagnostics.mjs"
+      - "scripts/support/npc-hybrid-quality.mjs"
+      - "scripts/compare-npc-revisions.mjs"
+      - "tests/npc-congestion-diagnostics.test.mjs"
+      - "tests/buildsite-reachability-optimization.test.mjs"
+      - "tests/npc-revision-comparison.test.mjs"
+      - ".github/workflows/npc-construction-reachability.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-ab:
+    name: Exact cross-commit replay with 100/500/1000 NPCs (both AI modes)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: baseline
+          ref: ${{ github.event.pull_request.base.sha || github.event.repository.default_branch }}
+      - uses: actions/checkout@v4
+        with:
+          path: candidate
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify BFS order, site candidates and diagnostic-only counters
+        working-directory: candidate
+        run: |
+          node --test tests/buildsite-reachability-optimization.test.mjs \
+            tests/buildsite-pruning.test.mjs tests/npc-congestion-diagnostics.test.mjs \
+            tests/npc-revision-comparison.test.mjs
+      - name: Run independent baseline and candidate full-world A/B with replays
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p results
+          (cd baseline && node scripts/validate-npc-hybrid-scale.mjs \
+            --populations=100,500,1000 --seeds=1,42 --days=2 --repeats=2 \
+            --modes=legacy,hybrid --checkpoint-every=1 \
+            --output=../results/baseline.json)
+          (cd candidate && node scripts/validate-npc-hybrid-scale.mjs \
+            --populations=100,500,1000 --seeds=1,42 --days=2 --repeats=2 \
+            --modes=legacy,hybrid --checkpoint-every=1 \
+            --output=../results/candidate.json)
+          node candidate/scripts/compare-npc-revisions.mjs \
+            results/baseline.json results/candidate.json results/comparison.json
+      - name: Archive exact state and CPU evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kingdom-construction-whole-world-ab
+          path: results/
+          retention-days: 14
+
+  hybrid-5k-parity:
+    name: Exact 5k hybrid baseline/candidate authoritative parity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: baseline
+          ref: ${{ github.event.pull_request.base.sha || github.event.repository.default_branch }}
+      - uses: actions/checkout@v4
+        with:
+          path: candidate
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Independent full-world 5000 NPC hybrid cross-commit comparison
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p results
+          (cd baseline && node scripts/validate-npc-hybrid-scale.mjs \
+            --populations=5000 --seeds=42 --days=1 --repeats=2 \
+            --modes=hybrid --output=../results/baseline-5000.json)
+          (cd candidate && node scripts/validate-npc-hybrid-scale.mjs \
+            --populations=5000 --seeds=42 --days=1 --repeats=2 \
+            --modes=hybrid --output=../results/candidate-5000.json)
+          node candidate/scripts/compare-npc-revisions.mjs \
+            results/baseline-5000.json results/candidate-5000.json \
+            results/comparison-5000.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kingdom-construction-hybrid-5k-ab
+          path: results/
+          retention-days: 14
+
+  congestion:
+    name: Three-day 5k hybrid congestion persistence and occupancy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Observe the SAME 5000 hybrid actors through three days twice
+        run: |
+          node scripts/validate-npc-hybrid-scale.mjs \
+            --populations=5000 --seeds=42 --days=3 --repeats=2 \
+            --modes=hybrid --checkpoint-every=1 \
+            --output=out/congestion-5000-three-days.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kingdom-hybrid-5k-congestion-3days
+          path: out/congestion-5000-three-days.json
+          retention-days: 14

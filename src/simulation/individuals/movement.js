@@ -147,7 +147,12 @@ export function reachableAreaAround(w, agent, center, radius) {
   // Visit only the bounding rectangle of the requested local radius.
   // Enumerating by y then x preserves w.tiles' row-major order, including the
   // original start-tile tie-break and BFS ordering.
-  const candidates = [];
+  // Compact scratch grids avoid thousands of Set allocations. When the
+  // center is an integer, walkable tile, it is necessarily the unique closest
+  // start: explore just its connected component rather than checking the
+  // entire world up front. Fractional/blocked centers retain the original
+  // row-major candidate scan and tie-break.
+  const seen = new Uint8Array(w.tiles.length);
   // 0 = unchecked, 1 = passable, 2 = blocked. A scoped cache avoids running
   // expensive collision/territory checks again for each BFS edge. A diagonal
   // side tile may lie *outside* the requested circle, so check it lazily.
@@ -165,15 +170,34 @@ export function reachableAreaAround(w, agent, center, radius) {
   const maxX = Math.min(w.width - 1, Math.floor(center.x + radius));
   const minY = Math.max(0, Math.ceil(center.y - radius));
   const maxY = Math.min(w.height - 1, Math.floor(center.y + radius));
-  for (let y = minY; y <= maxY; y++) {
-    for (let x = minX; x <= maxX; x++) {
-      const tile = w.tiles[y * w.width + x];
-      if (tile && distance(tile, center) <= radius && isPassable(tile)) candidates.push(tile);
+  const snapped = Number.isInteger(center.x) && Number.isInteger(center.y)
+    ? cellAt(w, center.x, center.y) : null;
+  const directStart = !!snapped && radius >= 0 && isPassable(snapped);
+  let start = directStart ? snapped : null;
+  let allowed = null;
+  if (!directStart) {
+    allowed = new Uint8Array(w.tiles.length);
+    let nearestDistance = Infinity;
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        const tile = w.tiles[y * w.width + x];
+        if (!tile) continue;
+        const fromCenter = distance(tile, center);
+        if (fromCenter > radius || !isPassable(tile)) continue;
+        allowed[tile.i] = 1;
+        if (fromCenter < nearestDistance) {
+          start = tile;
+          nearestDistance = fromCenter;
+        }
+      }
     }
   }
-  const start = candidates.reduce((best, tile) => !best || distance(tile, center) < distance(best, center) ? tile : best, null);
   if (!start) return [];
-  const allowed = new Set(candidates.map(tile => tile.i)), seen = new Set([start.i]), queue = [start];
+  seen[start.i] = 1;
+  const queue = [start];
+  const withinReach = tile => directStart
+    ? distance(tile, center) <= radius && isPassable(tile)
+    : allowed[tile.i] === 1;
   const canStepWithinArea = (from, to) => {
     // Destination passability was already validated when forming candidates.
     const fromTile = cellAt(w, from.x, from.y) || from;
@@ -191,9 +215,9 @@ export function reachableAreaAround(w, agent, center, radius) {
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       if (!dx && !dy) continue;
       const next = cellAt(w, from.x + dx, from.y + dy);
-      if (!next || !allowed.has(next.i) || seen.has(next.i)
+      if (!next || seen[next.i] === 1 || !withinReach(next)
           || !canStepWithinArea(from, next)) continue;
-      seen.add(next.i); queue.push(next);
+      seen[next.i] = 1; queue.push(next);
     }
   }
   return queue;

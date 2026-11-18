@@ -1,3 +1,4 @@
+import { inspectNpcCongestion } from './npc-congestion-diagnostics.mjs';
 // Read-only longitudinal health/economy/navigation audit for Kingdom.
 // Called *after* stepDay, outside the timed simulation and without attaching
 // transient fields to the world or people. All event counts are observations,
@@ -106,7 +107,9 @@ export function sampleHybridQuality(world, tracker) {
       && Number.isInteger(route.cursor) && Array.isArray(route.path)
       && route.cursor < route.path.length - 1;
     if (routePending) activeRoutedActors++;
-    if (person.passageRequestSent?.day === world.day) daily.passageRequests++;
+    // Movement stamps the OLD day while stepDay advances the calendar later.
+    // This observer runs after stepDay, so count the completed day's event.
+    if (person.passageRequestSent?.day === world.day - 1) daily.passageRequests++;
     if (previous) {
       if (previous.action !== action) daily.actionSwitches++;
       if (previous.stage != null && flow?.stage != null
@@ -186,7 +189,8 @@ export function sampleHybridQuality(world, tracker) {
       dailyRouteCacheHits: daily.routeCacheHits,
       dailyFailureCacheHits: daily.routeFailureCacheHits,
       dailyPassageRequests: daily.passageRequests,
-      stationaryWhileRoutedDays: daily.stationaryWhileRoutedDays
+      stationaryWhileRoutedDays: daily.stationaryWhileRoutedDays,
+      congestionDiagnosis: inspectNpcCongestion(world)
     },
     behavior: {
       activeWorkflows, interruptedWorkflows: pendingWorkflows,
