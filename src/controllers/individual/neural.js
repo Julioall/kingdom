@@ -1,3 +1,4 @@
+import { chooseContinuingUtilityIndex } from './utility-continuity.js';
 import { forwardSharedPolicy, sharedPolicyEnabled } from '../../ai/policy/shared-policy.js';
 import { inferCognitivePeople } from '../../ai/policy/cognitive-scheduler.js';
 import { MILITARY_ACTIONS, ROYAL_SITING_STRATEGIES } from '../../ai/policy/action-catalog.js';
@@ -159,6 +160,12 @@ export function choosePeopleAction(w, p, inputs, utility) {
         + strategyBias + (shared ? cognitiveActionBias(p, PEOPLE_ACTIONS[i]) : 0);
       scores.push(score);
       if (score > bestScore) { best = i; bestScore = score; }
+    }
+    // Continuity is an opt-in tie-break on voluntary Utility AI decisions.
+    // All mandatory military/survival/assignment guards run BEFORE this
+    // function, and disabled mode retains exact legacy scores and RNG.
+    if (w.neuralOverrides?.utilityContinuity === true) {
+      best = chooseContinuingUtilityIndex(PEOPLE_ACTIONS, scores, p.lastDecision, w.day, utility);
     }
     brain.pending = rulesOnly ? null : shared ? { actionIndex: best }
       : { hidden: out.hidden, probs: out.probs, actionIndex: best, inputs: inputs.slice(), scores };
