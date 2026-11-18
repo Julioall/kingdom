@@ -38,13 +38,21 @@ jobs:
         run: |
           set -euo pipefail
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [ "${{ inputs.population }}" = "5000" ]; then
+            # A 5000-actor day takes minutes, even before an unprofiled replay.
+            # Use two independent profiles, with no warmup day, within this job.
             POPULATIONS="100,5000"
+            SEEDS="42"
+            REPEATS=2
+            WARMUP=0
           else
             POPULATIONS="100,500"
+            SEEDS="1,42"
+            REPEATS=3
+            WARMUP=1
           fi
           node scripts/profile-npc-workloads.mjs \
-            --populations="$POPULATIONS" --seeds=1,42 \
-            --days=1 --warmup=1 --repeats=3 --sampling-us=1000 \
+            --populations="$POPULATIONS" --seeds="$SEEDS" \
+            --days=1 --warmup="$WARMUP" --repeats="$REPEATS" --sampling-us=1000 \
             --output=out/npc-workloads/cpu.json \
             --profile-dir=out/npc-workloads/profiles
       - name: Publish CPU samples and exact parity report
