@@ -67,7 +67,7 @@ O Chromium headless de CI usa SwiftShader. Seus FPS não são uma confirmação 
 O workflow `.github/workflows/npc-hybrid-scale-validation.yml` executa quatro jobs:
 
 - Escala: 100, 500 e 1.000 NPCs, seeds 1 e 42, dois dias, dois replays por modo;
-- Longitudinal: 100 NPCs, seed 42, 30 dias, dois replays de cada modo; permite 90 ou 180 dias em `workflow_dispatch`;
+- Longitudinal: 100 NPCs, seed 42, **30, 90 e 180 dias** em todas as PRs, dois replays de cada modo, com três relatórios; `workflow_dispatch` permite repetir apenas um horizonte;
 - Estresse: 5.000 NPCs **híbridos**, seed 42, um dia e dois replays completos; sem recorrer ao modo legado do V3;
 - Navegador: quatro cenários (legado/híbrido × simulação pausada/ativa), em dois pares de repetições, com artefatos separados.
 
