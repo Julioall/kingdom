@@ -1,0 +1,80 @@
+name: Kingdom repeated NPC CPU and render/Worker profiles
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/profile-npc-workloads.mjs"
+      - "scripts/profile-render-worker-browser.mjs"
+      - "src/simulation/observability/npc-hotspot-analysis.js"
+      - "tests/npc-hotspot-analysis.test.mjs"
+      - ".github/workflows/npc-repeated-profiles.yml"
+      - "package.json"
+  workflow_dispatch:
+    inputs:
+      population:
+        description: "Highest population to profile with repeated V8 samples"
+        type: choice
+        options: ["500", "5000"]
+        default: "500"
+        required: true
+permissions:
+  contents: read
+
+jobs:
+  cpu:
+    name: Repeated V8 NPC hotspots (actual world + exact parity)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Test sample categorization
+        run: node --test tests/npc-hotspot-analysis.test.mjs tests/cpu-profile-summary.test.mjs
+      - name: Repeated authoritative CPU samples (no browser)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [ "${{ inputs.population }}" = "5000" ]; then
+            POPULATIONS="100,5000"
+          else
+            POPULATIONS="100,500"
+          fi
+          node scripts/profile-npc-workloads.mjs \
+            --populations="$POPULATIONS" --seeds=1,42 \
+            --days=1 --warmup=1 --repeats=3 --sampling-us=1000 \
+            --output=out/npc-workloads/cpu.json \
+            --profile-dir=out/npc-workloads/profiles
+      - name: Publish CPU samples and exact parity report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kingdom-npc-cpu-repeated
+          path: out/npc-workloads/
+          retention-days: 14
+
+  render:
+    name: Browser isolation of Canvas/RAF vs active Worker
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install browser dependencies
+        run: npm ci && npx playwright install --with-deps chromium
+      - name: Measure paused Canvas and running simulation separately
+        run: |
+          node scripts/profile-render-worker-browser.mjs \
+            --duration=3500 --repeats=3 \
+            --output=out/npc-workloads/render-worker.json
+      - name: Publish RAF, Canvas and Worker diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kingdom-npc-render-worker
+          path: out/npc-workloads/
+          retention-days: 14
