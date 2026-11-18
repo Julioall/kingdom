@@ -51,6 +51,28 @@ test('reachableAreaAround excludes obstacles and uses an independent scratch gri
   assert.equal(before.length, 5, 'earlier result array stays independent');
 });
 
+test('fractional center preserves the original row-major tie-break fallback', () => {
+  const world = makePassageWorld(), agent = {
+    id: 999999, x: 60, y: 60, alive: true, role: 'resident',
+    kingdomId: null, communityId: null
+  };
+  // Both 60,60 and 61,60 are equally close. The former appears first
+  // in the row-major scan; using Math.round would incorrectly choose 61.
+  const reached = reachableAreaAround(world, agent, {x: 60.5, y: 60}, 2.1);
+  assert.deepEqual([reached[0].x, reached[0].y], [60, 60]);
+});
+
+test('blocked integer center falls back to the closest passable neighbor', () => {
+  const world = makePassageWorld(), agent = {
+    id: 999999, x: 60, y: 60, alive: true, role: 'resident',
+    kingdomId: null, communityId: null
+  };
+  cellAt(world, 60, 60).terrain = 'rock';
+  const reached = reachableAreaAround(world, agent, agent, 2.1);
+  assert.deepEqual([reached[0].x, reached[0].y], [60, 59]);
+  assert.ok(!reached.some(tile => tile.x === 60 && tile.y === 60));
+});
+
 test('site-selection score pruning preserves ID reservation and valid builder workpoints', () => {
   const w = Sim.createWorld(42), community = w.communities[0];
   const builder = w.people.find(person => person.alive && person.communityId === community.id);
