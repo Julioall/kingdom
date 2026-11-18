@@ -13,7 +13,7 @@ const sheep = (id, x, y) => ({id, alive: true, speciesId: 'sheep',
 
 test('Boids uses a bounded local spatial index, not a world-wide all-pairs pass', () => {
   const animals = [sheep(1, 10, 10), sheep(2, 11, 10), sheep(3, 10, 11)];
-  for (let id = 4; id <= 2004; id++) animals.push(sheep(id, 500 + id, 500));
+  for (let id = 4; id <= 2004; id++) animals.push(sheep(id, 500 + id * 5, 500));
   const world = { animals, animalsSpatialIndex: createPersonSpatialIndex(animals) };
   const direction = localSteering(world, animals[0], {x: 20, y: 10});
   assert.equal(direction.neighbors, 2);
@@ -65,7 +65,7 @@ test('real movement uses safe grid steps, not continuous teleportation through o
     tile.elevationLevel = 0; tile.rampLevel = 0; tile.slope = 0;
     tile.kingdomId = null;
   }
-  for (const [x, y] of [[30, 40], [31, 40], [31, 39], [32, 39],
+  for (const [x, y] of [[30, 40], [30, 39], [31, 40], [31, 39], [32, 39],
     [32, 40], [33, 40], [34, 40], [35, 40]])
     cellAt(world, x, y).terrain = 'land';
   const actor = sheep(10001, 30, 40), blocker = sheep(10002, 31, 40);
