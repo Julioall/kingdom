@@ -41,6 +41,7 @@ import { canEnterForeignTerritory, kingdomRelation } from '../kingdoms/territori
 import { peopleNear } from './spatial-index.js';
 import { withIndividualDayIndexes } from './day-index-context.js';
 import { npcControlState, NPC_CONTROL, selectNpcActivity, prepareNpcLearningTransition } from './action-state-machine.js';
+import { beginNpcWorkflow, completeNpcWorkflow } from './task-workflow-hfsm.js';
 import { invalidateNavigation } from './navigation-cache.js';
 import { clearMilitaryCommand } from '../kingdoms/military-identity.js';
 import { updateResidencyAbsence } from '../society/residency.js';
@@ -1376,13 +1377,16 @@ function updatePeopleCore(w, phaseObserver = null) {
       // and observations, but before any execution or reinforcement learning.
       // The civilian neural policy remains lazy and is never evaluated when
       // a military, survival, cargo, or social guard already won.
-      const { action } = selectNpcActivity(p, {
+      const { action: selectedAction, mode: selectedMode } = selectNpcActivity(p, {
         campaignOrder, homeRest, survivalAction, returnToGarrison,
         militaryAction, carrierMaintenanceAction, fieldRest, socialPlan,
         peacetimeSoldier, droppedLoot, assignment, carryingGoods,
         seedCourierDuty, personalMarketCargoTrade, cargoAction, foodDuty,
         assignedBuildDuty, patrolDuty, waterTarget
       }, () => choosePeopleAction(w, p, inputs, utility));
+      const { action } = w.neuralOverrides?.taskWorkflow === true
+        ? beginNpcWorkflow(w, p, { action: selectedAction, mode: selectedMode }, community)
+        : { action: selectedAction };
       prepareNpcLearningTransition(p, action, {
         militaryAction, survivalAction, homeRest, carryingGoods,
         foodDuty, assignedBuildDuty, socialPlan, inputs, day: w.day
@@ -1748,6 +1752,7 @@ function updatePeopleCore(w, phaseObserver = null) {
         leadingSheepId: p.leadingSheepId
       };
       completeCommunityTask(w, p, action, taskStateBefore, taskStateAfter);
+      if (w.neuralOverrides?.taskWorkflow === true) completeNpcWorkflow(w, p, action, community);
       updateKingdomFoodSupplyPhase(p.assignment, p.foodReserve, p.carriedFood);
       if (community) recordCommunityUse(w, p);
       const after = p.energy * .28 + p.hydration * .25 + p.foodReserve * .3 + p.health * .17 + (100 - p.socialNeed) * .04;
