@@ -9,6 +9,7 @@ import { isRoadTile, recordFootstep } from '../world/roads.js';
 import { canTraverseElevation } from '../world/island-terrain.js';
 import { congestionRouteStep, rememberedRouteStep, rememberRouteArrival } from './navigation.js';
 import { firstPersonNear } from './spatial-index.js';
+import { chooseSteeredTile } from './steering-boids.js';
 import { consumePersonEnergy } from './energy.js';
 import { collidesWithWorldAt, hitboxesOverlap, mineralHitbox, npcHitbox, worldCollisionIndex } from '../physics/hitboxes.js';
 import { assignedHerdPen, corralFenceRadius, herdPenRadius } from '../ecology/herd.js';
@@ -384,6 +385,20 @@ function localCongestionStep(w, agent, start, canStepFree) {
   return null;
 }
 
+// The existing local rejoin BFS remains first. Steering is only a bounded
+// fallback for a temporary crowded tile, never a replacement for global A*.
+function localSteeringDetour(w, agent, start, destination, canStepFree) {
+  if (w.neuralOverrides?.steeringBoids !== true || !start) return null;
+  const candidates = [];
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    if (!dx && !dy) continue;
+    const tile = cellAt(w, start.x + dx, start.y + dy);
+    if (tile && canStepFree(start, tile)) candidates.push(tile);
+  }
+  return chooseSteeredTile(w, agent, start, destination, candidates,
+    { requireProgress: false }) || null;
+}
+
 function persistentCongestionStep(w, agent, start, destination, canEnterFree, canStepFree, movementOptions) {
   const key = agent.navigationRoute?.key, day = w.day || 0;
   let congestion = agent.navigationCongestion;
@@ -444,6 +459,14 @@ export function moveOne(w, agent, target, aquatic, movementOptions = null) {
         if (!canStepAgent(from, tile)) continue;
         choices.push(tile);
       }
+      // Ovelhas utilizam Boids somente nas opções que canStep já aprovou.
+      // `undefined` indica ausência de vizinhos e conserva o algoritmo
+      // original; `null` indica corredor ocupado e evita sobreposição.
+      if (w.neuralOverrides?.steeringBoids === true
+          && agent.speciesId === 'sheep' && agent.beingLedBy == null) {
+        const steered = chooseSteeredTile(w, agent, from, destination, choices);
+        if (steered !== undefined) return steered;
+      }
       const roadBias = agent.speciesId == null ? (movementOptions?.preferRoads ? 1.2 : .42) : 0;
       choices.sort((a, b) => {
         const scoreA = distance(a, destination) + a.slope * .08 - (isRoadTile(a) ? roadBias : 0);
@@ -484,7 +507,9 @@ export function moveOne(w, agent, target, aquatic, movementOptions = null) {
         const canEnterFree = tile => canEnter(w, agent, tile, aquatic, pen, corrals, movementOptions) && !personOnTile(w, tile, agent);
         const canStepFree = (from, to) => canStep(w, agent, from, to, aquatic, pen, corrals, movementOptions) && !personOnTile(w, to, agent);
         first = !personOnTile(w, preferred, agent) ? preferred : localCongestionStep(w, agent,
-          currentTile, canStepFree) || persistentCongestionStep(w, agent, currentTile, destination, canEnterFree, canStepFree, movementOptions);
+          currentTile, canStepFree)
+          || localSteeringDetour(w, agent, currentTile, destination, canStepFree)
+          || persistentCongestionStep(w, agent, currentTile, destination, canEnterFree, canStepFree, movementOptions);
         if (first) delete agent.navigationCongestion;
       } else {
         first = preferred;
@@ -538,6 +563,7 @@ export function moveOne(w, agent, target, aquatic, movementOptions = null) {
       agent.headingX = next.x - agent.x; agent.headingY = next.y - agent.y;
       agent.x = next.x; agent.y = next.y;
       w.peopleSpatialIndex?.move(agent);
+      if (agent.speciesId != null) w.animalsSpatialIndex?.move(agent);
       if (agent.speciesId == null && agent.leadingSheepId != null) syncLedSheepPosition(w, agent);
       markTerritoryStep(w, agent, next);
       recordFootstep(next, agent, w.day);
