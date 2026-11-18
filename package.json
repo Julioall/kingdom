@@ -17,6 +17,7 @@
     "bench:ai": "node scripts/evaluate-ai-behavior.mjs",
     "bench:npc-hotspots": "node scripts/profile-npc-workloads.mjs",
     "bench:npc-hybrid": "node scripts/benchmark-npc-hybrid.mjs",
+    "bench:npc-scale": "node scripts/validate-npc-hybrid-scale.mjs",
     "bench:render-worker": "node scripts/profile-render-worker-browser.mjs",
     "verify:images": "node scripts/verify-build-images.mjs",
     "assets:check": "node scripts/check-assets.mjs"
