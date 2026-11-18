@@ -107,7 +107,9 @@ export function sampleHybridQuality(world, tracker) {
       && Number.isInteger(route.cursor) && Array.isArray(route.path)
       && route.cursor < route.path.length - 1;
     if (routePending) activeRoutedActors++;
-    if (person.passageRequestSent?.day === world.day) daily.passageRequests++;
+    // Movement stamps the OLD day while stepDay advances the calendar later.
+    // This observer runs after stepDay, so count the completed day's event.
+    if (person.passageRequestSent?.day === world.day - 1) daily.passageRequests++;
     if (previous) {
       if (previous.action !== action) daily.actionSwitches++;
       if (previous.stage != null && flow?.stage != null
