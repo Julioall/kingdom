@@ -14,9 +14,12 @@ export function npcAssignmentIdentity(assignment) {
     assignment.expiresDay ?? ''].join('|');
 }
 
-function hasValidAssignment(person, day) {
+function hasCurrentAssignment(person, day) {
   return person.assignment && (person.assignment.expiresDay == null
-    || person.assignment.expiresDay >= day) && !person.assignment.pauseReason;
+    || person.assignment.expiresDay >= day);
+}
+function hasValidAssignment(person, day) {
+  return hasCurrentAssignment(person, day) && !person.assignment.pauseReason;
 }
 
 function cargoAmount(person) {
@@ -73,8 +76,10 @@ export function npcExecutionStage(world, person, action, community) {
 export function beginNpcWorkflow(world, person, choice, community) {
   const day = world.day;
   const previous = person.activityWorkflow;
-  const assignmentValid = hasValidAssignment(person, day);
-  const identity = assignmentValid ? npcAssignmentIdentity(person.assignment) : null;
+  const assignmentCurrent = hasCurrentAssignment(person, day);
+  const assignmentValid = assignmentCurrent && !person.assignment.pauseReason;
+  // Paused assignments remain the same mission during a survival interruption.
+  const identity = assignmentCurrent ? npcAssignmentIdentity(person.assignment) : null;
   const interruption = INTERRUPTIONS.has(choice.mode);
   let action = choice.action, mode = choice.mode;
   let resumeAction = null, resumeIdentity = null;
