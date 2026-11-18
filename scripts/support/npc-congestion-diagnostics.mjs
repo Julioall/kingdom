@@ -33,7 +33,10 @@ export function inspectNpcCongestion(world) {
     const bucket = blockedDays <= 1 ? 'one'
       : blockedDays === 2 ? 'two' : blockedDays <= 5 ? 'threeToFive' : 'sixPlus';
     summary.byBlockedDays[bucket]++;
-    if (congestion.lastBlockedDay === world.day) summary.blockedThisDay++;
+    // stepDay updates world.day in advanceCalendar AFTER NPC movement;
+    // congestion.lastBlockedDay uses the preceding world.day value.
+    // This audit runs after stepDay and must account for that phase order.
+    if (congestion.lastBlockedDay === world.day - 1) summary.blockedThisDay++;
     else summary.staleCongestionRecords++;
     if (congestion.nextSearchDay > world.day) summary.retryScheduledAfterToday++;
     const current = Math.round(person.y) * width + Math.round(person.x);
