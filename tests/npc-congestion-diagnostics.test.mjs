@@ -8,7 +8,7 @@ const person = (id, x, y, details = {}) => ({
 });
 test('diagnoses blocked TODAY vs stale and occupied next-grid-cell separately', () => {
   const blocked = person(1, 1, 1, {
-    navigationCongestion: {blockedDays: 2, lastBlockedDay: 4,
+    navigationCongestion: {blockedDays: 2, lastBlockedDay: 3,
       startIndex: 21, nextSearchDay: 7},
     navigationRoute: {cursor: 0, completed: false, path: [21, 22, 23]}
   });
@@ -20,7 +20,7 @@ test('diagnoses blocked TODAY vs stale and occupied next-grid-cell separately', 
     navigationRoute: {cursor: 0, completed: false, path: [84, 85]}
   });
   const uncertain = person(4, 9, 3, {
-    navigationCongestion: {blockedDays: 1, lastBlockedDay: 4,
+    navigationCongestion: {blockedDays: 1, lastBlockedDay: 3,
       startIndex: 69, nextSearchDay: 5}
   });
   const world = {day: 4, width: 20, people: [blocked, occupant, stale, uncertain]};
