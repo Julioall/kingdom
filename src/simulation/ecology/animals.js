@@ -11,6 +11,7 @@ import Senses from '../individuals/perception.js';
 import { bestPerceivedWaterCue, nearestWater } from '../individuals/actions.js';
 import { drinkWater } from './hydrology.js';
 import { moveOne } from '../individuals/movement.js';
+import { createPersonSpatialIndex } from '../individuals/spatial-index.js';
 import { log } from '../core/events.js';
 import { consumeStoreInventory } from '../economy/inventories.js';
 import { activeCommunityPens, assignedHerdPen, herdPenRadius, reconcileCommunityHerdPens } from './herd.js';
@@ -207,6 +208,13 @@ function communalSheepWalkTarget(w, animal, pen, penTiles, occupied) {
 }
 
 export function updateAnimals(w) {
+    // One dynamic spatial index for all sheep/animals during this animal day.
+    // A temporary runtime lookup, never a serialized second animal state.
+    const steering = w.neuralOverrides?.steeringBoids === true;
+    const hadPrevious = Object.prototype.hasOwnProperty.call(w, 'animalsSpatialIndex');
+    const previousIndex = w.animalsSpatialIndex;
+    if (steering) w.animalsSpatialIndex = createPersonSpatialIndex(w.animals);
+    try {
     const communityIds = new Set(w.animals.filter(animal => animal.alive && animal.speciesId === 'sheep'
       && animal.herdCommunityId != null).map(animal => animal.herdCommunityId));
     for (const communityId of communityIds) reconcileCommunityHerdPens(w, communityId);
@@ -383,6 +391,12 @@ export function updateAnimals(w) {
       if (a.energy <= .1 || (p.water && a.hydration <= .1) || a.ageDays > p.life) resolveAnimalDeath(w, a, p);
     }
     reproduceAnimals(w);
+    } finally {
+      if (steering) {
+        if (hadPrevious) w.animalsSpatialIndex = previousIndex;
+        else delete w.animalsSpatialIndex;
+      }
+    }
   }
 
 function resolveAnimalDeath(w, animal, profile) {
