@@ -3,7 +3,7 @@
 // sampled stack belongs to this area. Inclusive areas MAY OVERLAP.
 const AREAS = Object.freeze([
   'routeSearch', 'routeReuse', 'congestion', 'collision',
-  'movement', 'activitySelection', 'taskDelegation'
+  'movement', 'activitySelection', 'taskDelegation', 'constructionPlanning'
 ]);
 
 function sourceFile(frame) {
@@ -34,6 +34,12 @@ export function npcHotspotArea(frame) {
       || path === 'src/simulation/physics/hitboxes.js'
       || path === 'src/simulation/physics/structure-source-snapshot.js')
     return 'collision';
+  if (path === 'src/simulation/settlements/construction.js'
+      && ['chooseBuildSite', 'workOnCommunityStructure', 'canCommunityBuild',
+        'communityBuildUtility', 'overlapsSiteResources', 'nextCommunityStructure'].includes(name))
+    return 'constructionPlanning';
+  if (path === 'src/simulation/world/building-clearance.js'
+      && name === 'hasBuildingResourceClearance') return 'constructionPlanning';
   if (path === 'src/simulation/individuals/action-state-machine.js'
       && name === 'selectNpcActivity') return 'activitySelection';
   if (['choosePeopleAction', 'chooseMilitaryAction', 'buildPeoplePolicyInputs',
