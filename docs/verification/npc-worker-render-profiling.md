@@ -27,6 +27,7 @@ A cada repetição:
 | Movimento | `moveOne`, `reachableAreaAround`, `corralWaypoint` |
 | Decisões | `selectNpcActivity`, `choosePeopleAction`, `chooseMilitaryAction` |
 | Tarefas | `assignCommunityTasks`, `completeCommunityTask`, `constructionTaskProgress` |
+| Planejamento de obras | `chooseBuildSite`, `workOnCommunityStructure`, `hasBuildingResourceClearance` |
 
 O relatório contém **amostras exclusivas** (função em execução) e **inclusivas** (a função ou um ancestral está na pilha). Áreas inclusivas se sobrepõem quando A* chama colisão ou o movimento chama A*: **não somar suas porcentagens**. Porcentagem de amostras do V8 não é duração exata de uma função em milissegundos.
 
