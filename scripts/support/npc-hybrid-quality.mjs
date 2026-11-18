@@ -1,3 +1,4 @@
+import { inspectNpcCongestion } from './npc-congestion-diagnostics.mjs';
 // Read-only longitudinal health/economy/navigation audit for Kingdom.
 // Called *after* stepDay, outside the timed simulation and without attaching
 // transient fields to the world or people. All event counts are observations,
@@ -186,7 +187,8 @@ export function sampleHybridQuality(world, tracker) {
       dailyRouteCacheHits: daily.routeCacheHits,
       dailyFailureCacheHits: daily.routeFailureCacheHits,
       dailyPassageRequests: daily.passageRequests,
-      stationaryWhileRoutedDays: daily.stationaryWhileRoutedDays
+      stationaryWhileRoutedDays: daily.stationaryWhileRoutedDays,
+      congestionDiagnosis: inspectNpcCongestion(world)
     },
     behavior: {
       activeWorkflows, interruptedWorkflows: pendingWorkflows,
