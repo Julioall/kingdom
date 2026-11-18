@@ -14,7 +14,7 @@ Agora o score é calculado antes dessa etapa custosa. O candidato é descartado 
 
 O BFS original construía um array de células candidatas, um `Set` de células permitidas e um `Set` de visitadas, com milhares de números e hashes no mapa completo.
 
-O novo BFS marca permitido e visitado em `Uint8Array` do tamanho da grade. A escolha da célula inicial continua varrendo y antes de x, e as oito direções do BFS continuam na mesma ordem. O cache local de colisões/território (`passability`) ainda é recalculado por invocação, impedindo que mudanças de construção, plantas, elevação e permissões causem dados obsoletos.
+O novo BFS usa marcadores `Uint8Array` de visita e uma cache de passabilidade local. **Quando o centro é uma célula inteira e transitável**, essa célula é obrigatoriamente a mais próxima: a busca explora diretamente a componente conectada, validando os vizinhos sob demanda, em vez de verificar a passabilidade do mapa inteiro. **Centros fracionários e centros bloqueados** usam a varredura row-major original com um mapa compacto de células permitidas, preservando o desempate exato; as oito direções do BFS continuam na mesma ordem. O cache local de colisões/território (`passability`) ainda é recalculado por invocação, impedindo que mudanças de construção, plantas, elevação e permissões causem dados obsoletos.
 
 **Não** foi introduzido cache interdiário ou entre builders. Tal cache exigiria invalidação simultânea por recursos, território, corrals, estruturas, entidades e mudanças no movimento.
 
