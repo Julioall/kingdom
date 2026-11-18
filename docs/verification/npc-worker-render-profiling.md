@@ -33,7 +33,7 @@ O relatório contém **amostras exclusivas** (função em execução) e **inclus
 
 A saída inclui média, mediana e p95 do custo de um dia, separadas por população/seed. `controlDayMs` é referência sem instrumentação, não um A/B de implementação: as duas execuções são sequenciais e são afetadas por carga da máquina, compilação JIT e coleta de lixo. Para testar uma otimização, comparar **commits diferentes no mesmo host**, com as mesmas seeds, repetições e paridade.
 
-A CI executa 3 repetições por cenário de 100/500 agentes e seeds 1/42. É possível selecionar 5.000 personagens no acionamento manual do workflow, mas o custo de execução do dia cresce significativamente.
+A CI executa 3 repetições por cenário de 100/500 agentes e seeds 1/42. O acionamento manual para 5.000 personagens usa 2 repetições, seed 42 e nenhum dia de aquecimento, mantendo a comparação autoritativa com controle para limitar o custo do job. Esse modo identifica hotspots na escala de estresse, mas não substitui comparações de longo prazo.
 
 ## 2. Navegador: desenhar sem simular x desenhar com Worker ativo
 
