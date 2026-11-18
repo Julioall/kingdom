@@ -68,20 +68,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          DAYS=30
+          DAYS_LIST="30 90 180"
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            DAYS="${{ inputs.longDays }}"
+            DAYS_LIST="${{ inputs.longDays }}"
           fi
-          node scripts/validate-npc-hybrid-scale.mjs \
-            --populations=100 --seeds=42 \
-            --days="$DAYS" --repeats=2 --checkpoint-every=10 \
-            --output=out/pr138/longitudinal.json
+          for DAYS in $DAYS_LIST; do
+            node scripts/validate-npc-hybrid-scale.mjs \
+              --populations=100 --seeds=42 \
+              --days="$DAYS" --repeats=2 --checkpoint-every=10 \
+              --output="out/pr138/longitudinal-$DAYS.json"
+          done
       - name: Archive per-day task/navigation/health metrics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: kingdom-pr138-longitudinal
-          path: out/pr138/longitudinal.json
+          path: out/pr138/longitudinal-*.json
           retention-days: 14
 
   stress:
