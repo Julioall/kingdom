@@ -10,10 +10,9 @@ import { cellAt } from '../world/spatial.js';
 import { log } from '../core/events.js';
 import { activeCommunity, getSocialLink } from '../society/communities.js';
 import { addFoodReserve, communityFoodStock, consumeFoodReserve, transferCommunityFoodToReserve, transferFoodReserve } from '../economy/inventories.js';
-import { assignHome, planKingdomHome } from '../kingdoms/initialization.js';
-import { assessKingdomPopulationGrowth } from '../kingdoms/demography.js';
+import { assignHome } from '../kingdoms/initialization.js';
 import {
-  HUMAN_ADULT_AGE_DAYS, HUMAN_BIRTH_COOLDOWN_DAYS, HUMAN_FERTILE_START_DAYS,
+  HUMAN_ADOLESCENT_AGE_DAYS, HUMAN_ADULT_AGE_DAYS, HUMAN_BIRTH_COOLDOWN_DAYS, HUMAN_FERTILE_START_DAYS,
   HUMAN_FERTILE_END_DAYS, HUMAN_INITIAL_MIN_AGE_DAYS, HUMAN_INITIAL_AGE_SPAN_DAYS
 } from './human-age.js';
 import { moveOne } from './movement.js';
@@ -25,25 +24,46 @@ import { collidesWithWorldAt } from '../physics/hitboxes.js';
 const DEPENDENT_STARVATION_HEALTH_LOSS_PER_POINT = .035;
 const SHELTER_RESIDENT_CAPACITY = 13;
 
-function birthResidence(world, kingdomId, communityId, location) {
-    const dwellings = (world.structures || []).filter(structure => {
-      if (!['abrigo', 'casa'].includes(structure.type) || structure.complete !== true
-        || structure.destroyedDay != null || (structure.integrity != null && structure.integrity <= 0)
-        || (structure.health != null && structure.health <= 0)) return false;
-      return structure.type === 'casa'
-        ? kingdomId != null && structure.kingdomId === kingdomId
-        : communityId != null && structure.communityId === communityId;
-    }).map(structure => {
-      const capacity = Number.isFinite(structure.capacity) ? structure.capacity : SHELTER_RESIDENT_CAPACITY;
-      const occupants = (structure.residentIds || []).filter(id => world.people.some(person =>
-        person.id === id && person.alive && person.homeId === structure.id));
-      structure.residentIds = occupants;
-      return { structure, occupants, capacity };
-    }).filter(home => home.occupants.length < home.capacity);
-    dwellings.sort((a, b) => distance(a.structure, location) - distance(b.structure, location)
-      || a.structure.id - b.structure.id);
-    return dwellings[0] || null;
-  }
+function birthResidence(world, p, q, kingdomId, communityId, location) {
+  const homeIds = new Set([p.homeId, q.homeId].filter(id => id != null));
+  // Vacant municipal housing is an option for a new family, but it must
+  // accommodate BOTH partners and their child before conception occurs.
+  const dwellings = (world.structures || []).filter(structure => {
+    if (!['casa', 'abrigo'].includes(structure.type) || structure.complete !== true
+      || structure.destroyedDay != null || (structure.integrity != null && structure.integrity <= 0)
+      || (structure.health != null && structure.health <= 0)) return false;
+    if (structure.privateOwnerId != null && structure.privateOwnerId !== p.id && structure.privateOwnerId !== q.id) return false;
+    return structure.type === 'casa'
+      ? kingdomId != null && structure.kingdomId === kingdomId
+      : communityId != null && structure.communityId === communityId;
+  }).map(structure => {
+    const capacity = Number.isFinite(structure.capacity) ? structure.capacity : SHELTER_RESIDENT_CAPACITY;
+    const occupants = (structure.residentIds || []).filter(id => world.people.some(person =>
+      person.id === id && person.alive && person.homeId === structure.id));
+    structure.residentIds = occupants;
+    const needed = 1 + Number(p.homeId !== structure.id) + Number(q.homeId !== structure.id);
+    return { structure, occupants, capacity, needed };
+  }).filter(home => home.occupants.length + home.needed <= home.capacity);
+  dwellings.sort((a, b) => Number(homeIds.has(b.structure.id)) - Number(homeIds.has(a.structure.id))
+    || Number(b.structure.privateOwnerId === p.id || b.structure.privateOwnerId === q.id)
+      - Number(a.structure.privateOwnerId === p.id || a.structure.privateOwnerId === q.id)
+    || distance(a.structure, location) - distance(b.structure, location)
+    || a.structure.id - b.structure.id);
+  return dwellings[0] || null;
+}
+
+function hasDependentChildren(world, person) {
+  return (world.people || []).some(child => child.alive && child.ageDays < HUMAN_ADOLESCENT_AGE_DAYS
+    && child.parents?.includes(person.id));
+}
+
+function moveFamilyMemberIntoHome(world, person, structure) {
+  if (person.homeId === structure.id) return;
+  const previous = world.structures.find(home => home.id === person.homeId);
+  if (previous) previous.residentIds = (previous.residentIds || []).filter(id => id !== person.id);
+  person.homeId = structure.id;
+  structure.residentIds.push(person.id);
+}
 
 function availablePersonSpawn(w, x, y) {
   const origin = cellAt(w, Math.round(x), Math.round(y));
@@ -403,11 +423,11 @@ export function updateDependent(w, child) {
 export function reproducePeople(w) {
     if ((w.day + 1) % 30 !== 0) return;
     const living = w.people.filter(p => p.alive && p.ageDays >= HUMAN_FERTILE_START_DAYS && p.ageDays < HUMAN_FERTILE_END_DAYS
-      && p.campaignId == null && p.energy > 38 && p.foodReserve > 60
+      && p.role !== 'soldier' && p.campaignId == null && p.energy > 38 && p.foodReserve > 65
       && p.hydration > 34 && p.health > 50 && p.birthCooldown <= 0);
     const candidates = [];
     for (const p of living) for (const q of living) {
-      if (p.id >= q.id || p.sex === q.sex) continue;
+      if (p.id >= q.id || p.sex === q.sex || hasDependentChildren(w, p) || hasDependentChildren(w, q)) continue;
       const separation = distance(p, q);
       const stableHome = p.homeId != null && p.homeId === q.homeId && separation <= 8;
       if (separation > 2.2 && !stableHome) continue;
@@ -425,9 +445,7 @@ export function reproducePeople(w) {
     }
     candidates.sort((a, b) => b.score - a.score || a.p.id - b.p.id || a.q.id - b.q.id);
 
-    // The king evaluates food and childcare. No population quota creates babies:
-    // births still require concrete parents, relationships, food and housing.
-    const resourcePolicyByOwner = new Map();
+    // Family choices depend on their actual supplies and a home with capacity. No king or birth quota.
     const ownerKey = (kingdomId, communityId) => kingdomId == null
       ? 'community:' + (communityId ?? 'unaffiliated') : 'kingdom:' + kingdomId;
     const usedParents = new Set();
@@ -436,15 +454,10 @@ export function reproducePeople(w) {
       const { p, q, kingdomId, communityId, location } = candidate;
       const key = ownerKey(kingdomId, communityId);
       if (usedParents.has(p.id) || usedParents.has(q.id) || ownersWithoutHousing.has(key)) continue;
-      let policy = resourcePolicyByOwner.get(key);
-      if (!policy) {
-        policy = assessKingdomPopulationGrowth(w, kingdomId, communityId);
-        resourcePolicyByOwner.set(key, policy);
-        const kingdom = (w.kingdoms || []).find(item => item.id === kingdomId);
-        if (kingdom) kingdom.demographyPolicy = { ...policy, evaluatedDay: w.day + 1 };
-      }
-      if (!policy.maySupportChild || policy.careSlots <= 0) continue;
-      const residence = birthResidence(w, kingdomId, communityId, location);
+      // Both parents must have enough real personal reserves to finance
+      // pregnancy and continue supporting a dependent.
+      if (p.foodReserve + q.foodReserve < 145) continue;
+      const residence = birthResidence(w, p, q, kingdomId, communityId, location);
       if (!residence) {
         ownersWithoutHousing.add(key);
         const gates = w.birthHousingGate || (w.birthHousingGate = {});
@@ -455,12 +468,6 @@ export function reproducePeople(w) {
             : 'no reino ' + kingdomId;
           log(w, 'Nascimento adiado ' + owner + ': não existe moradia operacional com vaga.');
         }
-        // Paid construction, with a real site and workers, may unblock future
-        // births. Do not spawn children in nonexistent homes.
-        if (kingdomId != null) {
-          const kingdom = w.kingdoms.find(item => item.id === kingdomId);
-          if (kingdom) planKingdomHome(w, kingdom);
-        }
         continue;
       }
       if (w.birthHousingGate?.[key] === true) {
@@ -470,6 +477,10 @@ export function reproducePeople(w) {
           ? 'na comunidade ' + (communityId ?? 'sem vínculo') : 'no reino ' + kingdomId)
           + ': moradia operacional com vaga voltou a estar disponível.');
       }
+      moveFamilyMemberIntoHome(w, p, residence.structure);
+      moveFamilyMemberIntoHome(w, q, residence.structure);
+      p.partnerId = q.id;
+      q.partnerId = p.id;
       p.birthCooldown = q.birthCooldown = HUMAN_BIRTH_COOLDOWN_DAYS;
       consumePersonEnergy(p, 11); consumePersonEnergy(q, 8);
       p.hydration = Math.max(0, p.hydration - 2); q.hydration = Math.max(0, q.hydration - 2);
@@ -491,12 +502,6 @@ export function reproducePeople(w) {
       if (community && !community.memberIds.includes(baby.id)) community.memberIds.push(baby.id);
       w.births++; w.birthsByKind.people++;
       usedParents.add(p.id); usedParents.add(q.id);
-      policy.careSlots--;
-      policy.children++;
-      policy.population++;
-      if (!policy.careSlots) policy.maySupportChild = false;
-      const kingdom = (w.kingdoms || []).find(item => item.id === kingdomId);
-      if (kingdom) kingdom.demographyPolicy = { ...policy, evaluatedDay: w.day + 1 };
       const link = getSocialLink(w, p, q); link.trust = clamp(link.trust + .08, 0, 1);
       log(w, 'Nasceu ' + baby.name + '; ' + p.name + ' transferiu 7 dias e ' + q.name
         + ' transferiu 5 dias de suas reservas para financiar os 12 dias da reserva inicial.');
