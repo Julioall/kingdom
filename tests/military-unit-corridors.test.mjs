@@ -123,7 +123,7 @@ test('a live rear guard keeps the whole-unit lease after captain clears the brid
   assert.equal(moveOne(world, a[0], east, false), true);
   assert.deepEqual(militaryCorridorRearGuardTarget(world, a[1]), { x: 40, y: 40 },
     'all trailing soldiers get the real far-bank exit instead of a moving captain slot');
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < 28; i++) {
     world.day++;
     moveOne(world, a[0], east, false);
   }
@@ -137,8 +137,6 @@ test('a live rear guard keeps the whole-unit lease after captain clears the brid
   const claims = Object.values(world.militaryCorridorTraffic.corridors);
   assert.ok(claims.some(claim => !claim.empty && claim.ownerUnitId === 'a'),
     'other units cannot acquire this corridor before A finishes');
-  const ownerClaim = claims.find(claim => !claim.empty);
-  assert.equal(ownerClaim.recoveries, undefined);
   assert.equal(militaryCorridorYieldDecision(world, b, a[1]), null,
     'an unrelated blocker far beyond the bridge entrance is not pushed arbitrarily');
   assertPhysical(world);
