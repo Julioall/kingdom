@@ -168,7 +168,10 @@ export function addIndividuals(w, count, initial) {
         const plaza = [];
         for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
           const x = kingdom.x + dx, y = kingdom.y + dy;
-          if (cellAt(w, x, y)?.terrain === 'land' && !collidesWithWorldAt(w, ruler, x, y))
+          if (cellAt(w, x, y)?.terrain === 'land'
+            && (!largeInitialPopulation || !w.initialSpawnOccupied.has(y * w.width + x)
+              || Math.round(ruler.x) === x && Math.round(ruler.y) === y)
+            && !collidesWithWorldAt(w, ruler, x, y))
             plaza.push({ x, y, distance: dx * dx + dy * dy });
         }
         plaza.sort((a, b) => a.distance - b.distance || b.y - a.y || a.x - b.x);
