@@ -55,7 +55,7 @@ test('engine worlds without explicit military share keep the legacy initial rost
   assert.equal(world.people.length, 96);
   assert.equal(world.people.filter(p => p.role === 'soldier').length,
     INITIAL_SOLDIERS_PER_KINGDOM * 2);
-  assert.equal(world.initialMilitaryShare, null);
+  assert.equal(world.initialMilitaryShare, undefined);
 });
 
 test('invalid initial garrison shares cannot create arbitrary unbalanced troop counts', () => {
