@@ -11,7 +11,8 @@ import { clearMilitaryCommand } from './military-identity.js';
 import { createCombatAction, resolveCombatAction, frontGuard, isCombatTargetEligible, segmentCircle, BODY_RADIUS } from './combat-contact.js';
 import { cellAt } from '../world/spatial.js';
 import { canTraverseElevation } from '../world/island-terrain.js';
-import { combatPathObstruction, collidesWithWorldPositionAt, worldMovementBlocked, worldCollisionIndex } from '../physics/hitboxes.js';
+import { combatPathObstruction, collidesWithWorldPositionAt, worldMovementBlocked,
+  worldCollisionIndex, hitboxesOverlap, npcHitbox } from '../physics/hitboxes.js';
 import { peopleNear } from '../individuals/spatial-index.js';
 import { TERRITORY_AVOIDANCE_DAYS } from './territories.js';
 import { damageTrainingDummy, trainingDummiesForWorld } from '../world/training-dummies.js';
@@ -156,8 +157,12 @@ function nudgePersonFrom(world, person, threat, amount, direction = null) {
     if (!toTile || toTile.terrain === 'water' || toTile.terrain === 'rock'
         || !canTraverseElevation(fromTile, toTile)
         || collidesWithWorldPositionAt(world, person, x, y, collisionIndex)) continue;
-    const occupied = peopleNear(world, x, y, .55).some(other => other !== person && other.alive
-      && Math.hypot(other.x - x, other.y - y) < .42);
+    // Combat knockback must use the same actor hitboxes as movement.
+    // A .42 center-distance shortcut allowed two .22-radius soldiers to
+    // overlap, which only became apparent in prolonged 50-soldier contact.
+    const body = npcHitbox(person, x, y);
+    const occupied = peopleNear(world, x, y, 1).some(other => other !== person
+      && other.alive && hitboxesOverlap(body, npcHitbox(other)));
     if (occupied) continue;
     person.x = x; person.y = y;
     person.navigationRoute = null;
