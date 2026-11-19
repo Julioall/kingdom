@@ -1,3 +1,4 @@
+import { HUMAN_ADULT_AGE_DAYS } from '../src/simulation/individuals/human-age.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import engine from '../src/simulation/engine.js';
@@ -142,7 +143,7 @@ test('campaign resupply protects two days of civilian demand in food units', () 
   const side = campaign.attacker;
   const troop = world.people.find(person => person.id === side.troopIds[0]);
   const members = world.people.filter(person => person.alive && attacker.memberIds.includes(person.id));
-  for (const person of members) if (person.id !== troop.id) { person.role = 'pawn'; person.ageDays = 30 * 365; }
+  for (const person of members) if (person.id !== troop.id) { person.role = 'pawn'; person.ageDays = HUMAN_ADULT_AGE_DAYS + 60; }
   side.troopIds = [troop.id];
   troop.role = 'soldier';
   troop.campaignId = campaign.id;

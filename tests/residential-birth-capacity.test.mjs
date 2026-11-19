@@ -1,3 +1,4 @@
+import { HUMAN_ADULT_AGE_DAYS, HUMAN_BIRTH_COOLDOWN_DAYS } from '../src/simulation/individuals/human-age.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import engine from '../src/simulation/engine.js';
@@ -14,8 +15,8 @@ function makeParents(world) {
   const mother = adults.find(person => person.sex === 'F');
   const father = adults.find(person => person.sex === 'M');
   assert.ok(mother && father, 'fixture has adult residents of both sexes');
-  Object.assign(mother, { ageDays: 24 * 365, energy: 80, hydration: 80, health: 100, foodReserve: 80, birthCooldown: 0 });
-  Object.assign(father, { ageDays: 24 * 365, energy: 80, hydration: 80, health: 100, foodReserve: 80, birthCooldown: 0 });
+  Object.assign(mother, { ageDays: HUMAN_ADULT_AGE_DAYS + 60, energy: 80, hydration: 80, health: 100, foodReserve: 80, birthCooldown: 0 });
+  Object.assign(father, { ageDays: HUMAN_ADULT_AGE_DAYS + 60, energy: 80, hydration: 80, health: 100, foodReserve: 80, birthCooldown: 0 });
   mother.x = kingdom.x;
   mother.y = kingdom.y;
   father.x = kingdom.x + 1;
@@ -30,14 +31,19 @@ function configureHouseSlots(world, kingdom, availableSlots, excludeIds) {
     .filter(person => person && !excludeIds.has(person.id));
   for (const person of world.people) if (person.kingdomId === kingdom.id) person.homeId = null;
   let occupantIndex = 0;
+  const parentIds = [...excludeIds];
   for (const [index, home] of homes.entries()) {
     home.complete = true;
     home.destroyedDay = null;
     home.integrity = 1;
-    home.capacity = index === 0 ? 1 + availableSlots : 1;
+    home.capacity = index === 0 ? parentIds.length + availableSlots : 1;
     const occupant = residents[occupantIndex++];
-    home.residentIds = occupant ? [occupant.id] : [];
-    if (occupant) occupant.homeId = home.id;
+    home.residentIds = index === 0 ? parentIds.slice() : occupant ? [occupant.id] : [];
+    if (index !== 0 && occupant) occupant.homeId = home.id;
+    if (index === 0) for (const parentId of parentIds) {
+      const parent = world.people.find(person => person.id === parentId);
+      if (parent) parent.homeId = home.id;
+    }
   }
   for (const shelter of world.structures.filter(structure => structure.type === 'abrigo')) {
     shelter.complete = false;
@@ -63,7 +69,7 @@ test('a birth reserves one operational house vacancy and transfers the existing 
   assert.ok(baby);
   assert.equal(baby.homeId, home.id);
   assert.ok(home.residentIds.includes(baby.id));
-  assert.equal(home.residentIds.length, 2);
+  assert.equal(home.residentIds.length, 3, 'a household consists of two parents and their child');
   const firstParent = mother.id < father.id ? mother : father;
   const secondParent = mother.id < father.id ? father : mother;
   assert.equal(firstParent.foodReserve, (firstParent === mother ? motherFood : fatherFood) - 7);
@@ -72,8 +78,8 @@ test('a birth reserves one operational house vacancy and transfers the existing 
   assert.equal(secondParent.energy, (secondParent === mother ? motherEnergy : fatherEnergy) - 8 * PERSON_ENERGY_COST_SCALE);
   assert.equal(mother.hydration, motherHydration - 2);
   assert.equal(father.hydration, fatherHydration - 2);
-  assert.equal(mother.birthCooldown, 280);
-  assert.equal(father.birthCooldown, 280);
+  assert.equal(mother.birthCooldown, HUMAN_BIRTH_COOLDOWN_DAYS);
+  assert.equal(father.birthCooldown, HUMAN_BIRTH_COOLDOWN_DAYS);
   assert.equal(baby.foodReserve, 12);
   assert.deepEqual(kingdom.treasury.stock, treasury, 'birth does not create a second charge after the house was paid for');
   assert.equal(world.birthsByKind.people, 1);
@@ -102,9 +108,9 @@ test('a completed community shelter can provide the birth residence when houses 
   assert.ok(baby);
   assert.equal(baby.kingdomId, null);
   assert.equal(baby.homeId, shelter.id);
-  assert.deepEqual(shelter.residentIds, [baby.id]);
+  assert.deepEqual(new Set(shelter.residentIds), new Set([mother.id, father.id, baby.id]));
   assert.equal(baby.communityId, kingdom.communityId);
-  assert.equal(father.birthCooldown, 280);
+  assert.equal(father.birthCooldown, HUMAN_BIRTH_COOLDOWN_DAYS);
 });
 
 test('no birth occurs or consumes provisions when every residence is full or inactive', () => {
@@ -168,8 +174,8 @@ test('loss of the last operational home pauses a birth once and reconstruction r
   assert.ok(world.chronicle.some(event => event.category === 'Reino'
     && event.text.startsWith('Nascimento retomado')), 'recovery is visible in the chronicle');
   assert.equal(mother.foodReserve + father.foodReserve, before.food - 12);
-  assert.equal(mother.birthCooldown, 280);
-  assert.equal(father.birthCooldown, 280);
+  assert.equal(mother.birthCooldown, HUMAN_BIRTH_COOLDOWN_DAYS);
+  assert.equal(father.birthCooldown, HUMAN_BIRTH_COOLDOWN_DAYS);
 
   reproducePeople(world);
   assert.equal(world.people.filter(person => person.alive && person.parents?.includes(mother.id)).length, 1);

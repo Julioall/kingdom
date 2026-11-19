@@ -1,3 +1,4 @@
+import { HUMAN_ADULT_AGE_DAYS } from '../src/simulation/individuals/human-age.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import engine from '../src/simulation/engine.js';
@@ -40,12 +41,12 @@ function makeShepherdPassageWorld({ soldierFirst = true } = {}) {
   for (let x = 33; x <= 39; x++) cellAt(world, x, roadY - 1).terrain = 'land';
 
   const soldier = {
-    id: 99001, alive: true, name: 'Guerreiro', role: 'soldier', ageDays: 28 * 365,
+    id: 99001, alive: true, name: 'Guerreiro', role: 'soldier', ageDays: HUMAN_ADULT_AGE_DAYS + 75,
     x: soldierFirst ? 32 : 35, y: roadY, kingdomId: 1, communityId: 1, campaignId: 7,
     energy: 100, health: 100, foodReserve: 40, hydration: 70, lastMilitaryAttackDay: -99
   };
   const shepherd = {
-    id: 99002, alive: true, name: 'Pastor', role: 'resident', ageDays: 30 * 365,
+    id: 99002, alive: true, name: 'Pastor', role: 'resident', ageDays: HUMAN_ADULT_AGE_DAYS + 60,
     x: soldierFirst ? 33 : 36, y: roadY, kingdomId: 1, communityId: 1,
     energy: 100, health: 100, foodReserve: 40, hydration: 70,
     leadingSheepId: 99003, leadingSheepPenId: 99004,
@@ -168,7 +169,7 @@ test('movement keeps using the corral gate when a later tile on the route is blo
     tile.terrain = 'land';
     tile.kingdomId = 1;
   }
-  const person = { id: 99010, alive: true, role: 'resident', ageDays: 30 * 365,
+  const person = { id: 99010, alive: true, role: 'resident', ageDays: HUMAN_ADULT_AGE_DAYS + 60,
     x: 35, y: 39, kingdomId: 1, communityId: 1, energy: 100, health: 100,
     foodReserve: 40, hydration: 70 };
   const pen = { id: 99011, type: 'curral', x: 35, y: 40, radius: 2,

@@ -1,3 +1,4 @@
+import { HUMAN_ADOLESCENT_AGE_DAYS } from '../individuals/human-age.js';
 import { PLANTS, SHEEP_ADULT_AGE_DAYS, SHEEP_JUVENILE_MIN_SCALE } from '../../config/ecosystem.js';
 import { isTreeAnchor } from '../ecology/plants.js';
 import { STRUCTURE_COLLISION_PROFILES } from './collision-profiles.js';
@@ -69,7 +70,7 @@ function structureProfile(sprite) {
 export function npcHitbox(person, x = person?.x, y = person?.y) {
   if (!person || !Number.isFinite(x) || !Number.isFinite(y)) return null;
   const custom = person.hitbox && typeof person.hitbox === 'object' ? person.hitbox : null;
-  const defaultRadius = Number.isFinite(person.ageDays) && person.ageDays < 12 * 365
+  const defaultRadius = Number.isFinite(person.ageDays) && person.ageDays < HUMAN_ADOLESCENT_AGE_DAYS
     ? CHILD_NPC_RADIUS : DEFAULT_NPC_RADIUS;
   return {
     shape: 'circle',

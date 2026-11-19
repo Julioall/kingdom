@@ -1,3 +1,4 @@
+import { HUMAN_ADOLESCENT_AGE_DAYS } from '../src/simulation/individuals/human-age.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import engine from '../src/simulation/engine.js';
@@ -13,7 +14,7 @@ test('a funded field project can keep one builder working above the critical foo
   const community = world.communities[0];
   const members = world.people.filter(person => person.alive && person.communityId === community.id);
   const leader = members[0];
-  const worker = members.find(person => person.id !== leader.id && person.role !== 'soldier' && person.ageDays >= 12 * 365);
+  const worker = members.find(person => person.id !== leader.id && person.role !== 'soldier' && person.ageDays >= HUMAN_ADOLESCENT_AGE_DAYS);
   assert.ok(worker);
 
   const field = { id: 99502, type: 'roça', communityId: community.id, complete: false,
@@ -62,7 +63,7 @@ test('a kingdom prioritizes its first field and reserves one gatherer while food
   const kingdom = world.kingdoms.find(item => item.id === community.kingdomId);
   const members = world.people.filter(person => person.alive && person.communityId === community.id);
   const leader = members.find(person => person.id === kingdom.rulerId) || members[0];
-  const worker = members.find(person => person.id !== leader.id && person.role !== 'soldier' && person.ageDays >= 12 * 365);
+  const worker = members.find(person => person.id !== leader.id && person.role !== 'soldier' && person.ageDays >= HUMAN_ADOLESCENT_AGE_DAYS);
   community.stores.food = members.length * 5;
   kingdom.market.stock.food = 0;
 

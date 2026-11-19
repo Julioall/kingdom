@@ -1,3 +1,4 @@
+import { HUMAN_ADULT_AGE_DAYS } from '../src/simulation/individuals/human-age.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import engine from '../src/simulation/engine.js';
@@ -10,7 +11,7 @@ import { resolveSocialMeeting } from '../src/simulation/society/social-meetings.
 
 function fixture(role = 'resident', separation = 1) {
   const world = engine.createWorld(42);
-  const adults = world.people.filter(p => p.role === 'resident' && p.ageDays >= 12 * 365);
+  const adults = world.people.filter(p => p.role === 'resident' && p.ageDays >= HUMAN_ADULT_AGE_DAYS);
   const [person, helper] = adults;
   world.people = [person, helper];
   world.animals = [];
@@ -134,7 +135,7 @@ test('military duty and emergencies suspend a plan, recovery resumes the same ID
 
 test('remembered evidence influences helper choice; unknown facts and invisible people do not', () => {
   const { world, person, helper } = fixture();
-  helper.ageDays = 20 * 365;
+  helper.ageDays = HUMAN_ADULT_AGE_DAYS + 60;
   const other = { ...helper, id: 999, name: 'Outra pessoa', x: 22, socialMemories: [] };
   world.people.push(other);
   person.perception = { people: [helper, other].map(p => ({ id: p.id, distance: p.x - person.x,
@@ -178,7 +179,7 @@ test('persistent migration is selected after the original neural choice, and can
 test('a face-to-face report preserves its source and changes a subsequent helper choice only once', () => {
   const { world, person, helper } = fixture();
   const informant = { ...helper, id: 999, name: 'Informante', x: 20, y: 21,
-    ageDays: 20 * 365, socialMemories: [], socialBeliefs: [] };
+    ageDays: HUMAN_ADULT_AGE_DAYS + 60, socialMemories: [], socialBeliefs: [] };
   world.people.push(informant);
   person.foodReserve = 50;
   person.perception = { people: [{ id: informant.id, visible: true, distance: 1 }] };

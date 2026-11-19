@@ -1,3 +1,4 @@
+import { HUMAN_ADULT_AGE_DAYS } from '../src/simulation/individuals/human-age.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import engine from '../src/simulation/engine.js';
@@ -5,7 +6,7 @@ import { cellAt } from '../src/simulation/world/spatial.js';
 
 test('forced migration records a persistent destination without adding neural inputs', () => {
   const world = engine.createWorld(42);
-  const person = world.people.find(candidate => candidate.alive && candidate.role === 'resident' && candidate.ageDays >= 12 * 365);
+  const person = world.people.find(candidate => candidate.alive && candidate.role === 'resident' && candidate.ageDays >= HUMAN_ADULT_AGE_DAYS);
   assert.ok(person, 'seed 42 includes an adult resident');
   for (const tile of world.tiles) {
     tile.plants.fill(0);
@@ -61,7 +62,7 @@ test('forced migration records a persistent destination without adding neural in
 
 test('migration suspends at an impassable route and resumes the same destination when it opens', () => {
   const world = engine.createWorld(42);
-  const person = world.people.find(candidate => candidate.alive && candidate.role === 'resident' && candidate.ageDays >= 12 * 365);
+  const person = world.people.find(candidate => candidate.alive && candidate.role === 'resident' && candidate.ageDays >= HUMAN_ADULT_AGE_DAYS);
   assert.ok(person, 'seed 42 includes an adult resident');
   for (const candidate of world.people) if (candidate !== person) candidate.alive = false;
 

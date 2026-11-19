@@ -1,3 +1,4 @@
+import { HUMAN_ADULT_AGE_DAYS } from '../src/simulation/individuals/human-age.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { COMMUNITY_FOOD_CARRY_CAPACITY, FOOD_DAYS_PER_UNIT, PLANTS } from '../src/config/ecosystem.js';
@@ -8,11 +9,11 @@ import { drawCampaignRation } from '../src/simulation/kingdoms/campaigns.js';
 
 function careFixture(caregiverFood) {
   const caregiver = {
-    id: 1, alive: true, ageDays: 25 * 365, x: 0, y: 0, kingdomId: null, communityId: null,
+    id: 1, alive: true, ageDays: HUMAN_ADULT_AGE_DAYS + 40, x: 0, y: 0, kingdomId: null, communityId: null,
     foodReserve: caregiverFood, energy: 100, skills: { care: 0 }
   };
   const child = {
-    id: 2, alive: true, ageDays: 5 * 365, x: 0, y: 0, kingdomId: null, communityId: null,
+    id: 2, alive: true, ageDays: 90, x: 0, y: 0, kingdomId: null, communityId: null,
     parents: [caregiver.id], guardianId: caregiver.id, foodReserve: 12, hydration: 80,
     health: 100, injury: 0
   };

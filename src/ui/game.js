@@ -20,6 +20,8 @@ import { createMovementInterpolator } from './movement-interpolation.js';
 import { createDamageBarTracker } from './health-bars.js';
 import { GameSession } from '../app/session.ts';
 import { parseInitialPopulation } from './population-preset.js';
+import { personAgeScale, personLifeStage } from './person-age-scale.js';
+import { HUMAN_ADULT_AGE_DAYS } from '../simulation/individuals/human-age.js';
 import { SimulationClock } from '../app/simulation-loop.ts';
 import Sim from './simulation-view.js';
 import { DOMESTIC_SHEEP_DAILY_FEED, SHEEP_ADULT_AGE_DAYS, SHEEP_JUVENILE_MIN_SCALE } from '../config/ecosystem.js';
@@ -1125,7 +1127,7 @@ export function mountGame() {
   function drawMilitaryPerson(person, x, y, pose) {
     const { sprite, animation, elapsedMs, battle, loop } = militaryAnimationState(person, pose);
     const centerX = x + TILE / 2, baseY = y + TILE;
-    const scale = spriteScale(TILE, CHARACTER_SPRITE_SCALE);
+    const scale = spriteScale(TILE, CHARACTER_SPRITE_SCALE * personAgeScale(person.ageDays));
     const preview = manualAttackPreview?.personId === person.id ? manualAttackPreview : null;
     const action = isCombatStunned(person, world.day, world.magicTimeMs || 0)
       ? null : preview?.action || presentedCombatAction(person);
@@ -1181,7 +1183,7 @@ export function mountGame() {
     const animation = getUnitAnimation('pawn', sprite.action, palette);
     return animationRenderer.draw(ctx, animation, x + TILE / 2, y + TILE,
       { elapsedMs: actorAnimationClock.elapsed(person.id, animation.id, animationTime),
-        scale: spriteScale(TILE, CHARACTER_SPRITE_SCALE * (child ? .78 : 1)),
+        scale: spriteScale(TILE, CHARACTER_SPRITE_SCALE * personAgeScale(person.ageDays)),
         flipX: sprite.flip, loop: true, directDraw: optimizedPersonSprites,
         trackFastPath: trackPersonSpriteCoverage });
   }
@@ -2674,8 +2676,8 @@ export function mountGame() {
       const towerDrop = p.towerMounted
         ? ((militarySprite?.foot || 0) * .625 + (militarySprite?.size || 0) * .1)
           * spriteScale(TILE, CHARACTER_SPRITE_SCALE) : 0;
-      const x = pose.x * TILE, y = pose.y * TILE + towerDrop, child = p.ageDays < 12 * 365;
-      const scale = child ? .72 : 1, color = c ? c.color : ['#d9c28b', '#cfb585', '#e0c99b', '#c9b27f'][p.id % 4];
+      const x = pose.x * TILE, y = pose.y * TILE + towerDrop, child = p.ageDays < HUMAN_ADULT_AGE_DAYS;
+      const scale = personAgeScale(p.ageDays), color = c ? c.color : ['#d9c28b', '#cfb585', '#e0c99b', '#c9b27f'][p.id % 4];
       if (selection?.kind === 'person' && selection.id === p.id) {
         magicVfx.drawIndicator(ctx, x + TILE / 2, y + TILE - .5, animationTime);
       } else if (hoveredPersonId === p.id) drawHoverEnergyCircle(x + TILE / 2, y + TILE - .5);
@@ -2766,7 +2768,7 @@ export function mountGame() {
       const animation = person.role === 'soldier'
         ? militaryAnimationState(person, pose).animation
         : getUnitAnimation('pawn', residentSpritePose(person, pose, world.day).action, palette);
-      const scale = spriteScale(TILE, CHARACTER_SPRITE_SCALE * (person.role === 'soldier' || person.ageDays >= 12 * 365 ? 1 : .78));
+      const scale = spriteScale(TILE, CHARACTER_SPRITE_SCALE * personAgeScale(person.ageDays));
       return animationSpriteBounds(animation, x + TILE / 2, y + TILE, scale, pose.rotation);
     }
     if (item.kind === 'animal') {
@@ -3304,6 +3306,7 @@ export function mountGame() {
           ? '<div class="data-row"><span>Recuperação em casa</span><b>'
             + esc(recoveryNeeds.length ? 'Falta recuperar: ' + recoveryNeeds.join(' · ') : 'Recuperado · sai no próximo dia') + '</b></div>' : '') +
         '<div class="data-row"><span>Idade aproximada</span><b>' + fmt(p.ageDays / 365, 1) + ' anos</b></div>' +
+        '<div class="data-row"><span>Fase da vida</span><b>' + personLifeStage(p.ageDays) + '</b></div>' +
         '<div class="data-row"><span>Reserva alimentar (dias) / água</span><b>' + Math.round(p.foodReserve) + ' / ' + Math.round(p.hydration) + '%</b></div>' +
         (p.role === 'soldier' ? '<div class="data-row"><span>Vitalidade de combate</span><b>' + Math.round(p.health / 100 * (p.maxCombatHealth || 100)) + ' / ' + (p.maxCombatHealth || 100) + '</b></div>' : '') +
         (p.role === 'soldier' ? '<div class="data-row"><span>Estamina</span><b>' + Math.round(p.stamina ?? p.maxStamina ?? 200) + ' / ' + (p.maxStamina || 200) + '</b></div>' : '') +

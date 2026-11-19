@@ -2,7 +2,12 @@ import { initializeTowerHealth, TOWER_HEALTH } from './fortifications.js';
 import { log } from '../core/events.js';
 import { enlistSoldier } from './service.js';
 import { recruitKingdomSoldier, buildKingdomStructure, findMilitaryCenterWithVacancy } from './commands.js';
-import { assignHome, INITIAL_MILITARY_ROSTER } from './initialization.js';
+import { assignHome, INITIAL_MILITARY_ROSTER, planKingdomHome, privateHomeBuyerEligible } from './initialization.js';
+import { HUMAN_ADULT_AGE_DAYS } from '../individuals/human-age.js';
+import { wantsMilitaryService } from './population-policy.js';
+import { moveOne } from '../individuals/movement.js';
+import { cellAt } from '../world/spatial.js';
+import { consumePersonEnergy } from '../individuals/energy.js';
 import { militaryClassSource } from './military-sources.js';
 
 function pauseRecruitment(world, person, order, day, reason) {
@@ -21,9 +26,54 @@ function resumeRecruitment(world, person, order, day) {
   delete order.pauseReason;
 }
 
+function progressPrivateHome(world, structure, day) {
+  if (!structure.privateConstruction || structure.complete || structure.destroyedDay != null) return;
+  const owner = world.people.find(p => p.id === structure.privateOwnerId && p.alive
+    && p.role === 'resident' && p.ageDays >= HUMAN_ADULT_AGE_DAYS
+    && p.kingdomId === structure.kingdomId && !p.playerControlled && p.campaignId == null);
+  if (!owner || owner.health < 40 || owner.hydration < 22 || owner.foodReserve < 20 || owner.energy < 22) return;
+  const range = Math.hypot(owner.x - structure.x, owner.y - structure.y);
+  if (range > 2) {
+    const target = cellAt(world, structure.x, structure.y);
+    if (target) moveOne(world, owner, target, false);
+    owner.state = 'indo construir a casa própria';
+    return;
+  }
+  structure.lastConstructionWorkerId = owner.id;
+  structure.lastConstructionWorkPosition = { x: owner.x, y: owner.y };
+  structure.lastConstructionWorkDay = day;
+  structure.constructionStartedDay ??= day;
+  owner.state = 'construindo a própria casa';
+  consumePersonEnergy(owner, .25);
+}
+
 export function advanceKingdomProjects(world, day) {
+  // The initiative and the gold are the resident's, not a royal population
+  // plan. Any financially eligible adult may commission their own house.
+  if (day % 30 === 0) for (const person of world.people) {
+    if (!person.alive || person.kingdomId == null) continue;
+    if (person.role === 'resident') person.volunteerForService = wantsMilitaryService(person, world);
+    if (person.role === 'soldier') person.serviceResignationRequested =
+      person.campaignId == null && (person.militaryPayArrearsCopper || 0) > 0;
+  }
+  if (day % 30 === 0) for (const kingdom of world.kingdoms) {
+    const candidates = world.people.filter(person => person.kingdomId === kingdom.id
+      && privateHomeBuyerEligible(world, person))
+      .sort((a, b) => ((b.personalWallet?.stock?.gold || 0) - (a.personalWallet?.stock?.gold || 0))
+        || a.id - b.id);
+    for (const owner of candidates) {
+      if (planKingdomHome(world, kingdom, { ownerId: owner.id })) break;
+    }
+  }
+
   // The king funds specialist training from the same treasury and adult population as manual recruitment.
   if (day >= 24 && day % 12 === 0) for (const kingdom of world.kingdoms) {
+    const inDefense = (world.campaigns || []).some(c => c.status !== 'complete'
+      && (c.attackerId === kingdom.id || c.defenderId === kingdom.id));
+    const recentAlert = kingdom.frontierAlert && day - kingdom.frontierAlert.day <= 10;
+    const forceRequested = (kingdom.militaryIntel || []).some(item => item.kind === 'force-requested'
+      && item.status === 'pending');
+    if (!inDefense && !recentAlert && !forceRequested) continue;
     for (const { school, militaryClass, count: target } of INITIAL_MILITARY_ROSTER) {
       if (!militaryClassSource(world, kingdom.id, militaryClass)) {
         if (!world.structures.some(s => s.kingdomId === kingdom.id && s.type === school && s.kingdomProject
@@ -33,11 +83,12 @@ export function advanceKingdomProjects(world, day) {
       }
       const count = world.people.filter(p => p.alive && p.kingdomId === kingdom.id
         && (p.role === 'soldier' && p.militaryClass === militaryClass || p.recruitmentOrder?.militaryClass === militaryClass)).length;
-      if (count < target) recruitKingdomSoldier(world, kingdom.id, { militaryClass, startedDay: day });
+      if (count < target) recruitKingdomSoldier(world, kingdom.id, { militaryClass, startedDay: day, requisition: true });
     }
   }
 
   for (const structure of world.structures) {
+    progressPrivateHome(world, structure, day);
     if (!structure.kingdomProject || structure.complete || structure.builtDay != null) continue;
     structure.siegeBlocked = world.people.some(p => p.alive && p.role === 'soldier' && p.kingdomId !== structure.kingdomId && p.campaignId != null && Math.hypot(p.x - structure.x, p.y - structure.y) < 6);
     if (structure.siegeBlocked) continue;
@@ -56,6 +107,18 @@ export function advanceKingdomProjects(world, day) {
     structure.complete = true;
     structure.builtDay = day;
     structure.constructionStatus = 'obra concluída';
+    if (structure.privateOwnerId != null) {
+      const owner = world.people.find(p => p.id === structure.privateOwnerId && p.alive
+        && p.kingdomId === structure.kingdomId);
+      if (owner) {
+        const previous = world.structures.find(home => home.id === owner.homeId);
+        if (previous) previous.residentIds = (previous.residentIds || []).filter(id => id !== owner.id);
+        owner.homeId = structure.id;
+        structure.residentIds = [owner.id];
+        owner.privateHomeProjectId = null;
+        owner.state = 'mudou para a casa própria';
+      }
+    }
     structure.completedWorkerIds = (structure.workerIds || []).slice();
     const assignedIds = new Set([...(structure.workerIds || []), ...(structure.escortIds || []),
       ...world.people.filter(p => p.constructionProjectId === structure.id).map(p => p.id)]);

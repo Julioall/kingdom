@@ -1,3 +1,4 @@
+import { HUMAN_ADULT_AGE_DAYS, HUMAN_RECRUIT_AGE_DAYS } from '../individuals/human-age.js';
 import { HEIGHT, PLANTS, REGION_SIDE, WIDTH } from '../../config/ecosystem.js';
 import { idx } from './spatial.js';
 import { hash01, spatialNoise } from '../core/math.js';
@@ -32,7 +33,7 @@ function mobilizeFoundingGarrison(world, kingdom, targetSoldiers) {
     && structure.type === 'centro_militar' && structure.complete && structure.destroyedDay == null);
   if (!center) throw new Error('Guarnição fundadora sem centro militar em ' + kingdom.name);
   const candidates = allMembers.filter(p => p.role === 'resident')
-    .sort((a, b) => (Number(b.ageDays >= 15 * 365) - Number(a.ageDays >= 15 * 365))
+    .sort((a, b) => (Number(b.ageDays >= HUMAN_RECRUIT_AGE_DAYS) - Number(a.ageDays >= HUMAN_RECRUIT_AGE_DAYS))
       || (b.physicalStrength || 0) - (a.physicalStrength || 0)
       || a.id - b.id);
   if (candidates.length < additional)
@@ -45,8 +46,8 @@ function mobilizeFoundingGarrison(world, kingdom, targetSoldiers) {
     const person = candidates[index];
     // A founding regiment must not enlist children. Mature the selected
     // generated characters if the original demographic mix lacks adults.
-    if (person.ageDays < 15 * 365) {
-      person.ageDays = 18 * 365;
+    if (person.ageDays < HUMAN_RECRUIT_AGE_DAYS) {
+      person.ageDays = HUMAN_ADULT_AGE_DAYS;
       person.guardianId = null;
     }
     enlistSoldier(world, person, center, world.day,
@@ -60,13 +61,13 @@ function ensureInitialMilitaryRecruitmentPool(world) {
   const minimumAdultCount = INITIAL_SOLDIERS_PER_KINGDOM + 1 + MIN_INITIAL_ADULT_WORKERS_PER_KINGDOM;
   for (const kingdom of world.kingdoms) {
     const members = kingdom.memberIds.map(id => world.people.find(person => person.id === id && person.alive)).filter(Boolean);
-    const adultCount = members.filter(person => person.ageDays >= 15 * 365).length;
+    const adultCount = members.filter(person => person.ageDays >= HUMAN_RECRUIT_AGE_DAYS).length;
     if (adultCount >= minimumAdultCount) continue;
-    const toPromote = members.filter(person => person.role === 'resident' && person.ageDays < 15 * 365)
+    const toPromote = members.filter(person => person.role === 'resident' && person.ageDays < HUMAN_RECRUIT_AGE_DAYS)
       .sort((a, b) => b.ageDays - a.ageDays || a.id - b.id)
       .slice(0, minimumAdultCount - adultCount);
     for (const person of toPromote) {
-      person.ageDays = 15 * 365 + hash01(world.seed + person.id * 97, person.id, kingdom.id) * 8 * 365;
+      person.ageDays = HUMAN_RECRUIT_AGE_DAYS + hash01(world.seed + person.id * 97, person.id, kingdom.id) * 100;
       person.guardianId = null;
     }
   }

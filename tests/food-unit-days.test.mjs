@@ -1,3 +1,4 @@
+import { HUMAN_ADULT_AGE_DAYS } from '../src/simulation/individuals/human-age.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DAILY_FOOD_NEED, FOOD_DAYS_PER_UNIT, MEAT_NUTRITIONAL_VALUE } from '../src/config/ecosystem.js';
@@ -20,9 +21,9 @@ test('one stored food unit equals one person-day and personal reserves are measu
 
 test('adults, dependents, and peacetime soldiers all consume one person-day per day', () => {
   const members = [
-    { id: 1, ageDays: 30 * 365, role: 'pawn' },
-    { id: 2, ageDays: 5 * 365, role: 'pawn' },
-    { id: 3, ageDays: 30 * 365, role: 'soldier' }
+    { id: 1, ageDays: HUMAN_ADULT_AGE_DAYS + 60, role: 'pawn' },
+    { id: 2, ageDays: 180, role: 'pawn' },
+    { id: 3, ageDays: HUMAN_ADULT_AGE_DAYS + 60, role: 'soldier' }
   ];
 
   assert.equal(DEPENDENT_DAILY_FOOD_NEED, 1);

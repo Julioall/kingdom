@@ -1,3 +1,4 @@
+import { HUMAN_ADULT_AGE_DAYS, HUMAN_RECRUIT_AGE_DAYS } from '../individuals/human-age.js';
 import { DOMESTIC_SHEEP_DAILY_FEED, feedRationPortions, MEAT_NUTRITIONAL_VALUE, PLANTS } from '../../config/ecosystem.js';
 import { formatWholeMeasure } from '../../config/whole-measures.js';
 import { presentKingdomReport } from '../../ai/kingdom-report-presentation.js';
@@ -13,6 +14,8 @@ import { cultivatedFieldStandingBiomass, cultivatedFieldYieldTarget } from '../e
 import { calendarDate } from '../ecology/climate.js';
 import { log } from '../core/events.js';
 import { recruitKingdomSoldier, SOLDIER_COST } from './commands.js';
+import { updateKingdomForceBalance, wantsMilitaryService } from './population-policy.js';
+import { procureKingdomRepairMaterials } from './market-procurement.js';
 import { AI_DECISION_CONTRACT_VERSION, validateDecisionAction, validateDecisionResult } from '../../ai/contracts.js';
 import { stripAbsoluteCalendarFields } from '../../ai/observations.js';
 import { KINGDOM_STRATEGY_DECISION_GUIDANCE } from '../../ai/kingdom-strategy-prompt.js';
@@ -70,6 +73,8 @@ export function observeKingdomStrategy(world, kingdomId) {
   const market = kingdom.market || {};
   const foodDemand = kingdomFoodDemand(world, kingdom);
   const population = foodDemand.members.length;
+  const adultPopulation = foodDemand.members.filter(person => person.ageDays >= HUMAN_RECRUIT_AGE_DAYS).length;
+  const civilianAdults = foodDemand.members.filter(person => person.ageDays >= HUMAN_RECRUIT_AGE_DAYS && person.role !== 'soldier').length;
   const dailyFoodNeed = foodDemand.dailyFoodNeed;
   const memberIds = new Set(kingdom.memberIds || []);
   const reportedDemand = finite(market.demand && market.demand.food);
@@ -98,7 +103,7 @@ export function observeKingdomStrategy(world, kingdomId) {
   const safeBuilderFoodFloor = activeCropProject ? FIELD_CONSTRUCTION_MIN_FOOD_RESERVE : 16;
   const safeBuilderEnergyFloor = activeCropProject ? FIELD_CONSTRUCTION_MIN_ENERGY : 27;
   const safeBuilderAvailable = world.people.some(person => person.alive && memberIds.has(person.id) && person.role !== 'soldier'
-    && person.ageDays >= 12 * 365 && person.energy > safeBuilderEnergyFloor && person.hydration > 18 && person.health > 28
+    && person.ageDays >= HUMAN_ADULT_AGE_DAYS && person.energy > safeBuilderEnergyFloor && person.hydration > 18 && person.health > 28
     && person.foodReserve > safeBuilderFoodFloor);
   const activeFoodProject = communityStructures.some(structure => ['abrigo', 'roÃ§a'].includes(structure.type) && !structure.complete);
   const size = community ? community.memberIds.length : population;
@@ -237,7 +242,7 @@ export function observeKingdomStrategy(world, kingdomId) {
     return count + Math.max(0, (center.capacity || 8) - (center.soldierIds || []).length - pending);
   }, 0);
   const eligibleRecruitCount = world.people.filter(person => person.alive && memberIds.has(person.id)
-    && person.role === 'resident' && person.ageDays >= 15 * 365 && !person.recruitmentOrder
+    && person.role === 'resident' && person.ageDays >= HUMAN_RECRUIT_AGE_DAYS && !person.recruitmentOrder
     && person.energy >= 30 && person.hydration >= 30 && person.health >= 55 && person.foodReserve >= 24).length;
   const treasuryStock = kingdom.treasury && kingdom.treasury.stock || {};
   const damagedStructures = damagedKingdomStructures(world, kingdom.id);
@@ -254,6 +259,7 @@ export function observeKingdomStrategy(world, kingdomId) {
     repairReady: canRepairKingdomStructure(world, community)
   };
   const recruitmentAvailable = recruitmentSlots > 0 && eligibleRecruitCount > 0
+    && (world.initialMilitaryShare !== .8 || civilianAdults > Math.max(8, Math.ceil(adultPopulation * .35)))
     && Object.entries(SOLDIER_COST).every(([resource, amount]) => finite(treasuryStock[resource]) >= amount);
   const availableSoldiers = world.people.filter(person => person.alive && person.kingdomId === kingdom.id
     && person.role === 'soldier' && person.campaignId == null).length;
@@ -319,6 +325,10 @@ export function observeKingdomStrategy(world, kingdomId) {
       foodDemand: reportedDemand
     },
     military: {
+      soldiers: foodDemand.members.filter(person => person.role === 'soldier').length,
+      adultPopulation,
+      civilianAdults,
+      volunteers: foodDemand.members.filter(person => person.volunteerForService && wantsMilitaryService(person, world)).length,
       frontierAlert: kingdom.frontierAlert && world.day - kingdom.frontierAlert.day <= 10 ? { ...kingdom.frontierAlert } : null,
       recentTerritoryLosses: (kingdom.frontierLosses || []).filter(item => world.day - item.day <= 60).map(item => ({ ...item })),
       knownEnemyInstallations: (kingdom.knownEnemyInstallations || []).filter(item => world.day - item.day <= 60).map(item => ({ ...item })),
@@ -439,7 +449,7 @@ function recruitForPendingForce(world, kingdom, report) {
       || !report.military.recruitment.available
       || report.community.sharedFood < foodUnitsPerDay(report.community.dailyFoodNeed)) return false;
 
-  const result = recruitKingdomSoldier(world, kingdom.id, { startedDay: world.day + 1 });
+  const result = recruitKingdomSoldier(world, kingdom.id, { startedDay: world.day + 1, requisition: true });
   if (!result.ok) return false;
   kingdom.militaryRecruitments ||= [];
   kingdom.militaryRecruitments.push({
@@ -1035,10 +1045,13 @@ export function failKingdomStrategicAiRequest(world, request, { reason = 'inferÃ
 export function updateKingdomStrategies(world, planner = planKingdomStrategy) {
   const strategies = [];
   for (const kingdom of world.kingdoms || []) {
+    procureKingdomRepairMaterials(world, kingdom);
     fundFoodInfrastructure(world, kingdom);
     dispatchKingdomReserves(world, kingdom);
-    const report = observeKingdomStrategy(world, kingdom.id);
+    let report = observeKingdomStrategy(world, kingdom.id);
     if (!report) continue;
+    const forceAdjustment = updateKingdomForceBalance(world, kingdom, report);
+    if (forceAdjustment?.changed) report = observeKingdomStrategy(world, kingdom.id);
     recruitForPendingForce(world, kingdom, report);
     const previous = kingdom.strategy || null;
     let activeAiPlan = world.strategicAI && world.strategicAI.enabled && previous && previous.aiPlan

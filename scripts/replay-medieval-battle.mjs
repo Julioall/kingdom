@@ -1,3 +1,4 @@
+import { HUMAN_ADULT_AGE_DAYS } from '../src/simulation/individuals/human-age.js';
 // Reproducible, inspectable REAL Kingdom simulation replay for battlefield QA.
 // Usage: node scripts/replay-medieval-battle.mjs --seed=42 --days=75 --interval=5 --output=out/battle-replay.html
 import Sim from '../src/simulation/engine.js';
@@ -44,7 +45,7 @@ function stageReinforcements(world, countPerKingdom) {
       person.name = 'Reforço ' + kingdom.id + '-' + (index + 1);
       person.x = point.x;
       person.y = point.y;
-      person.ageDays = Math.max(18 * 365, person.ageDays || 18 * 365);
+      person.ageDays = Math.max(HUMAN_ADULT_AGE_DAYS, person.ageDays || HUMAN_ADULT_AGE_DAYS);
       person.playerControlled = false;
       person.energy = 95;
       person.health = 100;

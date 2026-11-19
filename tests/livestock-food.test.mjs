@@ -1,3 +1,4 @@
+import { HUMAN_ADULT_AGE_DAYS, HUMAN_ADOLESCENT_AGE_DAYS } from '../src/simulation/individuals/human-age.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { attemptHumanHunt, huntForFood, nearestEmergencyHerdSheep } from '../src/simulation/individuals/actions.js';
@@ -7,7 +8,7 @@ import engine from '../src/simulation/engine.js';
 
 function herdFixture(adultCount = 3) {
   const community = { id: 1, name: 'Valedouro', stores: { food: 0, meat: 0 }, memberIds: [1], history: [] };
-  const person = { id: 1, alive: true, name: 'Ayo', communityId: community.id, ageDays: 25 * 365,
+  const person = { id: 1, alive: true, name: 'Ayo', communityId: community.id, ageDays: HUMAN_ADULT_AGE_DAYS + 40,
     x: 10, y: 10, foodReserve: 8, carriedMeat: 0, energy: 80, hydration: 80, injury: 0,
     physicalStrength: 1, skills: { hunt: 1 } };
   const sheep = Array.from({ length: adultCount }, (_, index) => ({ id: index + 11, speciesId: 'sheep', alive: true,
@@ -131,7 +132,7 @@ test('resident under food pressure delivers carried meat to a nearby shelter', (
   const world = engine.createWorld(42);
   const community = world.communities[0];
   const person = world.people.find(item => item.alive && item.communityId === community.id
-    && item.role !== 'soldier' && item.ageDays >= 12 * 365);
+    && item.role !== 'soldier' && item.ageDays >= HUMAN_ADOLESCENT_AGE_DAYS);
   const shelter = { id: world.nextId++, type: 'abrigo', complete: true, destroyedDay: null,
     communityId: community.id, x: person.x, y: person.y, integrity: 100, health: 100, meatStored: 0 };
   world.structures.push(shelter);
@@ -157,7 +158,7 @@ test('a residual fraction of meat can be delivered before a full-yield hunt', ()
   const world = engine.createWorld(42);
   const community = world.communities[0];
   const person = world.people.find(item => item.alive && item.communityId === community.id
-    && item.role !== 'soldier' && item.ageDays >= 12 * 365);
+    && item.role !== 'soldier' && item.ageDays >= HUMAN_ADOLESCENT_AGE_DAYS);
   const shelter = { id: world.nextId++, type: 'abrigo', complete: true, destroyedDay: null,
     communityId: community.id, x: person.x, y: person.y, integrity: 100, health: 100, meatStored: 0 };
   world.structures.push(shelter);

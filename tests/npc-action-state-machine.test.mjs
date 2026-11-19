@@ -1,3 +1,4 @@
+import { HUMAN_ADULT_AGE_DAYS, HUMAN_ADOLESCENT_AGE_DAYS } from '../src/simulation/individuals/human-age.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -43,16 +44,16 @@ const options = (pick, values) => values[Math.floor(pick() * values.length)];
 const randomBool = pick => pick() < .5;
 
 test('control states derive from canonical NPC identity without persistent copies', () => {
-  const p = { alive: true, ageDays: 20 * 365, role: 'civilian', playerControlled: false, campaignId: null };
+  const p = { alive: true, ageDays: HUMAN_ADULT_AGE_DAYS + 55, role: 'civilian', playerControlled: false, campaignId: null };
   assert.equal(npcControlState(p), NPC_CONTROL.AUTONOMOUS);
   assert.equal(npcControlState({ ...p, role: 'soldier' }), NPC_CONTROL.GARRISON);
   assert.equal(npcControlState({ ...p, campaignId: 4 }), NPC_CONTROL.CAMPAIGN);
   assert.equal(npcControlState({ ...p, role: 'soldier', playerControlled: true }), NPC_CONTROL.PLAYER);
-  assert.equal(npcControlState({ ...p, role: 'soldier', ageDays: 12 * 365 - 1,
+  assert.equal(npcControlState({ ...p, role: 'soldier', ageDays: HUMAN_ADOLESCENT_AGE_DAYS - 1,
     playerControlled: true }), NPC_CONTROL.DEPENDENT);
   assert.equal(npcControlState({ ...p, alive: false }), NPC_CONTROL.DEAD);
   assert.equal(npcControlState(null), NPC_CONTROL.DEAD);
-  assert.equal(npcControlState({ ...p, ageDays: 12 * 365 }), NPC_CONTROL.AUTONOMOUS);
+  assert.equal(npcControlState({ ...p, ageDays: HUMAN_ADULT_AGE_DAYS }), NPC_CONTROL.AUTONOMOUS);
 });
 
 test('machine preserves legacy action AND lazy neural invocation across 20k guard combinations', () => {

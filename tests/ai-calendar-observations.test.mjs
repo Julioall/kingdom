@@ -1,3 +1,4 @@
+import { HUMAN_ADULT_AGE_DAYS } from '../src/simulation/individuals/human-age.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import engine from '../src/simulation/engine.js';
@@ -217,7 +218,7 @@ test('an old market plan is refused immediately when a ready crop project can co
   kingdom.treasury.stock.food = 0;
   kingdom.market.stock.food = 42;
   const worker = world.people.find(person => person.alive && person.communityId === community.id
-    && person.role !== 'soldier' && person.ageDays >= 12 * 365 && person.id !== community.leaderId);
+    && person.role !== 'soldier' && person.ageDays >= HUMAN_ADULT_AGE_DAYS && person.id !== community.leaderId);
   Object.assign(worker, { foodReserve: 50, energy: 80, hydration: 80, health: 100, assignment: null });
   world.structures.push({ id: 99003, type: 'roça', communityId: community.id, x: worker.x + 1, y: worker.y,
     complete: false, progress: 30, required: 34, destroyedDay: null, integrity: 1, workerIds: [] });
@@ -279,7 +280,7 @@ test('kingdom sheep choice can delegate the existing capture-and-lead pawn task'
   const members = community.memberIds.map(id => world.people.find(person => person.id === id && person.alive)).filter(Boolean);
   const leader = members.find(person => person.id === community.leaderId);
   const worker = members.find(person => person.role !== 'soldier' && person.id !== leader.id
-    && person.ageDays >= 12 * 365 && !person.assignment);
+    && person.ageDays >= HUMAN_ADULT_AGE_DAYS && !person.assignment);
   const sheep = world.animals.find(animal => animal.alive && animal.speciesId === 'sheep'
     && animal.herdCommunityId == null && !animal.beingLedBy);
   assert.ok(worker && sheep, 'the seed supplies a resident and a wild sheep');
@@ -348,10 +349,10 @@ test('a funded construction assignment persists across daily progress until its 
 
 test('a standard field batch sizes harvest assignments for 49, 50, and 51 residents', () => {
   for (const population of [49, 50, 51]) {
-    const leader = { id: 1, alive: true, name: 'Rei', communityId: 3, ageDays: 40 * 365 };
+    const leader = { id: 1, alive: true, name: 'Rei', communityId: 3, ageDays: HUMAN_ADULT_AGE_DAYS + 180 };
     const members = [leader, ...Array.from({ length: population - 1 }, (_, index) => ({
       id: index + 2, alive: true, name: 'Morador ' + (index + 2), communityId: 3,
-      ageDays: 30 * 365, hydration: 100, energy: 100, health: 100, foodReserve: 100,
+      ageDays: HUMAN_ADULT_AGE_DAYS + 60, hydration: 100, energy: 100, health: 100, foodReserve: 100,
       skills: { forage: .5 }
     }))];
     const community = { id: 3, kingdomId: 4, isKingdomGroup: true, leaderId: leader.id,
@@ -376,7 +377,7 @@ test('a standard field batch sizes harvest assignments for 49, 50, and 51 reside
 
 test('food support assigns harvesters alongside a separate active field builder', () => {
   const members = Array.from({ length: 50 }, (_, index) => ({
-    id: index + 1, alive: true, communityId: 3, ageDays: 30 * 365, role: 'resident',
+    id: index + 1, alive: true, communityId: 3, ageDays: HUMAN_ADULT_AGE_DAYS + 60, role: 'resident',
     hydration: 100, energy: 100, health: 100, foodReserve: 80, skills: { forage: .5 }
   }));
   const leader = members[0];
@@ -401,7 +402,7 @@ test('food support assigns harvesters alongside a separate active field builder'
 
 test('urgent food support can assign ready-field harvesters after personal reserves are empty', () => {
   const members = Array.from({ length: 50 }, (_, index) => ({
-    id: index + 1, alive: true, communityId: 3, ageDays: 30 * 365, role: 'resident',
+    id: index + 1, alive: true, communityId: 3, ageDays: HUMAN_ADULT_AGE_DAYS + 60, role: 'resident',
     hydration: 100, energy: 50, health: 80, foodReserve: 0, skills: { forage: .5 }
   }));
   const leader = members[0];
@@ -420,8 +421,8 @@ test('urgent food support can assign ready-field harvesters after personal reser
 
 test('food support redirects an existing forager to a newly ready field after their current load is delivered', () => {
   for (const carried of [false, true]) {
-    const leader = { id: 1, alive: true, communityId: 3, ageDays: 40 * 365, foodReserve: 80, skills: { forage: .5 } };
-    const worker = { id: 2, alive: true, communityId: 3, ageDays: 30 * 365, role: 'resident',
+    const leader = { id: 1, alive: true, communityId: 3, ageDays: HUMAN_ADULT_AGE_DAYS + 180, foodReserve: 80, skills: { forage: .5 } };
+    const worker = { id: 2, alive: true, communityId: 3, ageDays: HUMAN_ADULT_AGE_DAYS + 60, role: 'resident',
       hydration: 100, energy: 100, health: 100, foodReserve: 80, skills: { forage: .5 },
       carriedFood: carried ? 3 : 0, carriedFruit: 0, carriedMeat: 0,
       assignment: { source: 'kingdom-strategy', action: 'forage', goal: 'secure-shared-food',

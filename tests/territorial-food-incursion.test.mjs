@@ -1,3 +1,4 @@
+import { HUMAN_ADULT_AGE_DAYS } from '../src/simulation/individuals/human-age.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import engine from '../src/simulation/engine.js';
@@ -10,7 +11,7 @@ function borderForageFixture({ warned = false, foodReserve = 32 } = {}) {
   const world = engine.createWorld(42);
   const home = world.kingdoms[0];
   const host = world.kingdoms[1];
-  const person = world.people.find(candidate => candidate.alive && candidate.role !== 'soldier' && candidate.ageDays >= 18 * 365
+  const person = world.people.find(candidate => candidate.alive && candidate.role !== 'soldier' && candidate.ageDays >= HUMAN_ADULT_AGE_DAYS
     && candidate.kingdomId === home.id);
   assert.ok(person, 'seed 42 contains a civilian pawn in the home kingdom');
   const community = world.communities.find(candidate => candidate.id === person.communityId);

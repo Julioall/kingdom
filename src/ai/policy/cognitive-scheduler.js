@@ -1,3 +1,4 @@
+import { HUMAN_ADOLESCENT_AGE_DAYS } from '../../simulation/individuals/human-age.js';
 // JUL-273 — deterministic cognition LOD, explicitly opt-in.
 // This budgets *neural forward passes* only: physics, survival, orders,
 // action masks and live utility resolution still run every simulated day.
@@ -19,7 +20,7 @@ function budgetFor(world, adultCount) {
   return Number.isSafeInteger(raw) && raw >= 1 && raw <= 100000 ? raw : DEFAULT_BUDGET;
 }
 function freshDay(world, people) {
-  const adults = people.filter(p => p.alive && p.ageDays >= 12 * 365);
+  const adults = people.filter(p => p.alive && p.ageDays >= HUMAN_ADOLESCENT_AGE_DAYS);
   const budget = budgetFor(world, adults.length);
   // updatePeople already passes ID-sorted adults. Avoid sorting the hot path,
   // but preserve deterministic order if the scheduler is used independently.
