@@ -13,6 +13,7 @@ import { cultivatedFieldStandingBiomass, cultivatedFieldYieldTarget } from '../e
 import { calendarDate } from '../ecology/climate.js';
 import { log } from '../core/events.js';
 import { recruitKingdomSoldier, SOLDIER_COST } from './commands.js';
+import { updateKingdomForceBalance } from './population-policy.js';
 import { AI_DECISION_CONTRACT_VERSION, validateDecisionAction, validateDecisionResult } from '../../ai/contracts.js';
 import { stripAbsoluteCalendarFields } from '../../ai/observations.js';
 import { KINGDOM_STRATEGY_DECISION_GUIDANCE } from '../../ai/kingdom-strategy-prompt.js';
@@ -319,6 +320,9 @@ export function observeKingdomStrategy(world, kingdomId) {
       foodDemand: reportedDemand
     },
     military: {
+      soldiers: foodDemand.members.filter(person => person.role === 'soldier').length,
+      adultPopulation: foodDemand.members.filter(person => person.ageDays >= 15 * 365).length,
+      civilianAdults: foodDemand.members.filter(person => person.ageDays >= 15 * 365 && person.role !== 'soldier').length,
       frontierAlert: kingdom.frontierAlert && world.day - kingdom.frontierAlert.day <= 10 ? { ...kingdom.frontierAlert } : null,
       recentTerritoryLosses: (kingdom.frontierLosses || []).filter(item => world.day - item.day <= 60).map(item => ({ ...item })),
       knownEnemyInstallations: (kingdom.knownEnemyInstallations || []).filter(item => world.day - item.day <= 60).map(item => ({ ...item })),
@@ -1037,8 +1041,10 @@ export function updateKingdomStrategies(world, planner = planKingdomStrategy) {
   for (const kingdom of world.kingdoms || []) {
     fundFoodInfrastructure(world, kingdom);
     dispatchKingdomReserves(world, kingdom);
-    const report = observeKingdomStrategy(world, kingdom.id);
+    let report = observeKingdomStrategy(world, kingdom.id);
     if (!report) continue;
+    const forceAdjustment = updateKingdomForceBalance(world, kingdom, report);
+    if (forceAdjustment?.changed) report = observeKingdomStrategy(world, kingdom.id);
     recruitForPendingForce(world, kingdom, report);
     const previous = kingdom.strategy || null;
     let activeAiPlan = world.strategicAI && world.strategicAI.enabled && previous && previous.aiPlan
