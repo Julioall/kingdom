@@ -7,10 +7,22 @@ const names=await readdir(dir);
 const baselines=names.filter(x=>/^baseline-\d+-\d+\.json$/.test(x)).sort();
 assert.ok(baselines.length>0,'no baseline reports');
 const rows=[];
+const changedTerrain = process.env.KINGDOM_V2_WORLD_SIZE_CHANGE === '1';
 for(const filename of baselines){
   const suffix=filename.slice('baseline-'.length);
   const a=JSON.parse(await readFile(join(dir,filename),'utf8'));
   const b=JSON.parse(await readFile(join(dir,'candidate-'+suffix),'utf8'));
+  const replay = changedTerrain
+    ? JSON.parse(await readFile(join(dir,'candidate-repeat-'+suffix),'utf8'))
+    : null;
+  if (replay) {
+    assert.equal(replay.commit, b.commit, 'candidate replay must use the same source revision');
+    assert.equal(replay.seed, b.seed);
+    assert.equal(replay.population, b.population);
+    assert.equal(replay.days, b.days);
+    assert.equal(replay.configuration, b.configuration);
+    assert.deepEqual(replay.host, b.host);
+  }
   assert.equal(a.population,b.population);
   assert.equal(a.seed,b.seed);
   assert.equal(a.days,b.days);
@@ -21,15 +33,30 @@ for(const filename of baselines){
   assert.equal(a.measurements.length,b.measurements.length);
   for(let i=0;i<a.measurements.length;i++){
     const first=a.measurements[i],second=b.measurements[i];
-    assert.equal(first.snapshotDigest,second.snapshotDigest,
-      'semantic divergence '+suffix+' day '+first.day);
-    assert.equal(first.alive,second.alive);
+    if (changedTerrain) {
+      // Two differently-sized islands cannot possibly share a whole-world
+      // digest. Require exact candidate-vs-candidate replay instead of
+      // falsely calling the intentional terrain change a regression.
+      assert.equal(second.snapshotDigest, replay.measurements[i].snapshotDigest,
+        'candidate same-size replay divergence '+suffix+' day '+second.day);
+      assert.equal(second.alive, replay.measurements[i].alive);
+    } else {
+      assert.equal(first.snapshotDigest,second.snapshotDigest,
+        'semantic divergence '+suffix+' day '+first.day);
+      assert.equal(first.alive,second.alive);
+    }
     const reductionPercent=100*(1-second.ms/first.ms);
     rows.push({population:a.population,seed:a.seed,day:first.day,baselineMs:first.ms,
-      candidateMs:second.ms,reductionPercent,exactReplay:true});
+      candidateMs:second.ms,reductionPercent,
+      crossRevisionExactParity: !changedTerrain,
+      candidateSameSizeDeterministicReplay: changedTerrain,
+      terrainChanged: changedTerrain});
   }
 }
-const result={schema:1,comparison:'same-host full-world benchmark, independent checkouts',rows,
-  caveats:'One-day samples are sensitive to GC/JIT/runner noise; browser FPS and real GPU must be tested separately.'};
+const result={schema:1,comparison:changedTerrain
+    ? 'different terrain sizes: same-host timings and exact same-revision candidate replay'
+    : 'same-host exact cross-revision full-world parity',
+  rows,
+  caveats:'A 112x112 vs 160x160 map is NOT semantically equal; candidate parity is tested only within identical world sizes. Timings cannot isolate map cost from behavior. One-day GC/JIT noise and GPU FPS still require separate tests.'};
 await writeFile(join(dir,'summary.json'),JSON.stringify(result,null,2));
 console.log('PERF-V2-COMPARE',JSON.stringify(result));
