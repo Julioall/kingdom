@@ -278,3 +278,31 @@ export function recordMilitaryCorridorStep(world, actor, from, to, canStep) {
   }
   cleanup(world, region, key);
 }
+
+/**
+ * Give a captain a physically reachable assembly objective immediately beyond
+ * the corridor while the rear guard is still crossing. This never moves actors
+ * or bypasses the terrain/occupancy rules: callers use their normal moveOne.
+ *
+ * The captain may move the short distance to the far bank, but must not drag
+ * the tactical front all the way to the enemy while his line is still in file.
+ */
+export function militaryCorridorAssemblyPoint(world, commander) {
+  if (!validUnit(commander)) return null;
+  for (const claim of Object.values(world.militaryCorridorTraffic?.corridors || {})) {
+    if (!claim || claim.empty || !claim.direction || claim.maxProgress == null
+        || claim.kingdomId !== commander.kingdomId
+        || claim.campaignId !== commander.campaignId
+        || !sameUnit(claim.ownerUnitId, commander.militaryUnitId)
+        || distance(commander, claim.source) > MAX_PARTICIPANT_DISTANCE + 4) continue;
+    if (!claim.members.some(id => !claim.completed.includes(id)
+        && memberStillExpected(world, claim, id))) continue;
+    const length = Math.hypot(claim.direction.x, claim.direction.y) || 1;
+    const along = claim.maxProgress + 6;
+    return {
+      x: Math.round(claim.source.x + along * claim.direction.x / length),
+      y: Math.round(claim.source.y + along * claim.direction.y / length)
+    };
+  }
+  return null;
+}
