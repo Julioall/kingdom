@@ -14,6 +14,13 @@ on:
       - 'tests/expanded-world-capacity.test.mjs'
       - '.github/workflows/expanded-world.yml'
   workflow_dispatch:
+    inputs:
+      population:
+        description: "Manual technical stress load; 5k is NOT a normal playable default"
+        type: choice
+        options: ["1000", "5000"]
+        default: "5000"
+        required: true
 
 permissions:
   contents: read
@@ -24,7 +31,7 @@ concurrency:
 
 jobs:
   stress:
-    name: Real 5k initial citizens, 160x160 tiles, first authoritative day
+    name: Measured playable 500/1000/2000 and optional 5k stress on 160x160
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
@@ -34,13 +41,26 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Create actual 5,000-citizen world and run one simulation day
-        run: node scripts/audit-expanded-world.mjs --population=5000 --seed=42 --days=1 --output=out/expanded-5000.json
+      - name: Create real day-zero populations and run authoritative steps
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          MANUAL_POPULATION: ${{ inputs.population }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            POPS="${MANUAL_POPULATION}"
+          else
+            POPS="500 1000 2000"
+          fi
+          for POP in $POPS; do
+            node scripts/audit-expanded-world.mjs --population="$POP" --seed=42 --days=1 --output="out/expanded-$POP.json"
+          done
       - name: Archive actual generation timings, memory and housing limitations
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: kingdom-expanded-world-5k
-          path: out/expanded-5000.json
+          name: kingdom-expanded-world-profiles
+          path: out/expanded-*.json
           if-no-files-found: warn
           retention-days: 14
