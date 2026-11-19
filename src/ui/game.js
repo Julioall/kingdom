@@ -215,8 +215,18 @@ export function mountGame() {
   // Both optimizations remain individually opt-in until real GPU/UX QA.
   // In production use ?transport=compact (compact actors + tile deltas) or
   // ?transport=delta (full actors + tile deltas) to isolate transfer costs.
+  // Full-scale world is the browser default. Query overrides retain a
+  // lightweight reproducible mode for older machines and targeted QA:
+  // ?population=96 (baseline), ?population=500, ?population=5000.
+  const requestedPopulation = diagnosticQuery.get('population');
+  const initialPopulation = requestedPopulation !== null
+    && /^\\d+$/.test(requestedPopulation)
+    && Number(requestedPopulation) >= 96 && Number(requestedPopulation) <= 5000
+    ? Math.trunc(Number(requestedPopulation)) : 5000;
+  const largePopulation = initialPopulation >= 1000;
   const transportChoice = diagnosticQuery.get('transport');
   const compactActorsQA = transportChoice === 'compact'
+    || (largePopulation && transportChoice !== 'delta' && transportChoice !== 'full')
     || (import.meta.env.DEV && diagnosticQuery.get('compactActors') === '1');
   const tileDeltaQA = transportChoice === 'delta'
     || (import.meta.env.DEV && diagnosticQuery.get('tileDeltaQA') === '1');
@@ -224,13 +234,14 @@ export function mountGame() {
   const cognitiveBudget = cognitiveOption === 'adaptive' ? 'adaptive'
     : cognitiveOption !== null && /^\d+$/.test(cognitiveOption)
     && Number(cognitiveOption) >= 1 && Number(cognitiveOption) <= 4096
-    ? Number(cognitiveOption) : null;
+    ? Number(cognitiveOption) : largePopulation && cognitiveOption !== 'off' ? 'adaptive' : null;
   // Open ?battleDebug=1 to inspect true soldier positions, projected slots,
   // commander march targets, flanking wings and held reserves on the map.
   const showBattlefieldDebug = diagnosticQuery.get('battleDebug') === '1';
   const session = new GameSession(undefined, sessionSeed,
     { compactActorTransport: compactActorsQA, tileDeltaTransport: tileDeltaQA,
-      workerProfiling: diagnosticQuery.get('profile') === '1', cognitiveBudget, npcBehavior });
+      workerProfiling: diagnosticQuery.get('profile') === '1',
+      cognitiveBudget, npcBehavior, initialPopulation });
   if (diagnosticQuery.get('paused') === '1') {
     session.paused = true;
     session.ready.then(() => session.setPaused(true)).catch(error => session.onError?.(error));
