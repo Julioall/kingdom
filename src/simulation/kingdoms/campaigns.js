@@ -13,6 +13,7 @@ import { rand } from '../core/random.js';
 import { log } from '../core/events.js';
 import { cellAt } from '../world/spatial.js';
 import { moveOne, reachableAreaAround } from '../individuals/movement.js';
+import { militaryCorridorAssemblyPoint } from '../individuals/military-corridors.js';
 import { changePersonHealth, killPerson } from '../individuals/lifecycle.js';
 import { addFoodReserve, communityFoodStock, spendInventory, spendResource, transferInventory, transferStoreResourceToAccount } from '../economy/inventories.js';
 import { registerFoodAuditCampaignSide, withFoodAuditOperation } from '../economy/food-audit-ledger.js';
@@ -944,6 +945,7 @@ function updateCampaignFormation(world, campaign, side, day) {
       // Inspect the real commander's neighborhood, not only the final front.
       // Bridges and gates require a single-file column until the exit opens.
       isNarrowPassage: commander => !openFormationFront(world, commander),
+      corridorAssemblyPoint: commander => militaryCorridorAssemblyPoint(world, commander),
       sideMorale: side.morale, mode: tacticalMode,
       projectTarget: goal => nearbyBattlefieldGround(world, goal)
     });
