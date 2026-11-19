@@ -13,7 +13,7 @@
 // Important: selectRoutine is LAZY. Running neural inference earlier would
 // consume RNG/update the brain even when a survival or military guard wins.
 import { distance } from '../core/math.js';
-import { HUMAN_ADULT_AGE_DAYS } from './human-age.js';
+import { HUMAN_ADOLESCENT_AGE_DAYS } from './human-age.js';
 
 export const NPC_CONTROL = Object.freeze({
   DEAD: 'dead',
@@ -37,7 +37,7 @@ export const NPC_ACTIVITY = Object.freeze({
 export function npcControlState(person) {
   if (!person?.alive) return NPC_CONTROL.DEAD;
   // A child is cared for before manual or adult activity checks.
-  if (person.ageDays < HUMAN_ADULT_AGE_DAYS) return NPC_CONTROL.DEPENDENT;
+  if (person.ageDays < HUMAN_ADOLESCENT_AGE_DAYS) return NPC_CONTROL.DEPENDENT;
   if (person.playerControlled) return NPC_CONTROL.PLAYER;
   if (person.campaignId != null) return NPC_CONTROL.CAMPAIGN;
   if (person.role === 'soldier') return NPC_CONTROL.GARRISON;
