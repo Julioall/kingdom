@@ -267,6 +267,7 @@ function vacantHouseSite(world, kingdom) {
     const targetX = kingdom.x + dx, targetY = kingdom.y + dy;
     const tile = cellAt(world, targetX, targetY);
     if (!tile || tile.terrain !== 'land' || tile.kingdomId !== kingdom.id) continue;
+    if (!hasBuildingResourceClearance(world, tile, 2.5, false)) continue;
     if (world.structures.some(s => s.type !== 'curral' && Math.hypot(s.x - tile.x, s.y - tile.y) < 4.2)) continue;
     if (world.structures.some(s => s.type === 'curral' && Math.hypot(s.x - tile.x, s.y - tile.y) < (s.radius || 3.5) + 2)) continue;
     return tile;
