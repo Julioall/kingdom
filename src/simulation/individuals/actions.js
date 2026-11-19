@@ -21,6 +21,7 @@ import { availableCommunityPen } from '../ecology/herd.js';
 import { cultivatedFieldStandingBiomass, eatPlants, isBushAnchor, plantBiomass } from '../ecology/plants.js';
 import { refreshHarvestSuitability } from '../world/queries.js';
 import { changePersonHealth, killPerson, reproducePeople, updateDependent } from './lifecycle.js';
+import { HUMAN_MAX_AGE_DAYS } from './human-age.js';
 import Senses from './perception.js';
 import { ensureFoodAidPlan, findTradePartner, performShare, performTrade, resolveFoodAidRequest } from '../economy/trade.js';
 import { choosePeopleAction, updateBrain } from '../../controllers/individual/neural.js';
@@ -1114,8 +1115,8 @@ function updatePeopleCore(w, phaseObserver = null) {
         if (p.militaryBrain) p.militaryBrain.pending = null;
         p.state = input.defending ? 'de guarda (controle manual)' : 'sob controle do jogador';
         p.lastLesson = 'Movimento e ações sob controle manual; Espaço devolve a autonomia.';
-        if (p.health <= .1 || p.ageDays >= 82 * 365) {
-          const cause = p.ageDays >= 82 * 365 ? 'age'
+        if (p.health <= .1 || p.ageDays >= HUMAN_MAX_AGE_DAYS) {
+          const cause = p.ageDays >= HUMAN_MAX_AGE_DAYS ? 'age'
             : p.injury > 4 && p.health < 15 ? 'injury'
               : p.hydration < 5 ? 'dehydration' : 'starvation';
           killPerson(w, p, cause);
@@ -1789,8 +1790,8 @@ function updatePeopleCore(w, phaseObserver = null) {
             + '; reserva pessoal ' + personalFoodDaysAtExit + ' dias e estoque comum ' + sharedFoodAtExit + ' dias alimentares equivalentes.');
         }
       }
-      if (p.health <= .1 || p.ageDays >= 82 * 365) {
-        const cause = p.ageDays >= 82 * 365 ? 'age' : p.injury > 4 && p.health < 15 ? 'injury' : p.hydration < 5 ? 'dehydration' : 'starvation';
+      if (p.health <= .1 || p.ageDays >= HUMAN_MAX_AGE_DAYS) {
+        const cause = p.ageDays >= HUMAN_MAX_AGE_DAYS ? 'age' : p.injury > 4 && p.health < 15 ? 'injury' : p.hydration < 5 ? 'dehydration' : 'starvation';
         killPerson(w, p, cause);
       }
     }
