@@ -41,9 +41,9 @@ test('square islands retain fixed bounds, connected land and freshwater across s
   assert.ok(lakeCounts.size > 1, 'lake count must vary across seeded islands');
 });
 
-test('default-size islands initialize both kingdoms and their buildings on land', () => {
-  assert.equal(WIDTH, 112);
-  assert.equal(HEIGHT, 112);
+test('expanded-size islands initialize both kingdoms and their buildings on land', () => {
+  assert.equal(WIDTH, 160);
+  assert.equal(HEIGHT, 160);
   for (const seed of [1, 42, 987, 2026]) {
     const world = createWorld(seed);
     assert.equal(world.kingdoms.length, 2);
