@@ -92,11 +92,12 @@ function makeFixture(seed, unitCount) {
   enemy.towerMounted = false; enemy.restingStructureId = null;
   enemy.militaryRestTargetId = null; enemy.magicCast = null;
   // This is an instrumented single-target combat probe, NOT a balancing
-  // benchmark. With normal health the lone sentry dies before the fifth unit
-  // reforms (day 137), preventing any observation of a real post-formation
-  // combat action. A durable target keeps this one measurement observable,
-  // without changing production enemy health or combat damage rules.
-  enemy.health = 10000; enemy.maxHealth = 10000;
+  // benchmark. Kingdom health is a 0..100 percentage; combat divides damage
+  // by maxCombatHealth, not maxHealth. The lone normal sentry dies before
+  // the fifth unit reforms (day 137). Use an audit-only high vitality while
+  // preserving the exact same authoritative combat damage code path.
+  enemy.health = 100;
+  enemy.maxCombatHealth = 12000;
   enemy.energy = 100; enemy.stamina = 160;
   enemy.lastMilitaryAttackDay = -100; enemy.hitbox = null;
   world.people = [...allies, enemy];
