@@ -1,0 +1,34 @@
+name: Expanded world and 5k residents
+
+on:
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'src/config/ecosystem.js'
+      - 'src/simulation/world/generation.js'
+      - 'src/simulation/individuals/lifecycle.js'
+      - 'src/simulation/worker-runtime.js'
+      - 'src/app/session.ts'
+      - 'src/ui/game.js'
+      - 'scripts/verify-expanded-world.mjs'
+      - '.github/workflows/expanded-world.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  max-population:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Real 5000-person initialization and one simulation day
+        run: node --max-old-space-size=4096 scripts/verify-expanded-world.mjs --seed=42 --population=5000
+      - name: Second generated island at expanded resolution
+        run: node --max-old-space-size=4096 scripts/verify-expanded-world.mjs --seed=2026 --population=500
