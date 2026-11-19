@@ -215,14 +215,14 @@ export function mountGame() {
   // Both optimizations remain individually opt-in until real GPU/UX QA.
   // In production use ?transport=compact (compact actors + tile deltas) or
   // ?transport=delta (full actors + tile deltas) to isolate transfer costs.
-  // Full-scale world is the browser default. Query overrides retain a
-  // lightweight reproducible mode for older machines and targeted QA:
-  // ?population=96 (baseline), ?population=500, ?population=5000.
+  // Start with a substantially larger, but measured browser population:
+  // 5,000 is the supported STRESS ceiling, not a playable default.
+  // ?population=96 (baseline), ?population=500 (default), ?population=5000 (stress).
   const requestedPopulation = diagnosticQuery.get('population');
   const initialPopulation = requestedPopulation !== null
     && /^\\d+$/.test(requestedPopulation)
     && Number(requestedPopulation) >= 96 && Number(requestedPopulation) <= 5000
-    ? Math.trunc(Number(requestedPopulation)) : 5000;
+    ? Math.trunc(Number(requestedPopulation)) : 500;
   const largePopulation = initialPopulation >= 1000;
   const transportChoice = diagnosticQuery.get('transport');
   const compactActorsQA = transportChoice === 'compact'
