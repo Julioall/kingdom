@@ -19,6 +19,7 @@ import { activeLeadershipRank } from '../simulation/kingdoms/military-identity.j
 import { createMovementInterpolator } from './movement-interpolation.js';
 import { createDamageBarTracker } from './health-bars.js';
 import { GameSession } from '../app/session.ts';
+import { parseInitialPopulation } from './population-preset.js';
 import { SimulationClock } from '../app/simulation-loop.ts';
 import Sim from './simulation-view.js';
 import { DOMESTIC_SHEEP_DAILY_FEED, SHEEP_ADULT_AGE_DAYS, SHEEP_JUVENILE_MIN_SCALE } from '../config/ecosystem.js';
@@ -218,11 +219,7 @@ export function mountGame() {
   // Start with a substantially larger, but measured browser population:
   // 5,000 is the supported STRESS ceiling, not a playable default.
   // ?population=96 (baseline), ?population=500 (default), ?population=5000 (stress).
-  const requestedPopulation = diagnosticQuery.get('population');
-  const initialPopulation = requestedPopulation !== null
-    && /^\d+$/.test(requestedPopulation)
-    && Number(requestedPopulation) >= 96 && Number(requestedPopulation) <= 5000
-    ? Math.trunc(Number(requestedPopulation)) : 500;
+  const initialPopulation = parseInitialPopulation(diagnosticQuery.get('population'));
   const largePopulation = initialPopulation >= 1000;
   const transportChoice = diagnosticQuery.get('transport');
   const compactActorsQA = transportChoice === 'compact'
