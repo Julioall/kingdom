@@ -58,9 +58,8 @@ function makeFixture(seed, unitCount) {
       const person = structuredClone(template);
       person.id = slot === 0 ? commanderId : ++nextId;
       person.name = 'Soldado ' + person.id;
-      person.x = 27 - Math.floor(slot / 3);
-      person.y = centerY + slot % 3 - 1;
-      if (slot === 0) person.y = centerY;
+      person.x = slot === 0 ? 27 : 26 - Math.floor((slot - 1) / 3);
+      person.y = slot === 0 ? centerY : centerY + (slot - 1) % 3 - 1;
       person.alive = true; person.role = 'soldier';
       person.kingdomId = kingdom.id; person.communityId = kingdom.communityId;
       person.campaignId = 999; person.militaryUnitId = 'unit-' + index;
@@ -75,6 +74,7 @@ function makeFixture(seed, unitCount) {
       person.lastMilitaryAttackDay = -100;
       person.navigationRoute = null; person.navigationCongestion = null;
       person.passageRequest = null; person.passageYieldHoldDay = null;
+      person.magicStrideCredit = 0; person.roadStrideProgress = 0;
       person.tacticalRole = null; person.tacticalPhase = null;
       person.hitbox = null;
       allies.push(person); ids.push(person.id);
@@ -163,7 +163,7 @@ export function runMilitaryJourney({ seed = 42, units: unitCount = 3, days = 150
         const before = { x: p.x, y: p.y };
         moveOne(world, p, target, false, { arrivalRadius: 1.1 });
         const step = Math.hypot(p.x - before.x, p.y - before.y);
-        if (step > Math.SQRT2 + .0001) safety.jumps++;
+        if (step > 2 * Math.SQRT2 + .0001) safety.jumps++;
         if (!Number.isFinite(p.x) || !Number.isFinite(p.y))
           throw Error('Nonfinite military coordinates on day ' + day);
       }
