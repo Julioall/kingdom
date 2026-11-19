@@ -87,8 +87,8 @@ type RequestEnvelope = {
 };
 
 export type SimulationWorkerRequest = RequestEnvelope & (
-  | { type: 'initialize'; config: WorldConfig; seed: number; transport?: 'tile-delta' | 'tile-delta-compact'; profileTiming?: boolean; cognitiveBudget?: number | 'adaptive'; npcBehavior?: 'legacy' | 'hybrid'; initialPopulation?: number }
-  | { type: 'reset'; seed: number; kingdomAiEnabled: boolean; transport?: 'tile-delta' | 'tile-delta-compact'; profileTiming?: boolean; cognitiveBudget?: number | 'adaptive'; npcBehavior?: 'legacy' | 'hybrid'; initialPopulation?: number }
+  | { type: 'initialize'; config: WorldConfig; seed: number; transport?: 'tile-delta' | 'tile-delta-compact'; profileTiming?: boolean; cognitiveBudget?: number | 'adaptive'; npcBehavior?: 'legacy' | 'hybrid'; initialPopulation?: number; initialMilitaryShare?: number }
+  | { type: 'reset'; seed: number; kingdomAiEnabled: boolean; transport?: 'tile-delta' | 'tile-delta-compact'; profileTiming?: boolean; cognitiveBudget?: number | 'adaptive'; npcBehavior?: 'legacy' | 'hybrid'; initialPopulation?: number; initialMilitaryShare?: number }
   | { type: 'resync' }
   | { type: 'set-paused'; paused: boolean }
   | { type: 'advance'; days: number; source: 'clock' | 'manual' }
