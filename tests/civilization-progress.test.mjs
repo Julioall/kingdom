@@ -36,6 +36,30 @@ test('life evidence requires sustained care and actual work, not just an initial
   assert.equal(person.livelihoodEvidence.selfReliant, false, 'lost capacity is not a permanent status');
 });
 
+test('a soldier on royal ration or citizen fed by community aid is not certified self-sustaining', () => {
+  const citizen = adult(1, null);
+  const soldier = { ...adult(2, null), role: 'soldier' };
+  const world = { people: [citizen, soldier] };
+  for (let day = 1; day <= 30; day++) {
+    for (const pawn of world.people) {
+      pawn.visualActivity = { kind: 'harvest', day };
+      pawn.sharedMeals = day;
+    }
+    recordIndividualLivelihood(world, day);
+  }
+  assert.equal(citizen.livelihoodEvidence.selfReliant, false,
+    'community rations are recorded help, not individual subsistence');
+  assert.equal(soldier.livelihoodEvidence.selfReliant, false,
+    'royal military provision is a profession, not an independent livelihood');
+  for (let day = 31; day <= 60; day++) {
+    for (const pawn of world.people) pawn.visualActivity = { kind: 'harvest', day };
+    recordIndividualLivelihood(world, day);
+  }
+  assert.equal(citizen.livelihoodEvidence.selfReliant, true,
+    'independent work and maintenance of needs may eventually prove resilience');
+  assert.equal(soldier.livelihoodEvidence.selfReliant, false);
+});
+
 test('all civilization levels require evidence from the previous level', () => {
   const mother = adult(1, 101), father = adult(2, 101);
   const parent2 = adult(3, 102), mother2 = adult(4, 102);
