@@ -1,3 +1,4 @@
+import { HUMAN_ADULT_AGE_DAYS } from '../src/simulation/individuals/human-age.js';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
@@ -28,7 +29,7 @@ function run(seed) {
   const world = engine.createWorld(seed);
   const community = world.communities[0];
   const person = world.people.find(item => item.alive && item.communityId === community.id
-    && item.role !== 'soldier' && item.ageDays >= 12 * 365);
+    && item.role !== 'soldier' && item.ageDays >= HUMAN_ADULT_AGE_DAYS);
   const herd = world.animals.filter(item => item.alive && item.speciesId === 'sheep').slice(0, 3);
   if (!person || herd.length !== 3) throw new Error('O mundo não gerou os atores necessários para o cenário.');
 
