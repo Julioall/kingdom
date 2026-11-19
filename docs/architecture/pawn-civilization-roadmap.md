@@ -60,10 +60,23 @@ A `main` atual ainda instancia reinos, castelos, torres, mercados, tesouros e mi
 
 O diagnóstico experimental `trackCivilization: true` **não cria instituições**. Registra até 30 dias de evidências de trabalho, sobrevivência e vendas reais e avalia portões `sobrevivencia → individuo → familia → comunidade → reino → defesa_organizada`. Um castelo sem carta de fundação não satisfaz o portão `reino`. Estes são indicadores de teste, não disparadores automáticos.
 
+## Auditoria reproduzível das gerações
+
+O cenário de reinos existentes pode ser inspecionado sem mudar suas regras:
+
+```bash
+npm run audit:generations -- --seed 42 --population 200 --days 30 --sample-every 30 --output out/pawn-generations-42.json
+# Experimentos maiores, condicionados a tempo de execução e recursos:
+npm run audit:generations -- --seed 42 --population 200 --days 900 --sample-every 30 --output out/pawn-generations-900.json
+```
+
+O JSON registra estágios de vida, nascimentos, mortes por causa, vendas pessoais, casas particulares, lições observadas, distribuição militar/civil, estoques de mercado/tesouro e os portões de maturidade. O campo `scenario: prebuilt-kingdoms` é uma advertência deliberada: o relatório ainda não demonstra a fundação de civilização a partir de pawns sem governo. Usar seeds e tamanhos diferentes, comparando as mesmas regras e nunca apenas a população final.
+
 ## Implementado nesta PR incremental
 - Ensino observado dentro da família, identificado por mentor, tipo de atividade e dia; habilidade adquirida continua após adolescência.
 - Registros individuais limitados de sustento, colheita e comércio, com opção de ativar no motor para auditoria.
 - Avaliação **sem efeitos colaterais** dos portões de maturidade, famílias, comunidades, instituições e quartéis.
+- Auditoria reproduzível da sobrevivência geracional e das receitas efetivamente observadas, sem criar recursos no mecanismo de medição.
 - Testes que rejeitam autossuficiência só por ter reservas iniciais e rejeitam fundação apenas por possuir castelo.
 
 ## Trabalho ainda necessário, na ordem em que destrava o seguinte
