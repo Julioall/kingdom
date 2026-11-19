@@ -1,3 +1,4 @@
+import { HUMAN_ADULT_AGE_DAYS } from '../src/simulation/individuals/human-age.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DAILY_FOOD_NEED, FOOD_DAYS_PER_UNIT } from '../src/config/ecosystem.js';
@@ -33,9 +34,9 @@ test('garrison ration withdraws only the food present in the treasury and kingdo
 });
 
 test('garrison can only use community food above two days of civilian demand', () => {
-  const soldier = { id: 11, alive: true, ageDays: 30 * 365, role: 'soldier', kingdomId: 1, campaignId: null, x: 0, y: 0, foodReserve: 0 };
-  const adult = { id: 12, alive: true, ageDays: 30 * 365, role: 'pawn' };
-  const child = { id: 13, alive: true, ageDays: 5 * 365, role: 'pawn' };
+  const soldier = { id: 11, alive: true, ageDays: HUMAN_ADULT_AGE_DAYS + 60, role: 'soldier', kingdomId: 1, campaignId: null, x: 0, y: 0, foodReserve: 0 };
+  const adult = { id: 12, alive: true, ageDays: HUMAN_ADULT_AGE_DAYS + 60, role: 'pawn' };
+  const child = { id: 13, alive: true, ageDays: 180, role: 'pawn' };
   const center = { id: 4, type: 'centro_militar', kingdomId: 1, complete: true, x: 0, y: 0 };
   const kingdom = { id: 1, communityId: 2, memberIds: [11, 12, 13], treasury: { stock: { food: 0 } } };
   const floor = (2 * DAILY_FOOD_NEED) * 2 / FOOD_DAYS_PER_UNIT;
@@ -48,8 +49,8 @@ test('garrison can only use community food above two days of civilian demand', (
 });
 
 test('garrison preserves the civilian floor when community food includes meat', () => {
-  const soldier = { id: 1, alive: true, ageDays: 10000, role: 'soldier', kingdomId: 1, campaignId: null, x: 0, y: 0, foodReserve: 0 };
-  const civilian = { id: 2, alive: true, ageDays: 10000, role: 'pawn' };
+  const soldier = { id: 1, alive: true, ageDays: HUMAN_ADULT_AGE_DAYS + 80, role: 'soldier', kingdomId: 1, campaignId: null, x: 0, y: 0, foodReserve: 0 };
+  const civilian = { id: 2, alive: true, ageDays: HUMAN_ADULT_AGE_DAYS + 80, role: 'pawn' };
   const center = { id: 4, type: 'centro_militar', kingdomId: 1, complete: true, x: 0, y: 0 };
   const kingdom = { id: 1, communityId: 2, memberIds: [1, 2], treasury: { stock: { food: 0 } } };
   const floor = DAILY_FOOD_NEED * 2 / FOOD_DAYS_PER_UNIT;
@@ -63,7 +64,7 @@ test('garrison preserves the civilian floor when community food includes meat', 
 
 
 test('destroyed military centers cannot supply rations; a surviving center can take over without creating food', () => {
-  const person = { id: 11, alive: true, ageDays: 30 * 365, role: 'soldier', kingdomId: 1,
+  const person = { id: 11, alive: true, ageDays: HUMAN_ADULT_AGE_DAYS + 60, role: 'soldier', kingdomId: 1,
     campaignId: null, militaryDutyCenterId: 4, x: 0, y: 0, foodReserve: 0 };
   const destroyed = { id: 4, type: 'centro_militar', kingdomId: 1, complete: true,
     destroyedDay: 10, integrity: 0, health: 0, x: 0, y: 0 };
@@ -101,7 +102,7 @@ test('destroyed military centers cannot supply rations; a surviving center can t
 
 
 test('garrison rejects fabricated and stale centers even when their fields look operational', () => {
-  const person = { id: 11, alive: true, ageDays: 30 * 365, role: 'soldier',
+  const person = { id: 11, alive: true, ageDays: HUMAN_ADULT_AGE_DAYS + 60, role: 'soldier',
     kingdomId: 1, campaignId: null, x: 0, y: 0, foodReserve: 0 };
   const registered = { id: 4, type: 'centro_militar', kingdomId: 1,
     complete: true, destroyedDay: null, integrity: 1, health: 1, x: 0, y: 0 };
