@@ -207,7 +207,7 @@ export function createWorld(seed, options = {}) {
     if (initialMilitaryShare == null) {
       // Preserve the exact log of legacy simulations for authoritative
       // benchmark parity and replay checksums.
-      const initialNonMilitaryPerKingdom = INITIAL_POPULATION_PER_KINGDOM - INITIAL_SOLDIERS_PER_KINGDOM;
+      const initialNonMilitaryPerKingdom = initialPopulation / w.kingdoms.length - INITIAL_SOLDIERS_PER_KINGDOM;
       log(w, initialPopulation + ' habitantes começaram em ' + w.kingdoms.length + ' reinos, com '
         + initialNonMilitaryPerKingdom + ' habitantes não militares e ' + INITIAL_SOLDIERS_PER_KINGDOM
         + ' militares por reino (' + rosterDescription + '). As tropas patrulham antes das campanhas de fronteira. '
