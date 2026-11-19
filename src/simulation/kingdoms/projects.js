@@ -4,6 +4,7 @@ import { enlistSoldier } from './service.js';
 import { recruitKingdomSoldier, buildKingdomStructure, findMilitaryCenterWithVacancy } from './commands.js';
 import { assignHome, INITIAL_MILITARY_ROSTER, planKingdomHome, privateHomeBuyerEligible } from './initialization.js';
 import { HUMAN_ADULT_AGE_DAYS } from '../individuals/human-age.js';
+import { wantsMilitaryService } from './population-policy.js';
 import { moveOne } from '../individuals/movement.js';
 import { cellAt } from '../world/spatial.js';
 import { consumePersonEnergy } from '../individuals/energy.js';
@@ -49,6 +50,12 @@ function progressPrivateHome(world, structure, day) {
 export function advanceKingdomProjects(world, day) {
   // The initiative and the gold are the resident's, not a royal population
   // plan. Any financially eligible adult may commission their own house.
+  if (day % 30 === 0) for (const person of world.people) {
+    if (!person.alive || person.kingdomId == null) continue;
+    if (person.role === 'resident') person.volunteerForService = wantsMilitaryService(person, world);
+    if (person.role === 'soldier') person.serviceResignationRequested =
+      person.campaignId == null && (person.militaryPayArrearsCopper || 0) > 0;
+  }
   if (day % 30 === 0) for (const kingdom of world.kingdoms) {
     const candidates = world.people.filter(person => person.kingdomId === kingdom.id
       && privateHomeBuyerEligible(world, person))
@@ -61,6 +68,12 @@ export function advanceKingdomProjects(world, day) {
 
   // The king funds specialist training from the same treasury and adult population as manual recruitment.
   if (day >= 24 && day % 12 === 0) for (const kingdom of world.kingdoms) {
+    const inDefense = (world.campaigns || []).some(c => c.status !== 'complete'
+      && (c.attackerId === kingdom.id || c.defenderId === kingdom.id));
+    const recentAlert = kingdom.frontierAlert && day - kingdom.frontierAlert.day <= 10;
+    const forceRequested = (kingdom.militaryIntel || []).some(item => item.kind === 'force-requested'
+      && item.status === 'pending');
+    if (!inDefense && !recentAlert && !forceRequested) continue;
     for (const { school, militaryClass, count: target } of INITIAL_MILITARY_ROSTER) {
       if (!militaryClassSource(world, kingdom.id, militaryClass)) {
         if (!world.structures.some(s => s.kingdomId === kingdom.id && s.type === school && s.kingdomProject
@@ -70,7 +83,7 @@ export function advanceKingdomProjects(world, day) {
       }
       const count = world.people.filter(p => p.alive && p.kingdomId === kingdom.id
         && (p.role === 'soldier' && p.militaryClass === militaryClass || p.recruitmentOrder?.militaryClass === militaryClass)).length;
-      if (count < target) recruitKingdomSoldier(world, kingdom.id, { militaryClass, startedDay: day });
+      if (count < target) recruitKingdomSoldier(world, kingdom.id, { militaryClass, startedDay: day, requisition: true });
     }
   }
 
