@@ -1,25 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { personAgeScale, personLifeStage } from '../src/ui/person-age-scale.js';
+import {
+  HUMAN_ADOLESCENT_AGE_DAYS, HUMAN_ADULT_AGE_DAYS,
+  HUMAN_ELDER_AGE_DAYS, HUMAN_MAX_AGE_DAYS
+} from '../src/simulation/individuals/human-age.js';
 
-test('person sprite grows continuously through childhood', () => {
+test('pawn visuals grow smoothly from newborn to adulthood at 365 days', () => {
   const birth = personAgeScale(0);
-  const yearSix = personAgeScale(6 * 365);
-  const yearEleven = personAgeScale(11 * 365);
-  const yearTwelve = personAgeScale(12 * 365);
+  const ageSixMonths = personAgeScale(180);
+  const ageElevenMonths = personAgeScale(330);
+  const adult = personAgeScale(HUMAN_ADULT_AGE_DAYS);
   assert.equal(birth, .6);
-  assert.ok(birth < yearSix && yearSix < yearEleven && yearEleven < yearTwelve);
-  assert.equal(yearTwelve, 1);
-  assert.ok(Math.abs(personAgeScale(12 * 365 - 1) - yearTwelve) < .001);
+  assert.ok(birth < ageSixMonths && ageSixMonths < ageElevenMonths && ageElevenMonths < adult);
+  assert.equal(adult, 1);
+  assert.ok(Math.abs(personAgeScale(HUMAN_ADULT_AGE_DAYS - 1) - adult) < .002);
 });
 
-test('older people visually age without sudden size jumps or altering gameplay', () => {
-  assert.equal(personAgeScale(65 * 365), 1);
-  assert.ok(personAgeScale(75 * 365) < 1 && personAgeScale(75 * 365) > .92);
-  assert.equal(personAgeScale(82 * 365), .92);
-  assert.equal(personAgeScale(120 * 365), .92);
+test('pawn becomes old after 730 days and reaches natural maximum at 900', () => {
+  assert.equal(personAgeScale(HUMAN_ELDER_AGE_DAYS), 1);
+  assert.ok(personAgeScale(800) < 1 && personAgeScale(800) > .92);
+  assert.equal(personAgeScale(HUMAN_MAX_AGE_DAYS), .92);
+  assert.equal(personAgeScale(HUMAN_MAX_AGE_DAYS + 100), .92);
   assert.equal(personLifeStage(0), 'Criança');
-  assert.equal(personLifeStage(12 * 365), 'Adolescente');
-  assert.equal(personLifeStage(18 * 365), 'Adulto');
-  assert.equal(personLifeStage(65 * 365), 'Idoso');
+  assert.equal(personLifeStage(HUMAN_ADOLESCENT_AGE_DAYS), 'Adolescente');
+  assert.equal(personLifeStage(HUMAN_ADULT_AGE_DAYS), 'Adulto');
+  assert.equal(personLifeStage(HUMAN_ELDER_AGE_DAYS), 'Idoso');
 });
