@@ -1,0 +1,46 @@
+name: Kingdom expanded map and 5k initial citizens
+
+on:
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'src/config/ecosystem.js'
+      - 'src/simulation/world/generation.js'
+      - 'src/simulation/individuals/lifecycle.js'
+      - 'src/simulation/worker-runtime.js'
+      - 'src/ui/game.js'
+      - 'src/app/session.ts'
+      - 'scripts/audit-expanded-world.mjs'
+      - 'tests/expanded-world-capacity.test.mjs'
+      - '.github/workflows/expanded-world.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kingdom-expanded-world-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stress:
+    name: Real 5k initial citizens, 160x160 tiles, first authoritative day
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Create actual 5,000-citizen world and run one simulation day
+        run: node scripts/audit-expanded-world.mjs --population=5000 --seed=42 --days=1 --output=out/expanded-5000.json
+      - name: Archive actual generation timings, memory and housing limitations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kingdom-expanded-world-5k
+          path: out/expanded-5000.json
+          if-no-files-found: warn
+          retention-days: 14
