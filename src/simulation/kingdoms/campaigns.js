@@ -783,11 +783,15 @@ export function performCampaignOrder(world, person, order) {
               : squadPhase === 'striking' ? 'investindo contra o flanco'
               : squadPhase === 'holding' ? 'mantendo posição na reserva'
                 : squadLeader ? 'conduzindo a formação da tropa' : 'avançando em formação'
-    : 'rota de campanha bloqueada';
+    : person.militaryCorridorWait?.day === world.day
+      ? 'aguardando liberação do corredor pela outra unidade'
+      : 'rota de campanha bloqueada';
   person.lastLesson = moved
     ? withdrawing ? 'Retirar-se consome tempo e ração, mas devolve os soldados ao posto.'
       : 'A marcha segue o local do incidente conhecido; distância e abastecimento limitam a campanha.'
-    : 'A rota ao local conhecido está bloqueada pelo terreno; a campanha pode falhar se não houver caminho.';
+    : person.militaryCorridorWait?.day === world.day
+      ? 'O comandante aguarda a passagem da unidade que ocupa o corredor, sem forçar colisões.'
+      : 'A rota ao local conhecido está bloqueada pelo terreno; a campanha pode falhar se não houver caminho.';
   return moved;
 }
 
@@ -937,6 +941,9 @@ function updateCampaignFormation(world, campaign, side, day) {
       destination: geometry.destination, home: side.home,
       orientation: geometry.orientation, day, previous: side.squadTactics,
       observedThreats: threats, openFront: openFormationFront(world, campaign.target),
+      // Inspect the real commander's neighborhood, not only the final front.
+      // Bridges and gates require a single-file column until the exit opens.
+      isNarrowPassage: commander => !openFormationFront(world, commander),
       sideMorale: side.morale, mode: tacticalMode,
       projectTarget: goal => nearbyBattlefieldGround(world, goal)
     });
