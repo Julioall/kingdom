@@ -326,6 +326,29 @@ export function militaryCorridorRearGuardTarget(world, soldier) {
     if (distance(soldier, claim.source) > MAX_PARTICIPANT_DISTANCE + 5) continue;
     const target = world.tiles[claim.exit.y * world.width + claim.exit.x];
     if (target?.terrain !== 'land') continue;
+    // The regular movement caller may use an arrival radius greater than
+    // one tile. A waypoint ON the exit made soldiers stop on the final bridge
+    // cell forever, preventing both completion and the next rank's passage.
+    // Assign distinct, deeper far-bank assembly slots instead. They remain
+    // normal A* destinations, subject to all physical movement guards.
+    const deltaX = claim.exit.x - claim.source.x;
+    const deltaY = claim.exit.y - claim.source.y;
+    const forward = Math.abs(deltaX) >= Math.abs(deltaY)
+      ? { x: Math.sign(deltaX), y: 0 }
+      : { x: 0, y: Math.sign(deltaY) };
+    const lateral = { x: -forward.y, y: forward.x };
+    const index = Math.max(0, claim.members.indexOf(soldier.id));
+    const depth = 3 + Math.floor(index / 3) * 2;
+    const side = (index % 3 - 1) * 2;
+    const point = { x: claim.exit.x + forward.x * depth + lateral.x * side,
+      y: claim.exit.y + forward.y * depth + lateral.y * side };
+    const staging = point.x >= 0 && point.y >= 0
+      && point.x < world.width && point.y < world.height
+      ? world.tiles[point.y * world.width + point.x] : null;
+    if (staging?.terrain === 'land') return point;
+    // If staging is unavailable, fall back to the legal exit instead of
+    // constructing a target inside obstacles. Arrival-radius callers must
+    // separately make sure they cross the final corridor tile.
     return { x: claim.exit.x, y: claim.exit.y };
   }
   return null;
