@@ -11,6 +11,7 @@ import { congestionRouteStep, rememberedRouteStep, rememberRouteArrival } from '
 import { firstPersonNear } from './spatial-index.js';
 import { chooseSteeredTile } from './steering-boids.js';
 import { militaryPassageYieldDecision } from './military-passage.js';
+import { admitMilitaryCorridorStep, recordMilitaryCorridorStep } from './military-corridors.js';
 import { consumePersonEnergy } from './energy.js';
 import { collidesWithWorldAt, hitboxesOverlap, mineralHitbox, npcHitbox, worldCollisionIndex } from '../physics/hitboxes.js';
 import { assignedHerdPen, corralFenceRadius, herdPenRadius } from '../ecology/herd.js';
@@ -475,6 +476,8 @@ export function moveOne(w, agent, target, aquatic, movementOptions = null) {
       && !insideCorral(agent.x, agent.y, pen, corralFenceRadius(pen))
       && insideCorral(target.x, target.y, pen, corralFenceRadius(pen));
     if (returningToPen) movementOptions.allowPenReturn = true;
+    const canStepForCorridor = (from, to) =>
+      canStep(w, agent, from, to, aquatic, pen, corrals, movementOptions);
     function stepToward(from, avoidPeople = true) {
       const canEnterAgent = tile => canEnter(w, agent, tile, aquatic, pen, corrals, movementOptions)
         && (!avoidPeople || aquatic || agent.speciesId != null || !personOnTile(w, tile, agent));
@@ -524,6 +527,10 @@ export function moveOne(w, agent, target, aquatic, movementOptions = null) {
     let first;
     if (!aquatic && agent.speciesId == null) {
       const preferred = stepToward(current, false);
+      // Admit before asking an occupant to move: the existing passage
+      // handoff must not dismantle another unit's active corridor crossing.
+      if (preferred && !admitMilitaryCorridorStep(w, agent, currentTile,
+          preferred, canStepForCorridor)) return false;
       const blocker = personOnTile(w, preferred, agent);
       if (blocker) {
         const passageChain = movementOptions.passageChain instanceof Set ? movementOptions.passageChain : new Set();
@@ -578,7 +585,11 @@ export function moveOne(w, agent, target, aquatic, movementOptions = null) {
       if (agent.speciesId == null) agent.roadStrideProgress = 0;
       return false;
     }
+    let crossed = false;
     for (const next of route) {
+      const fromTile = cellAt(w, Math.round(agent.x), Math.round(agent.y));
+      if (!admitMilitaryCorridorStep(w, agent, fromTile, next,
+          canStepForCorridor)) break;
       let boundaryCost = 0;
       if (agent.communityId !== undefined && agent.communityId !== null) {
         for (const fence of w.structures) {
@@ -598,12 +609,15 @@ export function moveOne(w, agent, target, aquatic, movementOptions = null) {
       agent.headingX = next.x - agent.x; agent.headingY = next.y - agent.y;
       agent.x = next.x; agent.y = next.y;
       w.peopleSpatialIndex?.move(agent);
+      recordMilitaryCorridorStep(w, agent, fromTile, next, canStepForCorridor);
+      crossed = true;
       if (agent.speciesId != null) w.animalsSpatialIndex?.move(agent);
       if (agent.speciesId == null && agent.leadingSheepId != null) syncLedSheepPosition(w, agent);
       markTerritoryStep(w, agent, next);
       recordFootstep(next, agent, w.day);
     }
-    rememberRouteArrival(agent, route.at(-1).i);
+    if (!crossed) return false;
+    rememberRouteArrival(agent, cellAt(w, Math.round(agent.x), Math.round(agent.y)).i);
     if (agent.speciesId == null && !movementOptions.magicExtraStep && agent.magicStrideCredit >= 1) {
       agent.magicStrideCredit -= 1;
       moveOne(w, agent, target, aquatic, { ...movementOptions, magicExtraStep: true });
