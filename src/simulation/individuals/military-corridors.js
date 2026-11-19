@@ -8,6 +8,7 @@ const MAX_CORRIDOR_CELLS = 40;
 const MAX_PARTICIPANT_DISTANCE = 28;
 const WAIT_TTL_DAYS = 2;
 const IDLE_RECOVERY_DAYS = 6;
+const ACTIVE_REAR_GUARD_STALE_DAYS = 24;
 const OFFSETS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 
 const sameUnit = (a, b) => String(a) === String(b);
@@ -182,8 +183,12 @@ function cleanup(world, region, key) {
     state.corridors[key] = { waiting: claim.waiting, empty: true };
     return state.corridors[key];
   }
+  // Empty space is not proof that a unit finished crossing: the captain
+  // may be on the far bank while nine followers are still approaching.
+  // Do not rotate ownership after the short abandoned-order timeout.
+  const staleAfter = claim.abandoned ? IDLE_RECOVERY_DAYS : ACTIVE_REAR_GUARD_STALE_DAYS;
   if (!hasOwnerInside(world, region, claim)
-      && day - claim.lastProgressDay >= IDLE_RECOVERY_DAYS) {
+      && day - claim.lastProgressDay >= staleAfter) {
     state.recoveries++;
     state.corridors[key] = { waiting: claim.waiting, empty: true };
     return state.corridors[key];
@@ -256,11 +261,16 @@ export function recordMilitaryCorridorStep(world, actor, from, to, canStep) {
   const toInside = region.cells.has(cellIndex(world, to));
   if (!fromInside && !toInside) return;
   claim.lastProgressDay = world.day || 0;
+  if (toInside) claim.abandoned = false;
   if (!claim.members.includes(actor.id)) claim.members.push(actor.id);
   if (fromInside && !toInside) {
     const progress = claim.direction
       ? (to.x - claim.source.x) * claim.direction.x
         + (to.y - claim.source.y) * claim.direction.y : null;
+    // The captain can cancel an incomplete crossing by physically
+    // retreating to the original entrance, allowing a short idle recovery.
+    if (claim.direction && actor.id === actor.commanderId && progress <= 0.25)
+      claim.abandoned = true;
     // If the corridor was occupied before a lease existed, its entry
     // direction is unknown: only physical evacuation can release it.
     if ((progress == null || progress > claim.maxProgress + 0.25)
