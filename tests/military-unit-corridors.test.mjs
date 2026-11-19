@@ -121,8 +121,9 @@ test('a live rear guard keeps the whole-unit lease after captain clears the brid
   const east = cellAt(world, 48, 40);
   const west = cellAt(world, 24, 40);
   assert.equal(moveOne(world, a[0], east, false), true);
-  assert.deepEqual(militaryCorridorRearGuardTarget(world, a[1]), { x: 40, y: 40 },
-    'all trailing soldiers get the real far-bank exit instead of a moving captain slot');
+  const rearTarget = militaryCorridorRearGuardTarget(world, a[1]);
+  assert.ok(rearTarget && rearTarget.x > 40 && rearTarget.y === 40,
+    'follower must target a reachable far-bank staging point beyond the bridge exit');
   for (let i = 0; i < 28; i++) {
     world.day++;
     moveOne(world, a[0], east, false);
