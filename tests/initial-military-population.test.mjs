@@ -1,3 +1,4 @@
+import { HUMAN_RECRUIT_AGE_DAYS } from '../src/simulation/individuals/human-age.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import Sim from '../src/simulation/engine.js';
@@ -10,7 +11,7 @@ function validateWorld(world, population, military, civilians) {
   assert.equal(living.length, population);
   assert.equal(soldiers.length, military);
   assert.equal(nonSoldiers.length, civilians);
-  assert.ok(soldiers.every(p => p.ageDays >= 15 * 365
+  assert.ok(soldiers.every(p => p.ageDays >= HUMAN_RECRUIT_AGE_DAYS
     && p.militaryCenterId != null && p.militaryDutyCenterId != null
     && ['guerreiro', 'lanceiro', 'arqueiro', 'monge'].includes(p.militaryClass)));
   let accumulated = 0, priorQuota = 0;
