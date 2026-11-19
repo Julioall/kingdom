@@ -21,14 +21,17 @@ assert.equal(world.width, 160);
 assert.equal(world.height, 160);
 assert.equal(living.length, population);
 assert.equal(soldiers.length + civilians.length, population);
-assert.equal(soldiers.length, world.kingdoms.reduce((count, k) =>
-  count + Math.floor(k.memberIds.length * .8), 0));
+assert.equal(soldiers.length, Math.round(population * .8));
 assert.equal(new Set(living.map(p => Math.round(p.y) * world.width + Math.round(p.x))).size, population);
+let accumulated = 0, priorQuota = 0;
 for (const kingdom of world.kingdoms) {
   const members = living.filter(p => p.kingdomId === kingdom.id);
   const troops = members.filter(p => p.role === 'soldier');
   const citizens = members.filter(p => p.role !== 'soldier');
-  assert.equal(troops.length, Math.floor(members.length * .8));
+  accumulated += members.length;
+  const quota = Math.round(accumulated * .8);
+  assert.equal(troops.length, quota - priorQuota);
+  priorQuota = quota;
   assert.equal(citizens.length, members.length - troops.length);
   assert.ok(troops.every(p => p.militaryUnitId && p.militaryCenterId));
   assert.equal(kingdom.militaryCommand.units.reduce((n, u) => n + u.memberIds.length, 0),
