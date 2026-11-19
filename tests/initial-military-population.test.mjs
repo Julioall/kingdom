@@ -13,10 +13,14 @@ function validateWorld(world, population, military, civilians) {
   assert.ok(soldiers.every(p => p.ageDays >= 15 * 365
     && p.militaryCenterId != null && p.militaryDutyCenterId != null
     && ['guerreiro', 'lanceiro', 'arqueiro', 'monge'].includes(p.militaryClass)));
+  let accumulated = 0, priorQuota = 0;
   for (const kingdom of world.kingdoms) {
     const members = living.filter(p => p.kingdomId === kingdom.id);
     const soldiersHere = members.filter(p => p.role === 'soldier');
-    assert.equal(soldiersHere.length, Math.floor(members.length * .8));
+    accumulated += members.length;
+    const quota = Math.round(accumulated * .8);
+    assert.equal(soldiersHere.length, quota - priorQuota);
+    priorQuota = quota;
     assert.equal(members.length - soldiersHere.length,
       members.filter(p => p.role !== 'soldier').length);
     const ruler = members.find(p => p.id === kingdom.rulerId);
@@ -45,9 +49,9 @@ test('500 inhabitants have 400 real soldiers and 100 civilians', () => {
   assert.equal(world.initialMilitaryShare, .8);
 });
 
-test('classic 96 inhabitant browser option preserves 20 nonmilitary pawns', () => {
+test('classic 96 inhabitant browser option limits civilian pawns to twenty percent', () => {
   const world = Sim.createWorld(2026, { initialPopulation: 96, initialMilitaryShare: .8 });
-  validateWorld(world, 96, 76, 20);
+  validateWorld(world, 96, 77, 19);
 });
 
 test('engine worlds without explicit military share keep the legacy initial roster', () => {
