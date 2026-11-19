@@ -43,7 +43,18 @@ function validateWorld(world, population, military, civilians) {
   }
 }
 
-test('500 inhabitants have 400 real soldiers and 100 civilians', () => {
+test('200 initial people means exactly 100 per kingdom, 80 soldiers and 20 civilians on each side', () => {
+  const world = Sim.createWorld(42, { initialPopulation: 200, initialMilitaryShare: .8 });
+  validateWorld(world, 200, 160, 40);
+  for (const kingdom of world.kingdoms) {
+    const people = world.people.filter(p => p.alive && p.kingdomId === kingdom.id);
+    assert.equal(people.length, 100);
+    assert.equal(people.filter(p => p.role === 'soldier').length, 80);
+    assert.equal(people.filter(p => p.role !== 'soldier').length, 20);
+  }
+});
+
+test('500 inhabitants remain available as an optional larger 80/20 scenario', () => {
   const world = Sim.createWorld(42, { initialPopulation: 500, initialMilitaryShare: .8 });
   validateWorld(world, 500, 400, 100);
   assert.equal(world.initialMilitaryShare, .8);
