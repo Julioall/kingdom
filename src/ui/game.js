@@ -19,6 +19,7 @@ import { activeLeadershipRank } from '../simulation/kingdoms/military-identity.j
 import { createMovementInterpolator } from './movement-interpolation.js';
 import { createDamageBarTracker } from './health-bars.js';
 import { GameSession } from '../app/session.ts';
+import { parseInitialPopulation } from './population-preset.js';
 import { SimulationClock } from '../app/simulation-loop.ts';
 import Sim from './simulation-view.js';
 import { DOMESTIC_SHEEP_DAILY_FEED, SHEEP_ADULT_AGE_DAYS, SHEEP_JUVENILE_MIN_SCALE } from '../config/ecosystem.js';
@@ -215,8 +216,14 @@ export function mountGame() {
   // Both optimizations remain individually opt-in until real GPU/UX QA.
   // In production use ?transport=compact (compact actors + tile deltas) or
   // ?transport=delta (full actors + tile deltas) to isolate transfer costs.
+  // Start with a substantially larger, but measured browser population:
+  // 5,000 is the supported STRESS ceiling, not a playable default.
+  // ?population=96 (baseline), ?population=500 (default), ?population=5000 (stress).
+  const initialPopulation = parseInitialPopulation(diagnosticQuery.get('population'));
+  const largePopulation = initialPopulation >= 1000;
   const transportChoice = diagnosticQuery.get('transport');
   const compactActorsQA = transportChoice === 'compact'
+    || (largePopulation && transportChoice !== 'delta' && transportChoice !== 'full')
     || (import.meta.env.DEV && diagnosticQuery.get('compactActors') === '1');
   const tileDeltaQA = transportChoice === 'delta'
     || (import.meta.env.DEV && diagnosticQuery.get('tileDeltaQA') === '1');
@@ -224,13 +231,14 @@ export function mountGame() {
   const cognitiveBudget = cognitiveOption === 'adaptive' ? 'adaptive'
     : cognitiveOption !== null && /^\d+$/.test(cognitiveOption)
     && Number(cognitiveOption) >= 1 && Number(cognitiveOption) <= 4096
-    ? Number(cognitiveOption) : null;
+    ? Number(cognitiveOption) : largePopulation && cognitiveOption !== 'off' ? 'adaptive' : null;
   // Open ?battleDebug=1 to inspect true soldier positions, projected slots,
   // commander march targets, flanking wings and held reserves on the map.
   const showBattlefieldDebug = diagnosticQuery.get('battleDebug') === '1';
   const session = new GameSession(undefined, sessionSeed,
     { compactActorTransport: compactActorsQA, tileDeltaTransport: tileDeltaQA,
-      workerProfiling: diagnosticQuery.get('profile') === '1', cognitiveBudget, npcBehavior });
+      workerProfiling: diagnosticQuery.get('profile') === '1',
+      cognitiveBudget, npcBehavior, initialPopulation });
   if (diagnosticQuery.get('paused') === '1') {
     session.paused = true;
     session.ready.then(() => session.setPaused(true)).catch(error => session.onError?.(error));

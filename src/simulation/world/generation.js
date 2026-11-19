@@ -35,6 +35,15 @@ function ensureInitialMilitaryRecruitmentPool(world) {
 
 export function createWorld(seed, options = {}) {
     const cleanSeed = (Number(seed) >>> 0) || 1;
+    // Benchmark-confirmed stress population. Direct createWorld(seed) keeps
+    // its small deterministic seed for unit tests and explicit simulations.
+    const requestedPopulation = options.initialPopulation == null
+      ? INITIAL_POPULATION_PER_KINGDOM * 2 : Number(options.initialPopulation);
+    if (!Number.isSafeInteger(requestedPopulation)
+      || requestedPopulation < INITIAL_POPULATION_PER_KINGDOM * 2
+      || requestedPopulation > 5000) {
+      throw new RangeError('População inicial deve estar entre 96 e 5000.');
+    }
     const w = {
       seed: cleanSeed, width: WIDTH, height: HEIGHT, day: 0, year: 1, season: 0, rngState: cleanSeed,
       nextId: 1, tiles: [], regions: [], animals: [], people: [], communities: [], kingdoms: [], structures: [], settlements: [], logs: [], loot: [], lake: null, lakes: [],
@@ -116,7 +125,7 @@ export function createWorld(seed, options = {}) {
     clearWildVegetationNearCorrals(w);
     seedAdditionalMinerals(w);
     relocateSettlementMinerals(w);
-    addIndividuals(w, INITIAL_POPULATION_PER_KINGDOM * w.kingdoms.length, true);
+    addIndividuals(w, requestedPopulation, true);
     ensureInitialMilitaryRecruitmentPool(w);
     for (const kingdom of w.kingdoms) {
       for (const { militaryClass, count } of INITIAL_MILITARY_ROSTER) {
@@ -146,8 +155,8 @@ export function createWorld(seed, options = {}) {
       humanFoodCultivationSeeded: w.ecologyFlows.humanFoodCultivationSeeded,
       cultivatedFoodHarvested: w.harvests.cultivatedFoodBiomass
     };
-    const initialPopulation = INITIAL_POPULATION_PER_KINGDOM * w.kingdoms.length;
-    const initialNonMilitaryPerKingdom = INITIAL_POPULATION_PER_KINGDOM - INITIAL_SOLDIERS_PER_KINGDOM;
+    const initialPopulation = requestedPopulation;
+    const initialNonMilitaryPerKingdom = initialPopulation / w.kingdoms.length - INITIAL_SOLDIERS_PER_KINGDOM;
     const rosterDescription = INITIAL_MILITARY_ROSTER.map(({ count, militaryClass }) => count + ' ' + militaryClass + (count === 1 ? '' : 's')).join(', ');
     log(w, initialPopulation + ' habitantes começaram em ' + w.kingdoms.length + ' reinos, com '
       + initialNonMilitaryPerKingdom + ' habitantes não militares e ' + INITIAL_SOLDIERS_PER_KINGDOM

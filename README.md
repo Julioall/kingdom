@@ -1,3 +1,13 @@
+## Mundo ampliado e população
+
+O mapa novo usa **160 × 160 células** (25.600 tiles), contra as 112 × 112 (12.544 tiles) anteriores: aproximadamente **104% mais área**. A versão no navegador inicia com **500 habitantes** divididos entre os dois reinos, substituindo a população padrão anterior de 96.
+
+Use `?population=96` para uma partida leve, `?population=500` para a ampliação padrão ou `?population=5000` para o teto **experimental de estresse** verificado nos benchmarks. A população escolhida é preservada ao reiniciar por seed. Valores fora do intervalo de 96 a 5.000 não são utilizados. Com `population=5000`, o jogo usa transferência compacta de atores e orçamento cognitivo adaptativo por padrão; `?transport=full&cognitiveBudget=off` permite comparar a versão integral, com alto custo.
+
+**Limite medido (GitHub Actions, seed 42, 19/11/2026):** criar 5.000 habitantes na ilha de 160×160 levou aproximadamente 4,1 s, com 773,8 MB de heap após o primeiro dia; **simular um único dia levou 83,9 s** no runner. É um teto de estresse, **não um tamanho jogável garantido**. Com 500 habitantes e seed 2026, o primeiro dia levou cerca de 1,63 s no mesmo tipo de runner. Desempenho em navegadores e sustentabilidade econômica continuam sujeitos a validação. A densidade inicial grande não cria moradias ou alimentos infinitos.
+
+Ferramenta de reprodução: `node scripts/verify-expanded-world.mjs --seed=42 --population=5000`. A CI de `.github/workflows/expanded-world.yml` exercita a criação e um dia real da simulação. Os benchmarks históricos de paridade continuam usando o mapa clássico de 112×112 via `KINGDOM_WORLD_PRESET=classic`, separadamente da nova validação do mapa ampliado.
+
 # Kingdom
 
 Simulação de dois reinos, seus moradores, território e ecologia, executada no navegador.

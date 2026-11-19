@@ -40,7 +40,9 @@ try {
         reducedMotion:'reduce'});
       const errors=[];page.on('pageerror',error=>errors.push(String(error)));
       try {
-        const url=base+'?seed=42&paused=1&profile=1&effects=fixed&actorCulling='+(mode==='baseline'?'0':'1');
+        // Keep the original 96-person controlled comparison even though browser
+        // gameplay now defaults to 500; compare identical inputs on both paths.
+        const url=base+'?seed=42&population=96&paused=1&profile=1&effects=fixed&actorCulling='+(mode==='baseline'?'0':'1');
         await page.goto(url,{waitUntil:'domcontentloaded',timeout:60000});
         await page.waitForFunction(()=>{
           const perf=window.kingdomProfiler?.snapshot();

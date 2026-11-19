@@ -1,6 +1,16 @@
 
 
-export const WIDTH = 112, HEIGHT = 112, CELL_AREA_M2 = 100, REGION_SIDE = 8;
+// Browser play uses the expanded island. The Node test harness retains
+// its original deterministic 112x112 fixture unless a dedicated stress run
+// explicitly sets KINGDOM_WORLD_PRESET=expanded. Comparing the benchmark
+// against a differently generated world would be meaningless.
+const nodeRuntime = typeof process !== 'undefined'
+  && !!process.versions?.node;
+const classicBenchmarkWorld = nodeRuntime
+  && process.env.KINGDOM_WORLD_PRESET !== 'expanded';
+export const WIDTH = classicBenchmarkWorld ? 112 : 160;
+export const HEIGHT = classicBenchmarkWorld ? 112 : 160;
+export const CELL_AREA_M2 = 100, REGION_SIDE = 8;
 
 export const SEASONS = ['Primavera', 'Verão', 'Outono', 'Inverno'];
 

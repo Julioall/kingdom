@@ -35,6 +35,10 @@ jobs:
         with:
           node-version: 24
       - name: Same-host full-world A/B — verify every complete authoritative digest
+        # Match the baseline's 112×112 geometry. The expanded 160×160
+        # browser island is evaluated independently by expanded-world.yml.
+        env:
+          KINGDOM_WORLD_PRESET: classic
         shell: bash
         run: |
           mkdir -p "$GITHUB_WORKSPACE/perf-results"
@@ -51,6 +55,8 @@ jobs:
           done
           node candidate/scripts/compare-performance-v2.mjs "$GITHUB_WORKSPACE/perf-results"
       - name: Profile production simulation stages with exact parity
+        env:
+          KINGDOM_WORLD_PRESET: classic
         shell: bash
         run: |
           cd candidate
