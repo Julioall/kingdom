@@ -116,6 +116,16 @@ export function addIndividuals(w, count, initial) {
     // Distribute a large initial population around its OWN capital instead
     // of placing thousands on the first available house tile or spawning
     // inhabitants on the opposing kingdom's side of the island.
+    const initialHomeQueues = largeInitialPopulation ? new Map(
+      w.kingdoms.map(kingdom => {
+        const byId = new Map(w.structures.map(structure => [structure.id, structure]));
+        return [kingdom.id, {
+          homes: kingdom.homeIds.map(id => byId.get(id))
+            .filter(home => home?.complete && home.destroyedDay == null),
+          cursor: 0
+        }];
+      })
+    ) : null;
     const initialSpawnPools = largeInitialPopulation ? new Map(
       w.kingdoms.map(kingdom => {
         const radius = Math.max(28, Math.min(w.width, w.height) * .26);
@@ -137,7 +147,14 @@ export function addIndividuals(w, count, initial) {
         ? initial ? w.kingdoms[Math.min(w.kingdoms.length - 1, Math.floor(n * w.kingdoms.length / count))]
           : w.kingdoms.slice().sort((a, b) => distance(a, wanderingTile) - distance(b, wanderingTile))[0]
         : null;
-      const vacantHome = kingdom && kingdom.homeIds.map(id => w.structures.find(s => s.id === id && s.complete && s.destroyedDay == null && s.residentIds.length < s.capacity)).find(Boolean);
+      const homeQueue = initialHomeQueues?.get(kingdom?.id);
+      if (homeQueue) while (homeQueue.cursor < homeQueue.homes.length
+          && homeQueue.homes[homeQueue.cursor].residentIds.length >=
+             homeQueue.homes[homeQueue.cursor].capacity) homeQueue.cursor++;
+      const vacantHome = homeQueue ? homeQueue.homes[homeQueue.cursor]
+        : kingdom && kingdom.homeIds.map(id => w.structures.find(s => s.id === id
+          && s.complete && s.destroyedDay == null && s.residentIds.length < s.capacity))
+          .find(Boolean);
       const pool = initialSpawnPools?.get(kingdom?.id);
       const startingCell = pool?.tiles[pool.cursor++] || null;
       const t = initial && vacantHome ? cellAt(w, vacantHome.x, vacantHome.y)
