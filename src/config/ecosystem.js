@@ -1,10 +1,13 @@
 
 
-// New browser worlds have more than twice the previous land grid area.
-// Legacy geometry exists ONLY for apples-to-apples engine benchmarking:
-// benchmark scripts may opt into it with KINGDOM_WORLD_PRESET=classic.
-const classicBenchmarkWorld = typeof process !== 'undefined'
-  && process.env?.KINGDOM_WORLD_PRESET === 'classic';
+// Browser play uses the expanded island. The Node test harness retains
+// its original deterministic 112x112 fixture unless a dedicated stress run
+// explicitly sets KINGDOM_WORLD_PRESET=expanded. Comparing the benchmark
+// against a differently generated world would be meaningless.
+const nodeRuntime = typeof process !== 'undefined'
+  && !!process.versions?.node;
+const classicBenchmarkWorld = nodeRuntime
+  && process.env.KINGDOM_WORLD_PRESET !== 'expanded';
 export const WIDTH = classicBenchmarkWorld ? 112 : 160;
 export const HEIGHT = classicBenchmarkWorld ? 112 : 160;
 export const CELL_AREA_M2 = 100, REGION_SIDE = 8;
