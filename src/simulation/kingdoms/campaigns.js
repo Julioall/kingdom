@@ -937,6 +937,9 @@ function updateCampaignFormation(world, campaign, side, day) {
       destination: geometry.destination, home: side.home,
       orientation: geometry.orientation, day, previous: side.squadTactics,
       observedThreats: threats, openFront: openFormationFront(world, campaign.target),
+      // Inspect the real commander's neighborhood, not only the final front.
+      // Bridges and gates require a single-file column until the exit opens.
+      isNarrowPassage: commander => !openFormationFront(world, commander),
       sideMorale: side.morale, mode: tacticalMode,
       projectTarget: goal => nearbyBattlefieldGround(world, goal)
     });

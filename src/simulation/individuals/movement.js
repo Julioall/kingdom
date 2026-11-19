@@ -10,6 +10,7 @@ import { canTraverseElevation } from '../world/island-terrain.js';
 import { congestionRouteStep, rememberedRouteStep, rememberRouteArrival } from './navigation.js';
 import { firstPersonNear } from './spatial-index.js';
 import { chooseSteeredTile } from './steering-boids.js';
+import { militaryPassageYieldDecision } from './military-passage.js';
 import { consumePersonEnergy } from './energy.js';
 import { collidesWithWorldAt, hitboxesOverlap, mineralHitbox, npcHitbox, worldCollisionIndex } from '../physics/hitboxes.js';
 import { assignedHerdPen, corralFenceRadius, herdPenRadius } from '../ecology/herd.js';
@@ -272,7 +273,9 @@ function canYieldPassage(w, person, requester) {
     const friendlyShepherdPass = ledSheepFor(w, requester) && person.kingdomId != null
       && person.kingdomId === requester.kingdomId
       && cellAt(w, Math.round(person.x), Math.round(person.y))?.kingdomId === person.kingdomId;
-    return healthyAndReady && (sameCampaign || friendlyShepherdPass);
+    const priority = sameCampaign ? militaryPassageYieldDecision(person, requester) : null;
+    return healthyAndReady && (sameCampaign || friendlyShepherdPass)
+      && priority !== false;
   }
   const ledSheep = ledSheepFor(w, person);
   const assignment = person.assignment;
@@ -321,6 +324,12 @@ function respondToPassageRequest(w, person) {
   try {
     for (const { tile } of candidates) {
       if (moveOne(w, person, tile, false, { passageYield: true, passageChain })) {
+        if (militaryPassageYieldDecision(person, requester) === true
+            && String(person.militaryUnitId) !== String(requester.militaryUnitId)) {
+          // Avoid an immediate same-day counter-move into the cell just freed.
+          // A normal move is allowed on the next simulated day.
+          person.passageYieldHoldDay = w.day;
+        }
         requester.passageResponse = { personId: person.id, accepted: true, day: w.day };
         return true;
       }
@@ -442,6 +451,8 @@ export function moveOne(w, agent, target, aquatic, movementOptions = null) {
     if (agent.playerControlled) return false;
     if (agent.magicCast) return false;
     if (!target) return false;
+    if (!movementOptions?.passageYield && agent.role === 'soldier'
+        && agent.passageYieldHoldDay === w.day) return false;
     if (agent.speciesId == null && !movementOptions?.passageYield && !movementOptions?.magicExtraStep) {
       const speed = agent.magicEffects?.length ? magicModifiers(agent, w).speed : 1;
       agent.magicStrideCredit = Math.min(2, (agent.magicStrideCredit || 0) + speed);
