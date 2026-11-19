@@ -103,10 +103,20 @@ test('opposing friendly squads use a real passing bay and do not reverse the han
   assert.equal(moveOne(world, support, opposingDestination, false), false,
     'yielding soldier cannot immediately reoccupy the same corridor on that day');
   assert.equal(support.y, bay.y);
+  const beforeNextDay = [
+    { x: vanguard.x, y: vanguard.y },
+    { x: support.x, y: support.y }
+  ];
   world.day++;
   assert.equal(moveOne(world, vanguard, advance, false), true,
     'priority squad clears the blocked corridor cell');
   assert.equal(moveOne(world, support, opposingDestination, false), true,
     'opposing squad resumes its own destination after the handoff');
+  for (const [index, person] of [vanguard, support].entries()) {
+    assert.ok(Math.hypot(person.x - beforeNextDay[index].x,
+      person.y - beforeNextDay[index].y) <= Math.SQRT2,
+    'a coordinated passing handoff cannot teleport either squad');
+    assert.equal(cellAt(world, person.x, person.y).terrain, 'land');
+  }
   assert.equal(hitboxesOverlap(npcHitbox(vanguard), npcHitbox(support)), false);
 });
