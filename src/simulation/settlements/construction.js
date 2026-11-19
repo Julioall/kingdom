@@ -242,8 +242,13 @@ export function chooseBuildSite(w, community, structures, builder = null) {
       const blockOffset = Math.abs(Math.abs(dx) - (13 + Math.round((Math.abs(dx) - 13) / 8) * 8))
         + Math.abs(dy - (4 + Math.round((dy - 4) / 8) * 8));
       const circulationPenalty = centerDistance > 6 && (Math.abs(dx) < 3 || Math.abs(dy) < 2) ? .5 : 0;
+      // On a 160-tile island the ocean and freshwater lakes are farther
+      // from the capital than on the original 112-tile world. Rain-fed
+      // cropland must remain possible without teleporting water to town.
+      const cropWaterReach = w.width > 112 ? Math.min(40, Math.round(w.width / 4)) : 20;
       const fieldTiles = nextType === 'roça' ? cellsWithin(w, t.x, t.y, 3.35, q => q.terrain === 'land'
-        && q.slope <= .65 && q.soilType !== 'sandy' && q.waterDist <= 20 && q.cropFieldId == null) : null;
+        && q.slope <= .65 && q.soilType !== 'sandy'
+        && q.waterDist <= cropWaterReach && q.cropFieldId == null) : null;
       if (fieldTiles && fieldTiles.length < 16) continue;
       if (!hasBuildingResourceClearance(w, t, candidateRadius)) continue;
       // Animal and browse scores are irrelevant to non-corral sites.
