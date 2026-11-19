@@ -91,12 +91,12 @@ function makeFixture(seed, unitCount) {
   enemy.role = 'soldier'; enemy.alive = true; enemy.playerControlled = false;
   enemy.towerMounted = false; enemy.restingStructureId = null;
   enemy.militaryRestTargetId = null; enemy.magicCast = null;
-  // This controlled navigation/contact audit needs a defender who remains
-  // alive until all FIVE units complete the bridge. The original 250-HP
-  // sentry died before day 137, making after-formation contact unobservable
-  // even though all 50 soldiers crossed correctly. These values apply ONLY
-  // to the synthetic audit opponent, never to normal battle balance.
-  enemy.health = 1200; enemy.maxHealth = 1200;
+  // This is an instrumented single-target combat probe, NOT a balancing
+  // benchmark. With normal health the lone sentry dies before the fifth unit
+  // reforms (day 137), preventing any observation of a real post-formation
+  // combat action. A durable target keeps this one measurement observable,
+  // without changing production enemy health or combat damage rules.
+  enemy.health = 10000; enemy.maxHealth = 10000;
   enemy.energy = 100; enemy.stamina = 160;
   enemy.lastMilitaryAttackDay = -100; enemy.hitbox = null;
   world.people = [...allies, enemy];
