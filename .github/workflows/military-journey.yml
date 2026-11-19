@@ -5,6 +5,7 @@ on:
     branches: [main, dev]
     paths:
       - 'scripts/audit-medieval-unit-journey.mjs'
+      - 'scripts/check-medieval-journey.mjs'
       - 'scripts/replay-medieval-battle.mjs'
       - 'tests/military-unit-journey.test.mjs'
       - 'src/simulation/individuals/military-corridors.js'
@@ -36,6 +37,8 @@ jobs:
         run: node scripts/audit-medieval-unit-journey.mjs --units=3,4,5 --seed=42 --days=150 --output=out/military-journey.json
       - name: Replay full Kingdom campaign with staged five-unit garrisons
         run: node scripts/replay-medieval-battle.mjs --seed=42 --force-size=50 --days=75 --interval=3 --output=out/medieval-battle-five-units.html
+      - name: Enforce complete ordered march-to-contact acceptance
+        run: node scripts/check-medieval-journey.mjs out/military-journey.json
       - name: Save inspection evidence even when a validation fails
         if: always()
         uses: actions/upload-artifact@v4
