@@ -5,6 +5,7 @@ import { DOMESTIC_SHEEP_DAILY_FEED, HEIGHT, WIDTH } from '../../config/ecosystem
 import { formatWholeMeasure } from '../../config/whole-measures.js';
 import { log } from '../core/events.js';
 import { cellAt } from '../world/spatial.js';
+import { distance } from '../core/math.js';
 import { recomputeKingdomTerritories, TERRITORY_RULES } from './territories.js';
 import { KINGDOM_BUILD_COSTS } from './commands.js';
 import { kingdomFoodDemand } from '../economy/food-policy.js';
