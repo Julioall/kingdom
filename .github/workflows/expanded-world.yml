@@ -21,6 +21,8 @@ jobs:
   max-population:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      KINGDOM_WORLD_PRESET: expanded
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.0.0
