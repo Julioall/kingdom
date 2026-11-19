@@ -1,5 +1,28 @@
 ## Mundo ampliado e população
 
+### Composição inicial: 80% militares, 20% civis
+
+Nas novas partidas abertas pelo navegador, a população inicial será composta por
+**80% de soldados** e **20% de civis**, incluindo os governantes.
+Com o padrão de **500 habitantes**, serão **400 soldados e 100 civis**
+(200 militares e 50 civis por reino).
+O modo experimental `?population=5000` inicializa **4.000 soldados e 1.000 civis**,
+mas **não** constitui promessa de boa velocidade de simulação.
+
+As tropas adicionais são guarnições fundadoras, organizadas em unidades reais
+de até dez combatentes com comandantes e generais. O centro militar registra
+a capacidade de pessoal fundador. Recrutamento **posterior**, pagamentos e
+alimentação continuam usando as regras do mundo, sem recursos infinitos.
+Para iniciar um mundo diretamente pela API do motor e preservar os testes
+históricos, omita `initialMilitaryShare`; para reproduzir a proporção nova,
+use `Sim.createWorld(seed, { initialPopulation: 500, initialMilitaryShare: .8 })`.
+
+A divisão de 80/20 é **inicial**. Óbitos, nascimentos, recrutamento e
+desmobilização podem alterar a proporção ao longo dos dias. Um exército
+com quatro vezes mais soldados que civis é economicamente frágil:
+testes de suprimento, salários e sustentabilidade a longo prazo
+são necessários antes de considerá-lo equilibrado.
+
 O mapa novo usa **160 × 160 células** (25.600 tiles), contra as 112 × 112 (12.544 tiles) anteriores: aproximadamente **104% mais área**. A versão no navegador inicia com **500 habitantes** divididos entre os dois reinos, substituindo a população padrão anterior de 96.
 
 Use `?population=96` para uma partida leve, `?population=500` para a ampliação padrão ou `?population=5000` para o teto **experimental de estresse** verificado nos benchmarks. A população escolhida é preservada ao reiniciar por seed. Valores fora do intervalo de 96 a 5.000 não são utilizados. Com `population=5000`, o jogo usa transferência compacta de atores e orçamento cognitivo adaptativo por padrão; `?transport=full&cognitiveBudget=off` permite comparar a versão integral, com alto custo.
