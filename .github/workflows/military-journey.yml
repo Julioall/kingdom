@@ -1,0 +1,51 @@
+name: Kingdom medieval army journey audit
+
+on:
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'scripts/audit-medieval-unit-journey.mjs'
+      - 'scripts/check-medieval-journey.mjs'
+      - 'scripts/replay-medieval-battle.mjs'
+      - 'tests/military-unit-journey.test.mjs'
+      - 'src/simulation/individuals/military-corridors.js'
+      - 'src/simulation/individuals/movement.js'
+      - 'src/simulation/kingdoms/squad-tactics.js'
+      - '.github/workflows/military-journey.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kingdom-military-journey-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  battlefield:
+    name: 3-5 units, real corridor and battlefield replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Audit controlled corridor for 3, 4 and 5 squads
+        run: node scripts/audit-medieval-unit-journey.mjs --units=3,4,5 --seed=42 --days=150 --output=out/military-journey.json
+      - name: Replay full Kingdom campaign with staged five-unit garrisons
+        run: node scripts/replay-medieval-battle.mjs --seed=42 --force-size=50 --days=75 --interval=3 --output=out/medieval-battle-five-units.html
+      - name: Enforce complete ordered march-to-contact acceptance
+        run: node scripts/check-medieval-journey.mjs out/military-journey.json
+      - name: Save inspection evidence even when a validation fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: medieval-five-unit-journey
+          path: |
+            out/military-journey.json
+            out/medieval-battle-five-units.html
+          if-no-files-found: warn
+          retention-days: 14
