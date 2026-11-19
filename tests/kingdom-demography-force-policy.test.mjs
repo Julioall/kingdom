@@ -77,19 +77,26 @@ test('adolescents grow into normal citizens; old residents die from age and rele
   if (occupiedHome) assert.ok(!occupiedHome.residentIds.includes(elder.id));
 });
 
-function report({ adults = 100, soldiers = 70, civilianAdults = 30, foodDays = 120, war = false, recruited = false } = {}) {
+function report({ soldiers = 70, civilianAdults = 30, foodDays = 120,
+  war = false, recruited = false, treasuryGold = 0, volunteers = 0, availableSoldiers = soldiers } = {}) {
   return {
     community: { foodBufferDays: foodDays },
-    military: { adultPopulation: adults, soldiers, civilianAdults, recruitment: { available: recruited },
-      activeCampaign: war ? { id: 1 } : null, pendingForceRequests: [], recentTerritoryLosses: [] }
+    treasury: { gold: treasuryGold },
+    military: { soldiers, civilianAdults, volunteers, availableSoldiers,
+      recruitment: { available: recruited }, activeCampaign: war ? { id: 1 } : null,
+      pendingForceRequests: [], recentTerritoryLosses: [] }
   };
 }
 
-test('royal policy demobilizes in peace, protects campaigns and recruits only with civilian surplus', () => {
+test('royal staffing responds to wages, voluntary interest and wartime need, never population quotas', () => {
   assert.equal(planKingdomForceBalance(report()).action, 'demobilize');
   assert.equal(planKingdomForceBalance(report({ war: true })).action, 'hold');
-  assert.equal(planKingdomForceBalance(report({ soldiers: 8, civilianAdults: 92, recruited: true })).action, 'recruit');
-  assert.equal(planKingdomForceBalance(report({ soldiers: 8, civilianAdults: 92, recruited: true, foodDays: 2 })).action, 'hold');
+  assert.equal(planKingdomForceBalance(report({ soldiers: 2, civilianAdults: 92,
+    treasuryGold: 100, recruited: true, volunteers: 3 })).action, 'recruit-volunteer');
+  assert.equal(planKingdomForceBalance(report({ soldiers: 2, availableSoldiers: 1,
+    civilianAdults: 92, treasuryGold: 100, recruited: true, war: true })).action, 'requisition');
+  assert.equal(planKingdomForceBalance(report({ soldiers: 2, civilianAdults: 92,
+    treasuryGold: 100, recruited: true, volunteers: 3, foodDays: 2 })).action, 'demobilize');
 });
 
 test('king demobilizes living off-duty soldiers without losing citizens or funds', () => {
