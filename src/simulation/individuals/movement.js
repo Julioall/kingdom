@@ -11,7 +11,8 @@ import { congestionRouteStep, rememberedRouteStep, rememberRouteArrival } from '
 import { firstPersonNear } from './spatial-index.js';
 import { chooseSteeredTile } from './steering-boids.js';
 import { militaryPassageYieldDecision } from './military-passage.js';
-import { admitMilitaryCorridorStep, recordMilitaryCorridorStep } from './military-corridors.js';
+import { admitMilitaryCorridorStep, recordMilitaryCorridorStep,
+  militaryCorridorYieldDecision } from './military-corridors.js';
 import { consumePersonEnergy } from './energy.js';
 import { collidesWithWorldAt, hitboxesOverlap, mineralHitbox, npcHitbox, worldCollisionIndex } from '../physics/hitboxes.js';
 import { assignedHerdPen, corralFenceRadius, herdPenRadius } from '../ecology/herd.js';
@@ -274,7 +275,9 @@ function canYieldPassage(w, person, requester) {
     const friendlyShepherdPass = ledSheepFor(w, requester) && person.kingdomId != null
       && person.kingdomId === requester.kingdomId
       && cellAt(w, Math.round(person.x), Math.round(person.y))?.kingdomId === person.kingdomId;
-    const priority = sameCampaign ? militaryPassageYieldDecision(person, requester) : null;
+    const priority = sameCampaign
+      ? militaryCorridorYieldDecision(w, person, requester)
+        ?? militaryPassageYieldDecision(person, requester) : null;
     return healthyAndReady && (sameCampaign || friendlyShepherdPass)
       && priority !== false;
   }
