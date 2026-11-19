@@ -216,9 +216,9 @@ export function mountGame() {
   // Both optimizations remain individually opt-in until real GPU/UX QA.
   // In production use ?transport=compact (compact actors + tile deltas) or
   // ?transport=delta (full actors + tile deltas) to isolate transfer costs.
-  // Start with a substantially larger, but measured browser population:
-  // 5,000 is the supported STRESS ceiling, not a playable default.
-  // ?population=96 (baseline), ?population=500 (default), ?population=5000 (stress).
+  // Two kingdoms start with 100 people each (200 total). Larger populations
+  // remain explicit overrides: ?population=500 or ?population=5000 (stress).
+  // ?population=96 continues to reproduce the lightweight classic baseline.
   const initialPopulation = parseInitialPopulation(diagnosticQuery.get('population'));
   const largePopulation = initialPopulation >= 1000;
   const transportChoice = diagnosticQuery.get('transport');

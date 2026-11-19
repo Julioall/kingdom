@@ -1,6 +1,7 @@
 // Browser population controls remain explicit and reproducible across reset.
 // Keep stress ceiling separate from the playable default.
-export const DEFAULT_BROWSER_POPULATION = 500;
+// Two kingdoms, 100 people each. The 80/20 role split is applied by world generation.
+export const DEFAULT_BROWSER_POPULATION = 200;
 export const MIN_INITIAL_POPULATION = 96;
 export const MAX_INITIAL_POPULATION = 5000;
 
