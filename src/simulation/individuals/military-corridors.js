@@ -170,6 +170,11 @@ function cleanup(world, region, key) {
   let claim = state.corridors[key];
   if (!claim) return null;
   const day = world.day || 0;
+  if (claim.empty) {
+    claim.waiting = (claim.waiting || []).filter(item =>
+      queueRepresentative(world, item, key, region, day));
+    return claim;
+  }
   if (resolved(world, region, claim)) {
     state.releases++;
     // Keep the wait queue for deterministic priority when the next unit
