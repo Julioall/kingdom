@@ -2,7 +2,10 @@
 // Separate from npm test so ordinary unit tests remain fast and deterministic.
 import assert from 'node:assert/strict';
 import { performance } from 'node:perf_hooks';
-import Sim from '../src/simulation/engine.js';
+// Static imports execute before this script can select its geometry.
+// Import the engine only after opting into the expanded-world preset.
+process.env.KINGDOM_WORLD_PRESET = 'expanded';
+const { default: Sim } = await import('../src/simulation/engine.js');
 
 const seed = Number(process.argv.find(x => x.startsWith('--seed='))?.split('=')[1] || 42);
 const population = Number(process.argv.find(x => x.startsWith('--population='))?.split('=')[1] || 5000);
