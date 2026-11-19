@@ -8,6 +8,9 @@ const MAX_CORRIDOR_CELLS = 40;
 const MAX_PARTICIPANT_DISTANCE = 28;
 const WAIT_TTL_DAYS = 2;
 const IDLE_RECOVERY_DAYS = 6;
+// A live rear guard can need many daily turns to move 9 soldiers through a
+// narrow gate. Short idle leases rotated ownership before all ranks crossed.
+const ACTIVE_REAR_GUARD_STALE_DAYS = 48;
 const OFFSETS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 
 const sameUnit = (a, b) => String(a) === String(b);
@@ -94,12 +97,33 @@ function participants(world, owner, source, region, direction) {
   return members.map(person => person.id).sort((a, b) => String(a).localeCompare(String(b), 'en'));
 }
 
-function newClaim(world, key, owner, source, region, direction, waiting = []) {
+function corridorExit(world, source, region, direction, canStep) {
+  if (!direction) return null;
+  const along = tile => (tile.x - source.x) * direction.x
+    + (tile.y - source.y) * direction.y;
+  const frontier = [];
+  for (const tile of region.tiles) for (const [dx, dy] of OFFSETS) {
+    const x = tile.x + dx, y = tile.y + dy;
+    if (x < 0 || y < 0 || x >= world.width || y >= world.height) continue;
+    const outside = world.tiles[y * world.width + x];
+    if (region.cells.has(outside.i) || !canStep(tile, outside)) continue;
+    const progress = along(outside);
+    if (progress <= along(tile)) continue;
+    frontier.push({ outside, progress });
+  }
+  frontier.sort((a, b) => b.progress - a.progress
+    || a.outside.i - b.outside.i);
+  return frontier.length ? { x: frontier[0].outside.x,
+    y: frontier[0].outside.y } : null;
+}
+
+function newClaim(world, key, owner, source, region, direction, waiting = [], canStep = () => false) {
   return {
     key, ownerUnitId: owner.militaryUnitId, kingdomId: owner.kingdomId,
     campaignId: owner.campaignId, enteredDay: world.day || 0,
     lastProgressDay: world.day || 0,
     direction, source: { x: source.x, y: source.y },
+    exit: corridorExit(world, source, region, direction, canStep),
     maxProgress: direction ? Math.max(...region.tiles.map(tile =>
       (tile.x - source.x) * direction.x + (tile.y - source.y) * direction.y)) : null,
     members: participants(world, owner, source, region, direction || { x: 0, y: 0 }),
@@ -182,8 +206,15 @@ function cleanup(world, region, key) {
     state.corridors[key] = { waiting: claim.waiting, empty: true };
     return state.corridors[key];
   }
+  // A physically present rear guard is not an abandoned claim just because
+  // the bridge happens to be empty for six days. Never declare its crossing
+  // complete on time alone: stalled live columns keep the lock until the
+  // longer safety timeout, while a commander who actually turned back may
+  // relinquish it after the ordinary abandoned-order grace period.
+  const recoveryAfter = claim.abandoned
+    ? IDLE_RECOVERY_DAYS : ACTIVE_REAR_GUARD_STALE_DAYS;
   if (!hasOwnerInside(world, region, claim)
-      && day - claim.lastProgressDay >= IDLE_RECOVERY_DAYS) {
+      && day - claim.lastProgressDay >= recoveryAfter) {
     state.recoveries++;
     state.corridors[key] = { waiting: claim.waiting, empty: true };
     return state.corridors[key];
@@ -231,13 +262,14 @@ export function admitMilitaryCorridorStep(world, actor, from, to, canStep) {
     state.corridors[key] = { empty: true, waiting };
     // If an incumbent was found, reserve the corridor for them immediately.
     if (incumbent) state.corridors[key] = newClaim(world, key, incumbent,
-      from, region, null, waiting);
+      from, region, null, waiting, canStep);
     return false;
   }
   const nextWaiting = waiting.filter(item => !sameUnit(item.unitId, actor.militaryUnitId)
     && queueRepresentative(world, item, key, region, day));
   state.corridors[key] = newClaim(world, key, actor,
-    from, region, { x: to.x - from.x, y: to.y - from.y }, nextWaiting);
+    from, region, { x: to.x - from.x, y: to.y - from.y },
+    nextWaiting, canStep);
   delete actor.militaryCorridorWait;
   return true;
 }
@@ -256,15 +288,70 @@ export function recordMilitaryCorridorStep(world, actor, from, to, canStep) {
   const toInside = region.cells.has(cellIndex(world, to));
   if (!fromInside && !toInside) return;
   claim.lastProgressDay = world.day || 0;
+  if (toInside) claim.abandoned = false;
   if (!claim.members.includes(actor.id)) claim.members.push(actor.id);
   if (fromInside && !toInside) {
     const progress = claim.direction
       ? (to.x - claim.source.x) * claim.direction.x
         + (to.y - claim.source.y) * claim.direction.y : null;
+    // The commander must physically retreat across his original entry to
+    // cancel a crossing. Remaining members may still occupy the passage,
+    // in which case cleanup will not release the reservation.
+    if (claim.direction && actor.id === actor.commanderId
+        && progress <= 0.25) claim.abandoned = true;
     // If the corridor was occupied before a lease existed, its entry
     // direction is unknown: only physical evacuation can release it.
     if ((progress == null || progress > claim.maxProgress + 0.25)
         && !claim.completed.includes(actor.id)) claim.completed.push(actor.id);
   }
   cleanup(world, region, key);
+}
+
+
+/**
+ * Rear-guard route: follow the actual narrow passage to its exit rather
+ * than chasing a captain who may already be flanking far across the field.
+ * Once a soldier physically leaves the segment, normal formation slots
+ * and their existing movement/collision rules take over.
+ */
+export function militaryCorridorRearGuardTarget(world, soldier) {
+  if (!validUnit(soldier)) return null;
+  for (const claim of Object.values(world.militaryCorridorTraffic?.corridors || {})) {
+    if (!claim || claim.empty || !claim.exit
+        || claim.kingdomId !== soldier.kingdomId
+        || claim.campaignId !== soldier.campaignId
+        || !sameUnit(claim.ownerUnitId, soldier.militaryUnitId)
+        || !claim.members.includes(soldier.id)
+        || claim.completed.includes(soldier.id)) continue;
+    if (distance(soldier, claim.source) > MAX_PARTICIPANT_DISTANCE + 5) continue;
+    const target = world.tiles[claim.exit.y * world.width + claim.exit.x];
+    if (target?.terrain !== 'land') continue;
+    return { x: claim.exit.x, y: claim.exit.y };
+  }
+  return null;
+}
+
+/**
+ * A squad with the current corridor lease may negotiate an occupied entrance
+ * even if a waiting squad has a nominally higher battlefield role. Never
+ * displace a manually controlled soldier, a reserve holding its ground, or
+ * an infantryman in combat/contact. Existing physical canStep still decides
+ * whether an actual lateral yield is legal.
+ */
+export function militaryCorridorYieldDecision(world, blocker, requester) {
+  if (!validUnit(requester) || !validUnit(blocker)
+      || blocker.kingdomId !== requester.kingdomId
+      || blocker.campaignId !== requester.campaignId
+      || sameUnit(blocker.militaryUnitId, requester.militaryUnitId)) return null;
+  for (const claim of Object.values(world.militaryCorridorTraffic?.corridors || {})) {
+    if (!claim || claim.empty || claim.kingdomId !== requester.kingdomId
+        || claim.campaignId !== requester.campaignId
+        || distance(blocker, claim.source) > 4) continue;
+    if (sameUnit(claim.ownerUnitId, blocker.militaryUnitId)) return false;
+    if (!sameUnit(claim.ownerUnitId, requester.militaryUnitId)) continue;
+    if (blocker.tacticalReserveHolding
+        || ['holding', 'contact'].includes(blocker.tacticalPhase)) return false;
+    return true;
+  }
+  return null;
 }
