@@ -2,7 +2,7 @@ import { initializeTowerHealth, TOWER_HEALTH } from './fortifications.js';
 import { log } from '../core/events.js';
 import { enlistSoldier } from './service.js';
 import { recruitKingdomSoldier, buildKingdomStructure, findMilitaryCenterWithVacancy } from './commands.js';
-import { assignHome, INITIAL_MILITARY_ROSTER } from './initialization.js';
+import { assignHome, INITIAL_MILITARY_ROSTER, planKingdomHome, privateHomeBuyerEligible } from './initialization.js';
 import { HUMAN_ADULT_AGE_DAYS } from '../individuals/human-age.js';
 import { moveOne } from '../individuals/movement.js';
 import { cellAt } from '../world/spatial.js';
@@ -47,6 +47,18 @@ function progressPrivateHome(world, structure, day) {
 }
 
 export function advanceKingdomProjects(world, day) {
+  // The initiative and the gold are the resident's, not a royal population
+  // plan. Any financially eligible adult may commission their own house.
+  if (day % 30 === 0) for (const kingdom of world.kingdoms) {
+    const candidates = world.people.filter(person => person.kingdomId === kingdom.id
+      && privateHomeBuyerEligible(world, person))
+      .sort((a, b) => ((b.personalWallet?.stock?.gold || 0) - (a.personalWallet?.stock?.gold || 0))
+        || a.id - b.id);
+    for (const owner of candidates) {
+      if (planKingdomHome(world, kingdom, { ownerId: owner.id })) break;
+    }
+  }
+
   // The king funds specialist training from the same treasury and adult population as manual recruitment.
   if (day >= 24 && day % 12 === 0) for (const kingdom of world.kingdoms) {
     for (const { school, militaryClass, count: target } of INITIAL_MILITARY_ROSTER) {
