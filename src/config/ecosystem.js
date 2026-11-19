@@ -1,6 +1,8 @@
 
 
-export const WIDTH = 112, HEIGHT = 112, CELL_AREA_M2 = 100, REGION_SIDE = 8;
+// 160x160 doubles the explorable tile area versus the previous 112x112
+// island. Both dimensions remain divisible by REGION_SIDE for chunk indexes.
+export const WIDTH = 160, HEIGHT = 160, CELL_AREA_M2 = 100, REGION_SIDE = 8;
 
 export const SEASONS = ['Primavera', 'Verão', 'Outono', 'Inverno'];
 
