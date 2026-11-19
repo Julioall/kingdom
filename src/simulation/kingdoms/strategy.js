@@ -15,6 +15,7 @@ import { calendarDate } from '../ecology/climate.js';
 import { log } from '../core/events.js';
 import { recruitKingdomSoldier, SOLDIER_COST } from './commands.js';
 import { updateKingdomForceBalance } from './population-policy.js';
+import { procureKingdomRepairMaterials } from './market-procurement.js';
 import { AI_DECISION_CONTRACT_VERSION, validateDecisionAction, validateDecisionResult } from '../../ai/contracts.js';
 import { stripAbsoluteCalendarFields } from '../../ai/observations.js';
 import { KINGDOM_STRATEGY_DECISION_GUIDANCE } from '../../ai/kingdom-strategy-prompt.js';
@@ -1043,6 +1044,7 @@ export function failKingdomStrategicAiRequest(world, request, { reason = 'infer√
 export function updateKingdomStrategies(world, planner = planKingdomStrategy) {
   const strategies = [];
   for (const kingdom of world.kingdoms || []) {
+    procureKingdomRepairMaterials(world, kingdom);
     fundFoodInfrastructure(world, kingdom);
     dispatchKingdomReserves(world, kingdom);
     let report = observeKingdomStrategy(world, kingdom.id);
