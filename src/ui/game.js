@@ -238,7 +238,7 @@ export function mountGame() {
   const session = new GameSession(undefined, sessionSeed,
     { compactActorTransport: compactActorsQA, tileDeltaTransport: tileDeltaQA,
       workerProfiling: diagnosticQuery.get('profile') === '1',
-      cognitiveBudget, npcBehavior, initialPopulation });
+      cognitiveBudget, npcBehavior, initialPopulation, initialMilitaryShare: 0.8 });
   if (diagnosticQuery.get('paused') === '1') {
     session.paused = true;
     session.ready.then(() => session.setPaused(true)).catch(error => session.onError?.(error));
