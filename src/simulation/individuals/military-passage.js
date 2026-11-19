@@ -38,6 +38,11 @@ export function militaryPassageYieldDecision(blocker, requester) {
   if (blocker.playerControlled || requester.playerControlled
     || blocker.tacticalReserveHolding) return false;
   if (requester.tacticalReserveHolding) return false;
+  // Defensive ranks may not be peeled out of their shield wall merely
+  // because an allied column has a convenient route through them. A routed
+  // ally may request emergency passage; physical safety still decides.
+  if (['holding', 'contact'].includes(blocker.tacticalPhase)
+      && requester.tacticalPhase !== 'rout') return false;
 
   // Within a unit, the captain has the right of way. A subordinate cannot
   // force the captain to abandon his real anchor to fill a personal slot.
