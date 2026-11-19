@@ -14,7 +14,7 @@ import { cultivatedFieldStandingBiomass, cultivatedFieldYieldTarget } from '../e
 import { calendarDate } from '../ecology/climate.js';
 import { log } from '../core/events.js';
 import { recruitKingdomSoldier, SOLDIER_COST } from './commands.js';
-import { updateKingdomForceBalance } from './population-policy.js';
+import { updateKingdomForceBalance, wantsMilitaryService } from './population-policy.js';
 import { procureKingdomRepairMaterials } from './market-procurement.js';
 import { AI_DECISION_CONTRACT_VERSION, validateDecisionAction, validateDecisionResult } from '../../ai/contracts.js';
 import { stripAbsoluteCalendarFields } from '../../ai/observations.js';
@@ -328,6 +328,7 @@ export function observeKingdomStrategy(world, kingdomId) {
       soldiers: foodDemand.members.filter(person => person.role === 'soldier').length,
       adultPopulation,
       civilianAdults,
+      volunteers: foodDemand.members.filter(person => person.volunteerForService && wantsMilitaryService(person, world)).length,
       frontierAlert: kingdom.frontierAlert && world.day - kingdom.frontierAlert.day <= 10 ? { ...kingdom.frontierAlert } : null,
       recentTerritoryLosses: (kingdom.frontierLosses || []).filter(item => world.day - item.day <= 60).map(item => ({ ...item })),
       knownEnemyInstallations: (kingdom.knownEnemyInstallations || []).filter(item => world.day - item.day <= 60).map(item => ({ ...item })),
@@ -448,7 +449,7 @@ function recruitForPendingForce(world, kingdom, report) {
       || !report.military.recruitment.available
       || report.community.sharedFood < foodUnitsPerDay(report.community.dailyFoodNeed)) return false;
 
-  const result = recruitKingdomSoldier(world, kingdom.id, { startedDay: world.day + 1 });
+  const result = recruitKingdomSoldier(world, kingdom.id, { startedDay: world.day + 1, requisition: true });
   if (!result.ok) return false;
   kingdom.militaryRecruitments ||= [];
   kingdom.militaryRecruitments.push({
