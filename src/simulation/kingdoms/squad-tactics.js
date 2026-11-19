@@ -36,7 +36,8 @@ function moraleForSquad(sideMorale, prior, strength, day, stamina) {
 export function planSquadTactics({ units = [], troops = [], generalOrder = null,
   destination, home, orientation = null, day, previous = null,
   observedThreats = [], openFront = true, sideMorale = 80, mode = 'hierarchical',
-  isNarrowPassage = () => false, projectTarget = position => position }) {
+  isNarrowPassage = () => false, corridorAssemblyPoint = () => null,
+  projectTarget = position => position }) {
   if (!destination || !Number.isFinite(destination.x) || !Number.isFinite(destination.y))
     return { day, squads: [], memberToSquad: {}, mode };
   const byId = new Map(troops.filter(p => p?.alive).map(p => [p.id, p]));
@@ -90,6 +91,7 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     // one-cell bridge, even when the commander has reached open ground.
     // Keep the unit in a single-file column until its last follower clears.
     const narrowPassage = !openFront || members.some(person => !!isNarrowPassage(person));
+    const assemblyPoint = corridorAssemblyPoint(commander);
     const role = prior?.role === 'vanguard' || !survivingVanguard && index === 0
       ? 'vanguard' : prior?.role || roles[index % roles.length];
     const avgStamina = members.reduce((sum, p) => sum + (Number(p.stamina) || 0), 0) / members.length;
@@ -134,7 +136,8 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     const mustFlank = mode === 'hierarchical' && openFront && side !== 0
       && contested && !!focus && generalOrder?.action !== 'hold_position'
       && (prior?.flankStage || !['assemble', 'press-front'].includes(generalOrder?.battlePlan));
-    const flankActivated = mustFlank && (atFront || armyDeployedToFront || !!prior?.flankStage);
+    const flankActivated = mustFlank && !assemblyPoint
+      && (atFront || armyDeployedToFront || !!prior?.flankStage);
     // Enemy scouts may report a slightly different position each day.
     // Keep the outward waypoint fixed while this specific wing marches to it;
     // otherwise the captain chases a sliding destination and never pivots.
@@ -198,11 +201,16 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
       && (armyDeployedToFront || !!prior?.reserveHoldPoint)
       ? prior?.reserveHoldPoint || projectTarget(goal) : null;
     if (reserveHoldPoint) goal = reserveHoldPoint;
-    goal = projectTarget(goal);
+    // An assembling unit stays behind its captain until the last registered
+    // follower leaves the bridge. The real movement system still finds the
+    // legal route to the staging point on open ground.
+    if (assemblyPoint && !routed && !regrouping && mission !== 'hold')
+      goal = projectTarget(assemblyPoint);
+    else goal = projectTarget(goal);
     const count = kind => members.filter(p => p.militaryClass === kind).length;
     const spears = count('lanceiro'), shields = count('guerreiro');
     const narrow = narrowPassage || generalOrder?.formationType === 'column' && !atFront;
-    let formationType = !(atFront || flankActivated) || narrow ? 'column'
+    let formationType = assemblyPoint || !(atFront || flankActivated) || narrow ? 'column'
       : role === 'support' ? 'line'
       // The wing marches around the adversary in files, then deploys
       // a recognizably different wedge for the inward strike.
@@ -234,6 +242,7 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     }
     const phase = routed ? 'rout' : regrouping ? 'rally'
       : mission === 'hold' ? 'holding'
+        : assemblyPoint ? dist(commander, assemblyPoint) <= 1.5 ? 'reforming' : 'marching'
         : mission === 'reserve' ? reserveHoldPoint ? 'holding' : 'marching'
           : flankActivated ? flankStage === 'strike' ? 'striking' : 'flanking'
           : !atFront ? 'marching' : charge ? 'charging'
