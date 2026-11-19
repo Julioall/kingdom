@@ -1,3 +1,4 @@
+import { HUMAN_ADULT_AGE_DAYS } from '../src/simulation/individuals/human-age.js';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -247,7 +248,7 @@ function run(seed) {
     }
     assertNonnegativeStocks(world, seed, day);
     updateFoodReserveTrackers(world, reserveTrackers);
-    adultDaysFoodReserveBelow20 += (world.people || []).filter(person => person.alive && person.ageDays >= 12 * 365
+    adultDaysFoodReserveBelow20 += (world.people || []).filter(person => person.alive && person.ageDays >= HUMAN_ADULT_AGE_DAYS
       && person.foodReserve < 20).length;
   }
   let foodInventoryLedger = null;
