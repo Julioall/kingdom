@@ -101,8 +101,11 @@ test('a corridor stays owned until the last member leaves, then the opposing squ
   const claims = Object.values(world.militaryCorridorTraffic.corridors);
   assert.ok(claims.some(claim => claim.empty), 'ownership is released after the entire unit has crossed');
   let enteredFromOtherBank = false;
-  for (let step = 0; step < 6; step++) {
+  for (let step = 0; step < 8; step++) {
     world.day++;
+    // Last exit is not the end of the march. Clear the far staging tile
+    // using real steps before the opposing unit enters the narrow segment.
+    for (const member of a) moveOne(world, member, east, false);
     moveOne(world, b, west, false);
     assertPhysical(world);
     if (b.x <= 41) { enteredFromOtherBank = true; break; }
