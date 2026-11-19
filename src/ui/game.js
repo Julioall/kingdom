@@ -21,6 +21,7 @@ import { createDamageBarTracker } from './health-bars.js';
 import { GameSession } from '../app/session.ts';
 import { parseInitialPopulation } from './population-preset.js';
 import { personAgeScale, personLifeStage } from './person-age-scale.js';
+import { HUMAN_ADULT_AGE_DAYS } from '../simulation/individuals/human-age.js';
 import { SimulationClock } from '../app/simulation-loop.ts';
 import Sim from './simulation-view.js';
 import { DOMESTIC_SHEEP_DAILY_FEED, SHEEP_ADULT_AGE_DAYS, SHEEP_JUVENILE_MIN_SCALE } from '../config/ecosystem.js';
@@ -2675,7 +2676,7 @@ export function mountGame() {
       const towerDrop = p.towerMounted
         ? ((militarySprite?.foot || 0) * .625 + (militarySprite?.size || 0) * .1)
           * spriteScale(TILE, CHARACTER_SPRITE_SCALE) : 0;
-      const x = pose.x * TILE, y = pose.y * TILE + towerDrop, child = p.ageDays < 12 * 365;
+      const x = pose.x * TILE, y = pose.y * TILE + towerDrop, child = p.ageDays < HUMAN_ADULT_AGE_DAYS;
       const scale = personAgeScale(p.ageDays), color = c ? c.color : ['#d9c28b', '#cfb585', '#e0c99b', '#c9b27f'][p.id % 4];
       if (selection?.kind === 'person' && selection.id === p.id) {
         magicVfx.drawIndicator(ctx, x + TILE / 2, y + TILE - .5, animationTime);
