@@ -1,0 +1,37 @@
+name: Military 80/20 starting population
+
+on:
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'src/simulation/world/generation.js'
+      - 'src/simulation/worker-runtime.js'
+      - 'src/simulation/protocol.ts'
+      - 'src/app/session.ts'
+      - 'src/ui/game.js'
+      - 'tests/initial-military-population.test.mjs'
+      - 'scripts/verify-military-population.mjs'
+      - '.github/workflows/military-population.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  founding-garrisons:
+    name: 80% soldiers, 20% civilians, expanded map
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Deterministic composition and legacy compatibility
+        run: node --test tests/initial-military-population.test.mjs
+      - name: Browser-sized world with one actual day and 400 soldiers
+        run: node scripts/verify-military-population.mjs --seed=42 --population=500 --days=1
+      - name: Maximum 5000 actor initialization only, without claiming playable tick speed
+        run: node --max-old-space-size=4096 scripts/verify-military-population.mjs --seed=42 --population=5000 --days=0
