@@ -75,9 +75,11 @@ test('different friendly squads use an actual passing bay and do not return into
     tile.terrain = 'land';
     tile.kingdomId = 1;
   }
-  // There is ONE real bay, so a follower can physically clear the corridor.
+  // A short passing bay gives the yielding unit somewhere to wait, then
+  // enough space to resume without crossing the other soldier's hitbox.
   const bay = cellAt(world, 33, 39);
   bay.terrain = 'land'; bay.kingdomId = 1;
+  cellAt(world, 34, 39).terrain = 'land';
   const vanguard = soldier(99021, 'unit-a', 'vanguard', 'comandante');
   const support = soldier(99022, 'unit-b', 'support', 'comandante');
   support.x = 33;
