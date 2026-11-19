@@ -31,14 +31,19 @@ function configureHouseSlots(world, kingdom, availableSlots, excludeIds) {
     .filter(person => person && !excludeIds.has(person.id));
   for (const person of world.people) if (person.kingdomId === kingdom.id) person.homeId = null;
   let occupantIndex = 0;
+  const parentIds = [...excludeIds];
   for (const [index, home] of homes.entries()) {
     home.complete = true;
     home.destroyedDay = null;
     home.integrity = 1;
-    home.capacity = index === 0 ? 1 + availableSlots : 1;
+    home.capacity = index === 0 ? parentIds.length + availableSlots : 1;
     const occupant = residents[occupantIndex++];
-    home.residentIds = occupant ? [occupant.id] : [];
-    if (occupant) occupant.homeId = home.id;
+    home.residentIds = index === 0 ? parentIds.slice() : occupant ? [occupant.id] : [];
+    if (index !== 0 && occupant) occupant.homeId = home.id;
+    if (index === 0) for (const parentId of parentIds) {
+      const parent = world.people.find(person => person.id === parentId);
+      if (parent) parent.homeId = home.id;
+    }
   }
   for (const shelter of world.structures.filter(structure => structure.type === 'abrigo')) {
     shelter.complete = false;
