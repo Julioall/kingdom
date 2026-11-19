@@ -7,7 +7,7 @@ import { performance } from 'node:perf_hooks';
 process.env.KINGDOM_WORLD_PRESET = 'expanded';
 const { default: Sim } = await import('../src/simulation/engine.js');
 const value = arg => process.argv.find(s => s.startsWith('--' + arg + '='))?.split('=')[1];
-const population = Number(value('population') || 500);
+const population = Number(value('population') || 200);
 const seed = Number(value('seed') || 42);
 const oneDay = value('days') == null ? population <= 500 : Number(value('days')) > 0;
 
