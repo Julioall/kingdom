@@ -1,3 +1,4 @@
+import { HUMAN_ADULT_AGE_DAYS, HUMAN_ADOLESCENT_AGE_DAYS, HUMAN_MAX_AGE_DAYS } from '../src/simulation/individuals/human-age.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import engine from '../src/simulation/engine.js';
@@ -23,7 +24,7 @@ function readyCouples(world, countPerKingdom) {
     for (let i = 0; i < countPerKingdom; i++) {
       const p = men[i], q = women[i];
       for (const person of [p, q]) {
-        Object.assign(person, { ageDays: 24 * 365, energy: 95, hydration: 95,
+        Object.assign(person, { ageDays: HUMAN_ADULT_AGE_DAYS + 60, energy: 95, hydration: 95,
           health: 100, foodReserve: 90, birthCooldown: 0 });
       }
       p.x = kingdom.x + i * 2; p.y = kingdom.y + 2;
@@ -63,14 +64,14 @@ test('adolescents grow into normal citizens; old residents die from age and rele
   const world = engine.createWorld(42);
   const people = world.people.filter(p => p.alive && p.role === 'resident');
   const child = people[0], adolescent = people[1], elder = people[2];
-  Object.assign(child, { ageDays: 12 * 365 - 1, health: 100, hydration: 100, foodReserve: 80, energy: 100 });
-  Object.assign(adolescent, { ageDays: 15 * 365 - 1, health: 100, hydration: 100, foodReserve: 80, energy: 100 });
-  Object.assign(elder, { ageDays: 82 * 365 - 1, health: 100, hydration: 100, foodReserve: 80, energy: 100 });
+  Object.assign(child, { ageDays: HUMAN_ADULT_AGE_DAYS - 1, health: 100, hydration: 100, foodReserve: 80, energy: 100 });
+  Object.assign(adolescent, { ageDays: HUMAN_ADOLESCENT_AGE_DAYS - 1, health: 100, hydration: 100, foodReserve: 80, energy: 100 });
+  Object.assign(elder, { ageDays: HUMAN_MAX_AGE_DAYS - 1, health: 100, hydration: 100, foodReserve: 80, energy: 100 });
   const occupiedHome = world.structures.find(s => s.id === elder.homeId);
   engine.stepDay(world, { includeSnapshot: false });
-  assert.equal(child.ageDays, 12 * 365);
+  assert.equal(child.ageDays, HUMAN_ADULT_AGE_DAYS);
   assert.equal(npcControlState(child), NPC_CONTROL.AUTONOMOUS);
-  assert.equal(adolescent.ageDays, 15 * 365);
+  assert.equal(adolescent.ageDays, HUMAN_ADOLESCENT_AGE_DAYS);
   assert.equal(elder.alive, false);
   assert.equal(elder.deathCause, 'age');
   if (occupiedHome) assert.ok(!occupiedHome.residentIds.includes(elder.id));
