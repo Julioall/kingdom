@@ -71,6 +71,8 @@ export function observeKingdomStrategy(world, kingdomId) {
   const market = kingdom.market || {};
   const foodDemand = kingdomFoodDemand(world, kingdom);
   const population = foodDemand.members.length;
+  const adultPopulation = foodDemand.members.filter(person => person.ageDays >= 15 * 365).length;
+  const civilianAdults = foodDemand.members.filter(person => person.ageDays >= 15 * 365 && person.role !== 'soldier').length;
   const dailyFoodNeed = foodDemand.dailyFoodNeed;
   const memberIds = new Set(kingdom.memberIds || []);
   const reportedDemand = finite(market.demand && market.demand.food);
@@ -255,6 +257,7 @@ export function observeKingdomStrategy(world, kingdomId) {
     repairReady: canRepairKingdomStructure(world, community)
   };
   const recruitmentAvailable = recruitmentSlots > 0 && eligibleRecruitCount > 0
+    && (world.initialMilitaryShare !== .8 || civilianAdults > Math.max(8, Math.ceil(adultPopulation * .35)))
     && Object.entries(SOLDIER_COST).every(([resource, amount]) => finite(treasuryStock[resource]) >= amount);
   const availableSoldiers = world.people.filter(person => person.alive && person.kingdomId === kingdom.id
     && person.role === 'soldier' && person.campaignId == null).length;
@@ -321,8 +324,8 @@ export function observeKingdomStrategy(world, kingdomId) {
     },
     military: {
       soldiers: foodDemand.members.filter(person => person.role === 'soldier').length,
-      adultPopulation: foodDemand.members.filter(person => person.ageDays >= 15 * 365).length,
-      civilianAdults: foodDemand.members.filter(person => person.ageDays >= 15 * 365 && person.role !== 'soldier').length,
+      adultPopulation,
+      civilianAdults,
       frontierAlert: kingdom.frontierAlert && world.day - kingdom.frontierAlert.day <= 10 ? { ...kingdom.frontierAlert } : null,
       recentTerritoryLosses: (kingdom.frontierLosses || []).filter(item => world.day - item.day <= 60).map(item => ({ ...item })),
       knownEnemyInstallations: (kingdom.knownEnemyInstallations || []).filter(item => world.day - item.day <= 60).map(item => ({ ...item })),
