@@ -11,6 +11,11 @@ import { log } from '../core/events.js';
 import { activeCommunity, getSocialLink } from '../society/communities.js';
 import { addFoodReserve, communityFoodStock, consumeFoodReserve, transferCommunityFoodToReserve, transferFoodReserve } from '../economy/inventories.js';
 import { assignHome, planKingdomHome } from '../kingdoms/initialization.js';
+import { assessKingdomPopulationGrowth } from '../kingdoms/demography.js';
+import {
+  HUMAN_ADULT_AGE_DAYS, HUMAN_BIRTH_COOLDOWN_DAYS, HUMAN_FERTILE_START_DAYS,
+  HUMAN_FERTILE_END_DAYS, HUMAN_INITIAL_MIN_AGE_DAYS, HUMAN_INITIAL_AGE_SPAN_DAYS
+} from './human-age.js';
 import { moveOne } from './movement.js';
 import { consumePersonEnergy } from './energy.js';
 import { abandonSocialIntentionsForPerson } from '../society/social-evidence.js';
@@ -71,7 +76,7 @@ export function makePerson(w, x, y, newborn) {
     const first = HUMAN_NAMES[Math.floor(rand(w) * HUMAN_NAMES.length)];
     const name = newborn ? first + ' ' + ['Filho', 'Filha', 'Júnior'][Math.floor(rand(w) * 3)] : first + ' ' + String.fromCharCode(65 + Math.floor(rand(w) * 26));
     const person = {
-      id, name, x, y, alive: true, ageDays: newborn ? 0 : 1800 + rand(w) * 11000,
+      id, name, x, y, alive: true, ageDays: newborn ? 0 : HUMAN_INITIAL_MIN_AGE_DAYS + rand(w) * HUMAN_INITIAL_AGE_SPAN_DAYS,
       sex: rand(w) < .5 ? 'F' : 'M',
       namingForm: COMMUNITY_FORMS[Math.floor(rand(w) * COMMUNITY_FORMS.length)], namingVoice: .4 + rand(w) * .6,
       energy: newborn ? 65 : 58 + rand(w) * 38, hydration: 55 + rand(w) * 43, foodReserve: 0
@@ -82,7 +87,7 @@ export function makePerson(w, x, y, newborn) {
       physicalStrength: .35 + rand(w) * .65,
       communityId: null, kingdomId: null, homeId: null, role: 'resident', militaryClass: null, militaryCenterId: null, militaryDutyCenterId: null, militaryDutyPostId: null,
       lastSafeX: x, lastSafeY: y, territoryExposure: null, territoryAwareness: null, territoryWarnings: {},
-      moveCooldown: 0, buildCooldown: 0, birthCooldown: newborn ? 280 : Math.floor(rand(w) * 70),
+      moveCooldown: 0, buildCooldown: 0, birthCooldown: newborn ? HUMAN_BIRTH_COOLDOWN_DAYS : Math.floor(rand(w) * 70),
       health: newborn ? 82 : 82 + rand(w) * 18, injury: 0, carriedFood: 0, carriedFruit: 0, carriedMeat: 0, carriedMaterial: 0,
       carriedWood: 0, carriedStone: 0, carriedFeed: 0, carriedGold: 0,
       carriedCopper: 0, carriedSilver: 0, carriedIron: 0,
@@ -185,8 +190,8 @@ export function addIndividuals(w, count, initial) {
       const group = w.communities.find(item => item.id === kingdom.communityId);
       if (group) { group.leaderId = kingdom.rulerId; group.memberIds = kingdom.memberIds.slice(); }
 
-      const adults = members.filter(person => person.ageDays >= 12 * 365);
-      for (const child of members.filter(person => person.ageDays < 12 * 365)) {
+      const adults = members.filter(person => person.ageDays >= HUMAN_ADULT_AGE_DAYS);
+      for (const child of members.filter(person => person.ageDays < HUMAN_ADULT_AGE_DAYS)) {
         const sameHouse = adults.filter(person => person.homeId === child.homeId);
         const guardian = (sameHouse.length ? sameHouse : adults)
           .slice().sort((a, b) => distance(a, child) - distance(b, child) || a.id - b.id)[0];
@@ -328,7 +333,7 @@ export function changePersonHealth(w, person, delta, source) {
 }
 
 export function updateDependent(w, child) {
-    const adultAge = 12 * 365;
+    const adultAge = HUMAN_ADULT_AGE_DAYS;
     const familyIds = new Set([...(child.parents || []), child.guardianId].filter(Number.isInteger));
     const family = w.people.filter(person => person.alive && person.ageDays >= adultAge && familyIds.has(person.id));
     const communityAdults = w.people.filter(person => person.alive && person.ageDays >= adultAge
@@ -397,8 +402,8 @@ export function updateDependent(w, child) {
 
 export function reproducePeople(w) {
     if ((w.day + 1) % 30 !== 0) return;
-    const living = w.people.filter(p => p.alive && p.ageDays >= 18 * 365 && p.ageDays <= 45 * 365
-      && p.campaignId == null && p.energy > 38 && p.foodReserve > 42
+    const living = w.people.filter(p => p.alive && p.ageDays >= HUMAN_FERTILE_START_DAYS && p.ageDays < HUMAN_FERTILE_END_DAYS
+      && p.campaignId == null && p.energy > 38 && p.foodReserve > 60
       && p.hydration > 34 && p.health > 50 && p.birthCooldown <= 0);
     const candidates = [];
     for (const p of living) for (const q of living) {
@@ -420,25 +425,25 @@ export function reproducePeople(w) {
     }
     candidates.sort((a, b) => b.score - a.score || a.p.id - b.p.id || a.q.id - b.q.id);
 
-    // A monthly birth quota belongs to each settlement, not the entire world.
-    // Only paired, healthy adults with housing and real provisions can use it.
-    const populationByOwner = new Map();
+    // The king evaluates food and childcare. No population quota creates babies:
+    // births still require concrete parents, relationships, food and housing.
+    const resourcePolicyByOwner = new Map();
     const ownerKey = (kingdomId, communityId) => kingdomId == null
       ? 'community:' + (communityId ?? 'unaffiliated') : 'kingdom:' + kingdomId;
-    for (const person of w.people) {
-      if (!person.alive) continue;
-      const key = ownerKey(person.kingdomId, person.communityId);
-      populationByOwner.set(key, (populationByOwner.get(key) || 0) + 1);
-    }
-    const birthsByOwner = new Map();
     const usedParents = new Set();
     const ownersWithoutHousing = new Set();
     for (const candidate of candidates) {
       const { p, q, kingdomId, communityId, location } = candidate;
       const key = ownerKey(kingdomId, communityId);
       if (usedParents.has(p.id) || usedParents.has(q.id) || ownersWithoutHousing.has(key)) continue;
-      const monthlyLimit = Math.max(1, Math.ceil((populationByOwner.get(key) || 1) / 100));
-      if ((birthsByOwner.get(key) || 0) >= monthlyLimit) continue;
+      let policy = resourcePolicyByOwner.get(key);
+      if (!policy) {
+        policy = assessKingdomPopulationGrowth(w, kingdomId, communityId);
+        resourcePolicyByOwner.set(key, policy);
+        const kingdom = (w.kingdoms || []).find(item => item.id === kingdomId);
+        if (kingdom) kingdom.demographyPolicy = { ...policy, evaluatedDay: w.day + 1 };
+      }
+      if (!policy.maySupportChild || policy.careSlots <= 0) continue;
       const residence = birthResidence(w, kingdomId, communityId, location);
       if (!residence) {
         ownersWithoutHousing.add(key);
@@ -465,7 +470,7 @@ export function reproducePeople(w) {
           ? 'na comunidade ' + (communityId ?? 'sem vínculo') : 'no reino ' + kingdomId)
           + ': moradia operacional com vaga voltou a estar disponível.');
       }
-      p.birthCooldown = q.birthCooldown = 280;
+      p.birthCooldown = q.birthCooldown = HUMAN_BIRTH_COOLDOWN_DAYS;
       consumePersonEnergy(p, 11); consumePersonEnergy(q, 8);
       p.hydration = Math.max(0, p.hydration - 2); q.hydration = Math.max(0, q.hydration - 2);
       const baby = makePerson(w, p.x, p.y, true);
@@ -486,7 +491,12 @@ export function reproducePeople(w) {
       if (community && !community.memberIds.includes(baby.id)) community.memberIds.push(baby.id);
       w.births++; w.birthsByKind.people++;
       usedParents.add(p.id); usedParents.add(q.id);
-      birthsByOwner.set(key, (birthsByOwner.get(key) || 0) + 1);
+      policy.careSlots--;
+      policy.children++;
+      policy.population++;
+      if (!policy.careSlots) policy.maySupportChild = false;
+      const kingdom = (w.kingdoms || []).find(item => item.id === kingdomId);
+      if (kingdom) kingdom.demographyPolicy = { ...policy, evaluatedDay: w.day + 1 };
       const link = getSocialLink(w, p, q); link.trust = clamp(link.trust + .08, 0, 1);
       log(w, 'Nasceu ' + baby.name + '; ' + p.name + ' transferiu 7 dias e ' + q.name
         + ' transferiu 5 dias de suas reservas para financiar os 12 dias da reserva inicial.');
