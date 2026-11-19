@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { planSquadTactics } from '../src/simulation/kingdoms/squad-tactics.js';
+import { planSquadTactics, squadSlot } from '../src/simulation/kingdoms/squad-tactics.js';
 import { allocateBattlefieldSlots } from '../src/simulation/kingdoms/battlefield-slots.js';
 import { battlefieldDebugData } from '../src/ui/battlefield-debug.js';
 
@@ -39,6 +39,61 @@ test('battlefront visibly separates two wings and a rear reserve from the center
   assert.ok(support.target.x < center.target.x, 'support deploys behind center');
   assert.ok(reserve.target.x < support.target.x, 'reserve holds deeper than support');
   assert.equal(reserve.phase, 'holding');
+});
+
+test('a local bottleneck collapses a marching squad to one file and opens up again', () => {
+  const { troops, units } = army(1);
+  const commander = troops[0];
+  commander.x = 30; commander.y = 40;
+  const args = {
+    troops, units, day: 4, destination: { x: 100, y: 40 },
+    home: { x: 0, y: 40 }, openFront: true, mode: 'hierarchical',
+    generalOrder: { action: 'advance' }
+  };
+  // The battle objective is open, but the captain is crossing a bridge.
+  const constrained = planSquadTactics({ ...args, isNarrowPassage: () => true });
+  const narrow = constrained.squads[0];
+  assert.equal(narrow.formationType, 'column');
+  assert.equal(narrow.narrowPassage, true);
+  const ids = narrow.memberIds.filter(id => id !== commander.id);
+  const slots = ids.map(id => squadSlot(narrow, id, commander));
+  assert.ok(slots.every(slot => Math.abs(slot.y - commander.y) < 1e-9),
+    'followers stand in one file along the bridge axis');
+  assert.ok(slots.every((slot, i) => i === 0 || slot.x < slots[i - 1].x),
+    'followers occupy ordered distinct depths rather than competing for one tile');
+
+  // A proper single-file rank has distant rear soldiers. They are not stragglers.
+  for (let i = 0; i < ids.length; i++) {
+    const follower = troops.find(person => person.id === ids[i]);
+    Object.assign(follower, slots[i]);
+  }
+  const marching = planSquadTactics({ ...args, day: 5, previous: constrained,
+    isNarrowPassage: () => true }).squads[0];
+  assert.equal(marching.phase, 'marching',
+    'the captain must not halt because an orderly one-file column has long depth');
+
+  // After the crossing, the same soldiers widen into their regular three files.
+  const open = planSquadTactics({ ...args, day: 6,
+    isNarrowPassage: () => false }).squads[0];
+  assert.equal(open.narrowPassage, false);
+  assert.equal(open.formationType, 'column');
+  assert.equal(new Set(ids.slice(0, 3)
+    .map(id => squadSlot(open, id, commander).y)).size, 3,
+  'open-ground marching restores lateral rank spacing');
+});
+
+test('a narrow final objective also enforces a single-file approach', () => {
+  const { troops, units } = army(1);
+  const commander = troops[0];
+  const squad = planSquadTactics({
+    troops, units, day: 2, destination: { x: 90, y: 50 },
+    home: { x: 0, y: 50 }, openFront: false,
+    mode: 'hierarchical'
+  }).squads[0];
+  assert.equal(squad.narrowPassage, true);
+  const slots = squad.memberIds.filter(id => id !== commander.id)
+    .map(id => squadSlot(squad, id, commander));
+  assert.equal(new Set(slots.map(slot => slot.y)).size, 1);
 });
 
 test('rank positions choose unique land tiles without colliding with commander anchors', () => {

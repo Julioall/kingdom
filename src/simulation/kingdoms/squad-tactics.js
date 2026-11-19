@@ -36,7 +36,7 @@ function moraleForSquad(sideMorale, prior, strength, day, stamina) {
 export function planSquadTactics({ units = [], troops = [], generalOrder = null,
   destination, home, orientation = null, day, previous = null,
   observedThreats = [], openFront = true, sideMorale = 80, mode = 'hierarchical',
-  projectTarget = position => position }) {
+  isNarrowPassage = () => false, projectTarget = position => position }) {
   if (!destination || !Number.isFinite(destination.x) || !Number.isFinite(destination.y))
     return { day, squads: [], memberToSquad: {}, mode };
   const byId = new Map(troops.filter(p => p?.alive).map(p => [p.id, p]));
@@ -84,6 +84,9 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     const { unit, members, commander } = candidates[index];
     const id = String(unit.id);
     const prior = previousById.get(id);
+    // Re-evaluate the captain's physical passage. A wide destination does
+    // not mean a three-file squad can cross a one-tile bridge on the way.
+    const narrowPassage = !openFront || !!isNarrowPassage(commander);
     const role = prior?.role === 'vanguard' || !survivingVanguard && index === 0
       ? 'vanguard' : prior?.role || roles[index % roles.length];
     const avgStamina = members.reduce((sum, p) => sum + (Number(p.stamina) || 0), 0) / members.length;
@@ -195,7 +198,7 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     goal = projectTarget(goal);
     const count = kind => members.filter(p => p.militaryClass === kind).length;
     const spears = count('lanceiro'), shields = count('guerreiro');
-    const narrow = !openFront || generalOrder?.formationType === 'column' && !atFront;
+    const narrow = narrowPassage || generalOrder?.formationType === 'column' && !atFront;
     let formationType = !(atFront || flankActivated) || narrow ? 'column'
       : role === 'support' ? 'line'
       // The wing marches around the adversary in files, then deploys
@@ -249,7 +252,7 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     const squad = {
       id, unitId: unit.id, commanderId: commander.id,
       generalId: unit.generalId ?? generalOrder?.issuerId ?? null,
-      memberIds: members.map(p => p.id), role, mission, formationType,
+      memberIds: members.map(p => p.id), role, mission, formationType, narrowPassage,
       orientation: face, target: goal, morale: Number(morale.toFixed(2)), routed,
       influence: mode === 'hierarchical' ? observedInfluence(goal, threatList) : 0,
       day, strength: members.length,
@@ -272,7 +275,11 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     // lag beyond six tiles, the commander holds two days out of every three
     // until his body of troops closes the gap. Contact and rout override pacing.
     const followers = members.filter(p => p.id !== commander.id);
-    const stragglers = followers.filter(p => dist(p, commander) > 6.5);
+    // In a one-file column the rear ranks are intentionally more than six
+    // tiles behind the captain. Distance alone would mark a correct column
+    // as dispersed and stall its leader two days out of three.
+    const stragglers = followers.filter(p => dist(p, commander) > 6.5
+      && (!narrowPassage || dist(p, squadSlot(squad, p.id, commander)) > 3.25));
     const needsReform = stragglers.length >= Math.max(2, Math.ceil(followers.length * .4));
     // A captain should assemble troops even after reaching the deployment
     // zone, unless the enemy is in immediate weapon-contact distance.
@@ -339,7 +346,7 @@ export function squadSlot(squad, memberId, commander, spacing = 1.5) {
   if (squad.formationType === 'column') {
     // A 3-file marching column prevents a ten-person unit from stretching
     // into a very long single-file snake behind the commander.
-    const width = Math.min(3, followers.length);
+    const width = Math.min(squad.narrowPassage ? 1 : 3, followers.length);
     row = Math.floor(index / width);
     column = index % width - (Math.min(width, followers.length - row * width) - 1) / 2;
   } else if (squad.formationType === 'wedge') {
