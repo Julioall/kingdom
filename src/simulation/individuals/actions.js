@@ -21,7 +21,7 @@ import { availableCommunityPen } from '../ecology/herd.js';
 import { cultivatedFieldStandingBiomass, eatPlants, isBushAnchor, plantBiomass } from '../ecology/plants.js';
 import { refreshHarvestSuitability } from '../world/queries.js';
 import { changePersonHealth, killPerson, reproducePeople, updateDependent } from './lifecycle.js';
-import { HUMAN_MAX_AGE_DAYS } from './human-age.js';
+import { HUMAN_MAX_AGE_DAYS, HUMAN_ADOLESCENT_AGE_DAYS } from './human-age.js';
 import Senses from './perception.js';
 import { ensureFoodAidPlan, findTradePartner, performShare, performTrade, resolveFoodAidRequest } from '../economy/trade.js';
 import { choosePeopleAction, updateBrain } from '../../controllers/individual/neural.js';
@@ -1018,6 +1018,10 @@ function updatePeopleCore(w, phaseObserver = null) {
     for (const p of living) {
       if (!p.alive) continue;
       p.ageDays++;
+      if (p.ageDays === HUMAN_ADOLESCENT_AGE_DAYS) {
+        p.guardianId = null;
+        p.lastLesson = 'Chegou à adolescência e passou a decidir seu trabalho e sua sobrevivência; pode buscar renda e moradia.';
+      }
       p.buildCooldown = Math.max(0, p.buildCooldown - 1);
       p.birthCooldown = Math.max(0, p.birthCooldown - 1);
       p.conflictRisk = Math.max(0, p.conflictRisk - .05);
