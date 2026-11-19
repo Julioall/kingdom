@@ -1,4 +1,5 @@
 import { initializeCombatResources } from './combat-resources.js';
+import { clearMilitaryCommand } from './military-identity.js';
 import { militaryCivilianFoodFloor } from '../economy/food-policy.js';
 import { DAILY_FOOD_NEED, FOOD_DAYS_PER_UNIT } from '../../config/ecosystem.js';
 import { distance } from '../core/math.js';
@@ -157,6 +158,40 @@ export function enlistSoldier(world, person, center, day = world.day, militaryCl
   if (!center.soldierIds.includes(person.id)) center.soldierIds.push(person.id);
   delete person.recruitmentOrder;
   paySoldier(world, person, day);
+}
+
+// A discharged soldier remains a living resident: wages, rank history,
+// relationships, carried supplies and personal reserves are not erased.
+export function dischargeSoldier(world, person, day = world.day + 1) {
+  if (!person?.alive || person.role !== 'soldier' || person.campaignId != null
+    || person.towerDutyId != null || person.towerMounted
+    || person.playerControlled || person.militaryReturningHome
+    || person.fieldCommand) return false;
+  const center = world.structures.find(item => item.id === person.militaryCenterId);
+  if (center) center.soldierIds = (center.soldierIds || []).filter(id => id !== person.id);
+  person.lastMilitaryClass = person.militaryClass;
+  person.lastMilitaryServiceEndDay = day;
+  person.role = 'resident';
+  person.militaryClass = null;
+  person.militaryCenterId = null;
+  person.militaryDutyCenterId = null;
+  person.militaryDutyPostId = null;
+  person.militaryRestTargetId = null;
+  person.tacticalRecovering = false;
+  person.militaryReturningHome = false;
+  person.towerRecovering = false;
+  person.towerEntryReady = false;
+  person.patrolRoute = null;
+  person.patrolCenterId = null;
+  person.patrolWaypointIndex = 0;
+  person.militaryBrain && (person.militaryBrain.pending = null);
+  if (person.brain) {
+    person.brain.pending = null;
+    person.brain.lastAction = 'rest';
+  }
+  clearMilitaryCommand(person);
+  person.state = 'retornou à vida civil';
+  return true;
 }
 
 function paySoldier(world, person, day) {
