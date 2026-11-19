@@ -1,4 +1,4 @@
-import { HEIGHT, PLANTS, REGION_SIDE, WIDTH } from '../../config/ecosystem.js';
+import { HEIGHT, MAX_SUPPORTED_POPULATION, PLANTS, REGION_SIDE, WIDTH } from '../../config/ecosystem.js';
 import { idx } from './spatial.js';
 import { hash01, spatialNoise } from '../core/math.js';
 import { plantBiomass, seedPlants } from '../ecology/plants.js';
@@ -35,8 +35,19 @@ function ensureInitialMilitaryRecruitmentPool(world) {
 
 export function createWorld(seed, options = {}) {
     const cleanSeed = (Number(seed) >>> 0) || 1;
+    const baselinePopulation = INITIAL_POPULATION_PER_KINGDOM * 2;
+    const initialPopulation = options.initialPopulation ?? baselinePopulation;
+    if (!Number.isSafeInteger(initialPopulation)
+        || initialPopulation < baselinePopulation
+        || initialPopulation > MAX_SUPPORTED_POPULATION
+        || initialPopulation % 2 !== 0) {
+      throw new RangeError('População inicial deve ser par e estar entre '
+        + baselinePopulation + ' e ' + MAX_SUPPORTED_POPULATION + '.');
+    }
     const w = {
-      seed: cleanSeed, width: WIDTH, height: HEIGHT, day: 0, year: 1, season: 0, rngState: cleanSeed,
+      seed: cleanSeed, width: WIDTH, height: HEIGHT,
+      initialPopulationTarget: initialPopulation,
+      day: 0, year: 1, season: 0, rngState: cleanSeed,
       nextId: 1, tiles: [], regions: [], animals: [], people: [], communities: [], kingdoms: [], structures: [], settlements: [], logs: [], loot: [], lake: null, lakes: [],
       trainingDummyStates: {},
       market: { gold: 240, food: 110, feed: 64, wood: 90, stone: 72, sheep: 4, transactions: 0 },
@@ -116,7 +127,7 @@ export function createWorld(seed, options = {}) {
     clearWildVegetationNearCorrals(w);
     seedAdditionalMinerals(w);
     relocateSettlementMinerals(w);
-    addIndividuals(w, INITIAL_POPULATION_PER_KINGDOM * w.kingdoms.length, true);
+    addIndividuals(w, initialPopulation, true);
     ensureInitialMilitaryRecruitmentPool(w);
     for (const kingdom of w.kingdoms) {
       for (const { militaryClass, count } of INITIAL_MILITARY_ROSTER) {
@@ -146,8 +157,8 @@ export function createWorld(seed, options = {}) {
       humanFoodCultivationSeeded: w.ecologyFlows.humanFoodCultivationSeeded,
       cultivatedFoodHarvested: w.harvests.cultivatedFoodBiomass
     };
-    const initialPopulation = INITIAL_POPULATION_PER_KINGDOM * w.kingdoms.length;
-    const initialNonMilitaryPerKingdom = INITIAL_POPULATION_PER_KINGDOM - INITIAL_SOLDIERS_PER_KINGDOM;
+    const initialNonMilitaryPerKingdom = initialPopulation / w.kingdoms.length
+      - INITIAL_SOLDIERS_PER_KINGDOM;
     const rosterDescription = INITIAL_MILITARY_ROSTER.map(({ count, militaryClass }) => count + ' ' + militaryClass + (count === 1 ? '' : 's')).join(', ');
     log(w, initialPopulation + ' habitantes começaram em ' + w.kingdoms.length + ' reinos, com '
       + initialNonMilitaryPerKingdom + ' habitantes não militares e ' + INITIAL_SOLDIERS_PER_KINGDOM
