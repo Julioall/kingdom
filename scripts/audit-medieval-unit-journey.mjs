@@ -125,6 +125,8 @@ export function runMilitaryJourney({ seed = 42, units: unitCount = 3, days = 150
   const phases = [], formations = [], history = [];
   const milestones = { march: null, bridgeEntered: null, rearGuardCleared: null,
     reformed: null, battleFormation: null, contact: null };
+  const earlyObservations = { firstReformOrder: null,
+    firstFrontFormation: null, firstSkirmish: null };
   const safety = { overlaps: 0, illegalTerrain: 0, jumps: 0, blockedDays: 0 };
   let previous = null, maxCrossed = 0, maxEngaged = 0;
   for (let day = 1; day <= days; day++) {
@@ -178,17 +180,29 @@ export function runMilitaryJourney({ seed = 42, units: unitCount = 3, days = 150
       firstTime(milestones.rearGuardCleared, day);
     const front = tactics.squads[0];
     if (crossed > 0 && tactics.squads.some(s => s.phase === 'reforming'))
-      milestones.reformed = firstTime(milestones.reformed, day);
+      earlyObservations.firstReformOrder = firstTime(earlyObservations.firstReformOrder, day);
     if (front.formationType === 'shield_wall' || front.formationType === 'spear_line')
+      earlyObservations.firstFrontFormation = firstTime(earlyObservations.firstFrontFormation, day);
+    // A commander ordering "reform" while his last follower is still on the
+    // bridge is not a completed reassembly. Only count it after every
+    // member physically cleared and the actual ranks have recovered.
+    if (milestones.rearGuardCleared != null &&
+        tactics.squads.every(s => s.rankIntegrity >= 0.65))
+      milestones.reformed = firstTime(milestones.reformed, day);
+    if (milestones.reformed != null &&
+        tactics.squads.filter(s => s.formationType !== 'column').length >= 2
+        && (front.formationType === 'shield_wall' || front.formationType === 'spear_line'))
       milestones.battleFormation = firstTime(milestones.battleFormation, day);
     const close = allies.filter(p => p.alive && Math.hypot(p.x - enemy.x, p.y - enemy.y) <= 3.2);
     maxEngaged = Math.max(maxEngaged, close.length);
-    if (close.length && !enemy.alive) milestones.contact = firstTime(milestones.contact, day);
-    else if (close.length) {
+    if (close.length && enemy.alive) {
       const actionsBefore = world.combatSequence || 0;
       fightTacticalRound(world, close, [enemy], day);
-      if ((world.combatSequence || 0) > actionsBefore)
-        milestones.contact = firstTime(milestones.contact, day);
+      if ((world.combatSequence || 0) > actionsBefore) {
+        earlyObservations.firstSkirmish = firstTime(earlyObservations.firstSkirmish, day);
+        if (milestones.battleFormation != null)
+          milestones.contact = firstTime(milestones.contact, day);
+      }
     }
     safety.blockedDays += allies.filter(p => p.militaryCorridorWait?.day === day).length;
     if (day % 5 === 0 || day === 1 || day === days) {
@@ -203,12 +217,25 @@ export function runMilitaryJourney({ seed = 42, units: unitCount = 3, days = 150
     }
   }
   const digest = createHash('sha256').update(JSON.stringify({
-    milestones, safety, history,
+    milestones, earlyObservations, safety, history,
     positions: allies.map(p => [p.id, p.x, p.y, p.health]),
     enemy: [enemy.x, enemy.y, enemy.health, enemy.alive]
   })).digest('hex');
+  const stageOrder = ['march', 'bridgeEntered', 'rearGuardCleared',
+    'reformed', 'battleFormation', 'contact'];
+  const stageDays = stageOrder.map(key => milestones[key]);
+  const sequenceComplete = stageDays.every(Number.isFinite)
+    && stageDays.every((day, index) => index === 0 || day >= stageDays[index - 1]);
+  const missingStages = stageOrder.filter(key => milestones[key] == null);
+  const crossingByUnit = units.map(unit => ({
+    unitId: unit.id, total: unit.memberIds.length,
+    crossed: unit.memberIds.filter(id => peopleById.get(id)?.x >= 46).length,
+    commander: { x: peopleById.get(unit.commanderId).x,
+      y: peopleById.get(unit.commanderId).y }
+  }));
   return { seed, units: unitCount, days, soldierCount: allies.length,
-    milestones, safety, maxCrossed, maxEngaged, digest,
+    milestones, earlyObservations, sequenceComplete, missingStages,
+    crossingByUnit, safety, maxCrossed, maxEngaged, digest,
     phaseCounts: Object.fromEntries([...new Set(phases)].sort().map(p =>
       [p, phases.filter(q => p === q).length])),
     formationCounts: Object.fromEntries([...new Set(formations)].sort().map(p =>
