@@ -18,6 +18,7 @@ import {
 import { moveOne } from './movement.js';
 import { consumePersonEnergy } from './energy.js';
 import { abandonSocialIntentionsForPerson } from '../society/social-evidence.js';
+import { observeFamilyWork } from '../society/family-learning.js';
 import { releaseSeedCargo } from '../economy/seed-cargo.js';
 import { collidesWithWorldAt } from '../physics/hitboxes.js';
 
@@ -405,6 +406,9 @@ export function updateDependent(w, child) {
           + ' dias de alimento de sua reserva para o cuidado diário.');
       }
       child.hydration = clamp(child.hydration + .4, 0, 100);
+      // Children inherit *learned practice*, not memories or skills created
+      // at birth. The mentor must be present and have worked this day.
+      observeFamilyWork(w, child, caregiver);
       changePersonHealth(w, child, .035, 'care');
       child.state = 'recebendo cuidado';
     } else {

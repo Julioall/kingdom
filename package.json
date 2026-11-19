@@ -8,6 +8,7 @@
     "audit:food": "node scripts/audit-food-replays.mjs",
     "audit:livestock": "node scripts/audit-livestock-scenario.mjs",
     "audit:social": "node scripts/audit-social-baseline.mjs",
+    "audit:generations": "node scripts/audit-pawn-generations.mjs",
     "dev": "node scripts/run-local.mjs",
     "dev:vite": "vite --host 127.0.0.1",
     "build": "npm run assets:check && tsc --noEmit && vite build && node scripts/optimize-images.mjs",

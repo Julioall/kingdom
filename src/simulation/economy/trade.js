@@ -472,6 +472,8 @@ function executePersonalMarketTrade(world, person, community, marketOwner) {
       || (!coinReceipt && Math.abs(movedGold - offer.gold) > 1e-8)) {
     throw new Error('Conservative personal market preflight did not match settlement');
   }
+  if (offer.action.startsWith('sell')) person.lastPersonalSaleDay = world.day + 1;
+  if (offer.action.startsWith('buy-food')) person.lastPersonalFoodPurchaseDay = world.day + 1;
   marketOwner.transactions = (marketOwner.transactions || 0) + 1;
   community.tradeCount = (community.tradeCount || 0) + 1;
   countTradeDiagnostic(world, 'marketCompleted');

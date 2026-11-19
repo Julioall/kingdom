@@ -91,6 +91,7 @@ export function createWorld(seed, options = {}) {
     const w = {
       seed: cleanSeed, width: WIDTH, height: HEIGHT, day: 0, year: 1, season: 0, rngState: cleanSeed,
       ...(initialMilitaryShare == null ? {} : { initialMilitaryShare }),
+      ...(options.trackCivilization === true ? { trackCivilization: true } : {}),
       nextId: 1, tiles: [], regions: [], animals: [], people: [], communities: [], kingdoms: [], structures: [], settlements: [], logs: [], loot: [], lake: null, lakes: [],
       trainingDummyStates: {},
       market: { gold: 240, food: 110, feed: 64, wood: 90, stone: 72, sheep: 4, transactions: 0 },

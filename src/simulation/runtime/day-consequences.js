@@ -8,6 +8,7 @@ import { recordKingdomFrontierOutcomes } from '../kingdoms/frontier.js';
 import { observeMilitaryFrontiers } from '../kingdoms/frontier-intelligence.js';
 import { recordRoyalSitingOutcomes } from '../kingdoms/royal-siting.js';
 import { samplePhase } from './phase-measure.js';
+import { assessCivilizationProgress, recordIndividualLivelihood } from '../society/civilization-progress.js';
 
 const DAYS_PER_WORLD_REPORT = 30;
 
@@ -66,6 +67,13 @@ export function resolveEndOfDayConsequences(world, day, observer = null) {
   observeMilitaryFrontiers(world, day);
   recordRoyalSitingOutcomes(world, day);
   resolveBorderIncursions(world, (person, cause) => killPerson(world, person, cause));
+
+  // Optional causally grounded diagnostics for the bottom-up civilization
+  // experiment. No progression or resources are awarded by the observer.
+  if (world.trackCivilization) {
+    recordIndividualLivelihood(world, day);
+    if (day % DAYS_PER_WORLD_REPORT === 0) world.civilizationProgress = assessCivilizationProgress(world);
+  }
 
   if (day % DAYS_PER_WORLD_REPORT !== 0) return;
   const stats = snapshot(world);
