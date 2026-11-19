@@ -90,7 +90,7 @@ export function createWorld(seed, options = {}) {
       throw new RangeError('A divisão inicial aceita 80% de militares e 20% de civis.');
     const w = {
       seed: cleanSeed, width: WIDTH, height: HEIGHT, day: 0, year: 1, season: 0, rngState: cleanSeed,
-      initialMilitaryShare,
+      ...(initialMilitaryShare == null ? {} : { initialMilitaryShare }),
       nextId: 1, tiles: [], regions: [], animals: [], people: [], communities: [], kingdoms: [], structures: [], settlements: [], logs: [], loot: [], lake: null, lakes: [],
       trainingDummyStates: {},
       market: { gold: 240, food: 110, feed: 64, wood: 90, stone: 72, sheep: 4, transactions: 0 },
@@ -203,15 +203,26 @@ export function createWorld(seed, options = {}) {
       cultivatedFoodHarvested: w.harvests.cultivatedFoodBiomass
     };
     const initialPopulation = requestedPopulation;
-    const militaryByKingdom = w.kingdoms.map(kingdom => w.people.filter(p => p.alive
-      && p.kingdomId === kingdom.id && p.role === 'soldier').length);
-    const civilianByKingdom = w.kingdoms.map((kingdom, index) => kingdom.memberIds.length - militaryByKingdom[index]);
     const rosterDescription = INITIAL_MILITARY_ROSTER.map(({ count, militaryClass }) => count + ' ' + militaryClass + (count === 1 ? '' : 's')).join(', ');
-    log(w, initialPopulation + ' habitantes começaram em ' + w.kingdoms.length + ' reinos, com '
-      + civilianByKingdom.join('/') + ' civis (incluindo governantes) e '
-      + militaryByKingdom.join('/') + ' militares por reino. Guarnição básica: (' + rosterDescription
-      + '). As tropas patrulham antes das campanhas de fronteira. '
-      + 'As terras além desses domínios permanecem comuns.');
+    if (initialMilitaryShare == null) {
+      // Preserve the exact log of legacy simulations for authoritative
+      // benchmark parity and replay checksums.
+      const initialNonMilitaryPerKingdom = INITIAL_POPULATION_PER_KINGDOM - INITIAL_SOLDIERS_PER_KINGDOM;
+      log(w, initialPopulation + ' habitantes começaram em ' + w.kingdoms.length + ' reinos, com '
+        + initialNonMilitaryPerKingdom + ' habitantes não militares e ' + INITIAL_SOLDIERS_PER_KINGDOM
+        + ' militares por reino (' + rosterDescription + '). As tropas patrulham antes das campanhas de fronteira. '
+        + 'As terras além desses domínios permanecem comuns.');
+    } else {
+      const militaryByKingdom = w.kingdoms.map(kingdom => w.people.filter(p => p.alive
+        && p.kingdomId === kingdom.id && p.role === 'soldier').length);
+      const civilianByKingdom = w.kingdoms.map((kingdom, index) =>
+        kingdom.memberIds.length - militaryByKingdom[index]);
+      log(w, initialPopulation + ' habitantes começaram em ' + w.kingdoms.length + ' reinos, com '
+        + civilianByKingdom.join('/') + ' civis (incluindo governantes) e '
+        + militaryByKingdom.join('/') + ' militares por reino. Guarnição básica: (' + rosterDescription
+        + '). As tropas patrulham antes das campanhas de fronteira. '
+        + 'As terras além desses domínios permanecem comuns.');
+    }
     return w;
   }
 
