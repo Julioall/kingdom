@@ -5,6 +5,7 @@ import { DOMESTIC_SHEEP_DAILY_FEED, HEIGHT, WIDTH } from '../../config/ecosystem
 import { formatWholeMeasure } from '../../config/whole-measures.js';
 import { log } from '../core/events.js';
 import { cellAt } from '../world/spatial.js';
+import { distance } from '../core/math.js';
 import { recomputeKingdomTerritories, TERRITORY_RULES } from './territories.js';
 import { KINGDOM_BUILD_COSTS } from './commands.js';
 import { kingdomFoodDemand } from '../economy/food-policy.js';
@@ -171,6 +172,69 @@ export function initializeKingdoms(world) {
   }
 
   recomputeKingdomTerritories(world);
+}
+
+
+/**
+ * For the higher-population browser profile, establish real rural housing
+ * around each capital before the first person is spawned. A population of
+ * 1,000 cannot start with space for only 208 people without an instant
+ * housing crisis. These homes are funded from the existing starting treasury.
+ *
+ * Existing 96-person worlds are unchanged. Large populations use 20-person
+ * extended households and a finite 30-day founding food reserve.
+ */
+export function prepareExpandedStartingSettlements(world, initialPopulation) {
+  const baseline = INITIAL_POPULATION_PER_KINGDOM * world.kingdoms.length;
+  if (initialPopulation <= baseline) return;
+  const peoplePerKingdom = initialPopulation / world.kingdoms.length;
+  if (!Number.isInteger(peoplePerKingdom)) throw new Error('População deve ser dividida entre os reinos.');
+  const householdCapacity = 20;
+  for (const kingdom of world.kingdoms) {
+    const byId = new Map(world.structures.map(structure => [structure.id, structure]));
+    const existing = kingdom.homeIds.reduce((total, id) =>
+      total + (byId.get(id)?.capacity || 0), 0);
+    const needed = Math.max(0, Math.ceil((peoplePerKingdom - existing) / householdCapacity));
+    const radius = Math.min(world.width, world.height) * .39;
+    const candidates = world.tiles.filter(tile =>
+      tile.terrain === 'land' && tile.slope <= .75 && tile.waterDist >= 3
+      && distance(tile, kingdom) >= 13 && distance(tile, kingdom) <= radius
+      && world.kingdoms.every(other => other.id === kingdom.id
+        || distance(tile, kingdom) < distance(tile, other))
+      && !isTreeAnchor(world, tile))
+      .sort((a, b) => {
+        const da = distance(a, kingdom), db = distance(b, kingdom);
+        return Math.floor(da / 6) - Math.floor(db / 6)
+          || a.y - b.y || a.x - b.x;
+      });
+    let placed = 0;
+    const settlement = world.settlements.find(item => item.id === kingdom.capitalSettlementId);
+    for (const tile of candidates) {
+      if (placed >= needed) break;
+      if (world.structures.some(structure => structure.destroyedDay == null
+          && distance(tile, structure) < 5.1)) continue;
+      if (!hasBuildingResourceClearance(world, tile, 2.5, false)) continue;
+      // Actual families need land around homes, not just a dry center tile.
+      let usable = true;
+      for (let dy = -2; dy <= 2 && usable; dy++) for (let dx = -2; dx <= 2; dx++) {
+        const neighbor = cellAt(world, tile.x + dx, tile.y + dy);
+        if (!neighbor || neighbor.terrain !== 'land') { usable = false; break; }
+      }
+      if (!usable) continue;
+      const home = placeStructure(world, kingdom, 'casa', tile.x, tile.y,
+        { wood: 5, stone: 1 },
+        { capacity: householdCapacity, spriteKey: 'house1', foundingDistrict: true });
+      kingdom.homeIds.push(home.id);
+      settlement?.homeIds.push(home.id);
+      placed++;
+    }
+    if (placed !== needed) throw new Error('O mapa ampliado não oferece moradias para '
+      + peoplePerKingdom + ' habitantes de ' + kingdom.name + ' (' + placed + '/' + needed + ').');
+    // Founding supplies, not ongoing food creation. Thirty days gives rural
+    // residents time to establish plots; market/daily consumption remains real.
+    kingdom.treasury.stock.food = Math.max(kingdom.treasury.stock.food,
+      peoplePerKingdom * 30);
+  }
 }
 
 function collectKingdomTax(world, kingdom, day, dailyFoodDemand, population) {

@@ -1,0 +1,66 @@
+name: Kingdom expanded map and 5k initial citizens
+
+on:
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'src/config/ecosystem.js'
+      - 'src/simulation/world/generation.js'
+      - 'src/simulation/individuals/lifecycle.js'
+      - 'src/simulation/worker-runtime.js'
+      - 'src/ui/game.js'
+      - 'src/app/session.ts'
+      - 'scripts/audit-expanded-world.mjs'
+      - 'tests/expanded-world-capacity.test.mjs'
+      - '.github/workflows/expanded-world.yml'
+  workflow_dispatch:
+    inputs:
+      population:
+        description: "Manual technical stress load; 5k is NOT a normal playable default"
+        type: choice
+        options: ["1000", "5000"]
+        default: "5000"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kingdom-expanded-world-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stress:
+    name: Measured playable 500/1000/2000 and optional 5k stress on 160x160
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Create real day-zero populations and run authoritative steps
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          MANUAL_POPULATION: ${{ inputs.population }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            POPS="${MANUAL_POPULATION}"
+          else
+            POPS="500 1000 2000"
+          fi
+          for POP in $POPS; do
+            node scripts/audit-expanded-world.mjs --population="$POP" --seed=42 --days=1 --output="out/expanded-$POP.json"
+          done
+      - name: Archive actual generation timings, memory and housing limitations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kingdom-expanded-world-profiles
+          path: out/expanded-*.json
+          if-no-files-found: warn
+          retention-days: 14

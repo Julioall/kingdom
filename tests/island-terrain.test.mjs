@@ -14,9 +14,10 @@ test('square islands retain fixed bounds, connected land and freshwater across s
     const water = terrain.waterKind;
     const land = Array.from(water, (kind, i) => kind ? -1 : i).filter(i => i >= 0);
     assert.ok(land.length > WIDTH * HEIGHT * .6 && land.length < WIDTH * HEIGHT * .75);
-    const inset = Math.floor((Math.min(WIDTH, HEIGHT) - Math.floor(Math.min(WIDTH, HEIGHT) * (6 / 7))) / 2);
+    const side = Math.floor(Math.min(WIDTH, HEIGHT) * (6 / 7));
+    const inset = Math.floor((Math.min(WIDTH, HEIGHT) - side) / 2);
     for (let y = 0; y < HEIGHT; y++) for (let x = 0; x < WIDTH; x++) {
-      const inSquare = x >= inset && x < WIDTH - inset && y >= inset && y < HEIGHT - inset;
+      const inSquare = x >= inset && x < inset + side && y >= inset && y < inset + side;
       const kind = water[y * WIDTH + x];
       if (inSquare && kind !== 'lake') assert.equal(kind, undefined);
       else if (!inSquare) assert.equal(kind, 'ocean');
@@ -41,9 +42,9 @@ test('square islands retain fixed bounds, connected land and freshwater across s
   assert.ok(lakeCounts.size > 1, 'lake count must vary across seeded islands');
 });
 
-test('default-size islands initialize both kingdoms and their buildings on land', () => {
-  assert.equal(WIDTH, 112);
-  assert.equal(HEIGHT, 112);
+test('expanded-size islands initialize both kingdoms and their buildings on land', () => {
+  assert.equal(WIDTH, 160);
+  assert.equal(HEIGHT, 160);
   for (const seed of [1, 42, 987, 2026]) {
     const world = createWorld(seed);
     assert.equal(world.kingdoms.length, 2);

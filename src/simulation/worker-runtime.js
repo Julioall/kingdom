@@ -120,7 +120,14 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
         if (world) throw new Error('A simulação já foi inicializada.');
         if (request.epoch <= epoch) throw new Error('Época de inicialização inválida.');
         if (!request.config || request.config.scenario !== 'kingdom') throw new Error('Cenário não implementado.');
-        world = createWorldImpl(request.seed);
+        if (request.initialPopulation !== undefined
+            && (!Number.isSafeInteger(request.initialPopulation)
+              || request.initialPopulation < 96 || request.initialPopulation > 5000
+              || request.initialPopulation % 2 !== 0))
+          throw new RangeError('População inicial inválida para a capacidade testada.');
+        world = createWorldImpl(request.seed,
+          request.initialPopulation == null ? undefined
+            : { initialPopulation: request.initialPopulation });
         configurePerformance(request);
         tileDeltaTransport = request.transport === 'tile-delta' || request.transport === 'tile-delta-compact';
         compactActorTransport = request.transport === 'tile-delta-compact';
@@ -137,7 +144,14 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
 
       if (request.type === 'reset') {
         if (request.epoch <= epoch) throw new Error('Época de reset inválida.');
-        world = createWorldImpl(request.seed);
+        if (request.initialPopulation !== undefined
+            && (!Number.isSafeInteger(request.initialPopulation)
+              || request.initialPopulation < 96 || request.initialPopulation > 5000
+              || request.initialPopulation % 2 !== 0))
+          throw new RangeError('População inicial inválida para a capacidade testada.');
+        world = createWorldImpl(request.seed,
+          request.initialPopulation == null ? undefined
+            : { initialPopulation: request.initialPopulation });
         configurePerformance(request);
         tileDeltaTransport = request.transport === 'tile-delta' || request.transport === 'tile-delta-compact';
         compactActorTransport = request.transport === 'tile-delta-compact';

@@ -43,10 +43,19 @@ jobs:
           else
             POPULATIONS="100 500"
           fi
+          BASE_SIZE=$(cd baseline && node --input-type=module -e "import { WIDTH, HEIGHT } from './src/config/ecosystem.js'; process.stdout.write(WIDTH+'x'+HEIGHT)")
+          CANDIDATE_SIZE=$(cd candidate && node --input-type=module -e "import { WIDTH, HEIGHT } from './src/config/ecosystem.js'; process.stdout.write(WIDTH+'x'+HEIGHT)")
+          if [ "$BASE_SIZE" != "$CANDIDATE_SIZE" ]; then
+            export KINGDOM_V2_WORLD_SIZE_CHANGE=1
+            echo "Terrain changed $BASE_SIZE -> $CANDIDATE_SIZE; candidate self-parity is mandatory."
+          fi
           for count in $POPULATIONS; do
             for seed in 1 42; do
               (cd baseline && node scripts/benchmark-m1.mjs "$count" "$seed" 1 "$GITHUB_WORKSPACE/perf-results/baseline-$count-$seed.json")
               (cd candidate && node scripts/benchmark-m1.mjs "$count" "$seed" 1 "$GITHUB_WORKSPACE/perf-results/candidate-$count-$seed.json")
+              if [ "${KINGDOM_V2_WORLD_SIZE_CHANGE:-0}" = "1" ]; then
+                (cd candidate && node scripts/benchmark-m1.mjs "$count" "$seed" 1 "$GITHUB_WORKSPACE/perf-results/candidate-repeat-$count-$seed.json")
+              fi
             done
           done
           node candidate/scripts/compare-performance-v2.mjs "$GITHUB_WORKSPACE/perf-results"

@@ -1,6 +1,13 @@
 
 
-export const WIDTH = 112, HEIGHT = 112, CELL_AREA_M2 = 100, REGION_SIDE = 8;
+// A larger, still 8-cell-aligned island for the 5,000-NPC browser profile.
+// Population 5k is the largest published ONE-DAY stress scenario, not a
+// proven sustainable 180-day simulation at this map size.
+export const WIDTH = 160, HEIGHT = 160, CELL_AREA_M2 = 100, REGION_SIDE = 8;
+export const MAX_SUPPORTED_POPULATION = 5000;
+// Largest population previously observed over multiple days; 5k remains a
+// costly one-day stress setting until browser and economy QA are complete.
+export const DEFAULT_PLAYABLE_POPULATION = 1000;
 
 export const SEASONS = ['Primavera', 'Verão', 'Outono', 'Inverno'];
 

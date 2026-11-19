@@ -85,7 +85,8 @@ test('a soldier who returned leaves the withdrawing campaign and can draw a fini
       Object.assign(troop, { x: side.home.x + 20, y: side.home.y, foodReserve: 80, campaignReturnedHome: false });
     }
   }
-  const returned = world.people.find(person => person.id === 87);
+  const returned = world.people.find(person => campaign.attacker.troopIds.includes(person.id)
+    && person.homeId != null && person.militaryCenterId != null);
   const home = world.structures.find(structure => structure.id === returned.homeId);
   const center = world.structures.find(structure => structure.id === returned.militaryCenterId);
   assert.ok(campaign.attacker.troopIds.includes(returned.id) && home && center);
@@ -125,7 +126,8 @@ test('reaching the muster point releases a returning soldier even before a retur
   const campaign = world.campaigns[0];
   campaign.status = 'withdrawing';
   const side = campaign.attacker;
-  const returned = world.people.find(person => person.id === 87);
+  const returned = world.people.find(person => campaign.attacker.troopIds.includes(person.id)
+    && person.homeId != null && person.militaryCenterId != null);
   Object.assign(returned, { x: side.home.x, y: side.home.y, campaignReturnedHome: false });
 
   prepareKingdomCampaigns(world, 2);

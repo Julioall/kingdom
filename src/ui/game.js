@@ -21,7 +21,8 @@ import { createDamageBarTracker } from './health-bars.js';
 import { GameSession } from '../app/session.ts';
 import { SimulationClock } from '../app/simulation-loop.ts';
 import Sim from './simulation-view.js';
-import { DOMESTIC_SHEEP_DAILY_FEED, SHEEP_ADULT_AGE_DAYS, SHEEP_JUVENILE_MIN_SCALE } from '../config/ecosystem.js';
+import { DEFAULT_PLAYABLE_POPULATION, DOMESTIC_SHEEP_DAILY_FEED, MAX_SUPPORTED_POPULATION,
+  SHEEP_ADULT_AGE_DAYS, SHEEP_JUVENILE_MIN_SCALE } from '../config/ecosystem.js';
 import { isRoadTile, ROAD_RULES } from '../simulation/world/roads.js';
 import { trainingDummiesForWorld } from '../simulation/world/training-dummies.js';
 import { SPELLS, equippedSpells } from '../simulation/magic/catalog.js';
@@ -122,8 +123,20 @@ export function mountGame() {
   const renderDiagnostics = createRenderDiagnostics();
   const diagnosticQuery = new URLSearchParams(window.location.search);
   const renderHz = parseRenderHz(diagnosticQuery.get('renderHz'));
-  // Explicit A/B rollout: hybrid uses Utility continuity + task HFSM + bounded Boids.
-  const npcBehavior = diagnosticQuery.get('npcBehavior') === 'hybrid' ? 'hybrid' : 'legacy';
+  // Open the enlarged world at the largest MULTI-DAY benchmarked population.
+  // Stress load ?population=5000 is available explicitly; it took 107
+  // seconds for ONE simulation day on a hosted 160x160 benchmark runner.
+  const populationOption = diagnosticQuery.get('population');
+  const populationNumber = Number(populationOption);
+  const initialPopulation = populationOption !== null && /^\d+$/.test(populationOption)
+    && Number.isSafeInteger(populationNumber) && populationNumber >= 96
+    && populationNumber <= MAX_SUPPORTED_POPULATION && populationNumber % 2 === 0
+    ? populationNumber : DEFAULT_PLAYABLE_POPULATION;
+  const largePopulation = initialPopulation >= 1000;
+  // At large loads choose the previously stress-tested hybrid policy;
+  // explicit ?npcBehavior=legacy retains an A/B comparison option.
+  const npcBehavior = diagnosticQuery.get('npcBehavior') === 'legacy' ? 'legacy'
+    : diagnosticQuery.get('npcBehavior') === 'hybrid' || largePopulation ? 'hybrid' : 'legacy';
   const referenceRendering = diagnosticQuery.get('profile') === '1' && diagnosticQuery.get('render') === 'reference';
   // depthCache=0 is the exact baseline switch for same-browser A/B captures.
   const optimizedDepth = !referenceRendering && diagnosticQuery.get('depthCache') !== '0';
@@ -215,7 +228,7 @@ export function mountGame() {
   // Both optimizations remain individually opt-in until real GPU/UX QA.
   // In production use ?transport=compact (compact actors + tile deltas) or
   // ?transport=delta (full actors + tile deltas) to isolate transfer costs.
-  const transportChoice = diagnosticQuery.get('transport');
+  const transportChoice = diagnosticQuery.get('transport') || (largePopulation ? 'compact' : null);
   const compactActorsQA = transportChoice === 'compact'
     || (import.meta.env.DEV && diagnosticQuery.get('compactActors') === '1');
   const tileDeltaQA = transportChoice === 'delta'
@@ -224,13 +237,15 @@ export function mountGame() {
   const cognitiveBudget = cognitiveOption === 'adaptive' ? 'adaptive'
     : cognitiveOption !== null && /^\d+$/.test(cognitiveOption)
     && Number(cognitiveOption) >= 1 && Number(cognitiveOption) <= 4096
-    ? Number(cognitiveOption) : null;
+    ? Number(cognitiveOption) : cognitiveOption === null && largePopulation
+      ? 'adaptive' : null;
   // Open ?battleDebug=1 to inspect true soldier positions, projected slots,
   // commander march targets, flanking wings and held reserves on the map.
   const showBattlefieldDebug = diagnosticQuery.get('battleDebug') === '1';
   const session = new GameSession(undefined, sessionSeed,
     { compactActorTransport: compactActorsQA, tileDeltaTransport: tileDeltaQA,
-      workerProfiling: diagnosticQuery.get('profile') === '1', cognitiveBudget, npcBehavior });
+      workerProfiling: diagnosticQuery.get('profile') === '1', cognitiveBudget,
+      npcBehavior, initialPopulation });
   if (diagnosticQuery.get('paused') === '1') {
     session.paused = true;
     session.ready.then(() => session.setPaused(true)).catch(error => session.onError?.(error));

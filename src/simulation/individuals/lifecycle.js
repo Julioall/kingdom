@@ -5,7 +5,7 @@ import { magicModifiers } from '../magic/effects.js';
 import { createBrain, ensureBrainSize } from '../../controllers/individual/neural.js';
 import { createCognitiveState } from '../../ai/policy/individual-state.js';
 import { randomHabitatCell } from '../world/generation.js';
-import { clamp, distance } from '../core/math.js';
+import { clamp, distance, hash01 } from '../core/math.js';
 import { cellAt } from '../world/spatial.js';
 import { log } from '../core/events.js';
 import { activeCommunity, getSocialLink } from '../society/communities.js';
@@ -43,8 +43,10 @@ function birthResidence(world, kingdomId, communityId, location) {
 function availablePersonSpawn(w, x, y) {
   const origin = cellAt(w, Math.round(x), Math.round(y));
   if (!origin || !Array.isArray(w.people)) return { x, y };
-  const occupied = tile => w.people.some(person => person.alive
-    && Math.round(person.x) === tile.x && Math.round(person.y) === tile.y);
+  const occupied = w.initialSpawnOccupied
+    ? tile => w.initialSpawnOccupied.has(tile.i)
+    : tile => w.people.some(person => person.alive
+      && Math.round(person.x) === tile.x && Math.round(person.y) === tile.y);
   const maxRadius = Math.max(w.width, w.height);
   for (let radius = 0; radius <= maxRadius; radius++) {
     const candidates = [];
@@ -56,7 +58,11 @@ function availablePersonSpawn(w, x, y) {
     }
     candidates.sort((a, b) => Math.hypot(a.x - origin.x, a.y - origin.y)
       - Math.hypot(b.x - origin.x, b.y - origin.y) || a.y - b.y || a.x - b.x);
-    if (candidates.length) return { x: candidates[0].x, y: candidates[0].y };
+    if (candidates.length) {
+      const chosen = candidates[0];
+      w.initialSpawnOccupied?.add(chosen.i);
+      return { x: chosen.x, y: chosen.y };
+    }
   }
   throw new Error('Não há uma célula livre para posicionar um personagem.');
 }
@@ -100,14 +106,59 @@ export function makePerson(w, x, y, newborn) {
 export function addIndividuals(w, count, initial) {
     const added = [];
     let arrivalFoodReserveDays = 0;
+    // At the 5,000-actor startup the old per-candidate people.some scan is
+    // quadratic. The local-only index preserves exact occupancy semantics.
+    // It is removed when generation finishes and is never a runtime cache.
+    const largeInitialPopulation = initial && count >= 500;
+    if (largeInitialPopulation) w.initialSpawnOccupied = new Set(
+      w.people.filter(person => person.alive).map(person =>
+        Math.round(person.y) * w.width + Math.round(person.x)));
+    // Distribute a large initial population around its OWN capital instead
+    // of placing thousands on the first available house tile or spawning
+    // inhabitants on the opposing kingdom's side of the island.
+    const initialHomeQueues = largeInitialPopulation ? new Map(
+      w.kingdoms.map(kingdom => {
+        const byId = new Map(w.structures.map(structure => [structure.id, structure]));
+        return [kingdom.id, {
+          homes: kingdom.homeIds.map(id => byId.get(id))
+            .filter(home => home?.complete && home.destroyedDay == null),
+          cursor: 0
+        }];
+      })
+    ) : null;
+    const initialSpawnPools = largeInitialPopulation ? new Map(
+      w.kingdoms.map(kingdom => {
+        const radius = Math.max(28, Math.min(w.width, w.height) * .26);
+        const tiles = w.tiles.filter(tile => tile.terrain === 'land'
+          && distance(tile, kingdom) <= radius
+          && w.kingdoms.every(other => other.id === kingdom.id
+            || distance(tile, kingdom) <= distance(tile, other)))
+          .sort((a, b) => hash01(w.seed + kingdom.id * 97, a.x, a.y)
+            - hash01(w.seed + kingdom.id * 97, b.x, b.y)
+            || a.i - b.i);
+        if (tiles.length < count / w.kingdoms.length)
+          throw new Error('Território inicial insuficiente para a população máxima.');
+        return [kingdom.id, { tiles, cursor: 0 }];
+      })
+    ) : null;
     for (let n = 0; n < count; n++) {
       const wanderingTile = initial ? null : randomHabitatCell(w, false);
       const kingdom = w.kingdoms && w.kingdoms.length
         ? initial ? w.kingdoms[Math.min(w.kingdoms.length - 1, Math.floor(n * w.kingdoms.length / count))]
           : w.kingdoms.slice().sort((a, b) => distance(a, wanderingTile) - distance(b, wanderingTile))[0]
         : null;
-      const vacantHome = kingdom && kingdom.homeIds.map(id => w.structures.find(s => s.id === id && s.complete && s.destroyedDay == null && s.residentIds.length < s.capacity)).find(Boolean);
-      const t = initial && vacantHome ? cellAt(w, vacantHome.x, vacantHome.y) : wanderingTile || randomHabitatCell(w, false);
+      const homeQueue = initialHomeQueues?.get(kingdom?.id);
+      if (homeQueue) while (homeQueue.cursor < homeQueue.homes.length
+          && homeQueue.homes[homeQueue.cursor].residentIds.length >=
+             homeQueue.homes[homeQueue.cursor].capacity) homeQueue.cursor++;
+      const vacantHome = homeQueue ? homeQueue.homes[homeQueue.cursor]
+        : kingdom && kingdom.homeIds.map(id => w.structures.find(s => s.id === id
+          && s.complete && s.destroyedDay == null && s.residentIds.length < s.capacity))
+          .find(Boolean);
+      const pool = initialSpawnPools?.get(kingdom?.id);
+      const startingCell = pool?.tiles[pool.cursor++] || null;
+      const t = initial && vacantHome ? cellAt(w, vacantHome.x, vacantHome.y)
+        : startingCell || wanderingTile || randomHabitatCell(w, false);
       const jitterX = Math.floor((rand(w) - .5) * (initial ? 3 : 5)), jitterY = Math.floor((rand(w) - .5) * (initial ? 3 : 5));
       let x = clamp(t.x + jitterX, 1, w.width - 2), y = clamp(t.y + jitterY, 1, w.height - 2);
       let cell = cellAt(w, x, y);
@@ -134,7 +185,10 @@ export function addIndividuals(w, count, initial) {
         const plaza = [];
         for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
           const x = kingdom.x + dx, y = kingdom.y + dy;
-          if (cellAt(w, x, y)?.terrain === 'land' && !collidesWithWorldAt(w, ruler, x, y))
+          if (cellAt(w, x, y)?.terrain === 'land'
+            && (!largeInitialPopulation || !w.initialSpawnOccupied.has(y * w.width + x)
+              || Math.round(ruler.x) === x && Math.round(ruler.y) === y)
+            && !collidesWithWorldAt(w, ruler, x, y))
             plaza.push({ x, y, distance: dx * dx + dy * dy });
         }
         plaza.sort((a, b) => a.distance - b.distance || b.y - a.y || a.x - b.x);
@@ -145,13 +199,37 @@ export function addIndividuals(w, count, initial) {
       if (group) { group.leaderId = kingdom.rulerId; group.memberIds = kingdom.memberIds.slice(); }
 
       const adults = members.filter(person => person.ageDays >= 12 * 365);
-      for (const child of members.filter(person => person.ageDays < 12 * 365)) {
-        const sameHouse = adults.filter(person => person.homeId === child.homeId);
-        const guardian = (sameHouse.length ? sameHouse : adults)
-          .slice().sort((a, b) => distance(a, child) - distance(b, child) || a.id - b.id)[0];
-        if (guardian) child.guardianId = guardian.id;
+      if (largeInitialPopulation) {
+        // Equivalent nearest-adult assignment without sorting thousands of
+        // adults separately for each child. Ties still break on person ID.
+        const adultsByHome = new Map();
+        for (const adult of adults) {
+          const group = adultsByHome.get(adult.homeId) || [];
+          group.push(adult);
+          adultsByHome.set(adult.homeId, group);
+        }
+        for (const child of members.filter(person => person.ageDays < 12 * 365)) {
+          const sameHouse = adultsByHome.get(child.homeId) || [];
+          const candidates = sameHouse.length ? sameHouse : adults;
+          let guardian = null, nearest = Infinity;
+          for (const adult of candidates) {
+            const d = distance(adult, child);
+            if (d < nearest || d === nearest && adult.id < (guardian?.id ?? Infinity)) {
+              nearest = d; guardian = adult;
+            }
+          }
+          if (guardian) child.guardianId = guardian.id;
+        }
+      } else {
+        for (const child of members.filter(person => person.ageDays < 12 * 365)) {
+          const sameHouse = adults.filter(person => person.homeId === child.homeId);
+          const guardian = (sameHouse.length ? sameHouse : adults)
+            .slice().sort((a, b) => distance(a, child) - distance(b, child) || a.id - b.id)[0];
+          if (guardian) child.guardianId = guardian.id;
+        }
       }
     }
+    if (largeInitialPopulation) delete w.initialSpawnOccupied;
     if (!initial && added.length) log(w, added.length + ' indivíduos chegaram ao mundo trazendo '
       + formatWholeMeasure(arrivalFoodReserveDays) + ' dias de reserva alimentar de fora do mapa e foram associados ao reino e à moradia mais próximos.');
     return added;
