@@ -4,6 +4,7 @@
 import Sim from '../src/simulation/engine.js';
 import { planSquadTactics, squadSlot, squadFollowerTarget } from '../src/simulation/kingdoms/squad-tactics.js';
 import { moveOne } from '../src/simulation/individuals/movement.js';
+import { militaryCorridorAssemblyPoint } from '../src/simulation/individuals/military-corridors.js';
 import { createPersonSpatialIndex } from '../src/simulation/individuals/spatial-index.js';
 import { cellAt } from '../src/simulation/world/spatial.js';
 import { hitboxesOverlap, npcHitbox } from '../src/simulation/physics/hitboxes.js';
@@ -143,6 +144,7 @@ export function runMilitaryJourney({ seed = 42, units: unitCount = 3, days = 150
       observedThreats: observeEnemy ? [enemy] : [],
       openFront: true,
       isNarrowPassage: commander => inBridge(commander),
+      corridorAssemblyPoint: commander => militaryCorridorAssemblyPoint(world, commander),
       projectTarget: value => value
     });
     previous = tactics;
