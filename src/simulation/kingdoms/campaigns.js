@@ -783,11 +783,15 @@ export function performCampaignOrder(world, person, order) {
               : squadPhase === 'striking' ? 'investindo contra o flanco'
               : squadPhase === 'holding' ? 'mantendo posição na reserva'
                 : squadLeader ? 'conduzindo a formação da tropa' : 'avançando em formação'
-    : 'rota de campanha bloqueada';
+    : person.militaryCorridorWait?.day === world.day
+      ? 'aguardando liberação do corredor pela outra unidade'
+      : 'rota de campanha bloqueada';
   person.lastLesson = moved
     ? withdrawing ? 'Retirar-se consome tempo e ração, mas devolve os soldados ao posto.'
       : 'A marcha segue o local do incidente conhecido; distância e abastecimento limitam a campanha.'
-    : 'A rota ao local conhecido está bloqueada pelo terreno; a campanha pode falhar se não houver caminho.';
+    : person.militaryCorridorWait?.day === world.day
+      ? 'O comandante aguarda a passagem da unidade que ocupa o corredor, sem forçar colisões.'
+      : 'A rota ao local conhecido está bloqueada pelo terreno; a campanha pode falhar se não houver caminho.';
   return moved;
 }
 
