@@ -221,7 +221,7 @@ export function prepareExpandedStartingSettlements(world, initialPopulation) {
       }
       if (!usable) continue;
       const home = placeStructure(world, kingdom, 'casa', tile.x, tile.y,
-        { wood: 8, stone: 2 },
+        { wood: 5, stone: 1 },
         { capacity: householdCapacity, spriteKey: 'house1', foundingDistrict: true });
       kingdom.homeIds.push(home.id);
       settlement?.homeIds.push(home.id);
