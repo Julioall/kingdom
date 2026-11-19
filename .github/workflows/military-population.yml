@@ -31,7 +31,9 @@ jobs:
       - run: npm ci
       - name: Deterministic composition and legacy compatibility
         run: node --test tests/initial-military-population.test.mjs
-      - name: Browser-sized world with one actual day and 400 soldiers
-        run: node scripts/verify-military-population.mjs --seed=42 --population=500 --days=1
+      - name: New browser default, 100 people per kingdom, 160 soldiers, one full day
+        run: node scripts/verify-military-population.mjs --seed=42 --population=200 --days=1
+      - name: Optional old 500-person scenario remains reproducible
+        run: node scripts/verify-military-population.mjs --seed=42 --population=500 --days=0
       - name: Maximum 5000 actor initialization only, without claiming playable tick speed
         run: node --max-old-space-size=4096 scripts/verify-military-population.mjs --seed=42 --population=5000 --days=0
