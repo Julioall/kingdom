@@ -13,6 +13,7 @@ import { rand } from '../core/random.js';
 import { log } from '../core/events.js';
 import { cellAt } from '../world/spatial.js';
 import { moveOne, reachableAreaAround } from '../individuals/movement.js';
+import { militaryCorridorRearGuardTarget } from '../individuals/military-corridors.js';
 import { changePersonHealth, killPerson } from '../individuals/lifecycle.js';
 import { addFoodReserve, communityFoodStock, spendInventory, spendResource, transferInventory, transferStoreResourceToAccount } from '../economy/inventories.js';
 import { registerFoodAuditCampaignSide, withFoodAuditOperation } from '../economy/food-audit-ledger.js';
@@ -686,7 +687,7 @@ export function campaignOrderFor(world, person) {
           ? slot : null;
         const follow = squadFollowerTarget(person, commander, reachableSlot);
         rejoining = follow.rejoining;
-        target = follow.target;
+        target = militaryCorridorRearGuardTarget(world, person) || follow.target;
       }
     }
   }
