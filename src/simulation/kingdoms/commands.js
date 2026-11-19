@@ -4,6 +4,7 @@ import { spendInventory } from '../economy/inventories.js';
 import { recomputeKingdomTerritories, TERRITORY_RULES } from './territories.js';
 import { log } from '../core/events.js';
 import { enlistSoldier } from './service.js';
+import { HUMAN_ADULT_AGE_DAYS, HUMAN_RECRUIT_AGE_DAYS } from '../individuals/human-age.js';
 import { cellAt, cellsWithin } from '../world/spatial.js';
 import { isTreeAnchor } from '../ecology/plants.js';
 import { reachableAreaAround } from '../individuals/movement.js';
@@ -70,7 +71,7 @@ export function kingdomBuildSiteCandidates(world, kingdom, type, options = {}) {
   const maxProjection = Number.isFinite(options.maxProjection) ? options.maxProjection : 27;
   const minDistance = Number.isFinite(options.minDistance) ? options.minDistance : type === 'torre' ? 12 : 7;
   const maxDistance = Number.isFinite(options.maxDistance) ? options.maxDistance : type === 'torre' ? 29 : type === 'centro_militar' ? 16 : 24;
-  const workers = (world.people || []).filter(p => p.alive && p.kingdomId === kingdom.id && p.role === 'resident' && p.ageDays >= 18 * 365);
+  const workers = (world.people || []).filter(p => p.alive && p.kingdomId === kingdom.id && p.role === 'resident' && p.ageDays >= HUMAN_ADULT_AGE_DAYS);
   const agent = workers[0] || { kingdomId: kingdom.id, communityId: kingdom.communityId, role: 'resident', territoryWarnings: {}, health: 100, foodReserve: 100, hydration: 100 };
   const reachable = new Set(reachableAreaAround(world, agent, kingdom, maxDistance + 10).map(t => t.i));
   const supportPosts = world.structures.filter(s => s.kingdomId === kingdom.id && s.complete && s.destroyedDay == null && ['torre', 'castelo'].includes(s.type));
@@ -194,7 +195,7 @@ export function recruitKingdomSoldier(world, kingdomId, options = {}) {
   const center = findMilitaryCenterWithVacancy(world, kingdomId);
   if (!center) return { ok: false, reason: 'É necessário um centro militar com vagas disponíveis.' };
   const recruit = kingdom.memberIds.map(id => world.people.find(person => person.id === id && person.alive))
-    .filter(person => person && person.role === 'resident' && person.ageDays >= 15 * 365
+    .filter(person => person && person.role === 'resident' && person.ageDays >= HUMAN_RECRUIT_AGE_DAYS
       && !person.recruitmentOrder && person.energy >= 30 && person.hydration >= 30
       && person.health >= 55 && person.foodReserve >= 24)
     .sort((a, b) => (b.physicalStrength + b.skills.gather * .25) - (a.physicalStrength + a.skills.gather * .25) || a.id - b.id)[0];
