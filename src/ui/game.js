@@ -220,7 +220,7 @@ export function mountGame() {
   // ?population=96 (baseline), ?population=500 (default), ?population=5000 (stress).
   const requestedPopulation = diagnosticQuery.get('population');
   const initialPopulation = requestedPopulation !== null
-    && /^\\d+$/.test(requestedPopulation)
+    && /^\d+$/.test(requestedPopulation)
     && Number(requestedPopulation) >= 96 && Number(requestedPopulation) <= 5000
     ? Math.trunc(Number(requestedPopulation)) : 500;
   const largePopulation = initialPopulation >= 1000;
