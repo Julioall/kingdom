@@ -4,6 +4,7 @@
 import Sim from '../src/simulation/engine.js';
 import { planSquadTactics, squadSlot, squadFollowerTarget } from '../src/simulation/kingdoms/squad-tactics.js';
 import { moveOne } from '../src/simulation/individuals/movement.js';
+import { militaryCorridorRearGuardTarget } from '../src/simulation/individuals/military-corridors.js';
 import { createPersonSpatialIndex } from '../src/simulation/individuals/spatial-index.js';
 import { cellAt } from '../src/simulation/world/spatial.js';
 import { hitboxesOverlap, npcHitbox } from '../src/simulation/physics/hitboxes.js';
@@ -160,7 +161,8 @@ export function runMilitaryJourney({ seed = 42, units: unitCount = 3, days = 150
         p.tacticalReserveHolding = squad.role === 'reserve' && squad.mission === 'reserve';
         p.tacticalFormation = squad.formationType;
         const target = id === squad.commanderId ? squad.target
-          : squadFollowerTarget(p, commander, squadSlot(squad, id, commander)).target;
+          : militaryCorridorRearGuardTarget(world, p)
+            || squadFollowerTarget(p, commander, squadSlot(squad, id, commander)).target;
         if (!target) continue;
         const before = { x: p.x, y: p.y };
         moveOne(world, p, target, false, { arrivalRadius: 1.1 });
