@@ -86,7 +86,10 @@ export function planSquadTactics({ units = [], troops = [], generalOrder = null,
     const prior = previousById.get(id);
     // Re-evaluate the captain's physical passage. A wide destination does
     // not mean a three-file squad can cross a one-tile bridge on the way.
-    const narrowPassage = !openFront || !!isNarrowPassage(commander);
+    // The formation cannot widen while its rear ranks are still on a
+    // one-cell bridge, even when the commander has reached open ground.
+    // Keep the unit in a single-file column until its last follower clears.
+    const narrowPassage = !openFront || members.some(person => !!isNarrowPassage(person));
     const role = prior?.role === 'vanguard' || !survivingVanguard && index === 0
       ? 'vanguard' : prior?.role || roles[index % roles.length];
     const avgStamina = members.reduce((sum, p) => sum + (Number(p.stamina) || 0), 0) / members.length;
