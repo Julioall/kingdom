@@ -43,8 +43,12 @@ function birthResidence(world, kingdomId, communityId, location) {
 function availablePersonSpawn(w, x, y) {
   const origin = cellAt(w, Math.round(x), Math.round(y));
   if (!origin || !Array.isArray(w.people)) return { x, y };
-  const occupied = tile => w.people.some(person => person.alive
-    && Math.round(person.x) === tile.x && Math.round(person.y) === tile.y);
+  // During a large initial population seed, maintain occupancy in O(1)
+  // instead of rescanning thousands of people for every candidate cell.
+  const occupied = tile => w.initialPopulationOccupied instanceof Set
+    ? w.initialPopulationOccupied.has(tile.i)
+    : w.people.some(person => person.alive
+      && Math.round(person.x) === tile.x && Math.round(person.y) === tile.y);
   const maxRadius = Math.max(w.width, w.height);
   for (let radius = 0; radius <= maxRadius; radius++) {
     const candidates = [];
@@ -100,6 +104,26 @@ export function makePerson(w, x, y, newborn) {
 export function addIndividuals(w, count, initial) {
     const added = [];
     let arrivalFoodReserveDays = 0;
+    const bulkInitial = initial && count >= 1000;
+    // Spread a stress-size initial population over each realm, not just the
+    // original dozen houses. This avoids quadratic tile-by-tile occupancy
+    // scanning and prevents thousands of NPCs stacking on one castle.
+    const spawnTilesByKingdom = new Map();
+    const spawnCursorByKingdom = new Map();
+    if (bulkInitial) {
+      w.initialPopulationOccupied = new Set(w.people.filter(p => p.alive)
+        .map(p => Math.round(p.y) * w.width + Math.round(p.x)));
+      const walkable = w.tiles.filter(tile => tile.terrain === 'land');
+      for (const kingdom of w.kingdoms || []) {
+        spawnTilesByKingdom.set(kingdom.id, walkable.slice().sort((a, b) => {
+          const da = (a.x - kingdom.x) ** 2 + (a.y - kingdom.y) ** 2;
+          const db = (b.x - kingdom.x) ** 2 + (b.y - kingdom.y) ** 2;
+          return da - db || a.i - b.i;
+        }));
+        spawnCursorByKingdom.set(kingdom.id, 0);
+      }
+    }
+    try {
     for (let n = 0; n < count; n++) {
       const wanderingTile = initial ? null : randomHabitatCell(w, false);
       const kingdom = w.kingdoms && w.kingdoms.length
@@ -107,7 +131,15 @@ export function addIndividuals(w, count, initial) {
           : w.kingdoms.slice().sort((a, b) => distance(a, wanderingTile) - distance(b, wanderingTile))[0]
         : null;
       const vacantHome = kingdom && kingdom.homeIds.map(id => w.structures.find(s => s.id === id && s.complete && s.destroyedDay == null && s.residentIds.length < s.capacity)).find(Boolean);
-      const t = initial && vacantHome ? cellAt(w, vacantHome.x, vacantHome.y) : wanderingTile || randomHabitatCell(w, false);
+      let t = initial && vacantHome ? cellAt(w, vacantHome.x, vacantHome.y) : wanderingTile;
+      if (!t && bulkInitial && kingdom) {
+        const candidates = spawnTilesByKingdom.get(kingdom.id) || [];
+        let cursor = spawnCursorByKingdom.get(kingdom.id) || 0;
+        while (cursor < candidates.length && w.initialPopulationOccupied.has(candidates[cursor].i)) cursor++;
+        t = candidates[cursor] || null;
+        spawnCursorByKingdom.set(kingdom.id, cursor + 1);
+      }
+      t ||= randomHabitatCell(w, false);
       const jitterX = Math.floor((rand(w) - .5) * (initial ? 3 : 5)), jitterY = Math.floor((rand(w) - .5) * (initial ? 3 : 5));
       let x = clamp(t.x + jitterX, 1, w.width - 2), y = clamp(t.y + jitterY, 1, w.height - 2);
       let cell = cellAt(w, x, y);
@@ -122,6 +154,12 @@ export function addIndividuals(w, count, initial) {
         kingdom.memberIds.push(person.id);
       }
       w.people.push(person); added.push(person.id);
+      if (bulkInitial) w.initialPopulationOccupied.add(Math.round(person.y) * w.width + Math.round(person.x));
+    }
+    } finally {
+      // Spawn-only index: never retain a second mutable occupancy authority
+      // after the normal spatial indexes take over.
+      if (bulkInitial) delete w.initialPopulationOccupied;
     }
     if (initial) for (const kingdom of w.kingdoms || []) {
       const members = kingdom.memberIds.map(id => w.people.find(person => person.id === id && person.alive)).filter(Boolean);
