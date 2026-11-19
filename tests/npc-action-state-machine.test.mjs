@@ -1,4 +1,4 @@
-import { HUMAN_ADULT_AGE_DAYS } from '../src/simulation/individuals/human-age.js';
+import { HUMAN_ADULT_AGE_DAYS, HUMAN_ADOLESCENT_AGE_DAYS } from '../src/simulation/individuals/human-age.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -49,7 +49,7 @@ test('control states derive from canonical NPC identity without persistent copie
   assert.equal(npcControlState({ ...p, role: 'soldier' }), NPC_CONTROL.GARRISON);
   assert.equal(npcControlState({ ...p, campaignId: 4 }), NPC_CONTROL.CAMPAIGN);
   assert.equal(npcControlState({ ...p, role: 'soldier', playerControlled: true }), NPC_CONTROL.PLAYER);
-  assert.equal(npcControlState({ ...p, role: 'soldier', ageDays: HUMAN_ADULT_AGE_DAYS - 1,
+  assert.equal(npcControlState({ ...p, role: 'soldier', ageDays: HUMAN_ADOLESCENT_AGE_DAYS - 1,
     playerControlled: true }), NPC_CONTROL.DEPENDENT);
   assert.equal(npcControlState({ ...p, alive: false }), NPC_CONTROL.DEAD);
   assert.equal(npcControlState(null), NPC_CONTROL.DEAD);
