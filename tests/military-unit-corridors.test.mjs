@@ -86,8 +86,11 @@ test('a corridor stays owned until the last member leaves, then the opposing squ
     assertPhysical(world);
     if (a[0].x >= 42 && a[2].x < 42) {
       leaderExited = true;
-      assert.equal(moveOne(world, b, west, false), false,
-        'the far bank stays reserved for the rear ranks even after the captain exits');
+      // The waiting squad may clear the exit into a safe side bay, but
+      // cannot enter any of the one-file bridge cells while A still owns it.
+      moveOne(world, b, west, false);
+      assert.ok(b.x >= 42,
+        'the opposing squad cannot take a bridge cell before the rear rank exits');
       assert.ok(!Object.values(world.militaryCorridorTraffic.corridors).every(claim => claim.empty),
         'leader exit alone never frees the whole unit ownership');
     }
@@ -97,10 +100,15 @@ test('a corridor stays owned until the last member leaves, then the opposing squ
   assert.equal(finalExit, true, 'the trailing soldier should actually clear the bridge');
   const claims = Object.values(world.militaryCorridorTraffic.corridors);
   assert.ok(claims.some(claim => claim.empty), 'ownership is released after the entire unit has crossed');
-  assert.equal(moveOne(world, b, west, false), true,
-    'waiting opposing unit can begin entering the same bridge afterwards');
-  assert.equal(b.x, 41);
-  assertPhysical(world);
+  let enteredFromOtherBank = false;
+  for (let step = 0; step < 6; step++) {
+    world.day++;
+    moveOne(world, b, west, false);
+    assertPhysical(world);
+    if (b.x <= 41) { enteredFromOtherBank = true; break; }
+  }
+  assert.equal(enteredFromOtherBank, true,
+    'after the final exit, the waiting squad can physically enter the bridge');
 });
 
 test('abandoned corridor lease recovers without overriding the physical collision rules', () => {
