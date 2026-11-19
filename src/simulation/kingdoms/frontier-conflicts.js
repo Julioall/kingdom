@@ -1,3 +1,4 @@
+import { HUMAN_ADULT_AGE_DAYS } from '../individuals/human-age.js';
 import { kingdomRelation } from './territories.js';
 import { distance } from '../core/math.js';
 import { moveOne } from '../individuals/movement.js';
@@ -373,7 +374,7 @@ export function frontierWorkOrder(world, person) {
   }
   project ||= world.structures.find(validProject);
   if (!project || person.campaignId != null) return null;
-  const available = p => p.alive && p.role === 'resident' && p.ageDays >= 18 * 365
+  const available = p => p.alive && p.role === 'resident' && p.ageDays >= HUMAN_ADULT_AGE_DAYS
     && p.kingdomId === project.kingdomId && !p.recruitmentOrder && p.campaignId == null
     && p.energy > 24 && p.foodReserve > 8 && p.hydration > 15 && p.health >= 45
     && !p.constructionRetreating && p.homeRestTargetId == null && p.restingStructureId == null && !p.restingOutdoors
