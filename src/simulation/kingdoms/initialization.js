@@ -246,42 +246,48 @@ export function updateKingdomMarkets(world, marketDay = world.day) {
   }
 }
 
+export function planKingdomHome(world, kingdom) {
+  if (!kingdom) return false;
+  // Planning a home is an actual construction project, not a free birth slot.
+  if (world.structures.some(s => s.kingdomId === kingdom.id && s.type === 'casa' && s.kingdomProject
+    && !s.complete && s.destroyedDay == null && s.integrity > 0)) return false;
+  if ((kingdom.treasury.stock.wood || 0) < 8 || (kingdom.treasury.stock.stone || 0) < 2) return false;
+  const slots = [];
+  for (let radius = 14; radius <= 30; radius += 5) {
+    for (let offset = -radius; offset <= radius; offset += 5) {
+      slots.push([offset, -radius], [offset, radius], [-radius, offset], [radius, offset]);
+    }
+  }
+  let site = null;
+  for (const [dx, dy] of slots) {
+    const targetX = kingdom.x + dx, targetY = kingdom.y + dy;
+    const tile = cellAt(world, targetX, targetY);
+    if (!tile || tile.terrain !== 'land' || tile.kingdomId !== kingdom.id) continue;
+    if (world.structures.some(s => s.type !== 'curral' && Math.hypot(s.x - tile.x, s.y - tile.y) < 4.2)) continue;
+    if (world.structures.some(s => s.type === 'curral' && Math.hypot(s.x - tile.x, s.y - tile.y) < (s.radius || 3.5) + 2)) continue;
+    site = tile; break;
+  }
+  if (!site) return false;
+  const chosen = placeStructure(world, kingdom, 'casa', site.x, site.y, { wood: 8, stone: 2 }, {
+    capacity: 13, spriteKey: 'house1', kingdomProject: true, complete: false, progress: 0,
+    required: 10, builtDay: null, createdDay: world.day, constructionStartedDay: null
+  });
+  kingdom.homeIds.push(chosen.id);
+  const settlement = world.settlements.find(item => item.id === kingdom.capitalSettlementId);
+  if (settlement) settlement.homeIds.push(chosen.id);
+  log(world, kingdom.name + ' planejou uma casa para os moradores sem vaga; a obra aguarda um peão no local.');
+  return true;
+}
+
 export function assignHome(world, kingdom, person) {
   if (!kingdom || !person) return false;
   const home = kingdom.homeIds.map(id => world.structures.find(s => s.id === id && s.type === 'casa' && s.complete
     && s.destroyedDay == null && s.residentIds.length < s.capacity)).find(Boolean);
-  let chosen = home;
-  if (!chosen) {
-    if (world.structures.some(s => s.kingdomId === kingdom.id && s.type === 'casa' && s.kingdomProject
-      && !s.complete && s.destroyedDay == null && s.integrity > 0)) return false;
-    if ((kingdom.treasury.stock.wood || 0) < 8 || (kingdom.treasury.stock.stone || 0) < 2) return false;
-    const slots = [];
-    for (let radius = 14; radius <= 30; radius += 5) {
-      for (let offset = -radius; offset <= radius; offset += 5) {
-        slots.push([offset, -radius], [offset, radius], [-radius, offset], [radius, offset]);
-      }
-    }
-    let site = null;
-    for (const [dx, dy] of slots) {
-      const targetX = kingdom.x + dx, targetY = kingdom.y + dy;
-      const tile = cellAt(world, targetX, targetY);
-      if (!tile || tile.terrain !== 'land' || tile.kingdomId !== kingdom.id) continue;
-      if (world.structures.some(s => s.type !== 'curral' && Math.hypot(s.x - tile.x, s.y - tile.y) < 4.2)) continue;
-      if (world.structures.some(s => s.type === 'curral' && Math.hypot(s.x - tile.x, s.y - tile.y) < (s.radius || 3.5) + 2)) continue;
-      site = tile; break;
-    }
-    if (!site) return false;
-    chosen = placeStructure(world, kingdom, 'casa', site.x, site.y, { wood: 8, stone: 2 }, {
-      capacity: 13, spriteKey: 'house1', kingdomProject: true, complete: false, progress: 0,
-      required: 10, builtDay: null, createdDay: world.day, constructionStartedDay: null
-    });
-    kingdom.homeIds.push(chosen.id);
-    const settlement = world.settlements.find(item => item.id === kingdom.capitalSettlementId);
-    if (settlement) settlement.homeIds.push(chosen.id);
-    log(world, kingdom.name + ' planejou uma casa para os moradores sem vaga; a obra aguarda um peão no local.');
+  if (!home) {
+    planKingdomHome(world, kingdom);
     return false;
   }
-  chosen.residentIds.push(person.id);
-  person.homeId = chosen.id;
+  home.residentIds.push(person.id);
+  person.homeId = home.id;
   return true;
 }
