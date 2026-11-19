@@ -7,7 +7,7 @@ import { addIndividuals } from '../individuals/lifecycle.js';
 import { refreshHarvestSuitability } from './queries.js';
 import { log } from '../core/events.js';
 import { rand } from '../core/random.js';
-import { initializeKingdoms, INITIAL_MILITARY_ROSTER, INITIAL_POPULATION_PER_KINGDOM, INITIAL_SOLDIERS_PER_KINGDOM, updateKingdomMarkets } from '../kingdoms/initialization.js';
+import { initializeKingdoms, prepareExpandedStartingSettlements, INITIAL_MILITARY_ROSTER, INITIAL_POPULATION_PER_KINGDOM, INITIAL_SOLDIERS_PER_KINGDOM, updateKingdomMarkets } from '../kingdoms/initialization.js';
 import { recruitKingdomSoldier } from '../kingdoms/commands.js';
 import { updateMilitaryCommand } from '../kingdoms/military.js';
 import { generateIslandTerrain } from './island-terrain.js';
@@ -124,6 +124,7 @@ export function createWorld(seed, options = {}) {
     reduceInitialMineralSites(w);
     seedAnimals(w, { sheep: 24 });
     initializeKingdoms(w);
+    prepareExpandedStartingSettlements(w, initialPopulation);
     clearWildVegetationNearCorrals(w);
     seedAdditionalMinerals(w);
     relocateSettlementMinerals(w);
