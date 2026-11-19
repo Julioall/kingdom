@@ -49,10 +49,11 @@ export class GameSession {
   private readonly npcBehavior: 'legacy' | 'hybrid';
   private readonly cognitiveBudget: number | 'adaptive' | null;
   private readonly initialPopulation: number | null;
+  private readonly initialMilitaryShare: number | null;
   private workerTiming: WorkerTiming | null = null;
 
   constructor(private readonly config: WorldConfig = defaultWorldConfig, seed = 42,
-    options: {tileDeltaTransport?: boolean; compactActorTransport?: boolean; workerProfiling?: boolean; cognitiveBudget?: number | 'adaptive' | null; npcBehavior?: 'legacy' | 'hybrid'; initialPopulation?: number} = {}) {
+    options: {tileDeltaTransport?: boolean; compactActorTransport?: boolean; workerProfiling?: boolean; cognitiveBudget?: number | 'adaptive' | null; npcBehavior?: 'legacy' | 'hybrid'; initialPopulation?: number; initialMilitaryShare?: number} = {}) {
     this.compactActorTransport = options.compactActorTransport === true;
     this.tileDeltaTransport = options.tileDeltaTransport === true || this.compactActorTransport;
     this.workerProfiling = options.workerProfiling === true;
@@ -60,6 +61,7 @@ export class GameSession {
     this.initialPopulation = Number.isSafeInteger(options.initialPopulation)
       && Number(options.initialPopulation) >= 96 && Number(options.initialPopulation) <= 5000
       ? Number(options.initialPopulation) : null;
+    this.initialMilitaryShare = options.initialMilitaryShare === 0.8 ? 0.8 : null;
     this.cognitiveBudget = options.cognitiveBudget === 'adaptive' ? 'adaptive'
       : Number.isSafeInteger(options.cognitiveBudget) && Number(options.cognitiveBudget) >= 1
         && Number(options.cognitiveBudget) <= 4096 ? Number(options.cognitiveBudget) : null;
@@ -80,7 +82,8 @@ export class GameSession {
       ...(this.workerProfiling ? {profileTiming:true} : {}),
       ...(this.cognitiveBudget != null ? {cognitiveBudget:this.cognitiveBudget} : {}),
       ...(this.npcBehavior === 'hybrid' ? {npcBehavior:'hybrid' as const} : {}),
-      ...(this.initialPopulation !== null ? { initialPopulation: this.initialPopulation } : {}) }, this.epoch).then(() => {
+      ...(this.initialPopulation !== null ? { initialPopulation: this.initialPopulation } : {}),
+      ...(this.initialMilitaryShare !== null ? { initialMilitaryShare: this.initialMilitaryShare } : {}) }, this.epoch).then(() => {
       if (!this.world) throw new Error('O Worker inicializou sem devolver o estado do mundo.');
       return this.world;
     });
@@ -106,7 +109,8 @@ export class GameSession {
       ...(this.workerProfiling ? {profileTiming:true} : {}),
       ...(this.cognitiveBudget != null ? {cognitiveBudget:this.cognitiveBudget} : {}),
       ...(this.npcBehavior === 'hybrid' ? {npcBehavior:'hybrid' as const} : {}),
-      ...(this.initialPopulation !== null ? { initialPopulation: this.initialPopulation } : {}) }, this.epoch).then(() => {
+      ...(this.initialPopulation !== null ? { initialPopulation: this.initialPopulation } : {}),
+      ...(this.initialMilitaryShare !== null ? { initialMilitaryShare: this.initialMilitaryShare } : {}) }, this.epoch).then(() => {
       if (!this.world) throw new Error('O Worker reiniciou sem devolver o estado do mundo.');
       return this.world;
     });
