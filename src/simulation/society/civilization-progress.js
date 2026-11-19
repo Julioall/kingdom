@@ -15,9 +15,15 @@ export function recordIndividualLivelihood(world, day) {
     const evidence = person.livelihoodEvidence || (person.livelihoodEvidence = { days: [] });
     if (evidence.days.some(record => record.day === day)) continue;
     const visibleKind = person.visualActivity?.day === day ? person.visualActivity.kind : null;
+    // Community rations are valid social care, but they do not certify
+    // *individual* self-provisioning. Read the actual cumulative meal ledger.
+    const sharedMeals = Number.isFinite(person.sharedMeals) ? person.sharedMeals : 0;
+    const subsidizedToday = sharedMeals > (evidence.lastSharedMeals ?? sharedMeals) + .001;
+    evidence.lastSharedMeals = sharedMeals;
     evidence.days.push({
       day,
-      healthy: person.health >= 45 && person.foodReserve >= 22 && person.hydration >= 25,
+      healthy: person.health >= 45 && person.foodReserve >= 22 && person.hydration >= 25
+        && !subsidizedToday,
       worked: WORK_KINDS.has(visibleKind),
       provisioned: FOOD_KINDS.has(visibleKind),
       sold: person.lastPersonalSaleDay === day,
@@ -34,7 +40,7 @@ export function recordIndividualLivelihood(world, day) {
     evidence.provisionDays = provisioned.length;
     evidence.sales = sales.length;
     evidence.foodPurchases = purchases.length;
-    evidence.selfReliant = viable.length >= 20
+    evidence.selfReliant = person.role !== 'soldier' && viable.length >= 20
       && productive.length >= 4
       && (provisioned.length >= 3 || sales.length >= 1 && purchases.length >= 1);
     if (evidence.selfReliant && evidence.firstProvenDay == null) evidence.firstProvenDay = day;
