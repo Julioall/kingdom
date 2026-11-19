@@ -19,7 +19,7 @@ function family() {
   return { mentor, child, world: { day: 11 } };
 }
 
-test('a child learns a parent's demonstrated work, without copying their skills or neural state', () => {
+test("a child learns a parent\'s demonstrated work, without copying their skills or neural state", () => {
   const { world, mentor, child } = family();
   const originalSkill = child.skills.forage;
   assert.equal(observeFamilyWork(world, child, mentor), true);
