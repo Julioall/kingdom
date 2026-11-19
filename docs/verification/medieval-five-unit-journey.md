@@ -43,11 +43,20 @@ GitHub Actions: `.github/workflows/military-journey.yml` coleta
 | Segurança | `overlaps`, `illegalTerrain`, `jumps`, `blockedDays` | Erros físicos = zero |
 | Repetibilidade | `digest` | Mesma seed e parâmetros = hash idêntico |
 
-O teste automatizado inicialmente exige segurança física, pelo menos
-uma travessia real e determinismo. O relatório expõe **todas as etapas**
-e seus valores ausentes. Só podemos afirmar a sequência completa quando
-`rearGuardCleared`, `reformed`, `battleFormation` e `contact` forem
-observados de fato nas três dimensões de tropas.
+O teste automatizado exige segurança física, ao menos uma travessia real
+e determinismo. Além disso, a **CI específica de aceitação** executa
+`scripts/check-medieval-journey.mjs` após gerar os replays. Ela falha
+explicitamente se alguma dimensão de exército não demonstrar todas as
+etapas na sequência correta.
+
+`reformed` só vale quando **todos os integrantes cruzaram** e cada unidade
+apresenta `rankIntegrity >= 0.65`. `battleFormation` exige, depois disso,
+uma frente de lanças/escudos e pelo menos duas unidades fora da coluna.
+`contact` exige uma ação real de combate **após** a formação. As ordens
+de formação e escaramuças antecipadas ficam em `earlyObservations`, não
+contam como conclusão do processo.
+
+A CI guarda os arquivos mesmo quando a aceitação falha.
 
 ## Limites e riscos
 
@@ -63,3 +72,31 @@ observados de fato nas três dimensões de tropas.
 
 Se uma fase não aparecer, este relatório deve guiar a correção do sistema,
 não transformar o teste em uma animação roteirizada.
+
+## Primeiro resultado observado: seed 42, 150 dias
+
+A execução inicial na revisão `4842390b` do PR #144 mostrou:
+
+| Unidades | Soldados na outra margem | Contato armado real | Colisão/terreno/teleporte |
+| --- | ---: | --- | --- |
+| 3 | 30/30 | Sim, primeiro no dia 122 | 0 / 0 / 0 |
+| 4 | 18/40 | Não | 0 / 0 / 0 |
+| 5 | 21/50 | Não | 0 / 0 / 0 |
+
+A redução de `rankIntegrity` persistiu especialmente nas unidades
+retardatárias. O controlador ainda trocava a posse da ponte quando não
+havia um ocupante dentro e o pelotão continuava incompleto. **Não foi
+aprovado o cenário de quatro e cinco unidades.**
+
+Duas hipóteses foram implementadas experimentalmente e testadas:
+manter a fileira única enquanto qualquer seguidor ainda estivesse na
+ponte e inserir um ponto de reunião temporário após a saída do corredor.
+A execução revelou piora da progressão física (apenas 4 soldados
+atravessaram no teste controlado de 150 dias). **Ambas foram retiradas**
+da branch de validação; o código de navegação voltou ao estado
+comprovado no PR #143, enquanto o auditor foi preservado.
+
+O próximo trabalho não é afrouxar a colisão ou fingir chegada: precisa
+negociar a progressão ordenada dos postos entre várias unidades sem
+bloquear os seguidores atrás do próprio comandante, e deve ser
+comparado novamente contra este replay.
