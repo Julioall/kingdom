@@ -23,9 +23,8 @@ const FOUNDING_GARRISON_CLASSES = Object.freeze([
   'guerreiro', 'lanceiro', 'arqueiro', 'guerreiro', 'monge'
 ]);
 
-function mobilizeFoundingGarrison(world, kingdom, militaryShare) {
+function mobilizeFoundingGarrison(world, kingdom, targetSoldiers) {
   const allMembers = kingdom.memberIds.map(id => world.people.find(p => p.id === id && p.alive)).filter(Boolean);
-  const targetSoldiers = Math.floor(allMembers.length * militaryShare);
   const currentSoldiers = allMembers.filter(p => p.role === 'soldier').length;
   const additional = targetSoldiers - currentSoldiers;
   if (additional <= 0) return;
@@ -180,8 +179,18 @@ export function createWorld(seed, options = {}) {
         }
       }
     }
-    if (initialMilitaryShare != null) for (const kingdom of w.kingdoms)
-      mobilizeFoundingGarrison(w, kingdom, initialMilitaryShare);
+    if (initialMilitaryShare != null) {
+      // Round the 80% quota against the ENTIRE population, not separately
+      // for each kingdom: 96 inhabitants yield 77 soldiers and 19 civilians.
+      // Cumulative rounding preserves equal treatment over both kingdoms.
+      let seen = 0, allocated = 0;
+      for (const kingdom of w.kingdoms) {
+        seen += kingdom.memberIds.length;
+        const nextAllocated = Math.round(seen * initialMilitaryShare);
+        mobilizeFoundingGarrison(w, kingdom, nextAllocated - allocated);
+        allocated = nextAllocated;
+      }
+    }
     updateMilitaryCommand(w, 0);
     updateKingdomMarkets(w);
     refreshHarvestSuitability(w);
