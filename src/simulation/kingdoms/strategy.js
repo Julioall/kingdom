@@ -1,3 +1,4 @@
+import { HUMAN_ADULT_AGE_DAYS, HUMAN_RECRUIT_AGE_DAYS } from '../individuals/human-age.js';
 import { DOMESTIC_SHEEP_DAILY_FEED, feedRationPortions, MEAT_NUTRITIONAL_VALUE, PLANTS } from '../../config/ecosystem.js';
 import { formatWholeMeasure } from '../../config/whole-measures.js';
 import { presentKingdomReport } from '../../ai/kingdom-report-presentation.js';
@@ -71,8 +72,8 @@ export function observeKingdomStrategy(world, kingdomId) {
   const market = kingdom.market || {};
   const foodDemand = kingdomFoodDemand(world, kingdom);
   const population = foodDemand.members.length;
-  const adultPopulation = foodDemand.members.filter(person => person.ageDays >= 15 * 365).length;
-  const civilianAdults = foodDemand.members.filter(person => person.ageDays >= 15 * 365 && person.role !== 'soldier').length;
+  const adultPopulation = foodDemand.members.filter(person => person.ageDays >= HUMAN_RECRUIT_AGE_DAYS).length;
+  const civilianAdults = foodDemand.members.filter(person => person.ageDays >= HUMAN_RECRUIT_AGE_DAYS && person.role !== 'soldier').length;
   const dailyFoodNeed = foodDemand.dailyFoodNeed;
   const memberIds = new Set(kingdom.memberIds || []);
   const reportedDemand = finite(market.demand && market.demand.food);
@@ -101,7 +102,7 @@ export function observeKingdomStrategy(world, kingdomId) {
   const safeBuilderFoodFloor = activeCropProject ? FIELD_CONSTRUCTION_MIN_FOOD_RESERVE : 16;
   const safeBuilderEnergyFloor = activeCropProject ? FIELD_CONSTRUCTION_MIN_ENERGY : 27;
   const safeBuilderAvailable = world.people.some(person => person.alive && memberIds.has(person.id) && person.role !== 'soldier'
-    && person.ageDays >= 12 * 365 && person.energy > safeBuilderEnergyFloor && person.hydration > 18 && person.health > 28
+    && person.ageDays >= HUMAN_ADULT_AGE_DAYS && person.energy > safeBuilderEnergyFloor && person.hydration > 18 && person.health > 28
     && person.foodReserve > safeBuilderFoodFloor);
   const activeFoodProject = communityStructures.some(structure => ['abrigo', 'roça'].includes(structure.type) && !structure.complete);
   const size = community ? community.memberIds.length : population;
@@ -240,7 +241,7 @@ export function observeKingdomStrategy(world, kingdomId) {
     return count + Math.max(0, (center.capacity || 8) - (center.soldierIds || []).length - pending);
   }, 0);
   const eligibleRecruitCount = world.people.filter(person => person.alive && memberIds.has(person.id)
-    && person.role === 'resident' && person.ageDays >= 15 * 365 && !person.recruitmentOrder
+    && person.role === 'resident' && person.ageDays >= HUMAN_RECRUIT_AGE_DAYS && !person.recruitmentOrder
     && person.energy >= 30 && person.hydration >= 30 && person.health >= 55 && person.foodReserve >= 24).length;
   const treasuryStock = kingdom.treasury && kingdom.treasury.stock || {};
   const damagedStructures = damagedKingdomStructures(world, kingdom.id);
