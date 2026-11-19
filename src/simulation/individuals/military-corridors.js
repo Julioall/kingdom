@@ -100,9 +100,9 @@ function newClaim(world, key, owner, source, region, direction, waiting = []) {
     campaignId: owner.campaignId, enteredDay: world.day || 0,
     lastProgressDay: world.day || 0,
     direction, source: { x: source.x, y: source.y },
-    maxProgress: Math.max(...region.tiles.map(tile =>
-      (tile.x - source.x) * direction.x + (tile.y - source.y) * direction.y)),
-    members: participants(world, owner, source, region, direction),
+    maxProgress: direction ? Math.max(...region.tiles.map(tile =>
+      (tile.x - source.x) * direction.x + (tile.y - source.y) * direction.y)) : null,
+    members: participants(world, owner, source, region, direction || { x: 0, y: 0 }),
     completed: [], waiting
   };
 }
@@ -231,7 +231,7 @@ export function admitMilitaryCorridorStep(world, actor, from, to, canStep) {
     state.corridors[key] = { empty: true, waiting };
     // If an incumbent was found, reserve the corridor for them immediately.
     if (incumbent) state.corridors[key] = newClaim(world, key, incumbent,
-      from, region, { x: to.x - from.x, y: to.y - from.y }, waiting);
+      from, region, null, waiting);
     return false;
   }
   const nextWaiting = waiting.filter(item => !sameUnit(item.unitId, actor.militaryUnitId)
@@ -258,10 +258,13 @@ export function recordMilitaryCorridorStep(world, actor, from, to, canStep) {
   claim.lastProgressDay = world.day || 0;
   if (!claim.members.includes(actor.id)) claim.members.push(actor.id);
   if (fromInside && !toInside) {
-    const progress = (to.x - claim.source.x) * claim.direction.x
-      + (to.y - claim.source.y) * claim.direction.y;
-    if (progress > claim.maxProgress + 0.25 && !claim.completed.includes(actor.id))
-      claim.completed.push(actor.id);
+    const progress = claim.direction
+      ? (to.x - claim.source.x) * claim.direction.x
+        + (to.y - claim.source.y) * claim.direction.y : null;
+    // If the corridor was occupied before a lease existed, its entry
+    // direction is unknown: only physical evacuation can release it.
+    if ((progress == null || progress > claim.maxProgress + 0.25)
+        && !claim.completed.includes(actor.id)) claim.completed.push(actor.id);
   }
   cleanup(world, region, key);
 }
