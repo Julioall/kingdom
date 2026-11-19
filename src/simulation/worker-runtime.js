@@ -120,7 +120,9 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
         if (world) throw new Error('A simulação já foi inicializada.');
         if (request.epoch <= epoch) throw new Error('Época de inicialização inválida.');
         if (!request.config || request.config.scenario !== 'kingdom') throw new Error('Cenário não implementado.');
-        world = createWorldImpl(request.seed);
+        world = createWorldImpl(request.seed, {
+          initialPopulation: request.initialPopulation
+        });
         configurePerformance(request);
         tileDeltaTransport = request.transport === 'tile-delta' || request.transport === 'tile-delta-compact';
         compactActorTransport = request.transport === 'tile-delta-compact';
@@ -137,7 +139,9 @@ export function createSimulationWorkerRuntime({ includeDailySnapshots = false, c
 
       if (request.type === 'reset') {
         if (request.epoch <= epoch) throw new Error('Época de reset inválida.');
-        world = createWorldImpl(request.seed);
+        world = createWorldImpl(request.seed, {
+          initialPopulation: request.initialPopulation
+        });
         configurePerformance(request);
         tileDeltaTransport = request.transport === 'tile-delta' || request.transport === 'tile-delta-compact';
         compactActorTransport = request.transport === 'tile-delta-compact';
