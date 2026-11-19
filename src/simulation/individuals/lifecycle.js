@@ -353,7 +353,7 @@ export function changePersonHealth(w, person, delta, source) {
 }
 
 export function updateDependent(w, child) {
-    const adultAge = HUMAN_ADULT_AGE_DAYS;
+    const adultAge = HUMAN_ADOLESCENT_AGE_DAYS;
     const familyIds = new Set([...(child.parents || []), child.guardianId].filter(Number.isInteger));
     const family = w.people.filter(person => person.alive && person.ageDays >= adultAge && familyIds.has(person.id));
     const communityAdults = w.people.filter(person => person.alive && person.ageDays >= adultAge
