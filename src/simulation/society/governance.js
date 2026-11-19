@@ -1,4 +1,4 @@
-import { HUMAN_ADULT_AGE_DAYS } from '../individuals/human-age.js';
+import { HUMAN_ADOLESCENT_AGE_DAYS } from '../individuals/human-age.js';
 import { clamp, distance, hash01 } from '../core/math.js';
 import { communityFoodStock, spendStoreInventory } from '../economy/inventories.js';
 import { communitySeedSupply } from '../economy/seed-cargo.js';
@@ -39,7 +39,7 @@ export function selectCommunityLeader(w, community, members) {
     if (!members.length) return null;
     const current = members.find(person => person.id === community.leaderId);
     if (current) return current;
-    const eligible = members.filter(person => person.ageDays >= HUMAN_ADULT_AGE_DAYS);
+    const eligible = members.filter(person => person.ageDays >= HUMAN_ADOLESCENT_AGE_DAYS);
     const leader = (eligible.length ? eligible : members).slice().sort((a, b) => (b.prestige || 0) + b.skills.diplomacy * 1.4 + b.sociability * .25
       - ((a.prestige || 0) + a.skills.diplomacy * 1.4 + a.sociability * .25) || a.id - b.id)[0];
     community.leaderId = leader.id;
@@ -82,7 +82,7 @@ export function taskForCommunity(w, community, members) {
     const structures = communityStructures(w, community);
     const activeFarm = structures.some(structure => structure.type === 'roça' && !structure.complete);
     const farmInvestmentReady = (activeFarm || (farmPlan && farmPlan.type === 'roça' && canCommunityBuild(w, community, size)))
-      && members.some(person => person.role !== 'soldier' && person.ageDays >= HUMAN_ADULT_AGE_DAYS
+      && members.some(person => person.role !== 'soldier' && person.ageDays >= HUMAN_ADOLESCENT_AGE_DAYS
         && person.hydration > 18 && person.energy > (activeFarm ? FIELD_CONSTRUCTION_MIN_ENERGY : 27) && person.health > 28
         && person.foodReserve > (activeFarm ? FIELD_CONSTRUCTION_MIN_FOOD_RESERVE : 16));
     // Protect the people before investing labor in livestock or buildings. A common
@@ -119,7 +119,7 @@ function auditForageWorkers(w, leader, workers) {
     eligibleWorkers: 0
   };
   for (const person of workers) {
-    if (!person.alive || person.id === leader.id || person.ageDays < HUMAN_ADULT_AGE_DAYS) continue;
+    if (!person.alive || person.id === leader.id || person.ageDays < HUMAN_ADOLESCENT_AGE_DAYS) continue;
     audit.adultWorkers++;
     if (person.assignment && person.assignment.expiresDay >= w.day) {
       audit.activeAssignments++;
@@ -192,7 +192,7 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
       ? 0 : fieldBuilderReserveFloor;
     const fieldBuildFoodFloor = cropInvestment && activeFieldProject ? FIELD_CONSTRUCTION_MIN_FOOD_RESERVE : 16;
     const fieldBuildEnergyFloor = cropInvestment && activeFieldProject ? FIELD_CONSTRUCTION_MIN_ENERGY : 27;
-    const foodWorkers = workers.filter(person => person.id !== leader.id && person.ageDays >= HUMAN_ADULT_AGE_DAYS);
+    const foodWorkers = workers.filter(person => person.id !== leader.id && person.ageDays >= HUMAN_ADOLESCENT_AGE_DAYS);
     const harvestPerWorker = fields.length ? CULTIVATED_FIELD_HARVEST_PER_WORKER
       : foodWorkers.length ? foodWorkers.reduce((sum, person) => sum + 1.8 + person.skills.forage * 3.2, 0) / foodWorkers.length : 1.8;
     const dailyNeed = dailyFoodNeedForMembers(members).dailyFoodNeed;
@@ -214,7 +214,7 @@ export function assignCommunityTasks(w, community, leader, members, desiredOverr
     while (open > 0) {
       const hasPen = w.structures.some(structure => structure.complete && structure.type === 'curral' && structure.communityId === community.id);
       const eligible = person => {
-        if (person.ageDays < HUMAN_ADULT_AGE_DAYS) return false;
+        if (person.ageDays < HUMAN_ADOLESCENT_AGE_DAYS) return false;
         // Do not assign already depleted people to work that could be done by a
         // healthier member. If everyone is depleted, their own survival policy wins.
         if (person.hydration < 24 || person.energy < 14 || person.health < 28 || person.foodReserve < assignmentFoodReserveFloor) return false;
@@ -390,7 +390,7 @@ function assignSafeOngoingBuilder(w, community, leader, members) {
   }
 
   const workers = members.filter(person => person.role !== 'soldier' && person.id !== leader.id);
-  const adultWorkers = workers.filter(person => person.ageDays >= HUMAN_ADULT_AGE_DAYS);
+  const adultWorkers = workers.filter(person => person.ageDays >= HUMAN_ADOLESCENT_AGE_DAYS);
   const availableWorkers = adultWorkers.filter(person => !(person.assignment && person.assignment.expiresDay >= w.day));
   const nearbyWorkers = availableWorkers.filter(person => distance(person, project) <= 14);
   // Keep one worker on an existing project while the rest of the community
@@ -515,7 +515,7 @@ export function updateCommunityGovernance(w, kingdomPlanner) {
       }
       const leader = selectCommunityLeader(w, community, members);
       community.satisfaction = communitySatisfaction(w, community);
-      const challengers = members.filter(person => person.id !== leader.id && person.ageDays >= HUMAN_ADULT_AGE_DAYS && (person.prestige || 0) > (leader.prestige || 0))
+      const challengers = members.filter(person => person.id !== leader.id && person.ageDays >= HUMAN_ADOLESCENT_AGE_DAYS && (person.prestige || 0) > (leader.prestige || 0))
         .sort((a, b) => (b.prestige || 0) - (a.prestige || 0) || a.id - b.id);
       const candidate = challengers[0];
       if (candidate) {
