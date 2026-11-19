@@ -1,3 +1,4 @@
+import { HUMAN_ADULT_AGE_DAYS } from '../src/simulation/individuals/human-age.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import engine from '../src/simulation/engine.js';
@@ -10,7 +11,7 @@ function marketJourneyFixture() {
   const world = engine.createWorld(42);
   const kingdom = world.kingdoms[0];
   const community = world.communities.find(candidate => candidate.id === kingdom.communityId);
-  const person = world.people.find(candidate => candidate.alive && candidate.role !== 'soldier' && candidate.ageDays >= 18 * 365
+  const person = world.people.find(candidate => candidate.alive && candidate.role !== 'soldier' && candidate.ageDays >= HUMAN_ADULT_AGE_DAYS
     && candidate.kingdomId === kingdom.id);
   assert.ok(kingdom && community && person);
 
