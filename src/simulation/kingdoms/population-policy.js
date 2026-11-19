@@ -40,7 +40,7 @@ export function updateKingdomForceBalance(world, kingdom, report) {
   const members = (world.people || []).filter(p => p.alive && p.kingdomId === kingdom.id);
   let changed = 0;
   if (decision.action === 'demobilize') {
-    const limit = Math.min(12, Math.max(1, Math.ceil(decision.adultPopulation * .025)),
+    const limit = Math.min(12, Math.max(3, Math.ceil(decision.adultPopulation * .1)),
       Math.max(0, decision.actual - decision.target));
     const canDischarge = person => person.role === 'soldier' && person.campaignId == null
       && person.towerDutyId == null && !person.towerMounted
