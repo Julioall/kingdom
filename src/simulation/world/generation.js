@@ -10,11 +10,50 @@ import { rand } from '../core/random.js';
 import { initializeKingdoms, INITIAL_MILITARY_ROSTER, INITIAL_POPULATION_PER_KINGDOM, INITIAL_SOLDIERS_PER_KINGDOM, updateKingdomMarkets } from '../kingdoms/initialization.js';
 import { recruitKingdomSoldier } from '../kingdoms/commands.js';
 import { updateMilitaryCommand } from '../kingdoms/military.js';
+import { enlistSoldier } from '../kingdoms/service.js';
 import { generateIslandTerrain } from './island-terrain.js';
 import { seedAdditionalMinerals, relocateSettlementMinerals, reduceInitialMineralSites } from './mineral-distribution.js';
 import { clearWildVegetationNearCorrals } from '../ecology/corral-clearance.js';
 
 const MIN_INITIAL_ADULT_WORKERS_PER_KINGDOM = 9;
+// The additional starting regiments are a founding garrison, not ongoing recruitment.
+// Future recruitment still uses the treasury, training sources and center vacancies.
+const FOUNDING_GARRISON_CLASSES = Object.freeze([
+  'guerreiro', 'lanceiro', 'guerreiro', 'lanceiro', 'arqueiro',
+  'guerreiro', 'lanceiro', 'arqueiro', 'guerreiro', 'monge'
+]);
+
+function mobilizeFoundingGarrison(world, kingdom, targetSoldiers) {
+  const allMembers = kingdom.memberIds.map(id => world.people.find(p => p.id === id && p.alive)).filter(Boolean);
+  const currentSoldiers = allMembers.filter(p => p.role === 'soldier').length;
+  const additional = targetSoldiers - currentSoldiers;
+  if (additional <= 0) return;
+  const center = world.structures.find(structure => kingdom.militaryCenterIds.includes(structure.id)
+    && structure.type === 'centro_militar' && structure.complete && structure.destroyedDay == null);
+  if (!center) throw new Error('Guarnição fundadora sem centro militar em ' + kingdom.name);
+  const candidates = allMembers.filter(p => p.role === 'resident')
+    .sort((a, b) => (Number(b.ageDays >= 15 * 365) - Number(a.ageDays >= 15 * 365))
+      || (b.physicalStrength || 0) - (a.physicalStrength || 0)
+      || a.id - b.id);
+  if (candidates.length < additional)
+    throw new Error('Guarnição fundadora excede os residentes disponíveis em ' + kingdom.name);
+  // Initial service capacity is explicit for this center. It does not create
+  // resources or waive the costs of any future recruitment.
+  center.capacity = Math.max(center.capacity || 0, targetSoldiers);
+  center.foundingGarrisonCapacity = targetSoldiers;
+  for (let index = 0; index < additional; index++) {
+    const person = candidates[index];
+    // A founding regiment must not enlist children. Mature the selected
+    // generated characters if the original demographic mix lacks adults.
+    if (person.ageDays < 15 * 365) {
+      person.ageDays = 18 * 365;
+      person.guardianId = null;
+    }
+    enlistSoldier(world, person, center, world.day,
+      FOUNDING_GARRISON_CLASSES[index % FOUNDING_GARRISON_CLASSES.length]);
+  }
+}
+
 
 function ensureInitialMilitaryRecruitmentPool(world) {
   // Reserve adult workers in addition to the ruler and the starting military roster.
@@ -44,8 +83,13 @@ export function createWorld(seed, options = {}) {
       || requestedPopulation > 5000) {
       throw new RangeError('População inicial deve estar entre 96 e 5000.');
     }
+    const initialMilitaryShare = options.initialMilitaryShare == null ? null
+      : Number(options.initialMilitaryShare);
+    if (initialMilitaryShare != null && initialMilitaryShare !== 0.8)
+      throw new RangeError('A divisão inicial aceita 80% de militares e 20% de civis.');
     const w = {
       seed: cleanSeed, width: WIDTH, height: HEIGHT, day: 0, year: 1, season: 0, rngState: cleanSeed,
+      ...(initialMilitaryShare == null ? {} : { initialMilitaryShare }),
       nextId: 1, tiles: [], regions: [], animals: [], people: [], communities: [], kingdoms: [], structures: [], settlements: [], logs: [], loot: [], lake: null, lakes: [],
       trainingDummyStates: {},
       market: { gold: 240, food: 110, feed: 64, wood: 90, stone: 72, sheep: 4, transactions: 0 },
@@ -135,6 +179,18 @@ export function createWorld(seed, options = {}) {
         }
       }
     }
+    if (initialMilitaryShare != null) {
+      // Round the 80% quota against the ENTIRE population, not separately
+      // for each kingdom: 96 inhabitants yield 77 soldiers and 19 civilians.
+      // Cumulative rounding preserves equal treatment over both kingdoms.
+      let seen = 0, allocated = 0;
+      for (const kingdom of w.kingdoms) {
+        seen += kingdom.memberIds.length;
+        const nextAllocated = Math.round(seen * initialMilitaryShare);
+        mobilizeFoundingGarrison(w, kingdom, nextAllocated - allocated);
+        allocated = nextAllocated;
+      }
+    }
     updateMilitaryCommand(w, 0);
     updateKingdomMarkets(w);
     refreshHarvestSuitability(w);
@@ -156,12 +212,26 @@ export function createWorld(seed, options = {}) {
       cultivatedFoodHarvested: w.harvests.cultivatedFoodBiomass
     };
     const initialPopulation = requestedPopulation;
-    const initialNonMilitaryPerKingdom = initialPopulation / w.kingdoms.length - INITIAL_SOLDIERS_PER_KINGDOM;
     const rosterDescription = INITIAL_MILITARY_ROSTER.map(({ count, militaryClass }) => count + ' ' + militaryClass + (count === 1 ? '' : 's')).join(', ');
-    log(w, initialPopulation + ' habitantes começaram em ' + w.kingdoms.length + ' reinos, com '
-      + initialNonMilitaryPerKingdom + ' habitantes não militares e ' + INITIAL_SOLDIERS_PER_KINGDOM
-      + ' militares por reino (' + rosterDescription + '). As tropas patrulham antes das campanhas de fronteira. '
-      + 'As terras além desses domínios permanecem comuns.');
+    if (initialMilitaryShare == null) {
+      // Preserve the exact log of legacy simulations for authoritative
+      // benchmark parity and replay checksums.
+      const initialNonMilitaryPerKingdom = initialPopulation / w.kingdoms.length - INITIAL_SOLDIERS_PER_KINGDOM;
+      log(w, initialPopulation + ' habitantes começaram em ' + w.kingdoms.length + ' reinos, com '
+        + initialNonMilitaryPerKingdom + ' habitantes não militares e ' + INITIAL_SOLDIERS_PER_KINGDOM
+        + ' militares por reino (' + rosterDescription + '). As tropas patrulham antes das campanhas de fronteira. '
+        + 'As terras além desses domínios permanecem comuns.');
+    } else {
+      const militaryByKingdom = w.kingdoms.map(kingdom => w.people.filter(p => p.alive
+        && p.kingdomId === kingdom.id && p.role === 'soldier').length);
+      const civilianByKingdom = w.kingdoms.map((kingdom, index) =>
+        kingdom.memberIds.length - militaryByKingdom[index]);
+      log(w, initialPopulation + ' habitantes começaram em ' + w.kingdoms.length + ' reinos, com '
+        + civilianByKingdom.join('/') + ' civis (incluindo governantes) e '
+        + militaryByKingdom.join('/') + ' militares por reino. Guarnição básica: (' + rosterDescription
+        + '). As tropas patrulham antes das campanhas de fronteira. '
+        + 'As terras além desses domínios permanecem comuns.');
+    }
     return w;
   }
 
