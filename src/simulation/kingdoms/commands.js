@@ -194,12 +194,23 @@ export function recruitKingdomSoldier(world, kingdomId, options = {}) {
     return { ok: false, reason: 'Construa ou reconstrua uma fonte operacional (' + sourceType + ') para esta classe.' };
   const center = findMilitaryCenterWithVacancy(world, kingdomId);
   if (!center) return { ok: false, reason: 'É necessário um centro militar com vagas disponíveis.' };
-  const recruit = kingdom.memberIds.map(id => world.people.find(person => person.id === id && person.alive))
+  const candidates = kingdom.memberIds.map(id => world.people.find(person => person.id === id && person.alive))
     .filter(person => person && person.role === 'resident' && person.ageDays >= HUMAN_RECRUIT_AGE_DAYS
       && !person.recruitmentOrder && person.energy >= 30 && person.hydration >= 30
       && person.health >= 55 && person.foodReserve >= 24)
-    .sort((a, b) => (b.physicalStrength + b.skills.gather * .25) - (a.physicalStrength + a.skills.gather * .25) || a.id - b.id)[0];
+    .sort((a, b) => Number(!!b.volunteerForService) - Number(!!a.volunteerForService)
+      || (b.physicalStrength + (b.skills?.gather || 0) * .25)
+        - (a.physicalStrength + (a.skills?.gather || 0) * .25) || a.id - b.id);
+  const recruit = options.volunteerId != null
+    ? candidates.find(person => person.id === options.volunteerId && person.volunteerForService) : candidates[0];
   if (!recruit) return { ok: false, reason: 'Não há morador adulto em condições de se alistar.' };
+  // Autonomous conscription cannot dismantle the last working civilian teams.
+  // Explicit founding enrollment uses a different, initial-only path.
+  if (!options.immediate && world.initialMilitaryShare === .8) {
+    const civilians = kingdom.memberIds.map(id => world.people.find(p => p.id === id))
+      .filter(p => p?.alive && p.role !== 'soldier' && p.ageDays >= HUMAN_RECRUIT_AGE_DAYS);
+    if (civilians.length <= 6) return { ok: false, reason: 'A reserva mínima de trabalhadores civis está protegida.' };
+  }
   if (!spendInventory(kingdom.treasury, SOLDIER_COST, 'soldier-recruitment')) {
     return { ok: false, reason: 'O tesouro não tem alimento, madeira e ouro para equipar o soldado.' };
   }
