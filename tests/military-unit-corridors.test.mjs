@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import engine from '../src/simulation/engine.js';
 import { moveOne } from '../src/simulation/individuals/movement.js';
+import { militaryCorridorRearGuardTarget, militaryCorridorYieldDecision } from '../src/simulation/individuals/military-corridors.js';
 import { createPersonSpatialIndex } from '../src/simulation/individuals/spatial-index.js';
 import { hitboxesOverlap, npcHitbox } from '../src/simulation/physics/hitboxes.js';
 import { cellAt } from '../src/simulation/world/spatial.js';
@@ -113,6 +114,54 @@ test('a corridor stays owned until the last member leaves, then the opposing squ
   }
   assert.equal(enteredFromOtherBank, true,
     'after the final exit, the waiting squad can physically enter the bridge');
+});
+
+test('a live rear guard keeps the whole-unit lease after captain clears the bridge', () => {
+  const { world, a, b } = setup(419, 3);
+  const east = cellAt(world, 48, 40);
+  const west = cellAt(world, 24, 40);
+  assert.equal(moveOne(world, a[0], east, false), true);
+  assert.deepEqual(militaryCorridorRearGuardTarget(world, a[1]), { x: 40, y: 40 },
+    'all trailing soldiers get the real far-bank exit instead of a moving captain slot');
+  for (let i = 0; i < 14; i++) {
+    world.day++;
+    moveOne(world, a[0], east, false);
+  }
+  assert.ok(a[0].x >= 41, 'captain already crossed');
+  assert.ok(a[1].x < 30 && a[2].x < 30,
+    'rear ranks still physically wait at the entry');
+  // Previously a six-day idle gap between the captain and his first
+  // follower silently rotated the lease to another squad.
+  assert.equal(moveOne(world, b, west, false), false);
+  assert.equal(b.x, 42);
+  const claims = Object.values(world.militaryCorridorTraffic.corridors);
+  assert.ok(claims.some(claim => !claim.empty && claim.ownerUnitId === 'a'),
+    'other units cannot acquire this corridor before A finishes');
+  const ownerClaim = claims.find(claim => !claim.empty);
+  assert.equal(ownerClaim.recoveries, undefined);
+  assert.equal(militaryCorridorYieldDecision(world, b, a[1]), null,
+    'an unrelated blocker far beyond the bridge entrance is not pushed arbitrarily');
+  assertPhysical(world);
+});
+
+test('active bridge owner can request a legal apron yield across tactical role priorities', () => {
+  const { world, a, b } = setup(421, 3);
+  const east = cellAt(world, 48, 40);
+  assert.equal(moveOne(world, a[0], east, false), true);
+  a[1].x = 33; a[1].y = 40;
+  b.x = 29; b.y = 40; b.tacticalRole = 'flank-left';
+  world.peopleSpatialIndex = createPersonSpatialIndex(world.people);
+  // 'flank-left' normally outranks 'support'. The current owner must
+  // still be able to clear the immediate approach without displacement
+  // in combat, reserve duty or another area of the map.
+  const claim = Object.values(world.militaryCorridorTraffic.corridors)[0];
+  a[1].tacticalRole = 'support';
+  b.x = claim.source.x - 1; b.y = claim.source.y;
+  world.peopleSpatialIndex = createPersonSpatialIndex(world.people);
+  assert.equal(militaryCorridorYieldDecision(world, b, a[1]), true);
+  b.tacticalPhase = 'contact';
+  assert.equal(militaryCorridorYieldDecision(world, b, a[1]), false,
+    'active defensive contact is never broken by an allied convoy');
 });
 
 test('abandoned corridor lease recovers without overriding the physical collision rules', () => {
