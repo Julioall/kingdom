@@ -4,7 +4,7 @@
 
 No motor anterior, `reproducePeople` considerava todos os pares férteis do mundo, mas só selecionava um nascimento a cada 30 dias, **independentemente do número de reinos**. Idades avançavam um dia por ciclo de simulação, com infância dependente até 12 anos, aptidão para recrutamento a partir de 15 anos, reprodução dos 18 aos 45 e morte natural aos 82. Portanto, o envelhecimento já avançava, mas nascimentos eram estrangulados globalmente e recrutas nascidos agora não aparecem instantaneamente.
 
-O navegador passou a iniciar 500 habitantes, com 80% militares, mas a alocação fundadora não deve ser mantida por decreto para sempre. Sem desmobilização, perdas de guerra não deixam trabalhadores suficientes para produção e cuidado de crianças.
+O navegador inicia 200 habitantes (100 por reino), com 80% militares; 500 continua disponível como cenário opcional, mas a alocação fundadora não deve ser mantida por decreto para sempre. Sem desmobilização, perdas de guerra não deixam trabalhadores suficientes para produção e cuidado de crianças.
 
 ## Alterações
 
@@ -13,7 +13,9 @@ O navegador passou a iniciar 500 habitantes, com 80% militares, mas a alocação
 - Quando existe casal pronto mas **todas as moradias estão lotadas**, o reino solicita uma casa conforme a regra de construção vigente: local legal, custo real de madeira/pedra, projeto e trabalhadores. Não há casa nem bebê grátis.
 - A cada 30 dias, nos mundos iniciados explicitamente com `initialMilitaryShare: .8`, o rei revisa a força disponível. O alvo de composição é dinâmico: 25% dos adultos em escassez civil/alimentar, 35% em paz, 45% sob alerta e 60% em guerra, sempre preservando pelo menos 35% da população adulta como civis.
 - Durante campanhas ativas o rei não desmobiliza tropas; só treina novos soldados quando há adultos civis excedentes, alimento comunitário e os estoques e centros reais exigidos pelo recrutamento. O treinamento mantém os seis dias já previstos.
-- Fora das guerras, a desmobilização acontece aos poucos (até 12 soldados por reino a cada 30 dias), escolhendo militares sem comando, sem serviço em torre e sem controle manual. Os personagens continuam vivos, voltam a trabalhar e preservam seus salários, recursos e histórico. Unidades militares são reconstruídas pelo comando existente, sem manter os dispensados nas fileiras.
+- Fora das guerras, a desmobilização acontece aos poucos (até 12 soldados por reino a cada 30 dias, escalonados conforme o contingente adulto), escolhendo militares sem comando, sem serviço em torre e sem controle manual. Os personagens continuam vivos, voltam a trabalhar e preservam seus salários, recursos e histórico. Unidades militares são reconstruídas pelo comando existente, sem manter os dispensados nas fileiras.
+- Os soldados vivos voltam à produção sem perder suas economias ou salários devidos. A disponibilidade real de trabalhadores e a reserva civil também limitam o recrutamento por IAs externas.
+- A apresentação visual acompanha o crescimento infantil gradualmente e reduz levemente a escala dos idosos; o inspetor mostra a fase da vida, sem alterar colisões nem o relógio.
 - Mundos legados criados por `createWorld(seed)` mantêm o perfil fundador antigo sem balanço automático. Isso isola benchmarks históricos de um ajuste de comportamento que precisa de validação longitudinal.
 
 ## Fronteiras da entrega
@@ -27,12 +29,12 @@ Não se alterou o dano das armas, a resolução das campanhas, a duração do ca
 ## Testes e critérios de aceite
 
 ```bash
-node --test tests/kingdom-demography-force-policy.test.mjs tests/residential-birth-capacity.test.mjs
+node --test tests/kingdom-demography-force-policy.test.mjs tests/residential-birth-capacity.test.mjs tests/person-age-scale.test.mjs
 npm test
 npm run typecheck
 npm run build
 ```
 
-Replays recomendados após aprovação dos testes: 500 habitantes, 80% militares, seeds 1, 42, 987 e 2026, com horizontes de 30, 90, 180 e 365 dias. Medir por reino: população total, nascimentos, crianças que atingiram 12 e 15 anos, mortalidade por causa, civis adultos disponíveis, militares ativos/em treinamento, alimento e moradias operacionais. Para validar recuperação pós-guerra, comparar um cenário que efetivamente entra em guerra com outro controlado sem mobilização. Repetir seeds para garantir determinismo.
+Replays recomendados após aprovação dos testes: 200 habitantes (padrão) e 500 (cenário adicional), 80% militares, seeds 1, 42, 987 e 2026, com horizontes de 30, 90, 180 e 365 dias. Medir por reino: população total, nascimentos, crianças que atingiram 12 e 15 anos, mortalidade por causa, civis adultos disponíveis, militares ativos/em treinamento, alimento e moradias operacionais. Para validar recuperação pós-guerra, comparar um cenário que efetivamente entra em guerra com outro controlado sem mobilização. Repetir seeds para garantir determinismo.
 
 **Não aprovar por apenas aumentar a contagem de nascimentos.** A estabilidade depende de crianças sobreviventes, trabalhadores livres, moradia e abastecimento de ambos os reinos.
