@@ -1,71 +1,99 @@
-# Kingdom: mapa ampliado e 5.000 habitantes no navegador
+# Kingdom | ampliação do mapa e perfil populacional
 
-## Entrega e escopo
+## Perfis disponíveis
 
-- Mapa autoritativo aumentado de **112 × 112** (12.544 células) para
-  **160 × 160** (25.600 células), mantendo divisões regionais de 8 células,
-  câmera/minimapa e seed determinística.
-- No navegador, o jogo solicita **5.000 habitantes iniciais** ao Worker,
-  distribuídos entre os dois reinos (2.500 por reino).
-- A chamada `createWorld(seed)` sem opções mantém o cenário controlado
-  de 96 residentes para testes históricos e A/B. A chamada
-  `createWorld(seed, {initialPopulation: 5000})` cria a população máxima
-  imediatamente, sem injeção tardia.
-- Perfis de redução na URL: `?population=96`, `?population=500`,
-  `?population=1000`; apenas números **pares entre 96 e 5.000**.
-  `?population=5000` é o perfil máximo.
-- Para os 5.000 iniciais, usa IA híbrida, transporte compacto e
-  `cognitiveBudget=adaptive` por padrão, mantendo `?npcBehavior=legacy`,
-  `?transport=delta` e `?cognitiveBudget=128` para comparar políticas
-  e diagnosticar problemas.
-- A geração em massa usa um índice transitório de ocupação e sorteio de
-  posições determinístico perto das respectivas capitais, evitando
-  milhares de verificações repetidas de `people.some`.
-- A escolha dos responsáveis por crianças preserva a seleção por
-  proximidade/desempate sem ordenar uma lista de milhares para cada filho.
+| Perfil | Terreno | População inicial | Uso |
+| --- | --- | ---: | --- |
+| Navegador, padrão experimental | 160×160 células | 1.000 (500 por reino) | Testar jogo ampliado com carga moderada |
+| Navegador, máximo técnico | 160×160 células | 5.000 (2.500 por reino) | `?population=5000`, apenas estresse |
+| Comparação/diagnóstico | 160×160 células | 96 | `?population=96`, custos e regressões |
 
-## Limite de evidência e segurança
+A área passou de 12.544 para 25.600 células (+104,1%). As
+dimensões do mapa estão centralizadas em `src/config/ecosystem.js`
+e continuam alinhadas aos blocos regionais de oito células.
 
-**5.000 NPCs** é o maior estresse publicado pelo projeto até agora, e
-foi validado originalmente em uma simulação autoritativa de **apenas um
-dia no mapa de 112 × 112**, com replays híbridos. O novo mapa de 160 × 160,
-5.000 habitantes iniciais, o navegador e a economia em longo prazo
-**não estão homologados automaticamente por essa evidência**.
+No navegador, `?population=N` aceita valores pares entre 96 e 5.000.
+O Worker valida o limite, e `GameSession` preserva a escolha
+quando um mundo é reiniciado. A API `createWorld(seed)` mantém 96
+para que os testes existentes não passem a injetar milhares de NPCs;
+`createWorld(seed, {initialPopulation:N})` cria todos os habitantes
+no próprio dia zero, antes da formação da guarnição.
 
-O novo workflow `.github/workflows/expanded-world.yml` tenta gerar o
-mapa com 5.000 habitantes reais e avançar um dia, registrando duração,
-memória, quantidade efetiva, moradores por reino, moradia atribuída,
-sobreposições no surgimento e execução do dia.
+A interface seleciona IA híbrida, orçamento adaptativo e transporte
+compacto para perfis com 1.000 ou mais NPCs. Sob comparação, podem ser
+solicitados `?npcBehavior=legacy`, `?cognitiveBudget=128`
+ou `?transport=delta`.
 
-O jogo original inicia com poucas casas, para 48 pessoas por reino.
-A geração de 5.000 sem ampliar a política urbana/econômica deixa
-potencialmente milhares sem moradia. **Isso é uma limitação explícita,
-não uma civilização equilibrada ou sustentável.** O arquivo de auditoria
-conta os habitantes com `homeId`, e a implantação requer validação
-separada de habitação, empregos, alimentos, água, mortalidade,
-economia e distribuição espacial durante 30/90/180 dias.
+## Nascimento, moradia e provisões
 
-## Verificação
+O modo ampliado cria casas rurais completas, com capacidade de 20
+habitantes por estrutura, em posições próximas ao reino respectivo.
+A construção usa madeira e pedra do tesouro inicial e ocupa posições
+válidas. A quantidade cobre a população inicial; o teste de estresse
+deve confirmar que a atribuição de residência realmente ocorreu.
+
+Um estoque **finito** de até 30 dias de alimento por pessoa é
+provisionado na fundação para dar tempo à economia se estabelecer.
+Não há geração mágica diária de comida ou moradia.
+
+A distribuição por casas é feita em ordem de IDs. Para grandes mundos,
+a busca de locais vazios usa um conjunto temporário de células e a
+atribuição de responsáveis por crianças usa uma busca de mínimo, sem
+reordenar milhares de residentes para cada bebê. O estado transitório
+não é mantido durante a simulação.
+
+## Resultados até esta revisão
+
+Um perfil anterior deste mesmo PR, antes da expansão de moradia,
+**conseguiu** criar 5.000 residentes em 160×160 (seed 42),
+2.500 por reino, e avançar um dia; na máquina do runner:
+- geração: 2,8 segundos;
+- um único `stepDay`: **107 segundos**;
+- RSS: **aproximadamente 950 MB**;
+- moradores com moradia: **208 de 5.000**.
+
+Esse resultado inviabilizou 5 mil como padrão jogável e motivou
+as casas adicionais. **Não extrapolar** tais números como previsão de
+desempenho após a expansão habitacional, nem como FPS em navegador.
+
+O benchmark histórico do projeto com 5.000 atores também era
+apenas um dia autoritativo em mapa 112×112. A validação multidiária
+anterior alcançou 1.000 NPCs, mas ainda no mapa antigo. Por isso
+1.000 no mapa novo é **padrão experimental**, ainda pendente de
+verificação de estabilidade no dispositivo real.
+
+## Testes
 
 ```sh
-npm test
 npm run typecheck
+npm test
 npm run build
+node scripts/audit-expanded-world.mjs --population=1000 --seed=42 --days=1
 node scripts/audit-expanded-world.mjs --population=5000 --seed=42 --days=1
 ```
 
-Portas adicionais:
-- Criar sementes 1/42/2026 sem falhas de assentamentos, minerais,
-  habitantes ou rampa.
-- Repetir uma seed máxima e comparar hashes determinísticos.
-- Testar navegador Chromium real e em hardware do usuário com zoom,
-  minimapa, viewport, 5.000 NPCs, simulação ativa e FPS observado.
-- Registrar tempo p95 e RSS de 30/90/180 dias, não extrapolar
-  o único dia de estresse.
-- Inspecionar inicialmente moradia, água, alimentação, exército,
-  ordem social e remuneração antes de declarar o novo perfil
-  **pronto para produção**.
+`.github/workflows/expanded-world.yml` mede normalmente 500, 1.000 e
+2.000 habitantes de nascimento. O disparo manual cobre 1.000 ou
+5.000. Os artefatos guardam duração, uso de memória, ocupação
+de moradias e quantidade real por reino.
 
-Este PR é uma proposta de capacidade máxima, em **draft**, sem merge
-automático na `main`. A próxima ação é inspecionar a CI e reparar
-as limitações observadas antes da promoção do perfil.
+A mudança de tamanho altera os hashes dos mundos: a comparação
+antiga de igualdade de snapshot entre **112×112 e 160×160**
+deve falhar. Não desativar determinismo como um todo. A revisão
+precisa exigir equivalência de duas execuções da **mesma seed,
+dimensão e população** e reavaliar separadamente CPU/GPU/Worker.
+
+## Portas para sair de draft
+
+- Abrir com seed 1, 42 e 2026, sem estruturas, reis ou moradores
+  em terreno impróprio.
+- Reproduzir criação e primeiro dia em 500/1000/2000 habitantes,
+  usando relatórios reais de memória e CPU.
+- Repetir 1000 habitantes por 30/90/180 dias, avaliar comida,
+  obras, impostos, moradia, agricultura, água e mortalidade.
+- Testar navegador headful real, mini mapa, câmera, viewport,
+  simulação do Worker e FPS medido.
+- Repetir 5.000 somente como carga de estresse e nunca
+  afirmar que essa população é sustentável pela evidência de um dia.
+
+Este PR permanece em **draft**, sem merge na main.
