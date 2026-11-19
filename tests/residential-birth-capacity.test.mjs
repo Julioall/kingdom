@@ -69,7 +69,7 @@ test('a birth reserves one operational house vacancy and transfers the existing 
   assert.ok(baby);
   assert.equal(baby.homeId, home.id);
   assert.ok(home.residentIds.includes(baby.id));
-  assert.equal(home.residentIds.length, 2);
+  assert.equal(home.residentIds.length, 3, 'a household consists of two parents and their child');
   const firstParent = mother.id < father.id ? mother : father;
   const secondParent = mother.id < father.id ? father : mother;
   assert.equal(firstParent.foodReserve, (firstParent === mother ? motherFood : fatherFood) - 7);
@@ -108,7 +108,7 @@ test('a completed community shelter can provide the birth residence when houses 
   assert.ok(baby);
   assert.equal(baby.kingdomId, null);
   assert.equal(baby.homeId, shelter.id);
-  assert.deepEqual(shelter.residentIds, [baby.id]);
+  assert.deepEqual(new Set(shelter.residentIds), new Set([mother.id, father.id, baby.id]));
   assert.equal(baby.communityId, kingdom.communityId);
   assert.equal(father.birthCooldown, HUMAN_BIRTH_COOLDOWN_DAYS);
 });
