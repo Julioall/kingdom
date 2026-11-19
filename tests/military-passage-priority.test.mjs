@@ -57,6 +57,19 @@ test('reserve, manual control and unrelated travelers cannot be displaced by the
   assert.equal(militaryPassageYieldDecision(reserve, front), false);
 });
 
+test('stationary shield lines hold instead of yielding to an allied march', () => {
+  const shield = soldier(401, 'unit-shield', 'support');
+  shield.tacticalPhase = 'contact';
+  const marching = soldier(402, 'unit-march', 'vanguard', 'comandante');
+  assert.equal(militaryPassageYieldDecision(shield, marching), false);
+  shield.tacticalPhase = 'holding';
+  assert.equal(militaryPassageYieldDecision(shield, marching), false);
+  // Genuine rout may request emergency passage, but canYieldPassage still
+  // rejects exhausted/fighting blockers and requires legal adjacent ground.
+  marching.tacticalPhase = 'rout';
+  assert.equal(militaryPassageYieldDecision(shield, marching), true);
+});
+
 test('opposing friendly squads use a real passing bay and do not reverse the handoff on the same day', () => {
   const world = engine.createWorld(224);
   for (const tile of world.tiles) {
