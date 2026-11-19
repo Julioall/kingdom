@@ -21,7 +21,7 @@ import { createDamageBarTracker } from './health-bars.js';
 import { GameSession } from '../app/session.ts';
 import { SimulationClock } from '../app/simulation-loop.ts';
 import Sim from './simulation-view.js';
-import { DOMESTIC_SHEEP_DAILY_FEED, MAX_SUPPORTED_POPULATION,
+import { DEFAULT_PLAYABLE_POPULATION, DOMESTIC_SHEEP_DAILY_FEED, MAX_SUPPORTED_POPULATION,
   SHEEP_ADULT_AGE_DAYS, SHEEP_JUVENILE_MIN_SCALE } from '../config/ecosystem.js';
 import { isRoadTile, ROAD_RULES } from '../simulation/world/roads.js';
 import { trainingDummiesForWorld } from '../simulation/world/training-dummies.js';
@@ -123,15 +123,15 @@ export function mountGame() {
   const renderDiagnostics = createRenderDiagnostics();
   const diagnosticQuery = new URLSearchParams(window.location.search);
   const renderHz = parseRenderHz(diagnosticQuery.get('renderHz'));
-  // The playable world opens at the largest published NPC stress ceiling.
-  // Use ?population=96 (or any even value up to 5000) to reduce the workload
-  // for slower hardware or baseline deterministic comparisons.
+  // Open the enlarged world at the largest MULTI-DAY benchmarked population.
+  // Stress load ?population=5000 is available explicitly; it took 107
+  // seconds for ONE simulation day on a hosted 160x160 benchmark runner.
   const populationOption = diagnosticQuery.get('population');
   const populationNumber = Number(populationOption);
   const initialPopulation = populationOption !== null && /^\d+$/.test(populationOption)
     && Number.isSafeInteger(populationNumber) && populationNumber >= 96
     && populationNumber <= MAX_SUPPORTED_POPULATION && populationNumber % 2 === 0
-    ? populationNumber : MAX_SUPPORTED_POPULATION;
+    ? populationNumber : DEFAULT_PLAYABLE_POPULATION;
   const largePopulation = initialPopulation >= 1000;
   // At large loads choose the previously stress-tested hybrid policy;
   // explicit ?npcBehavior=legacy retains an A/B comparison option.
