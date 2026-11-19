@@ -10,7 +10,7 @@ import { cellAt } from '../world/spatial.js';
 import { log } from '../core/events.js';
 import { activeCommunity, getSocialLink } from '../society/communities.js';
 import { addFoodReserve, communityFoodStock, consumeFoodReserve, transferCommunityFoodToReserve, transferFoodReserve } from '../economy/inventories.js';
-import { assignHome } from '../kingdoms/initialization.js';
+import { assignHome, planKingdomHome } from '../kingdoms/initialization.js';
 import { moveOne } from './movement.js';
 import { consumePersonEnergy } from './energy.js';
 import { abandonSocialIntentionsForPerson } from '../society/social-evidence.js';
@@ -397,12 +397,17 @@ export function updateDependent(w, child) {
 
 export function reproducePeople(w) {
     if ((w.day + 1) % 30 !== 0) return;
-    const living = w.people.filter(p => p.alive && p.ageDays >= 18 * 365 && p.ageDays <= 45 * 365 && p.energy > 38 && p.foodReserve > 42 && p.hydration > 34 && p.health > 50 && p.birthCooldown <= 0);
+    const living = w.people.filter(p => p.alive && p.ageDays >= 18 * 365 && p.ageDays <= 45 * 365
+      && p.campaignId == null && p.energy > 38 && p.foodReserve > 42
+      && p.hydration > 34 && p.health > 50 && p.birthCooldown <= 0);
     const candidates = [];
     for (const p of living) for (const q of living) {
-      if (p.id >= q.id || p.sex === q.sex || distance(p, q) > 2.2) continue;
+      if (p.id >= q.id || p.sex === q.sex) continue;
+      const separation = distance(p, q);
+      const stableHome = p.homeId != null && p.homeId === q.homeId && separation <= 8;
+      if (separation > 2.2 && !stableHome) continue;
       const link = w.socialLinks[p.id + ':' + q.id] || w.socialLinks[q.id + ':' + p.id];
-      if (!link || link.trust < .2) continue;
+      if (!link || link.trust < (stableHome ? .35 : .2)) continue;
       if (p.communityId !== q.communityId && p.communityId !== null && q.communityId !== null) continue;
       const score = link.trust + Math.min(p.energy, q.energy) * .002 + Math.min(p.foodReserve, q.foodReserve) * .003;
       const kingdomId = p.kingdomId === q.kingdomId ? p.kingdomId : (p.kingdomId ?? q.kingdomId);
@@ -413,62 +418,77 @@ export function reproducePeople(w) {
         x: (p.x + q.x) / 2, y: (p.y + q.y) / 2
       } });
     }
-    candidates.sort((a, b) => b.score - a.score || a.p.id - b.p.id);
-    if (!candidates.length) return;
-    const selected = candidates.find(candidate => {
-      candidate.residence = birthResidence(w, candidate.kingdomId, candidate.communityId, candidate.location);
-      return candidate.residence;
-    });
-    if (!selected) {
-      // Log a blocked housing gate once per owner, rather than every monthly tick.
-      const reported = new Set();
-      for (const candidate of candidates) {
-        const key = candidate.kingdomId == null
-          ? 'community:' + (candidate.communityId ?? 'unaffiliated')
-          : 'kingdom:' + candidate.kingdomId;
-        if (reported.has(key)) continue;
-        reported.add(key);
-        const gates = w.birthHousingGate || (w.birthHousingGate = {});
-        if (gates[key] === true) continue;
-        gates[key] = true;
-        const owner = candidate.kingdomId == null
-          ? 'na comunidade ' + (candidate.communityId ?? 'sem vínculo')
-          : 'no reino ' + candidate.kingdomId;
-        log(w, 'Nascimento adiado ' + owner + ': não existe moradia operacional com vaga.');
-      }
-      return;
-    }
-    const { p, q, kingdomId, communityId, residence } = selected;
-    const housingKey = kingdomId == null
+    candidates.sort((a, b) => b.score - a.score || a.p.id - b.p.id || a.q.id - b.q.id);
+
+    // A monthly birth quota belongs to each settlement, not the entire world.
+    // Only paired, healthy adults with housing and real provisions can use it.
+    const populationByOwner = new Map();
+    const ownerKey = (kingdomId, communityId) => kingdomId == null
       ? 'community:' + (communityId ?? 'unaffiliated') : 'kingdom:' + kingdomId;
-    if (w.birthHousingGate?.[housingKey] === true) {
-      delete w.birthHousingGate[housingKey];
-      if (!Object.keys(w.birthHousingGate).length) delete w.birthHousingGate;
-      log(w, 'Nascimento retomado ' + (kingdomId == null
-        ? 'na comunidade ' + (communityId ?? 'sem vínculo') : 'no reino ' + kingdomId)
-        + ': moradia operacional com vaga voltou a estar disponível.');
+    for (const person of w.people) {
+      if (!person.alive) continue;
+      const key = ownerKey(person.kingdomId, person.communityId);
+      populationByOwner.set(key, (populationByOwner.get(key) || 0) + 1);
     }
-    p.birthCooldown = q.birthCooldown = 280;
-    consumePersonEnergy(p, 11); consumePersonEnergy(q, 8);
-    p.hydration = Math.max(0, p.hydration - 2); q.hydration = Math.max(0, q.hydration - 2);
-    const baby = makePerson(w, p.x, p.y, true);
-    transferFoodReserve(p, baby, 7, 'birth-provisions');
-    transferFoodReserve(q, baby, 5, 'birth-provisions');
-    baby.parents = [p.id, q.id]; baby.guardianId = p.id;
-    baby.kingdomId = kingdomId;
-    baby.birthKingdomId = baby.kingdomId;
-    baby.communityId = communityId;
-    if (baby.kingdomId !== null) {
-      const kingdom = w.kingdoms.find(k => k.id === baby.kingdomId);
-      if (kingdom && !kingdom.memberIds.includes(baby.id)) kingdom.memberIds.push(baby.id);
+    const birthsByOwner = new Map();
+    const usedParents = new Set();
+    const ownersWithoutHousing = new Set();
+    for (const candidate of candidates) {
+      const { p, q, kingdomId, communityId, location } = candidate;
+      const key = ownerKey(kingdomId, communityId);
+      if (usedParents.has(p.id) || usedParents.has(q.id) || ownersWithoutHousing.has(key)) continue;
+      const monthlyLimit = Math.max(1, Math.ceil((populationByOwner.get(key) || 1) / 100));
+      if ((birthsByOwner.get(key) || 0) >= monthlyLimit) continue;
+      const residence = birthResidence(w, kingdomId, communityId, location);
+      if (!residence) {
+        ownersWithoutHousing.add(key);
+        const gates = w.birthHousingGate || (w.birthHousingGate = {});
+        if (gates[key] !== true) {
+          gates[key] = true;
+          const owner = kingdomId == null
+            ? 'na comunidade ' + (communityId ?? 'sem vínculo')
+            : 'no reino ' + kingdomId;
+          log(w, 'Nascimento adiado ' + owner + ': não existe moradia operacional com vaga.');
+        }
+        // Paid construction, with a real site and workers, may unblock future
+        // births. Do not spawn children in nonexistent homes.
+        if (kingdomId != null) {
+          const kingdom = w.kingdoms.find(item => item.id === kingdomId);
+          if (kingdom) planKingdomHome(w, kingdom);
+        }
+        continue;
+      }
+      if (w.birthHousingGate?.[key] === true) {
+        delete w.birthHousingGate[key];
+        if (!Object.keys(w.birthHousingGate).length) delete w.birthHousingGate;
+        log(w, 'Nascimento retomado ' + (kingdomId == null
+          ? 'na comunidade ' + (communityId ?? 'sem vínculo') : 'no reino ' + kingdomId)
+          + ': moradia operacional com vaga voltou a estar disponível.');
+      }
+      p.birthCooldown = q.birthCooldown = 280;
+      consumePersonEnergy(p, 11); consumePersonEnergy(q, 8);
+      p.hydration = Math.max(0, p.hydration - 2); q.hydration = Math.max(0, q.hydration - 2);
+      const baby = makePerson(w, p.x, p.y, true);
+      transferFoodReserve(p, baby, 7, 'birth-provisions');
+      transferFoodReserve(q, baby, 5, 'birth-provisions');
+      baby.parents = [p.id, q.id]; baby.guardianId = p.id;
+      baby.kingdomId = kingdomId;
+      baby.birthKingdomId = baby.kingdomId;
+      baby.communityId = communityId;
+      if (kingdomId != null) {
+        const kingdom = w.kingdoms.find(k => k.id === kingdomId);
+        if (kingdom && !kingdom.memberIds.includes(baby.id)) kingdom.memberIds.push(baby.id);
+      }
+      baby.homeId = residence.structure.id;
+      residence.structure.residentIds.push(baby.id);
+      w.people.push(baby);
+      const community = w.communities.find(item => item.id === communityId && !item.dissolved);
+      if (community && !community.memberIds.includes(baby.id)) community.memberIds.push(baby.id);
+      w.births++; w.birthsByKind.people++;
+      usedParents.add(p.id); usedParents.add(q.id);
+      birthsByOwner.set(key, (birthsByOwner.get(key) || 0) + 1);
+      const link = getSocialLink(w, p, q); link.trust = clamp(link.trust + .08, 0, 1);
+      log(w, 'Nasceu ' + baby.name + '; ' + p.name + ' transferiu 7 dias e ' + q.name
+        + ' transferiu 5 dias de suas reservas para financiar os 12 dias da reserva inicial.');
     }
-    baby.homeId = residence.structure.id;
-    residence.structure.residentIds.push(baby.id);
-    w.people.push(baby);
-    const c = activeCommunity(w, p);
-    if (c && baby.communityId === c.id) c.memberIds.push(baby.id);
-    w.births++; w.birthsByKind.people++;
-    const link = getSocialLink(w, p, q); link.trust = clamp(link.trust + .08, 0, 1);
-    log(w, 'Nasceu ' + baby.name + '; ' + p.name + ' transferiu 7 dias e ' + q.name
-      + ' transferiu 5 dias de suas reservas para financiar os 12 dias da reserva inicial.');
   }
