@@ -57,7 +57,7 @@ test('reserve, manual control and unrelated travelers cannot be displaced by the
   assert.equal(militaryPassageYieldDecision(reserve, front), false);
 });
 
-test('different friendly squads use an actual passing bay and do not return into it the same day', () => {
+test('opposing friendly squads use a real passing bay and do not reverse the handoff on the same day', () => {
   const world = engine.createWorld(224);
   for (const tile of world.tiles) {
     tile.terrain = 'rock';
@@ -99,11 +99,14 @@ test('different friendly squads use an actual passing bay and do not return into
   assert.equal(support.y, bay.y);
   assert.equal(support.passageYieldHoldDay, 5);
   assert.equal(hitboxesOverlap(npcHitbox(vanguard), npcHitbox(support)), false);
-  assert.equal(moveOne(world, support, advance, false), false,
+  const opposingDestination = cellAt(world, 29, 40);
+  assert.equal(moveOne(world, support, opposingDestination, false), false,
     'yielding soldier cannot immediately reoccupy the same corridor on that day');
   assert.equal(support.y, bay.y);
   world.day++;
-  assert.equal(moveOne(world, support, advance, false), true,
-    'temporary passage hold expires on the next day');
+  assert.equal(moveOne(world, vanguard, advance, false), true,
+    'priority squad clears the blocked corridor cell');
+  assert.equal(moveOne(world, support, opposingDestination, false), true,
+    'opposing squad resumes its own destination after the handoff');
   assert.equal(hitboxesOverlap(npcHitbox(vanguard), npcHitbox(support)), false);
 });
