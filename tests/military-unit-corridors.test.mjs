@@ -45,6 +45,7 @@ function setup(seed = 311, count = 3) {
   world.people = [...a, b];
   world.animals = [];
   world.structures = [];
+  world.peopleById = new Map(world.people.map(person => [person.id, person]));
   world.peopleSpatialIndex = createPersonSpatialIndex(world.people);
   world.navigationRevision = (world.navigationRevision || 0) + 1;
   world.tacticalCombat = { mode: 'hierarchical' };
