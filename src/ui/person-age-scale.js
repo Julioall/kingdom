@@ -1,15 +1,13 @@
-// Render-only age progression; a birth never changes collision or movement rules.
+import { HUMAN_ADULT_AGE_DAYS, HUMAN_ELDER_AGE_DAYS, HUMAN_MAX_AGE_DAYS, humanLifeStage } from '../simulation/individuals/human-age.js';
+
+// Rendering only. Pawn size follows the same timeline as game mechanics.
 export function personAgeScale(ageDays) {
-  const years = Math.max(0, Number.isFinite(ageDays) ? ageDays / 365 : 0);
-  if (years < 12) return .6 + .4 * years / 12;
-  if (years < 65) return 1;
-  return 1 - .08 * Math.min(1, (years - 65) / 17);
+  const age = Math.max(0, Number.isFinite(ageDays) ? ageDays : 0);
+  if (age < HUMAN_ADULT_AGE_DAYS) return .6 + .4 * age / HUMAN_ADULT_AGE_DAYS;
+  if (age < HUMAN_ELDER_AGE_DAYS) return 1;
+  return 1 - .08 * Math.min(1, (age - HUMAN_ELDER_AGE_DAYS) / (HUMAN_MAX_AGE_DAYS - HUMAN_ELDER_AGE_DAYS));
 }
 
 export function personLifeStage(ageDays) {
-  const years = Math.max(0, Number.isFinite(ageDays) ? ageDays / 365 : 0);
-  if (years < 12) return 'Criança';
-  if (years < 18) return 'Adolescente';
-  if (years < 65) return 'Adulto';
-  return 'Idoso';
+  return humanLifeStage(ageDays);
 }
