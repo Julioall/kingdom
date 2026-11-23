@@ -74,25 +74,35 @@ function ensureInitialMilitaryRecruitmentPool(world) {
 
 export function createWorld(seed, options = {}) {
     const cleanSeed = (Number(seed) >>> 0) || 1;
+    const pioneers = options.civilizationStart === 'pioneers';
+    if (options.civilizationStart != null && !['legacy', 'pioneers'].includes(options.civilizationStart))
+      throw new RangeError('Modo de início de civilização desconhecido.');
     // Benchmark-confirmed stress population. Direct createWorld(seed) keeps
     // its small deterministic seed for unit tests and explicit simulations.
     const requestedPopulation = options.initialPopulation == null
-      ? INITIAL_POPULATION_PER_KINGDOM * 2 : Number(options.initialPopulation);
+      ? (pioneers ? 2 : INITIAL_POPULATION_PER_KINGDOM * 2) : Number(options.initialPopulation);
     if (!Number.isSafeInteger(requestedPopulation)
-      || requestedPopulation < INITIAL_POPULATION_PER_KINGDOM * 2
+      || requestedPopulation < (pioneers ? 1 : INITIAL_POPULATION_PER_KINGDOM * 2)
       || requestedPopulation > 5000) {
-      throw new RangeError('População inicial deve estar entre 96 e 5000.');
+      throw new RangeError(pioneers
+        ? 'População pioneira inicial deve estar entre 1 e 5000.'
+        : 'População inicial deve estar entre 96 e 5000.');
     }
     const initialMilitaryShare = options.initialMilitaryShare == null ? null
       : Number(options.initialMilitaryShare);
+    if (pioneers && initialMilitaryShare != null)
+      throw new RangeError('O início pioneiro não admite guarnição inicial.');
     if (initialMilitaryShare != null && initialMilitaryShare !== 0.8)
       throw new RangeError('A divisão inicial aceita 80% de militares e 20% de civis.');
     const w = {
       seed: cleanSeed, width: WIDTH, height: HEIGHT, day: 0, year: 1, season: 0, rngState: cleanSeed,
       ...(initialMilitaryShare == null ? {} : { initialMilitaryShare }),
+      ...(pioneers ? { civilizationStart: 'pioneers' } : {}),
       nextId: 1, tiles: [], regions: [], animals: [], people: [], communities: [], kingdoms: [], structures: [], settlements: [], logs: [], loot: [], lake: null, lakes: [],
       trainingDummyStates: {},
-      market: { gold: 240, food: 110, feed: 64, wood: 90, stone: 72, sheep: 4, transactions: 0 },
+      market: pioneers
+        ? { gold: 0, food: 0, feed: 0, wood: 0, stone: 0, sheep: 0, transactions: 0 }
+        : { gold: 240, food: 110, feed: 64, wood: 90, stone: 72, sheep: 4, transactions: 0 },
       socialLinks: {}, communityRelations: {}, events: [], deaths: 0, births: 0, rainEvents: 0,
       strategicAI: { enabled: false, requests: [], pendingByKingdom: {}, nextDecisionDays: {}, nextRequestSequence: 1, enqueuedDay: -1, enqueuedToday: 0, decisions: 0, failures: 0 },
       // A/B modes: legacy (original campaign slots), commanders (moving anchors),
@@ -165,34 +175,38 @@ export function createWorld(seed, options = {}) {
     seedPlants(w);
     reduceInitialMineralSites(w);
     seedAnimals(w, { sheep: 24 });
-    initializeKingdoms(w);
-    clearWildVegetationNearCorrals(w);
+    if (!pioneers) {
+      initializeKingdoms(w);
+      clearWildVegetationNearCorrals(w);
+    }
     seedAdditionalMinerals(w);
-    relocateSettlementMinerals(w);
+    if (!pioneers) relocateSettlementMinerals(w);
     addIndividuals(w, requestedPopulation, true);
-    ensureInitialMilitaryRecruitmentPool(w);
-    for (const kingdom of w.kingdoms) {
-      for (const { militaryClass, count } of INITIAL_MILITARY_ROSTER) {
-        for (let index = 0; index < count; index++) {
-          const recruitment = recruitKingdomSoldier(w, kingdom.id, { immediate: true, militaryClass });
-          if (!recruitment.ok) throw new Error('Não foi possível formar a guarnição inicial de ' + kingdom.name + ': ' + recruitment.reason);
+    if (!pioneers) {
+      ensureInitialMilitaryRecruitmentPool(w);
+      for (const kingdom of w.kingdoms) {
+        for (const { militaryClass, count } of INITIAL_MILITARY_ROSTER) {
+          for (let index = 0; index < count; index++) {
+            const recruitment = recruitKingdomSoldier(w, kingdom.id, { immediate: true, militaryClass });
+            if (!recruitment.ok) throw new Error('Não foi possível formar a guarnição inicial de ' + kingdom.name + ': ' + recruitment.reason);
+          }
         }
       }
-    }
-    if (initialMilitaryShare != null) {
-      // Round the 80% quota against the ENTIRE population, not separately
-      // for each kingdom: 96 inhabitants yield 77 soldiers and 19 civilians.
-      // Cumulative rounding preserves equal treatment over both kingdoms.
-      let seen = 0, allocated = 0;
-      for (const kingdom of w.kingdoms) {
-        seen += kingdom.memberIds.length;
-        const nextAllocated = Math.round(seen * initialMilitaryShare);
-        mobilizeFoundingGarrison(w, kingdom, nextAllocated - allocated);
-        allocated = nextAllocated;
+      if (initialMilitaryShare != null) {
+        // Round the 80% quota against the ENTIRE population, not separately
+        // for each kingdom: 96 inhabitants yield 77 soldiers and 19 civilians.
+        // Cumulative rounding preserves equal treatment over both kingdoms.
+        let seen = 0, allocated = 0;
+        for (const kingdom of w.kingdoms) {
+          seen += kingdom.memberIds.length;
+          const nextAllocated = Math.round(seen * initialMilitaryShare);
+          mobilizeFoundingGarrison(w, kingdom, nextAllocated - allocated);
+          allocated = nextAllocated;
+        }
       }
+      updateMilitaryCommand(w, 0);
+      updateKingdomMarkets(w);
     }
-    updateMilitaryCommand(w, 0);
-    updateKingdomMarkets(w);
     refreshHarvestSuitability(w);
     const humanFoodBiomass = w.tiles.reduce((sum, tile) => {
       for (let index = 0; index < PLANTS.length; index++) {
@@ -213,7 +227,10 @@ export function createWorld(seed, options = {}) {
     };
     const initialPopulation = requestedPopulation;
     const rosterDescription = INITIAL_MILITARY_ROSTER.map(({ count, militaryClass }) => count + ' ' + militaryClass + (count === 1 ? '' : 's')).join(', ');
-    if (initialMilitaryShare == null) {
+    if (pioneers) {
+      log(w, initialPopulation + ' pioneiro(s) iniciaram sem reino, moradia, mercado capitalizado, moeda ou militares. '
+        + 'A sobrevivência e a organização social precisam ser conquistadas por ações observáveis.');
+    } else if (initialMilitaryShare == null) {
       // Preserve the exact log of legacy simulations for authoritative
       // benchmark parity and replay checksums.
       const initialNonMilitaryPerKingdom = initialPopulation / w.kingdoms.length - INITIAL_SOLDIERS_PER_KINGDOM;
