@@ -67,16 +67,19 @@ function availablePersonSpawn(w, x, y) {
 
 export function makePerson(w, x, y, newborn) {
     ({ x, y } = availablePersonSpawn(w, x, y));
+    const pioneer = w.civilizationStart === 'pioneers' && !newborn;
     const id = w.nextId++;
     const first = HUMAN_NAMES[Math.floor(rand(w) * HUMAN_NAMES.length)];
     const name = newborn ? first + ' ' + ['Filho', 'Filha', 'Júnior'][Math.floor(rand(w) * 3)] : first + ' ' + String.fromCharCode(65 + Math.floor(rand(w) * 26));
     const person = {
-      id, name, x, y, alive: true, ageDays: newborn ? 0 : 1800 + rand(w) * 11000,
+      id, name, x, y, alive: true, ageDays: newborn ? 0
+        : pioneer ? 18 * 365 + Math.floor(rand(w) * 12 * 365) : 1800 + rand(w) * 11000,
       sex: rand(w) < .5 ? 'F' : 'M',
       namingForm: COMMUNITY_FORMS[Math.floor(rand(w) * COMMUNITY_FORMS.length)], namingVoice: .4 + rand(w) * .6,
       energy: newborn ? 65 : 58 + rand(w) * 38, hydration: 55 + rand(w) * 43, foodReserve: 0
     };
-    addFoodReserve(person, newborn ? 0 : 55 + rand(w) * 40, 'new-person-provisions');
+    // Pioneers must gather their first food rather than receive minted provisions.
+    addFoodReserve(person, newborn || pioneer ? 0 : 55 + rand(w) * 40, 'new-person-provisions');
     Object.assign(person, {
       socialNeed: 45 + rand(w) * 50, sociability: .25 + rand(w) * .75, trust: .2 + rand(w) * .65,
       physicalStrength: .35 + rand(w) * .65,
